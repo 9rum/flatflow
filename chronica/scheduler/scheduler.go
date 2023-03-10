@@ -28,13 +28,14 @@ type Scheduler interface {
 	// at each step.
 	BatchSize() int
 
-	// Schedule provides a mechanism for selecting which data samples to assign
-	// to the worker at each step.
-	Schedule(rank int) map[int]struct{}
+	// Schedule provides a mechanism for selecting data samples to assign
+	// to each worker.
+	Schedule() []map[int]struct{}
 }
 
-// SchedulerBase is a static data scheduler that aims to reduce
-// the load imbalance between workers.
+// SchedulerBase aims to reduce the load imbalance between workers.
+// It provides static data scheduling, which is effective in a group of workers
+// with similar performance.
 type SchedulerBase struct {
 	worldSize int
 	batchSize int
