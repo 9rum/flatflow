@@ -12,35 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package scheduler provides a data-imbalance-aware scheduling mechanism
+// Package scheduler provides data-imbalance-aware scheduling primitives
 // for distributed deep learning.
 // In addition to static scheduling that reduces the load imbalance,
-// it also provides a feedback-directed optimization that adjusts workload
-// based on the feedback of each worker.
+// it supports a feedback-directed optimization that adaptively adjusts
+// the workload to each worker.
 package scheduler
 
 // Scheduler represents the data scheduler.
 type Scheduler interface {
-	// Schedule assigns the mini-batch for the next step to the worker.
-	Schedule(rank int) map[int]struct{}
-
-	// WorldSize returns the number of workers in the group.
+	// WorldSize provides a primitive for the number of workers in the group.
 	WorldSize() int
 
-	// BatchSize returns the batch size.
+	// BatchSize provides a primitive for the number of data samples to select
+	// at each step.
 	BatchSize() int
 
-	// Len returns the number of data samples to schedule
-	// within each training epoch.
-	Len() int
+	// Schedule provides a mechanism for selecting which data samples to assign
+	// to the worker at each step.
+	Schedule(rank int) map[int]struct{}
 }
 
-// StaticScheduler is a static data scheduler
-// that aims to reduce the load imbalance between workers.
-type StaticScheduler struct {
+// SchedulerBase is a static data scheduler that aims to reduce
+// the load imbalance between workers.
+type SchedulerBase struct {
+	worldSize int
+	batchSize int
 }
 
-// DynamicScheduler is a dynamic data scheduler
-// that optimizes workload based on the feedback of each worker.
-type DynamicScheduler struct {
+// WorldSize returns the number of workers in the group.
+func (sched SchedulerBase) WorldSize() int {
+	return sched.worldSize
 }
+
+// BatchSize returns the batch size.
+func (sched SchedulerBase) BatchSize() int {
+	return sched.batchSize
+}
+
+// Schedule assigns the next mini-batch to the worker.

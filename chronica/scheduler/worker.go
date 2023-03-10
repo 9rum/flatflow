@@ -16,28 +16,29 @@ package scheduler
 
 // Worker represents a single process in the group.
 type Worker interface {
-	// Rank provides a mechanism for other processes
+	// Rank provides a primitive for other processes
 	// to identify a particular process.
 	Rank() int
 }
 
-// StaticWorker is a worker used for static scheduling
-// in a group of workers with similar performance
-// (e.g., homogeneous cluster).
-type StaticWorker struct {
+// WorkerBase meets the minimum requirement for identifying the process.
+// It is used for static scheduling in a group of workers
+// with similar performance.
+type WorkerBase struct {
 	rank int
 }
 
 // Rank returns the unique ID of the worker.
-func (worker StaticWorker) Rank() int {
+func (worker WorkerBase) Rank() int {
 	return worker.rank
 }
 
-// DynamicWorker is a worker used for dynamic scheduling
-// in a group of workers with different performances
-// (e.g., heterogeneous cluster).
-type DynamicWorker struct {
-	StaticWorker
+// LinearWorker is a worker with linear time complexity
+// for the size of each data sample.
+// It is used for feedback-directed optimization in a group of workers
+// with dynamic performance.
+type LinearWorker struct {
+	WorkerBase
 	coefficient float64
 	intercept   float64
 }

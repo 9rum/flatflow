@@ -16,10 +16,27 @@ package scheduler
 
 // Sample represents a single data sample in the dataset.
 type Sample interface {
-	// Index provides a mechanism to identify a particular data sample
+	// Index provides a primitive to identify a particular data sample
 	// in the dataset.
 	Index() int
 
-	// Size returns the relative size of the data sample.
+	// Size provides a primitive for the user-defined relative size
+	// of the data sample.
 	Size() int
+}
+
+// SampleBase meets the minimum requirements for identifying the data sample.
+type SampleBase struct {
+	index int
+	size  int
+}
+
+// Index returns the index of the data sample.
+func (sample SampleBase) Index() int {
+	return sample.index
+}
+
+// Size returns the relative size of the data sample.
+func (sample SampleBase) Size() int {
+	return sample.size
 }
