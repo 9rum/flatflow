@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package scheduler provides data-imbalance-aware scheduling primitives
-// for distributed deep learning.
+// The scheduler package provides primitives for scheduling imbalanced data.
 // In addition to static scheduling that reduces the load imbalance,
 // it supports a feedback-directed optimization that adaptively adjusts
-// the workload to each worker.
+// the workload on each worker.
 package scheduler
 
 // Scheduler represents the data scheduler.
