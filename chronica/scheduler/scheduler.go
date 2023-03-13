@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The scheduler package provides primitives for scheduling imbalanced data.
+// Package scheduler provides primitives for scheduling imbalanced data.
 // In addition to static scheduling that reduces the load imbalance,
 // it supports a feedback-directed optimization that adaptively adjusts
 // the workload on each worker.
@@ -51,3 +51,4 @@ func (sched SchedulerBase) BatchSize() int {
 }
 
 // Schedule assigns the next mini-batch to the worker.
+func (sched *SchedulerBase) Schedule() []map[int]struct{}
