@@ -25,7 +25,10 @@ type Sample interface {
 	Size() int
 
 	// Less provides a primitive for ordering data samples.
-	// This must provide a strict weak ordering.
+	//
+	// This must provide a strict weak ordering; if !a.Less(b) && !b.Less(a),
+	// we treat this to mean a == b (i.e., we can only hold one of either a or b
+	// in the dataset).
 	Less(than Sample) bool
 }
 
@@ -47,5 +50,8 @@ func (sample SampleBase) Size() int {
 
 // Less tests whether the current data sample is less than the given argument.
 func (sample SampleBase) Less(than Sample) bool {
+	if sample.Size() == than.Size() {
+		return sample.Index() < than.Index()
+	}
 	return sample.Size() < than.Size()
 }
