@@ -20,7 +20,7 @@ package scheduler
 
 // Scheduler represents the data scheduler.
 type Scheduler interface {
-	// WorldSize provides a primitive for the number of workers in the group.
+	// WorldSize provides a primitive for the total number of workers in the group.
 	WorldSize() int
 
 	// BatchSize provides a primitive for the number of data samples to select
@@ -40,7 +40,7 @@ type SchedulerBase struct {
 	batchSize int
 }
 
-// WorldSize returns the number of workers in the group.
+// WorldSize returns the total number of workers in the group.
 func (sched SchedulerBase) WorldSize() int {
 	return sched.worldSize
 }
