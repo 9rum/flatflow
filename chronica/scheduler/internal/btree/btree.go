@@ -78,10 +78,10 @@ var (
 	nilChildren = make(children, 16)
 )
 
-// FreeList represents a free list of btree nodes. By default each
+// FreeList represents a free list of BTree nodes. By default each
 // BTree has its own FreeList, but multiple BTrees can share the same
 // FreeList.
-// Two Btrees using the same freelist are safe for concurrent write access.
+// Two BTrees using the same freelist are safe for concurrent write access.
 type FreeList struct {
 	mu       sync.Mutex
 	freelist []*node
@@ -616,7 +616,7 @@ type copyOnWriteContext struct {
 	freelist *FreeList
 }
 
-// Clone clones the btree, lazily.  Clone should not be called concurrently,
+// Clone clones the tree, lazily.  Clone should not be called concurrently,
 // but the original tree (t) and the new tree (t2) can be used concurrently
 // once the Clone call completes.
 //
@@ -851,7 +851,7 @@ func (t *BTree) Len() int {
 	return t.length
 }
 
-// Clear removes all items from the btree.  If addNodesToFreelist is true,
+// Clear removes all items from the tree.  If addNodesToFreelist is true,
 // t's nodes are added to its freelist as part of this call, until the freelist
 // is full.  Otherwise, the root node is simply dereferenced and the subtree
 // left to Go's normal GC processes.
