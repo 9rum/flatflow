@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !go1.18
-// +build !go1.18
+//go:build go1.18
+// +build go1.18
 
-// Package btree implements in-memory B-Trees of arbitrary degree.
+// Package btree implements in-memory B-trees of arbitrary degree.
 //
-// btree implements an in-memory B-Tree for use as an ordered data structure.
+// btree implements an in-memory B-tree for use as an ordered data structure.
 // It is not meant for persistent storage solutions.
 //
 // It has a flatter structure than an equivalent red-black or other binary tree,
@@ -26,7 +26,7 @@
 //
 //	http://google-opensource.blogspot.com/2013/01/c-containers-that-save-memory-and-time.html
 //
-// Note, though, that this project is in no way related to the C++ B-Tree
+// Note, though, that this project is in no way related to the C++ B-tree
 // implementation written about there.
 //
 // Within this tree, each node contains a slice of items and a (possibly nil)
@@ -71,9 +71,7 @@ type Item interface {
 	Less(than Item) bool
 }
 
-const (
-	DefaultFreeListSize = 32
-)
+const DefaultFreeListSize = 32
 
 var (
 	nilItems    = make(items, 16)
@@ -126,7 +124,7 @@ func (f *FreeList) freeNode(n *node) (out bool) {
 // associated Ascend* function will immediately return.
 type ItemIterator func(i Item) bool
 
-// New creates a new B-Tree with the given degree.
+// New creates a new B-tree with the given degree.
 //
 // New(2), for example, will create a 2-3-4 tree (each node contains 1-3 items
 // and 2-4 children).
@@ -134,7 +132,7 @@ func New(degree int) *BTree {
 	return NewWithFreeList(degree, NewFreeList(DefaultFreeListSize))
 }
 
-// NewWithFreeList creates a new B-Tree that uses the given node free list.
+// NewWithFreeList creates a new B-tree that uses the given node free list.
 func NewWithFreeList(degree int, f *FreeList) *BTree {
 	if degree <= 1 {
 		panic("bad degree")
@@ -586,7 +584,7 @@ func (n *node) print(w io.Writer, level int) {
 	}
 }
 
-// BTree is an implementation of a B-Tree.
+// BTree is an implementation of a B-tree.
 //
 // BTree stores Item instances in an ordered structure, allowing easy insertion,
 // removal, and iteration.
@@ -891,12 +889,4 @@ func (n *node) reset(c *copyOnWriteContext) bool {
 		}
 	}
 	return c.freeNode(n) != ftFreelistFull
-}
-
-// Int implements the Item interface for integers.
-type Int int
-
-// Less returns true if int(a) < int(b).
-func (a Int) Less(b Item) bool {
-	return a < b.(Int)
 }
