@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+// Package data provides primitives for representing and organizing
+// the given dataset.
+// In addition to the traditional sharded dataset, it supports a
+// partitioned dataset where the dataset is split into multiple data partitions
+// across workers.
+package data
 
 // Sample represents a single data sample in the dataset.
 type Sample interface {
