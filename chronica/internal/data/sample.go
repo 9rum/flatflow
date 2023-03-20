@@ -44,19 +44,19 @@ type SampleBase struct {
 }
 
 // Index returns the index of the data sample.
-func (sample SampleBase) Index() int {
-	return sample.index
+func (s SampleBase) Index() int {
+	return s.index
 }
 
 // Size returns the relative size of the data sample.
-func (sample SampleBase) Size() int {
-	return sample.size
+func (s SampleBase) Size() int {
+	return s.size
 }
 
 // Less tests whether the current data sample is less than the given argument.
-func (sample SampleBase) Less(than Sample) bool {
-	if sample.Size() == than.Size() {
-		return sample.Index() < than.Index()
+func (s SampleBase) Less(than Sample) bool {
+	if s.Size() == than.Size() {
+		return s.Index() < than.Index()
 	}
-	return sample.Size() < than.Size()
+	return s.Size() < than.Size()
 }

@@ -29,8 +29,8 @@ type WorkerBase struct {
 }
 
 // Rank returns the unique ID of the worker.
-func (worker WorkerBase) Rank() int {
-	return worker.rank
+func (w WorkerBase) Rank() int {
+	return w.rank
 }
 
 // LinearWorker is a worker with linear time complexity
