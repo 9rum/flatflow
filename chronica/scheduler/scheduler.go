@@ -41,14 +41,14 @@ type SchedulerBase struct {
 }
 
 // WorldSize returns the total number of workers in the group.
-func (sched SchedulerBase) WorldSize() int {
-	return sched.worldSize
+func (s SchedulerBase) WorldSize() int {
+	return s.worldSize
 }
 
 // BatchSize returns the batch size.
-func (sched SchedulerBase) BatchSize() int {
-	return sched.batchSize
+func (s SchedulerBase) BatchSize() int {
+	return s.batchSize
 }
 
 // Schedule assigns the next mini-batch to the worker.
-func (sched *SchedulerBase) Schedule() []map[int]struct{}
+func (s *SchedulerBase) Schedule() []map[int]struct{}
