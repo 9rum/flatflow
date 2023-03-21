@@ -14,9 +14,9 @@
 
 // Package data provides primitives for representing and organizing
 // the given dataset.
-// In addition to the traditional sharded dataset, it supports a
-// partitioned dataset where the dataset is split into multiple data partitions
-// across workers.
+// In addition to the traditional sharded dataset, it supports
+// a partitioned dataset where the data is split into multiple data partitions
+// across nodes in the cluster.
 package data
 
 // Sample represents a single data sample in the dataset.
