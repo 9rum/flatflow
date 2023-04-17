@@ -103,8 +103,8 @@ func (f *FreeList[T]) freeNode(n *node[T]) (out bool) {
 	return
 }
 
-// SampleIterator allows callers of {A/De}scend* to iterate in-order over portions of
-// the tree.  When this function returns false, iteration will stop and the
+// SampleIterator allows callers of {A/De}scend* to iterate in-order over portions
+// of the tree.  When this function returns false, iteration will stop and the
 // associated {A/De}scend* function will immediately return.
 type SampleIterator[T data.Sample] func(T) bool
 
@@ -512,7 +512,7 @@ func empty[T data.Sample]() optionalSample[T] {
 // will force the iterator to include the first sample when it equals 'start',
 // thus creating a "greaterOrEqual" or "lessThanEqual" rather than just a
 // "greaterThan" or "lessThan" queries.
-func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeStart bool, hit bool, iter SampleIterator[T]) (bool, bool) {
+func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeStart bool, hit bool, iterator SampleIterator[T]) (bool, bool) {
 	var (
 		ok, found bool
 		index     int
@@ -524,7 +524,7 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 		}
 		for i := index; i < len(n.samples); i++ {
 			if 0 < len(n.children) {
-				if hit, ok = n.children[i].iterate(dir, start, stop, includeStart, hit, iter); !ok {
+				if hit, ok = n.children[i].iterate(dir, start, stop, includeStart, hit, iterator); !ok {
 					return hit, false
 				}
 			}
@@ -536,12 +536,12 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 			if stop.valid && !n.samples[i].Less(stop.sample) {
 				return hit, false
 			}
-			if !iter(n.samples[i]) {
+			if !iterator(n.samples[i]) {
 				return hit, false
 			}
 		}
 		if 0 < len(n.children) {
-			if hit, ok = n.children[len(n.children)-1].iterate(dir, start, stop, includeStart, hit, iter); !ok {
+			if hit, ok = n.children[len(n.children)-1].iterate(dir, start, stop, includeStart, hit, iterator); !ok {
 				return hit, false
 			}
 		}
@@ -561,7 +561,7 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 				}
 			}
 			if 0 < len(n.children) {
-				if hit, ok = n.children[i+1].iterate(dir, start, stop, includeStart, hit, iter); !ok {
+				if hit, ok = n.children[i+1].iterate(dir, start, stop, includeStart, hit, iterator); !ok {
 					return hit, false
 				}
 			}
@@ -569,12 +569,12 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 				return hit, false //	continue
 			}
 			hit = true
-			if !iter(n.samples[i]) {
+			if !iterator(n.samples[i]) {
 				return hit, false
 			}
 		}
 		if 0 < len(n.children) {
-			if hit, ok = n.children[0].iterate(dir, start, stop, includeStart, hit, iter); !ok {
+			if hit, ok = n.children[0].iterate(dir, start, stop, includeStart, hit, iterator); !ok {
 				return hit, false
 			}
 		}
@@ -599,7 +599,7 @@ type BTree[T data.Sample] struct {
 // copyOnWriteContext pointers determine node ownership... a tree with a write
 // context equivalent to a node's write context is allowed to modify that node.
 // A tree whose write context does not match a node's is not allowed to modify
-// it, and must create a new, writable copy (IE: it's a Clone).
+// it, and must create a new, writable copy (i.e., it's a Clone).
 //
 // When doing any write operation, we maintain the invariant that the current
 // node's context is equal to the context of the tree that requested the write.
