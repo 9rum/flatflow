@@ -43,6 +43,14 @@ type SampleBase struct {
 	size  int
 }
 
+// NewSampleBase creates a new basic sample.
+func NewSampleBase(index, size int) SampleBase {
+	return SampleBase{
+		index: index,
+		size:  size,
+	}
+}
+
 // Index returns the index of the data sample.
 func (s SampleBase) Index() int {
 	return s.index

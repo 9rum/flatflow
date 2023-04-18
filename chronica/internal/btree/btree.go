@@ -103,11 +103,6 @@ func (f *FreeList[T]) freeNode(n *node[T]) (out bool) {
 	return
 }
 
-// SampleIterator allows callers of {A/De}scend* to iterate in-order over portions
-// of the tree.  When this function returns false, iteration will stop and the
-// associated {A/De}scend* function will immediately return.
-type SampleIterator[T data.Sample] func(T) bool
-
 // New creates a new B-tree with the given degree.
 //
 // New(2), for example, will create a 2-3-4 tree (each node contains 1-3 samples
@@ -504,6 +499,11 @@ func optional[T data.Sample](sample T) optionalSample[T] {
 func empty[T data.Sample]() optionalSample[T] {
 	return optionalSample[T]{}
 }
+
+// SampleIterator allows callers of {A/De}scend* to iterate in-order over portions
+// of the tree.  When this function returns false, iteration will stop and the
+// associated {A/De}scend* function will immediately return.
+type SampleIterator[T data.Sample] func(T) bool
 
 // iterate provides a simple method for iterating over elements in the tree.
 //
