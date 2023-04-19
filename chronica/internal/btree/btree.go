@@ -56,8 +56,6 @@ package btree
 import (
 	"sort"
 	"sync"
-
-	"github.com/9rum/chronica/internal/data"
 )
 
 const DefaultFreeListSize = 32
@@ -66,14 +64,14 @@ const DefaultFreeListSize = 32
 // BTree has its own FreeList, but multiple BTrees can share the same
 // FreeList.
 // Two BTrees using the same freelist are safe for concurrent write access.
-type FreeList[T data.Sample] struct {
+type FreeList[T Sample] struct {
 	mu       sync.Mutex
 	freelist children[T]
 }
 
 // NewFreeList creates a new free list.
 // size is the maximum size of the returned free list.
-func NewFreeList[T data.Sample](size int) *FreeList[T] {
+func NewFreeList[T Sample](size int) *FreeList[T] {
 	return &FreeList[T]{freelist: make(children[T], 0, size)}
 }
 
@@ -107,12 +105,12 @@ func (f *FreeList[T]) freeNode(n *node[T]) (out bool) {
 //
 // New(2), for example, will create a 2-3-4 tree (each node contains 1-3 samples
 // and 2-4 children).
-func New[T data.Sample](degree int) *BTree[T] {
+func New[T Sample](degree int) *BTree[T] {
 	return NewWithFreeList(degree, NewFreeList[T](DefaultFreeListSize))
 }
 
 // NewWithFreeList creates a new B-tree that uses the given node free list.
-func NewWithFreeList[T data.Sample](degree int, f *FreeList[T]) *BTree[T] {
+func NewWithFreeList[T Sample](degree int, f *FreeList[T]) *BTree[T] {
 	if degree <= 1 {
 		panic("bad degree")
 	}
@@ -123,7 +121,7 @@ func NewWithFreeList[T data.Sample](degree int, f *FreeList[T]) *BTree[T] {
 }
 
 // samples stores samples in a node.
-type samples[T data.Sample] []T
+type samples[T Sample] []T
 
 // insertAt inserts a value into the given index, pushing all subsequent values
 // forward.
@@ -182,7 +180,7 @@ func (s samples[T]) find(sample T) (index int, found bool) {
 }
 
 // children stores child nodes in a node.
-type children[T data.Sample] []*node[T]
+type children[T Sample] []*node[T]
 
 // insertAt inserts a value into the given index, pushing all subsequent values
 // forward.
@@ -228,7 +226,7 @@ func (s *children[T]) truncate(index int) {
 // It must at all times maintain the invariant that either
 //   - len(children) == 0, len(samples) unconstrained
 //   - len(children) == len(samples) + 1
-type node[T data.Sample] struct {
+type node[T Sample] struct {
 	samples  samples[T]
 	children children[T]
 	cow      *copyOnWriteContext[T]
@@ -331,7 +329,7 @@ func (n *node[T]) get(key T) (_ T, _ bool) {
 }
 
 // min returns the first sample in the subtree.
-func min[T data.Sample](n *node[T]) (_ T, found bool) {
+func min[T Sample](n *node[T]) (_ T, found bool) {
 	if n == nil {
 		return
 	}
@@ -345,7 +343,7 @@ func min[T data.Sample](n *node[T]) (_ T, found bool) {
 }
 
 // max returns the last sample in the subtree.
-func max[T data.Sample](n *node[T]) (_ T, found bool) {
+func max[T Sample](n *node[T]) (_ T, found bool) {
 	if n == nil {
 		return
 	}
@@ -503,23 +501,23 @@ const (
 	ascend  = direction(+1)
 )
 
-type optionalSample[T data.Sample] struct {
+type optionalSample[T Sample] struct {
 	sample T
 	valid  bool
 }
 
-func optional[T data.Sample](sample T) optionalSample[T] {
+func optional[T Sample](sample T) optionalSample[T] {
 	return optionalSample[T]{sample: sample, valid: true}
 }
 
-func empty[T data.Sample]() optionalSample[T] {
+func empty[T Sample]() optionalSample[T] {
 	return optionalSample[T]{}
 }
 
 // SampleIterator allows callers of {A/De}scend* to iterate in-order over portions
 // of the tree.  When this function returns false, iteration will stop and the
 // associated {A/De}scend* function will immediately return.
-type SampleIterator[T data.Sample] func(T) bool
+type SampleIterator[T Sample] func(T) bool
 
 // iterate provides a simple method for iterating over elements in the tree.
 //
@@ -605,7 +603,7 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 //
 // Write operations are not safe for concurrent mutation by multiple
 // goroutines, but Read operations are.
-type BTree[T data.Sample] struct {
+type BTree[T Sample] struct {
 	degree int
 	length int
 	root   *node[T]
@@ -626,7 +624,7 @@ type BTree[T data.Sample] struct {
 // tree's context, that node is modifiable in place.  Children of that node may
 // not share context, but before we descend into them, we'll make a mutable
 // copy.
-type copyOnWriteContext[T data.Sample] struct {
+type copyOnWriteContext[T Sample] struct {
 	freelist *FreeList[T]
 }
 

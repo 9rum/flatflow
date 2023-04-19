@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/9rum/chronica/internal/btree"
-	"github.com/9rum/chronica/internal/data"
 	"github.com/petar/GoLLRB/llrb"
 )
 
@@ -37,12 +36,12 @@ var (
 )
 
 type SampleWrapper struct {
-	data.SampleBase
+	btree.SampleBase
 }
 
 func NewSampleWrapper(index, size int) *SampleWrapper {
 	return &SampleWrapper{
-		SampleBase: *data.NewSampleBase(index, size),
+		SampleBase: *btree.NewSampleBase(index, size),
 	}
 }
 
@@ -75,9 +74,9 @@ func main() {
 		}
 		t = tr // keep it around
 	} else {
-		tr := btree.New[data.SampleBase](*degree)
+		tr := btree.New[btree.SampleBase](*degree)
 		for _, v := range vals {
-			tr.ReplaceOrInsert(*data.NewSampleBase(v, v))
+			tr.ReplaceOrInsert(*btree.NewSampleBase(v, v))
 		}
 		t = tr // keep it around
 	}
