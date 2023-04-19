@@ -209,6 +209,28 @@ func TestDeleteMax(t *testing.T) {
 	}
 }
 
+func TestDeleteNearest(t *testing.T) {
+	tr := New[data.SampleBase](3)
+	for _, v := range perm(300) {
+		tr.ReplaceOrInsert(v)
+	}
+	for _, sample := range perm(100) {
+		if x, ok := tr.DeleteNearest(sample); !ok || x.Size() != sample.Size() {
+			t.Fatalf("didn't find %v", sample)
+		}
+	}
+	for _, sample := range rang(100) {
+		if x, ok := tr.DeleteNearest(sample); !ok || x.Size() != sample.Size()+100 {
+			t.Fatalf("didn't find %v", sample)
+		}
+	}
+	for _, sample := range rangrev(100) {
+		if x, ok := tr.DeleteNearest(sample); !ok || x.Size() != 299-sample.Size() {
+			t.Fatalf("didn't find %v", sample)
+		}
+	}
+}
+
 func TestAscendRange(t *testing.T) {
 	tr := New[data.SampleBase](2)
 	for _, v := range perm(100) {

@@ -362,9 +362,10 @@ func max[T data.Sample](n *node[T]) (_ T, found bool) {
 type toRemove int
 
 const (
-	removeSample toRemove = iota // removes the given sample
-	removeMin                    // removes smallest sample in the subtree
-	removeMax                    // removes largest sample in the subtree
+	removeSample  toRemove = iota // removes the given sample
+	removeMin                     // removes smallest sample in the subtree
+	removeMax                     // removes largest sample in the subtree
+	removeNearest                 // removes nearest sample to the given sample
 )
 
 // remove removes a sample from the subtree rooted at this node.
@@ -391,6 +392,21 @@ func (n *node[T]) remove(sample T, minSamples int, typ toRemove) (_ T, _ bool) {
 				return n.samples.removeAt(i), true
 			}
 			return
+		}
+	case removeNearest:
+		i, found = n.samples.find(sample)
+		if len(n.children) == 0 {
+			if found {
+				return n.samples.removeAt(i), true
+			} else if i == 0 {
+				return n.samples.removeAt(0), true
+			} else if i == len(n.samples) {
+				return n.samples.pop(), true
+			} else if sample.Size()-n.samples[i-1].Size() < n.samples[i].Size()-sample.Size() {
+				return n.samples.removeAt(i - 1), true
+			} else {
+				return n.samples.removeAt(i), true
+			}
 		}
 	default:
 		panic("invalid type")
@@ -726,6 +742,12 @@ func (t *BTree[T]) DeleteMin() (T, bool) {
 func (t *BTree[T]) DeleteMax() (T, bool) {
 	var zero T
 	return t.delete(zero, removeMax)
+}
+
+// DeleteNearest removes the nearest sample to the passed in sample from the tree,
+// returning it.  If no such sample exists, returns (zeroValue, false).
+func (t *BTree[T]) DeleteNearest(sample T) (T, bool) {
+	return t.delete(sample, removeNearest)
 }
 
 func (t *BTree[T]) delete(sample T, typ toRemove) (_ T, _ bool) {
