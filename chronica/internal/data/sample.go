@@ -13,10 +13,9 @@
 // limitations under the License.
 
 // Package data provides primitives for representing and organizing
-// the given dataset.
-// In addition to the traditional sharded dataset, it supports
-// a partitioned dataset where the data is split into multiple data partitions
-// across nodes in the cluster.
+// the given dataset.  In addition to the traditional sharded dataset,
+// it supports a partitioned dataset where the data is split into
+// multiple data partitions across nodes in the cluster.
 package data
 
 // Sample represents a single data sample in the dataset.
@@ -43,7 +42,7 @@ type SampleBase struct {
 	size  int
 }
 
-// NewSampleBase creates a new basic sample.
+// NewSampleBase creates a new base sample.
 func NewSampleBase(index, size int) *SampleBase {
 	return &SampleBase{
 		index: index,
