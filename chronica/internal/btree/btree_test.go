@@ -39,7 +39,7 @@ func init() {
 // perm returns a random permutation of n samples with size in the range [0, n).
 func perm(n int) (out []data.SampleBase) {
 	for _, v := range rand.Perm(n) {
-		out = append(out, data.NewSampleBase(v, v))
+		out = append(out, *data.NewSampleBase(v, v))
 	}
 	return
 }
@@ -47,7 +47,7 @@ func perm(n int) (out []data.SampleBase) {
 // rang returns an ordered list of samples with size in the range [0, n).
 func rang(n int) (out []data.SampleBase) {
 	for i := 0; i < n; i++ {
-		out = append(out, data.NewSampleBase(i, i))
+		out = append(out, *data.NewSampleBase(i, i))
 	}
 	return
 }
@@ -64,7 +64,7 @@ func all[T data.Sample](t *BTree[T]) (out []T) {
 // rangerev returns a reversed ordered list of samples with size in the range [0, n).
 func rangrev(n int) (out []data.SampleBase) {
 	for i := n - 1; 0 <= i; i-- {
-		out = append(out, data.NewSampleBase(i, i))
+		out = append(out, *data.NewSampleBase(i, i))
 	}
 	return
 }
@@ -105,11 +105,11 @@ func TestBTree(t *testing.T) {
 				t.Fatal("insert didn't find sample", sample)
 			}
 		}
-		want := data.NewSampleBase(0, 0)
+		want := *data.NewSampleBase(0, 0)
 		if min, ok := tr.Min(); !ok || min.Size() != want.Size() {
 			t.Fatalf("min: ok %v want %+v, got %+v", ok, want, min)
 		}
-		want = data.NewSampleBase(treeSize-1, treeSize-1)
+		want = *data.NewSampleBase(treeSize-1, treeSize-1)
 		if max, ok := tr.Max(); !ok || max.Size() != want.Size() {
 			t.Fatalf("max: ok %v want %+v, got %+v", ok, want, max)
 		}
@@ -142,20 +142,20 @@ func TestBTree(t *testing.T) {
 func ExampleBTree() {
 	tr := New[data.SampleBase](*btreeDegree)
 	for i := 0; i < 10; i++ {
-		tr.ReplaceOrInsert(data.NewSampleBase(i, i))
+		tr.ReplaceOrInsert(*data.NewSampleBase(i, i))
 	}
 	fmt.Println("len:       ", tr.Len())
-	v, ok := tr.Get(data.NewSampleBase(3, 3))
+	v, ok := tr.Get(*data.NewSampleBase(3, 3))
 	fmt.Println("get3:      ", v, ok)
-	v, ok = tr.Get(data.NewSampleBase(100, 100))
+	v, ok = tr.Get(*data.NewSampleBase(100, 100))
 	fmt.Println("get100:    ", v, ok)
-	v, ok = tr.Delete(data.NewSampleBase(4, 4))
+	v, ok = tr.Delete(*data.NewSampleBase(4, 4))
 	fmt.Println("del4:      ", v, ok)
-	v, ok = tr.Delete(data.NewSampleBase(100, 100))
+	v, ok = tr.Delete(*data.NewSampleBase(100, 100))
 	fmt.Println("del100:    ", v, ok)
-	v, ok = tr.ReplaceOrInsert(data.NewSampleBase(5, 5))
+	v, ok = tr.ReplaceOrInsert(*data.NewSampleBase(5, 5))
 	fmt.Println("replace5:  ", v, ok)
-	v, ok = tr.ReplaceOrInsert(data.NewSampleBase(100, 100))
+	v, ok = tr.ReplaceOrInsert(*data.NewSampleBase(100, 100))
 	fmt.Println("replace100:", v, ok)
 	v, ok = tr.Min()
 	fmt.Println("min:       ", v, ok)
@@ -215,7 +215,7 @@ func TestAscendRange(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.AscendRange(data.NewSampleBase(40, 40), data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
+	tr.AscendRange(*data.NewSampleBase(40, 40), *data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -223,7 +223,7 @@ func TestAscendRange(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendRange(data.NewSampleBase(40, 40), data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
+	tr.AscendRange(*data.NewSampleBase(40, 40), *data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
 		if 50 < s.Size() {
 			return false
 		}
@@ -241,7 +241,7 @@ func TestDescendRange(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.DescendRange(data.NewSampleBase(60, 60), data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.DescendRange(*data.NewSampleBase(60, 60), *data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -249,7 +249,7 @@ func TestDescendRange(t *testing.T) {
 		t.Fatalf("descendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendRange(data.NewSampleBase(60, 60), data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.DescendRange(*data.NewSampleBase(60, 60), *data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		if s.Size() < 50 {
 			return false
 		}
@@ -267,7 +267,7 @@ func TestAscendLessThan(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.AscendLessThan(data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
+	tr.AscendLessThan(*data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -275,7 +275,7 @@ func TestAscendLessThan(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendLessThan(data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
+	tr.AscendLessThan(*data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
 		if 50 < s.Size() {
 			return false
 		}
@@ -293,7 +293,7 @@ func TestDescendLessOrEqual(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.DescendLessOrEqual(data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.DescendLessOrEqual(*data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -301,7 +301,7 @@ func TestDescendLessOrEqual(t *testing.T) {
 		t.Fatalf("descendlessorequal:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendLessOrEqual(data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
+	tr.DescendLessOrEqual(*data.NewSampleBase(60, 60), func(s data.SampleBase) bool {
 		if s.Size() < 50 {
 			return false
 		}
@@ -319,7 +319,7 @@ func TestAscendGreaterOrEqual(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.AscendGreaterOrEqual(data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.AscendGreaterOrEqual(*data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -327,7 +327,7 @@ func TestAscendGreaterOrEqual(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendGreaterOrEqual(data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.AscendGreaterOrEqual(*data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		if 50 < s.Size() {
 			return false
 		}
@@ -345,7 +345,7 @@ func TestDescendGreaterThan(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []data.SampleBase
-	tr.DescendGreaterThan(data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.DescendGreaterThan(*data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		got = append(got, s)
 		return true
 	})
@@ -353,7 +353,7 @@ func TestDescendGreaterThan(t *testing.T) {
 		t.Fatalf("descendgreaterthan:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendGreaterThan(data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
+	tr.DescendGreaterThan(*data.NewSampleBase(40, 40), func(s data.SampleBase) bool {
 		if s.Size() < 50 {
 			return false
 		}
@@ -395,7 +395,7 @@ func BenchmarkSeek(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		tr.AscendGreaterOrEqual(data.NewSampleBase(i%size, i%size), func(s data.SampleBase) bool { return false })
+		tr.AscendGreaterOrEqual(*data.NewSampleBase(i%size, i%size), func(s data.SampleBase) bool { return false })
 	}
 }
 
@@ -572,7 +572,7 @@ func BenchmarkAscendRange(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := 100
-		tr.AscendRange(data.NewSampleBase(100, 100), arr[len(arr)-100], func(sample data.SampleBase) bool {
+		tr.AscendRange(*data.NewSampleBase(100, 100), arr[len(arr)-100], func(sample data.SampleBase) bool {
 			if sample.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], sample)
 			}
@@ -597,7 +597,7 @@ func BenchmarkDescendRange(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := len(arr) - 100
-		tr.DescendRange(arr[len(arr)-100], data.NewSampleBase(100, 100), func(sample data.SampleBase) bool {
+		tr.DescendRange(arr[len(arr)-100], *data.NewSampleBase(100, 100), func(sample data.SampleBase) bool {
 			if sample.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], sample)
 			}
@@ -623,7 +623,7 @@ func BenchmarkAscendGreaterOrEqual(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		j := 100
 		k := 0
-		tr.AscendGreaterOrEqual(data.NewSampleBase(100, 100), func(sample data.SampleBase) bool {
+		tr.AscendGreaterOrEqual(*data.NewSampleBase(100, 100), func(sample data.SampleBase) bool {
 			if sample.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], sample)
 			}

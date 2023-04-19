@@ -44,8 +44,8 @@ type SampleBase struct {
 }
 
 // NewSampleBase creates a new basic sample.
-func NewSampleBase(index, size int) SampleBase {
-	return SampleBase{
+func NewSampleBase(index, size int) *SampleBase {
+	return &SampleBase{
 		index: index,
 		size:  size,
 	}
