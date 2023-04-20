@@ -35,21 +35,21 @@ var (
 	gollrb = flag.Bool("llrb", false, "use llrb instead of btree")
 )
 
-type SampleWrapper struct {
-	btree.SampleBase
+type ItemWrapper struct {
+	*btree.ItemBase
 }
 
-func NewSampleWrapper(index, size int) *SampleWrapper {
-	return &SampleWrapper{
-		SampleBase: *btree.NewSampleBase(index, size),
+func NewItemWrapper(index, size int) *ItemWrapper {
+	return &ItemWrapper{
+		ItemBase: btree.NewItemBase(index, size),
 	}
 }
 
-func (s SampleWrapper) Less(than llrb.Item) bool {
-	if s.Size() == than.(SampleWrapper).Size() {
-		return s.Index() < than.(SampleWrapper).Index()
+func (i ItemWrapper) Less(than llrb.Item) bool {
+	if i.Size() == than.(*ItemWrapper).Size() {
+		return i.Index() < than.(*ItemWrapper).Index()
 	}
-	return s.Size() < than.(SampleWrapper).Size()
+	return i.Size() < than.(*ItemWrapper).Size()
 }
 
 func main() {
@@ -70,13 +70,13 @@ func main() {
 	if *gollrb {
 		tr := llrb.New()
 		for _, v := range vals {
-			tr.ReplaceOrInsert(*NewSampleWrapper(v, v))
+			tr.ReplaceOrInsert(NewItemWrapper(v, v))
 		}
 		t = tr // keep it around
 	} else {
-		tr := btree.New[btree.SampleBase](*degree)
+		tr := btree.New[*btree.ItemBase](*degree)
 		for _, v := range vals {
-			tr.ReplaceOrInsert(*btree.NewSampleBase(v, v))
+			tr.ReplaceOrInsert(btree.NewItemBase(v, v))
 		}
 		t = tr // keep it around
 	}

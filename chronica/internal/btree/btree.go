@@ -29,7 +29,7 @@
 // Note, though, that this project is in no way related to the C++ B-tree
 // implementation written about there.
 //
-// Within this tree, each node contains a slice of samples and a (possibly nil)
+// Within this tree, each node contains a slice of items and a (possibly nil)
 // slice of children.  For basic numeric values or raw structs, this can cause
 // efficiency differences when compared to equivalent C++ template code that
 // stores values in arrays within the node:
@@ -64,14 +64,14 @@ const DefaultFreeListSize = 32
 // BTree has its own FreeList, but multiple BTrees can share the same
 // FreeList.
 // Two BTrees using the same freelist are safe for concurrent write access.
-type FreeList[T Sample] struct {
+type FreeList[T Item] struct {
 	mu       sync.Mutex
 	freelist children[T]
 }
 
 // NewFreeList creates a new free list.
 // size is the maximum size of the returned free list.
-func NewFreeList[T Sample](size int) *FreeList[T] {
+func NewFreeList[T Item](size int) *FreeList[T] {
 	return &FreeList[T]{freelist: make(children[T], 0, size)}
 }
 
@@ -103,14 +103,14 @@ func (f *FreeList[T]) freeNode(n *node[T]) (out bool) {
 
 // New creates a new B-tree with the given degree.
 //
-// New(2), for example, will create a 2-3-4 tree (each node contains 1-3 samples
+// New(2), for example, will create a 2-3-4 tree (each node contains 1-3 items
 // and 2-4 children).
-func New[T Sample](degree int) *BTree[T] {
+func New[T Item](degree int) *BTree[T] {
 	return NewWithFreeList(degree, NewFreeList[T](DefaultFreeListSize))
 }
 
 // NewWithFreeList creates a new B-tree that uses the given node free list.
-func NewWithFreeList[T Sample](degree int, f *FreeList[T]) *BTree[T] {
+func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 	if degree <= 1 {
 		panic("bad degree")
 	}
@@ -120,33 +120,33 @@ func NewWithFreeList[T Sample](degree int, f *FreeList[T]) *BTree[T] {
 	}
 }
 
-// samples stores samples in a node.
-type samples[T Sample] []T
+// items stores items in a node.
+type items[T Item] []T
 
 // insertAt inserts a value into the given index, pushing all subsequent values
 // forward.
-func (s *samples[T]) insertAt(index int, sample T) {
+func (s *items[T]) insertAt(index int, item T) {
 	var zero T
 	*s = append(*s, zero)
 	if index < len(*s) {
 		copy((*s)[index+1:], (*s)[index:])
 	}
-	(*s)[index] = sample
+	(*s)[index] = item
 }
 
 // removeAt removes a value at a given index, pulling all subsequent values
 // back.
-func (s *samples[T]) removeAt(index int) T {
-	sample := (*s)[index]
+func (s *items[T]) removeAt(index int) T {
+	item := (*s)[index]
 	copy((*s)[index:], (*s)[index+1:])
 	var zero T
 	(*s)[len(*s)-1] = zero
 	*s = (*s)[:len(*s)-1]
-	return sample
+	return item
 }
 
 // pop removes and returns the last element in the list.
-func (s *samples[T]) pop() (out T) {
+func (s *items[T]) pop() (out T) {
 	index := len(*s) - 1
 	out = (*s)[index]
 	var zero T
@@ -156,9 +156,9 @@ func (s *samples[T]) pop() (out T) {
 }
 
 // truncate truncates this instance at index so that it contains only the
-// first index samples. index must be less than or equal to length.
-func (s *samples[T]) truncate(index int) {
-	var toClear samples[T]
+// first index items. index must be less than or equal to length.
+func (s *items[T]) truncate(index int) {
+	var toClear items[T]
 	*s, toClear = (*s)[:index], (*s)[index:]
 	var zero T
 	for i := 0; i < len(toClear); i++ {
@@ -166,21 +166,21 @@ func (s *samples[T]) truncate(index int) {
 	}
 }
 
-// find returns the index where the given sample should be inserted into this
-// list.  'found' is true if the sample already exists in the list at the given
+// find returns the index where the given item should be inserted into this
+// list.  'found' is true if the item already exists in the list at the given
 // index.
-func (s samples[T]) find(sample T) (index int, found bool) {
+func (s items[T]) find(item T) (index int, found bool) {
 	i := sort.Search(len(s), func(i int) bool {
-		return sample.Less(s[i])
+		return item.Less(s[i])
 	})
-	if 0 < i && !s[i-1].Less(sample) {
+	if 0 < i && !s[i-1].Less(item) {
 		return i - 1, true
 	}
 	return i, false
 }
 
 // children stores child nodes in a node.
-type children[T Sample] []*node[T]
+type children[T Item] []*node[T]
 
 // insertAt inserts a value into the given index, pushing all subsequent values
 // forward.
@@ -224,10 +224,10 @@ func (s *children[T]) truncate(index int) {
 // node is an internal node in a tree.
 //
 // It must at all times maintain the invariant that either
-//   - len(children) == 0, len(samples) unconstrained
-//   - len(children) == len(samples) + 1
-type node[T Sample] struct {
-	samples  samples[T]
+//   - len(children) == 0, len(items) unconstrained
+//   - len(children) == len(items) + 1
+type node[T Item] struct {
+	items    items[T]
 	children children[T]
 	cow      *copyOnWriteContext[T]
 }
@@ -237,12 +237,12 @@ func (n *node[T]) mutableFor(cow *copyOnWriteContext[T]) *node[T] {
 		return n
 	}
 	out := cow.newNode()
-	if len(n.samples) <= cap(out.samples) {
-		out.samples = out.samples[:len(n.samples)]
+	if len(n.items) <= cap(out.items) {
+		out.items = out.items[:len(n.items)]
 	} else {
-		out.samples = make(samples[T], len(n.samples), cap(n.samples))
+		out.items = make(items[T], len(n.items), cap(n.items))
 	}
-	copy(out.samples, n.samples)
+	copy(out.items, n.items)
 	// Copy children
 	if len(n.children) <= cap(out.children) {
 		out.children = out.children[:len(n.children)]
@@ -260,114 +260,114 @@ func (n *node[T]) mutableChild(i int) *node[T] {
 }
 
 // split splits the given node at the given index.  The current node shrinks,
-// and this function returns the sample that existed at that index and a new node
-// containing all samples/children after it.
+// and this function returns the item that existed at that index and a new node
+// containing all items/children after it.
 func (n *node[T]) split(i int) (T, *node[T]) {
-	sample := n.samples[i]
+	item := n.items[i]
 	next := n.cow.newNode()
-	next.samples = append(next.samples, n.samples[i+1:]...)
-	n.samples.truncate(i)
+	next.items = append(next.items, n.items[i+1:]...)
+	n.items.truncate(i)
 	if 0 < len(n.children) {
 		next.children = append(next.children, n.children[i+1:]...)
 		n.children.truncate(i + 1)
 	}
-	return sample, next
+	return item, next
 }
 
 // maybeSplitChild checks if a child should be split, and if so splits it.
 // Returns whether or not a split occurred.
-func (n *node[T]) maybeSplitChild(i, maxSamples int) bool {
-	if len(n.children[i].samples) < maxSamples {
+func (n *node[T]) maybeSplitChild(i, maxItems int) bool {
+	if len(n.children[i].items) < maxItems {
 		return false
 	}
 	first := n.mutableChild(i)
-	sample, second := first.split(maxSamples / 2)
-	n.samples.insertAt(i, sample)
+	item, second := first.split(maxItems / 2)
+	n.items.insertAt(i, item)
 	n.children.insertAt(i+1, second)
 	return true
 }
 
-// insert inserts a sample into the subtree rooted at this node, making sure
-// no nodes in the subtree exceed maxSamples samples.  Should an equivalent
-// sample be found/replaced by insert, it will be returned.
-func (n *node[T]) insert(sample T, maxSamples int) (_ T, _ bool) {
-	i, found := n.samples.find(sample)
+// insert inserts an item into the subtree rooted at this node, making sure
+// no nodes in the subtree exceed maxItems items.  Should an equivalent item
+// be found/replaced by insert, it will be returned.
+func (n *node[T]) insert(item T, maxItems int) (_ T, _ bool) {
+	i, found := n.items.find(item)
 	if found {
-		out := n.samples[i]
-		n.samples[i] = sample
+		out := n.items[i]
+		n.items[i] = item
 		return out, true
 	}
 	if len(n.children) == 0 {
-		n.samples.insertAt(i, sample)
+		n.items.insertAt(i, item)
 		return
 	}
-	if n.maybeSplitChild(i, maxSamples) {
-		inTree := n.samples[i]
+	if n.maybeSplitChild(i, maxItems) {
+		inTree := n.items[i]
 		switch {
-		case sample.Less(inTree):
+		case item.Less(inTree):
 			// no change, we want first split node
-		case inTree.Less(sample):
+		case inTree.Less(item):
 			i++ // we want second split node
 		default:
-			out := n.samples[i]
-			n.samples[i] = sample
+			out := n.items[i]
+			n.items[i] = item
 			return out, true
 		}
 	}
-	return n.mutableChild(i).insert(sample, maxSamples)
+	return n.mutableChild(i).insert(item, maxItems)
 }
 
 // get finds the given key in the subtree and returns it.
 func (n *node[T]) get(key T) (_ T, _ bool) {
-	i, found := n.samples.find(key)
+	i, found := n.items.find(key)
 	if found {
-		return n.samples[i], true
+		return n.items[i], true
 	} else if 0 < len(n.children) {
 		return n.children[i].get(key)
 	}
 	return
 }
 
-// min returns the first sample in the subtree.
-func min[T Sample](n *node[T]) (_ T, found bool) {
+// min returns the first item in the subtree.
+func min[T Item](n *node[T]) (_ T, found bool) {
 	if n == nil {
 		return
 	}
 	for 0 < len(n.children) {
 		n = n.children[0]
 	}
-	if len(n.samples) == 0 {
+	if len(n.items) == 0 {
 		return
 	}
-	return n.samples[0], true
+	return n.items[0], true
 }
 
-// max returns the last sample in the subtree.
-func max[T Sample](n *node[T]) (_ T, found bool) {
+// max returns the last item in the subtree.
+func max[T Item](n *node[T]) (_ T, found bool) {
 	if n == nil {
 		return
 	}
 	for 0 < len(n.children) {
 		n = n.children[len(n.children)-1]
 	}
-	if len(n.samples) == 0 {
+	if len(n.items) == 0 {
 		return
 	}
-	return n.samples[len(n.samples)-1], true
+	return n.items[len(n.items)-1], true
 }
 
-// toRemove details what sample to remove in a node.remove call.
+// toRemove details what item to remove in a node.remove call.
 type toRemove int
 
 const (
-	removeSample  toRemove = iota // removes the given sample
-	removeMin                     // removes smallest sample in the subtree
-	removeMax                     // removes largest sample in the subtree
-	removeNearest                 // removes nearest sample to the given sample
+	removeItem    toRemove = iota // removes the given item
+	removeMin                     // removes smallest item in the subtree
+	removeMax                     // removes largest item in the subtree
+	removeNearest                 // removes nearest item to the given item
 )
 
-// remove removes a sample from the subtree rooted at this node.
-func (n *node[T]) remove(sample T, minSamples int, typ toRemove) (_ T, _ bool) {
+// remove removes an item from the subtree rooted at this node.
+func (n *node[T]) remove(item T, minItems int, typ toRemove) (_ T, _ bool) {
 	var (
 		i     int
 		found bool
@@ -375,71 +375,71 @@ func (n *node[T]) remove(sample T, minSamples int, typ toRemove) (_ T, _ bool) {
 	switch typ {
 	case removeMax:
 		if len(n.children) == 0 {
-			return n.samples.pop(), true
+			return n.items.pop(), true
 		}
-		i = len(n.samples)
+		i = len(n.items)
 	case removeMin:
 		if len(n.children) == 0 {
-			return n.samples.removeAt(0), true
+			return n.items.removeAt(0), true
 		}
 		i = 0
-	case removeSample:
-		i, found = n.samples.find(sample)
+	case removeItem:
+		i, found = n.items.find(item)
 		if len(n.children) == 0 {
 			if found {
-				return n.samples.removeAt(i), true
+				return n.items.removeAt(i), true
 			}
 			return
 		}
 	case removeNearest:
-		i, found = n.samples.find(sample)
+		i, found = n.items.find(item)
 		if len(n.children) == 0 {
 			if found {
-				return n.samples.removeAt(i), true
+				return n.items.removeAt(i), true
 			} else if i == 0 {
-				return n.samples.removeAt(0), true
-			} else if i == len(n.samples) {
-				return n.samples.pop(), true
-			} else if sample.Size()-n.samples[i-1].Size() < n.samples[i].Size()-sample.Size() {
-				return n.samples.removeAt(i - 1), true
+				return n.items.removeAt(0), true
+			} else if i == len(n.items) {
+				return n.items.pop(), true
+			} else if item.Size()-n.items[i-1].Size() < n.items[i].Size()-item.Size() {
+				return n.items.removeAt(i - 1), true
 			} else {
-				return n.samples.removeAt(i), true
+				return n.items.removeAt(i), true
 			}
 		}
 	default:
 		panic("invalid type")
 	}
 	// If we get to here, we have children.
-	if len(n.children[i].samples) <= minSamples {
-		return n.growChildAndRemove(i, sample, minSamples, typ)
+	if len(n.children[i].items) <= minItems {
+		return n.growChildAndRemove(i, item, minItems, typ)
 	}
 	child := n.mutableChild(i)
-	// Either we had enough samples to begin with, or we've done some
+	// Either we had enough items to begin with, or we've done some
 	// merging/stealing, because we've got enough now and we're ready to return
 	// stuff.
 	if found {
-		// The sample exists at index 'i', and the child we've selected can give us a
-		// predecessor, since if we've gotten here it's got minSamples < samples in it.
-		out := n.samples[i]
+		// The item exists at index 'i', and the child we've selected can give us a
+		// predecessor, since if we've gotten here it's got minItems < items in it.
+		out := n.items[i]
 		// We use our special-case 'remove' call with typ=removeMax to pull the
-		// predecessor of sample i (the rightmost leaf of our immediate left child)
-		// and set it into where we pulled the sample from.
+		// predecessor of item i (the rightmost leaf of our immediate left child)
+		// and set it into where we pulled the item from.
 		var zero T
-		n.samples[i], _ = child.remove(zero, minSamples, removeMax)
+		n.items[i], _ = child.remove(zero, minItems, removeMax)
 		return out, true
 	}
-	// Final recursive call.  Once we're here, we know that the sample isn't in this
+	// Final recursive call.  Once we're here, we know that the item isn't in this
 	// node and that the child is big enough to remove from.
-	return child.remove(sample, minSamples, typ)
+	return child.remove(item, minItems, typ)
 }
 
-// growChildAndRemove grows child 'i' to make sure it's possible to remove a
-// sample from it while keeping it at minSamples, then calls remove to actually
+// growChildAndRemove grows child 'i' to make sure it's possible to remove an
+// item from it while keeping it at minItems, then calls remove to actually
 // remove it.
 //
 // Most documentation says we have to do two sets of special casing:
-//  1. sample is in this node
-//  2. sample is in child
+//  1. item is in this node
+//  2. item is in child
 //
 // In both cases, we need to handle the two subcases:
 //
@@ -453,45 +453,45 @@ func (n *node[T]) remove(sample T, minSamples int, typ toRemove) (_ T, _ bool) {
 //	c) we must merge
 //
 // To simplify our code here, we handle cases #1 and #2 the same:
-// If a node doesn't have enough samples, we make sure it does (using a,b,c).
+// If a node doesn't have enough items, we make sure it does (using a,b,c).
 // We then simply redo our remove call, and the second time (regardless of
-// whether we're in case 1 or 2), we'll have enough samples and can guarantee
+// whether we're in case 1 or 2), we'll have enough items and can guarantee
 // that we hit case A.
-func (n *node[T]) growChildAndRemove(i int, sample T, minSamples int, typ toRemove) (T, bool) {
-	if 0 < i && minSamples < len(n.children[i-1].samples) {
+func (n *node[T]) growChildAndRemove(i int, item T, minItems int, typ toRemove) (T, bool) {
+	if 0 < i && minItems < len(n.children[i-1].items) {
 		// Steal from left child
 		child := n.mutableChild(i)
 		stealFrom := n.mutableChild(i - 1)
-		stolenSample := stealFrom.samples.pop()
-		child.samples.insertAt(0, n.samples[i-1])
-		n.samples[i-1] = stolenSample
+		stolenItem := stealFrom.items.pop()
+		child.items.insertAt(0, n.items[i-1])
+		n.items[i-1] = stolenItem
 		if 0 < len(stealFrom.children) {
 			child.children.insertAt(0, stealFrom.children.pop())
 		}
-	} else if i < len(n.samples) && minSamples < len(n.children[i+1].samples) {
+	} else if i < len(n.items) && minItems < len(n.children[i+1].items) {
 		// steal from right child
 		child := n.mutableChild(i)
 		stealFrom := n.mutableChild(i + 1)
-		stolenSample := stealFrom.samples.removeAt(0)
-		child.samples = append(child.samples, n.samples[i])
-		n.samples[i] = stolenSample
+		stolenItem := stealFrom.items.removeAt(0)
+		child.items = append(child.items, n.items[i])
+		n.items[i] = stolenItem
 		if 0 < len(stealFrom.children) {
 			child.children = append(child.children, stealFrom.children.removeAt(0))
 		}
 	} else {
-		if len(n.samples) <= i {
+		if len(n.items) <= i {
 			i--
 		}
 		child := n.mutableChild(i)
 		// merge with right child
-		mergeSample := n.samples.removeAt(i)
+		mergeItem := n.items.removeAt(i)
 		mergeChild := n.children.removeAt(i + 1)
-		child.samples = append(child.samples, mergeSample)
-		child.samples = append(child.samples, mergeChild.samples...)
+		child.items = append(child.items, mergeItem)
+		child.items = append(child.items, mergeChild.items...)
 		child.children = append(child.children, mergeChild.children...)
 		n.cow.freeNode(mergeChild)
 	}
-	return n.remove(sample, minSamples, typ)
+	return n.remove(item, minItems, typ)
 }
 
 type direction int
@@ -501,32 +501,32 @@ const (
 	ascend  = direction(+1)
 )
 
-type optionalSample[T Sample] struct {
-	sample T
-	valid  bool
+type optionalItem[T Item] struct {
+	item  T
+	valid bool
 }
 
-func optional[T Sample](sample T) optionalSample[T] {
-	return optionalSample[T]{sample: sample, valid: true}
+func optional[T Item](item T) optionalItem[T] {
+	return optionalItem[T]{item: item, valid: true}
 }
 
-func empty[T Sample]() optionalSample[T] {
-	return optionalSample[T]{}
+func empty[T Item]() optionalItem[T] {
+	return optionalItem[T]{}
 }
 
-// SampleIterator allows callers of {A/De}scend* to iterate in-order over portions
+// ItemIterator allows callers of {A/De}scend* to iterate in-order over portions
 // of the tree.  When this function returns false, iteration will stop and the
 // associated {A/De}scend* function will immediately return.
-type SampleIterator[T Sample] func(T) bool
+type ItemIterator[T Item] func(item T) bool
 
 // iterate provides a simple method for iterating over elements in the tree.
 //
 // When ascending, the 'start' should be less than 'stop' and when descending,
 // the 'start' should be greater than 'stop'. Setting 'includeStart' to true
-// will force the iterator to include the first sample when it equals 'start',
+// will force the iterator to include the first item when it equals 'start',
 // thus creating a "greaterOrEqual" or "lessThanEqual" rather than just a
 // "greaterThan" or "lessThan" queries.
-func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeStart bool, hit bool, iterator SampleIterator[T]) (bool, bool) {
+func (n *node[T]) iterate(dir direction, start, stop optionalItem[T], includeStart bool, hit bool, iterator ItemIterator[T]) (bool, bool) {
 	var (
 		ok, found bool
 		index     int
@@ -534,23 +534,23 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 	switch dir {
 	case ascend:
 		if start.valid {
-			index, _ = n.samples.find(start.sample)
+			index, _ = n.items.find(start.item)
 		}
-		for i := index; i < len(n.samples); i++ {
+		for i := index; i < len(n.items); i++ {
 			if 0 < len(n.children) {
 				if hit, ok = n.children[i].iterate(dir, start, stop, includeStart, hit, iterator); !ok {
 					return hit, false
 				}
 			}
-			if !includeStart && !hit && start.valid && !start.sample.Less(n.samples[i]) {
+			if !includeStart && !hit && start.valid && !start.item.Less(n.items[i]) {
 				hit = true
 				continue
 			}
 			hit = true
-			if stop.valid && !n.samples[i].Less(stop.sample) {
+			if stop.valid && !n.items[i].Less(stop.item) {
 				return hit, false
 			}
-			if !iterator(n.samples[i]) {
+			if !iterator(n.items[i]) {
 				return hit, false
 			}
 		}
@@ -561,16 +561,16 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 		}
 	case descend:
 		if start.valid {
-			index, found = n.samples.find(start.sample)
+			index, found = n.items.find(start.item)
 			if !found {
 				index--
 			}
 		} else {
-			index = len(n.samples) - 1
+			index = len(n.items) - 1
 		}
 		for i := index; 0 <= i; i-- {
-			if start.valid && !n.samples[i].Less(start.sample) {
-				if !includeStart || hit || start.sample.Less(n.samples[i]) {
+			if start.valid && !n.items[i].Less(start.item) {
+				if !includeStart || hit || start.item.Less(n.items[i]) {
 					continue
 				}
 			}
@@ -579,11 +579,11 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 					return hit, false
 				}
 			}
-			if stop.valid && !stop.sample.Less(n.samples[i]) {
+			if stop.valid && !stop.item.Less(n.items[i]) {
 				return hit, false //	continue
 			}
 			hit = true
-			if !iterator(n.samples[i]) {
+			if !iterator(n.items[i]) {
 				return hit, false
 			}
 		}
@@ -598,12 +598,12 @@ func (n *node[T]) iterate(dir direction, start, stop optionalSample[T], includeS
 
 // BTree is a generic implementation of a B-tree.
 //
-// BTree stores Sample instances in an ordered structure, allowing easy
-// insertion, removal, and iteration.
+// BTree stores items of type T in an ordered structure, allowing easy insertion,
+// removal, and iteration.
 //
 // Write operations are not safe for concurrent mutation by multiple
 // goroutines, but Read operations are.
-type BTree[T Sample] struct {
+type BTree[T Item] struct {
 	degree int
 	length int
 	root   *node[T]
@@ -624,7 +624,7 @@ type BTree[T Sample] struct {
 // tree's context, that node is modifiable in place.  Children of that node may
 // not share context, but before we descend into them, we'll make a mutable
 // copy.
-type copyOnWriteContext[T Sample] struct {
+type copyOnWriteContext[T Item] struct {
 	freelist *FreeList[T]
 }
 
@@ -652,14 +652,14 @@ func (t *BTree[T]) Clone() (t2 *BTree[T]) {
 	return &out
 }
 
-// maxSamples returns the max number of samples to allow per node.
-func (t *BTree[T]) maxSamples() int {
+// maxItems returns the max number of items to allow per node.
+func (t *BTree[T]) maxItems() int {
 	return t.degree*2 - 1
 }
 
-// minSamples returns the min number of samples to allow per node
+// minItems returns the min number of items to allow per node
 // (ignored for the root node).
-func (t *BTree[T]) minSamples() int {
+func (t *BTree[T]) minItems() int {
 	return t.degree - 1
 }
 
@@ -683,7 +683,7 @@ const (
 func (c *copyOnWriteContext[T]) freeNode(n *node[T]) freeType {
 	if n.cow == c {
 		// clear to allow GC
-		n.samples.truncate(0)
+		n.items.truncate(0)
 		n.children.truncate(0)
 		n.cow = nil
 		if c.freelist.freeNode(n) {
@@ -696,65 +696,65 @@ func (c *copyOnWriteContext[T]) freeNode(n *node[T]) freeType {
 	}
 }
 
-// ReplaceOrInsert adds the given sample to the tree.  If a sample in the tree
+// ReplaceOrInsert adds the given item to the tree.  If an item in the tree
 // already equals the given one, it is removed from the tree and returned,
 // and the second return value is true.  Otherwise, (zeroValue, false).
-func (t *BTree[T]) ReplaceOrInsert(sample T) (_ T, _ bool) {
+func (t *BTree[T]) ReplaceOrInsert(item T) (_ T, _ bool) {
 	if t.root == nil {
 		t.root = t.cow.newNode()
-		t.root.samples = append(t.root.samples, sample)
+		t.root.items = append(t.root.items, item)
 		t.length++
 		return
 	} else {
 		t.root = t.root.mutableFor(t.cow)
-		if t.maxSamples() <= len(t.root.samples) {
-			sample2, second := t.root.split(t.maxSamples() / 2)
+		if t.maxItems() <= len(t.root.items) {
+			item2, second := t.root.split(t.maxItems() / 2)
 			oldroot := t.root
 			t.root = t.cow.newNode()
-			t.root.samples = append(t.root.samples, sample2)
+			t.root.items = append(t.root.items, item2)
 			t.root.children = append(t.root.children, oldroot, second)
 		}
 	}
-	out, outb := t.root.insert(sample, t.maxSamples())
+	out, outb := t.root.insert(item, t.maxItems())
 	if !outb {
 		t.length++
 	}
 	return out, outb
 }
 
-// Delete removes a sample equal to the passed in sample from the tree,
-// returning it.  If no such sample exists, returns (zeroValue, false).
-func (t *BTree[T]) Delete(sample T) (T, bool) {
-	return t.delete(sample, removeSample)
+// Delete removes an item equal to the passed in item from the tree,
+// returning it.  If no such item exists, returns (zeroValue, false).
+func (t *BTree[T]) Delete(item T) (T, bool) {
+	return t.delete(item, removeItem)
 }
 
-// DeleteMin removes the smallest sample in the tree and returns it.
-// If no such sample exists, returns (zeroValue, false).
+// DeleteMin removes the smallest item in the tree and returns it.
+// If no such item exists, returns (zeroValue, false).
 func (t *BTree[T]) DeleteMin() (T, bool) {
 	var zero T
 	return t.delete(zero, removeMin)
 }
 
-// DeleteMax removes the largest sample in the tree and returns it.
-// If no such sample exists, returns (zeroValue, false).
+// DeleteMax removes the largest item in the tree and returns it.
+// If no such item exists, returns (zeroValue, false).
 func (t *BTree[T]) DeleteMax() (T, bool) {
 	var zero T
 	return t.delete(zero, removeMax)
 }
 
-// DeleteNearest removes the nearest sample to the passed in sample from the tree,
-// returning it.  If no such sample exists, returns (zeroValue, false).
-func (t *BTree[T]) DeleteNearest(sample T) (T, bool) {
-	return t.delete(sample, removeNearest)
+// DeleteNearest removes the nearest item to the passed in item from the tree,
+// returning it.  If no such item exists, returns (zeroValue, false).
+func (t *BTree[T]) DeleteNearest(item T) (T, bool) {
+	return t.delete(item, removeNearest)
 }
 
-func (t *BTree[T]) delete(sample T, typ toRemove) (_ T, _ bool) {
-	if t.root == nil || len(t.root.samples) == 0 {
+func (t *BTree[T]) delete(item T, typ toRemove) (_ T, _ bool) {
+	if t.root == nil || len(t.root.items) == 0 {
 		return
 	}
 	t.root = t.root.mutableFor(t.cow)
-	out, outb := t.root.remove(sample, t.minSamples(), typ)
-	if len(t.root.samples) == 0 && 0 < len(t.root.children) {
+	out, outb := t.root.remove(item, t.minItems(), typ)
+	if len(t.root.items) == 0 && 0 < len(t.root.children) {
 		oldroot := t.root
 		t.root = t.root.children[0]
 		t.cow.freeNode(oldroot)
@@ -767,7 +767,7 @@ func (t *BTree[T]) delete(sample T, typ toRemove) (_ T, _ bool) {
 
 // AscendRange calls the iterator for every value in the tree within the range
 // [greaterOrEqual, lessThan), until iterator returns false.
-func (t *BTree[T]) AscendRange(greaterOrEqual, lessThan T, iterator SampleIterator[T]) {
+func (t *BTree[T]) AscendRange(greaterOrEqual, lessThan T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -776,7 +776,7 @@ func (t *BTree[T]) AscendRange(greaterOrEqual, lessThan T, iterator SampleIterat
 
 // AscendLessThan calls the iterator for every value in the tree within the range
 // [first, pivot), until iterator returns false.
-func (t *BTree[T]) AscendLessThan(pivot T, iterator SampleIterator[T]) {
+func (t *BTree[T]) AscendLessThan(pivot T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -785,7 +785,7 @@ func (t *BTree[T]) AscendLessThan(pivot T, iterator SampleIterator[T]) {
 
 // AscendGreaterOrEqual calls the iterator for every value in the tree within
 // the range [pivot, last], until iterator returns false.
-func (t *BTree[T]) AscendGreaterOrEqual(pivot T, iterator SampleIterator[T]) {
+func (t *BTree[T]) AscendGreaterOrEqual(pivot T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -794,7 +794,7 @@ func (t *BTree[T]) AscendGreaterOrEqual(pivot T, iterator SampleIterator[T]) {
 
 // Ascend calls the iterator for every value in the tree within the range
 // [first, last], until iterator returns false.
-func (t *BTree[T]) Ascend(iterator SampleIterator[T]) {
+func (t *BTree[T]) Ascend(iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -803,7 +803,7 @@ func (t *BTree[T]) Ascend(iterator SampleIterator[T]) {
 
 // DescendRange calls the iterator for every value in the tree within the range
 // [lessOrEqual, greaterThan), until iterator returns false.
-func (t *BTree[T]) DescendRange(lessOrEqual, greaterThan T, iterator SampleIterator[T]) {
+func (t *BTree[T]) DescendRange(lessOrEqual, greaterThan T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -812,7 +812,7 @@ func (t *BTree[T]) DescendRange(lessOrEqual, greaterThan T, iterator SampleItera
 
 // DescendLessOrEqual calls the iterator for every value in the tree within the range
 // [pivot, first], until iterator returns false.
-func (t *BTree[T]) DescendLessOrEqual(pivot T, iterator SampleIterator[T]) {
+func (t *BTree[T]) DescendLessOrEqual(pivot T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -821,7 +821,7 @@ func (t *BTree[T]) DescendLessOrEqual(pivot T, iterator SampleIterator[T]) {
 
 // DescendGreaterThan calls the iterator for every value in the tree within
 // the range [last, pivot), until iterator returns false.
-func (t *BTree[T]) DescendGreaterThan(pivot T, iterator SampleIterator[T]) {
+func (t *BTree[T]) DescendGreaterThan(pivot T, iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
@@ -830,15 +830,15 @@ func (t *BTree[T]) DescendGreaterThan(pivot T, iterator SampleIterator[T]) {
 
 // Descend calls the iterator for every value in the tree within the range
 // [last, first], until iterator returns false.
-func (t *BTree[T]) Descend(iterator SampleIterator[T]) {
+func (t *BTree[T]) Descend(iterator ItemIterator[T]) {
 	if t.root == nil {
 		return
 	}
 	t.root.iterate(descend, empty[T](), empty[T](), false, false, iterator)
 }
 
-// Get looks for the key sample in the tree, returning it.  It returns
-// (zeroValue, false) if unable to find that sample.
+// Get looks for the key item in the tree, returning it.  It returns
+// (zeroValue, false) if unable to find that item.
 func (t *BTree[T]) Get(key T) (_ T, _ bool) {
 	if t.root == nil {
 		return
@@ -846,12 +846,12 @@ func (t *BTree[T]) Get(key T) (_ T, _ bool) {
 	return t.root.get(key)
 }
 
-// Min returns the smallest sample in the tree, or (zeroValue, false) if the tree is empty.
+// Min returns the smallest item in the tree, or (zeroValue, false) if the tree is empty.
 func (t *BTree[T]) Min() (T, bool) {
 	return min(t.root)
 }
 
-// Max returns the largest sample in the tree, or (zeroValue, false) if the tree is empty.
+// Max returns the largest item in the tree, or (zeroValue, false) if the tree is empty.
 func (t *BTree[T]) Max() (T, bool) {
 	return max(t.root)
 }
@@ -862,12 +862,12 @@ func (t *BTree[T]) Has(key T) bool {
 	return ok
 }
 
-// Len returns the number of samples currently in the tree.
+// Len returns the number of items currently in the tree.
 func (t *BTree[T]) Len() int {
 	return t.length
 }
 
-// Clear removes all samples from the tree.  If addNodesToFreelist is true,
+// Clear removes all items from the tree.  If addNodesToFreelist is true,
 // t's nodes are added to its freelist as part of this call, until the freelist
 // is full.  Otherwise, the root node is simply dereferenced and the subtree
 // left to Go's normal GC processes.
