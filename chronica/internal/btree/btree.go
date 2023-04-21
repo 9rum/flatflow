@@ -54,8 +54,10 @@
 package btree
 
 import (
+	"os"
 	"sort"
 	"sync"
+	"unsafe"
 )
 
 const DefaultFreeListSize = 32
@@ -112,12 +114,24 @@ func New[T Item](degree int) *BTree[T] {
 // NewWithFreeList creates a new B-tree that uses the given node free list.
 func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 	if degree <= 1 {
-		panic("bad degree")
+		degree = defaultDegree[T]()
 	}
 	return &BTree[T]{
 		degree: degree,
 		cow:    &copyOnWriteContext[T]{freelist: f},
 	}
+}
+
+// defaultDegree finds the degree for type T that allows node[T] to fit on a
+// single page.
+func defaultDegree[T Item]() int {
+	var (
+		zero T
+		ptr  uintptr
+	)
+	size := int(unsafe.Sizeof(zero))
+	ptrsize := int(unsafe.Sizeof(ptr))
+	return (os.Getpagesize() + size - ptrsize) / (2 * (size + ptrsize))
 }
 
 // items stores items in a node.
@@ -459,7 +473,7 @@ func (n *node[T]) remove(item T, minItems int, typ toRemove) (_ T, _ bool) {
 // that we hit case A.
 func (n *node[T]) growChildAndRemove(i int, item T, minItems int, typ toRemove) (T, bool) {
 	if 0 < i && minItems < len(n.children[i-1].items) {
-		// Steal from left child
+		// steal from left child
 		child := n.mutableChild(i)
 		stealFrom := n.mutableChild(i - 1)
 		stolenItem := stealFrom.items.pop()
