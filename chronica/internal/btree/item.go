@@ -16,6 +16,8 @@ package btree
 
 import "reflect"
 
+var typeOfItemBase = reflect.TypeOf(new(ItemBase))
+
 // Item represents a single object in the tree.
 type Item interface {
 	// Index provides a primitive to identify a particular item in the tree.
@@ -37,13 +39,10 @@ type Item interface {
 // reflection may be removed; there is no language support for type switches on
 // the type parameter.
 func NewItem[T Item](index, size int) T {
-	var (
-		zero     T
-		zeroBase *ItemBase
-	)
+	var zero T
 
 	switch reflect.TypeOf(zero) {
-	case reflect.TypeOf(zeroBase):
+	case typeOfItemBase:
 		return Item(NewItemBase(index, size)).(T)
 	default:
 		panic("invalid type")
