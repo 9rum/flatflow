@@ -33,7 +33,6 @@ type Scheduler interface {
 // with similar performance.
 type SchedulerBase struct {
 	worldSize int
-	batchSize int
 }
 
 // WorldSize returns the total number of workers in the group.
