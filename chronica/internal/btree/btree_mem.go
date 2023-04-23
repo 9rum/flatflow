@@ -31,7 +31,7 @@ import (
 
 var (
 	size   = flag.Int("size", 1000000, "size of the tree to build")
-	degree = flag.Int("degree", 8, "degree of btree")
+	degree = flag.Int("degree", 0, "degree of btree")
 	gollrb = flag.Bool("llrb", false, "use llrb instead of btree")
 )
 
