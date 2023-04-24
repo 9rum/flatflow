@@ -100,7 +100,7 @@ func TestBTree(t *testing.T) {
 		}
 		for _, item := range perm(treeSize) {
 			if x, ok := tr.ReplaceOrInsert(item); !ok || x == nil {
-				t.Fatal("insert didn't find item", item)
+				t.Fatal("insert did not find item", item)
 			}
 		}
 		want := NewItemBase(0, 0)
@@ -125,7 +125,7 @@ func TestBTree(t *testing.T) {
 
 		for _, item := range perm(treeSize) {
 			if x, ok := tr.Delete(item); !ok || x == nil {
-				t.Fatalf("didn't find %v", item)
+				t.Fatalf("did not find %v", item)
 			}
 		}
 		if got = all(tr); 0 < len(got) {
@@ -214,17 +214,17 @@ func TestDeleteNearest(t *testing.T) {
 	}
 	for _, item := range perm(100) {
 		if x, ok := tr.DeleteNearest(item); !ok || x.Size() != item.Size() {
-			t.Fatalf("didn't find %v", item)
+			t.Fatalf("did not find %v", item)
 		}
 	}
 	for _, item := range rang(100) {
 		if x, ok := tr.DeleteNearest(item); !ok || x.Size() != item.Size()+100 {
-			t.Fatalf("didn't find %v", item)
+			t.Fatalf("did not find %v", item)
 		}
 	}
 	for _, item := range rangrev(100) {
 		if x, ok := tr.DeleteNearest(item); !ok || x.Size() != 299-item.Size() {
-			t.Fatalf("didn't find %v", item)
+			t.Fatalf("did not find %v", item)
 		}
 	}
 }

@@ -91,6 +91,6 @@ func main() {
 	runtime.ReadMemStats(&stats)
 	fmt.Printf("%+v\n", stats)
 	if t == v {
-		fmt.Println("to make sure vals and tree aren't GC'd")
+		fmt.Println("to make sure vals and tree are not GC'd")
 	}
 }

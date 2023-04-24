@@ -62,7 +62,7 @@ func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
 // Getitem looks for the data sample with the size nearest to the given size.
 func (d *ShardedDataset[T]) Getitem(rank, size int) (index int) {
 	if item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size)); !ok {
-		panic("didn't find item")
+		panic("did not find item")
 	} else {
 		index = item.Index()
 		if _, found := d.recycleBin.ReplaceOrInsert(item); found {
@@ -99,7 +99,7 @@ type PartitionedDataset[T btree.Item] struct {
 // in the partition with the given rank.
 func (d *PartitionedDataset[T]) Getitem(rank, size int) (index int) {
 	if item, ok := d.partitions[rank].DeleteNearest(btree.NewItem[T](size, size)); !ok {
-		panic("didn't find item")
+		panic("did not find item")
 	} else {
 		index = item.Index()
 		if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
