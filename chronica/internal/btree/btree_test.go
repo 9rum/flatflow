@@ -52,8 +52,8 @@ func rang(n int) (out []*ItemBase) {
 
 // all extracts all items from a tree in order as a slice.
 func all[T Item](t *BTree[T]) (out []T) {
-	t.Ascend(func(s T) bool {
-		out = append(out, s)
+	t.Ascend(func(a T) bool {
+		out = append(out, a)
 		return true
 	})
 	return
@@ -69,8 +69,8 @@ func rangrev(n int) (out []*ItemBase) {
 
 // allrev extracts all items from a tree in reverse order as a slice.
 func allrev[T Item](t *BTree[T]) (out []T) {
-	t.Descend(func(s T) bool {
-		out = append(out, s)
+	t.Descend(func(a T) bool {
+		out = append(out, a)
 		return true
 	})
 	return
