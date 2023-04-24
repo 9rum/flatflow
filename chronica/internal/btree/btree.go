@@ -193,6 +193,19 @@ func (s items[T]) find(item T) (index int, found bool) {
 	return i, false
 }
 
+// findWithSize returns the index where the given item should be inserted into
+// this list, based on the size comparison.  'found' is true if the size of the
+// item already exists in the list at the given index.
+func (s items[T]) findWithSize(item T) (index int, found bool) {
+	i := sort.Search(len(s), func(i int) bool {
+		return item.Size() < s[i].Size()
+	})
+	if 0 < i && item.Size() == s[i-1].Size() {
+		return i - 1, true
+	}
+	return i, false
+}
+
 // children stores child nodes in a node.
 type children[T Item] []*node[T]
 
@@ -406,12 +419,10 @@ func (n *node[T]) remove(item T, minItems int, typ toRemove) (_ T, _ bool) {
 			return
 		}
 	case removeNearest:
-		i, found = n.items.find(item)
+		i, found = n.items.findWithSize(item)
 		if len(n.children) == 0 {
-			if found {
+			if found || i == 0 {
 				return n.items.removeAt(i), true
-			} else if i == 0 {
-				return n.items.removeAt(0), true
 			} else if i == len(n.items) {
 				return n.items.pop(), true
 			} else if item.Size()-n.items[i-1].Size() < n.items[i].Size()-item.Size() {
