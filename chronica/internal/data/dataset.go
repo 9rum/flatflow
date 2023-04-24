@@ -22,25 +22,15 @@ import "github.com/9rum/chronica/internal/btree"
 
 // Dataset represents the given dataset.
 type Dataset interface {
-	// BatchSize provides a primitive for the number of data samples to select
-	// at each step.
-	BatchSize() int
-
-	// Len provides a primitive for the number of times to schedule.
-	Len() int
-
-	// GetItem provides a mechanism to retrieve a data sample with the given
+	// Getitem provides a mechanism to retrieve a data sample with the given
 	// arguments.  This must provide an index identifying the scheduled
 	// data sample.
-	GetItem(rank, size int) (index int)
-
-	// OnBatchEnd provides a mechanism to be called at the end of every step.
-	OnBatchEnd()
+	Getitem(rank, size int) (index int)
 
 	// OnEpochEnd provides a mechanism to be called at the end of every epoch.
 	OnEpochEnd()
 
-	// OnTrainEnd provides a mechanism to be called at the end of training.
+	// OnTrainEnd provides a mechanism to terminate the training environment.
 	OnTrainEnd()
 }
 
@@ -48,31 +38,17 @@ type Dataset interface {
 // has a replica of the given dataset; hence it ignores rank when looking for
 // the data sample.
 type ShardedDataset[T btree.Item] struct {
-	length     int
-	batchSize  int
-	shuffle    bool
-	dropLast   bool
 	items      *btree.BTree[T]
 	recycleBin *btree.BTree[T]
 }
 
 // NewShardedDataset creates a new sharded dataset with the given arguments.
-func NewShardedDataset[T btree.Item](sizes []int, batchSize int, shuffle, dropLast bool) *ShardedDataset[T] {
+func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
+	// We use the default degree for the nodes to fit on a single memory page.
 	dataset := &ShardedDataset[T]{
-		batchSize: batchSize,
-		shuffle:   shuffle,
-		dropLast:  dropLast,
+		items:      btree.New[T](0),
+		recycleBin: btree.New[T](0),
 	}
-
-	if len(sizes)%batchSize == 0 || dropLast {
-		dataset.length = len(sizes) / batchSize
-	} else {
-		dataset.length = len(sizes)/batchSize + 1
-	}
-
-	// We use the default degree for the nodes to fit on a single page.
-	dataset.items = btree.New[T](0)
-	dataset.recycleBin = btree.New[T](0)
 
 	for index, size := range sizes {
 		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
@@ -83,18 +59,8 @@ func NewShardedDataset[T btree.Item](sizes []int, batchSize int, shuffle, dropLa
 	return dataset
 }
 
-// BatchSize returns the batch size.
-func (d ShardedDataset[T]) BatchSize() int {
-	return d.batchSize
-}
-
-// Len returns the number of remaining steps currently in the training epoch.
-func (d ShardedDataset[T]) Len() int {
-	return d.length
-}
-
-// GetItem looks for the data sample with the size nearest to the given size.
-func (d *ShardedDataset[T]) GetItem(rank, size int) (index int) {
+// Getitem looks for the data sample with the size nearest to the given size.
+func (d *ShardedDataset[T]) Getitem(rank, size int) (index int) {
 	if item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size)); !ok {
 		panic("didn't find item")
 	} else {
@@ -106,13 +72,47 @@ func (d *ShardedDataset[T]) GetItem(rank, size int) (index int) {
 	return
 }
 
+// OnEpochEnd resets the data samples.
+func (d *ShardedDataset[T]) OnEpochEnd() {
+	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
+		if _, found := d.recycleBin.ReplaceOrInsert(item); found {
+			panic("insert found item")
+		}
+	}
+	d.items, d.recycleBin = d.recycleBin, d.items
+}
+
+// OnTrainEnd terminates the training environment.
+func (d *ShardedDataset[T]) OnTrainEnd() {
+	d.items.Clear(false)
+	d.recycleBin.Clear(false)
+}
+
 // PartitionedDataset represents a partitioned dataset where each of the nodes
 // in the cluster holds only a portion of the given dataset.
 type PartitionedDataset[T btree.Item] struct {
-	length      int
-	batchSize   int
-	shuffle     bool
-	dropLast    bool
 	partitions  []*btree.BTree[T]
 	recycleBins []*btree.BTree[T]
+}
+
+// Getitem looks for the data sample with the size nearest to the given size
+// in the partition with the given rank.
+func (d *PartitionedDataset[T]) Getitem(rank, size int) (index int) {
+	if item, ok := d.partitions[rank].DeleteNearest(btree.NewItem[T](size, size)); !ok {
+		panic("didn't find item")
+	} else {
+		index = item.Index()
+		if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
+			panic("insert found item")
+		}
+	}
+	return
+}
+
+// OnTrainEnd terminates the training environment.
+func (d *PartitionedDataset[T]) OnTrainEnd() {
+	for rank, partition := range d.partitions {
+		partition.Clear(false)
+		d.recycleBins[rank].Clear(false)
+	}
 }

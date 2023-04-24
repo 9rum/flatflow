@@ -23,6 +23,10 @@ type Scheduler interface {
 	// WorldSize provides a primitive for the total number of workers in the group.
 	WorldSize() int
 
+	// BatchSize provides a primitive for the number of data samples to select
+	// at each step.
+	BatchSize() int
+
 	// Schedule provides a mechanism for selecting data samples to assign
 	// to each worker.
 	Schedule() []map[int]struct{}
@@ -33,11 +37,17 @@ type Scheduler interface {
 // with similar performance.
 type SchedulerBase struct {
 	worldSize int
+	batchSize int
 }
 
 // WorldSize returns the total number of workers in the group.
 func (s SchedulerBase) WorldSize() int {
 	return s.worldSize
+}
+
+// BatchSize returns the batch size.
+func (s SchedulerBase) BatchSize() int {
+	return s.batchSize
 }
 
 // Schedule assigns the next mini-batch to the worker.
