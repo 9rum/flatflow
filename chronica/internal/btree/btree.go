@@ -194,8 +194,8 @@ func (s items[T]) find(item T) (index int, found bool) {
 }
 
 // findWithSize returns the index where the given item should be inserted into
-// this list, based on the size comparison.  'found' is true if the size of the
-// item already exists in the list at the given index.
+// this list based on the size comparison.  'found' is true if the item's size
+// already exists at the given index.
 func (s items[T]) findWithSize(item T) (index int, found bool) {
 	i := sort.Search(len(s), func(i int) bool {
 		return item.Size() < s[i].Size()
