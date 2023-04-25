@@ -125,12 +125,9 @@ func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 // defaultDegree finds the degree for type T that allows node[T] to fit on a
 // single memory page.
 func defaultDegree[T Item]() int {
-	var (
-		zero T
-		ptr  uintptr
-	)
+	var zero T
 	size := int(unsafe.Sizeof(zero))
-	ptrsize := int(unsafe.Sizeof(ptr))
+	ptrsize := int(unsafe.Sizeof(uintptr(0)))
 	return (os.Getpagesize() + size - ptrsize) / (2 * (size + ptrsize))
 }
 
