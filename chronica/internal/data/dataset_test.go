@@ -43,7 +43,7 @@ func TestShardedDataset(t *testing.T) {
 	for epoch := 0; epoch < n; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if dataset.Getitem(sizes[index], sizes[index]) != index {
+				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -61,7 +61,7 @@ func TestShardedDataset(t *testing.T) {
 	for epoch := 0; epoch < n; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if dataset.Getitem(sizes[index], sizes[index]) != index {
+				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
