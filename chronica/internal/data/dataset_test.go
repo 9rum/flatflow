@@ -33,14 +33,13 @@ func TestShardedDataset(t *testing.T) {
 	const (
 		datasetSize = 10000
 		batchSize   = 10
-		n           = 10
 	)
 
 	sizes := rand.Perm(datasetSize)
 
 	var dataset Dataset = NewShardedDataset[*btree.ItemBase](sizes)
 
-	for epoch := 0; epoch < n; epoch++ {
+	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
@@ -58,7 +57,7 @@ func TestShardedDataset(t *testing.T) {
 
 	dataset = NewShardedDataset[*btree.ItemBase](sizes)
 
-	for epoch := 0; epoch < n; epoch++ {
+	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
@@ -71,13 +70,12 @@ func TestShardedDataset(t *testing.T) {
 	dataset.OnTrainEnd()
 }
 
+const benchmarkDatasetSize = 10000
+
 func BenchmarkShardedDataset(b *testing.B) {
 	b.StopTimer()
 
-	const (
-		benchmarkDatasetSize = 10000
-		batchSize            = 10
-	)
+	const batchSize = 10
 
 	sizes := rand.Perm(benchmarkDatasetSize)
 
