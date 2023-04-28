@@ -113,6 +113,10 @@ func (d *ShardedDataset[T]) Rand(rank int) (index, size int) {
 	}
 	index, size = item.Index(), item.Size()
 
+	if _, found := d.recycleBin.ReplaceOrInsert(item); found {
+		panic("insert found item")
+	}
+
 	return
 }
 
@@ -180,6 +184,10 @@ func (d *PartitionedDataset[T]) Rand(rank int) (index, size int) {
 		panic("didn't find item")
 	}
 	index, size = item.Index(), item.Size()
+
+	if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
+		panic("insert found item")
+	}
 
 	return
 }
