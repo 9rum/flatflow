@@ -18,7 +18,11 @@
 // the workload on each worker.
 package scheduler
 
-import "github.com/9rum/chronica/internal/data"
+import (
+	"sync"
+
+	"github.com/9rum/chronica/internal/data"
+)
 
 // Scheduler represents the data scheduler.
 type Scheduler interface {
@@ -74,11 +78,11 @@ func (s *SchedulerBase) Schedule() []map[int]struct{} {
 	}
 
 	// assign random first pivots
-	for rank := 0; rank < s.worldSize; rank++ {
+	for rank := range indices {
 		if 0 < s.dataset.Len(rank) {
 			index, size := s.dataset.Rand(rank)
 			indices[rank][index] = struct{}{}
-			bins[rank] += size
+			bins[rank] = size
 			if binSize < bins[rank] {
 				binSize = bins[rank]
 			}
@@ -87,7 +91,7 @@ func (s *SchedulerBase) Schedule() []map[int]struct{} {
 
 	// select data samples iteratively in a best-fit fashion
 	for step := 1; step < s.batchSize/s.worldSize; step++ {
-		for rank := 0; rank < s.worldSize; rank++ {
+		for rank := range indices {
 			if 0 < s.dataset.Len(rank) {
 				index, size := s.dataset.Getitem(rank, binSize-bins[rank])
 				indices[rank][index] = struct{}{}
@@ -118,7 +122,7 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 	}
 }
 
-// Schedule returns the indices of the scheduled data samples.  It adopts the
+// Schedule returns the indices of the scheduled data samples.  It adopts
 // first-fit-decreasing (FFD), which is an approximately-optimal heuristic for
 // bin packing, but with the random first pivots.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
@@ -131,25 +135,32 @@ func (s *StaticScheduler) Schedule() []map[int]struct{} {
 	}
 
 	// assign random first pivots
-	for rank := 0; rank < s.worldSize; rank++ {
+	for rank := range indices {
 		if 0 < s.dataset.Len(rank) {
 			index, size := s.dataset.Rand(rank)
 			indices[rank][index] = struct{}{}
-			bins[rank] += size
+			bins[rank] = size
 		}
 	}
 
-	// pack the bins in a first-fit-decreasing fashion
-	for rank := 0; rank < s.worldSize; rank++ {
-		for step := 1; step < s.batchSize/s.worldSize; step++ {
-			if s.dataset.Len(rank) <= 0 {
-				break
+	// pack the bins concurrently in a first-fit-decreasing fashion
+	var wg sync.WaitGroup
+	for rank := range indices {
+		wg.Add(1)
+		go func(rank int) {
+			defer wg.Done()
+			for step := 1; step < s.batchSize/s.worldSize; step++ {
+				if s.dataset.Len(rank) <= 0 {
+					break
+				}
+				index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
+				indices[rank][index] = struct{}{}
+				bins[rank] += size
 			}
-			index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
-			indices[rank][index] = struct{}{}
-			bins[rank] += size
-		}
+		}(rank)
 	}
+
+	wg.Wait()
 
 	return indices
 }
