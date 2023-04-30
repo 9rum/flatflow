@@ -106,17 +106,17 @@ func (s *SchedulerBase) Schedule() []map[int]struct{} {
 	return indices
 }
 
-// StaticScheduler provides balanced workload to each of the workers while
-// lowering the peak device memory usage; this allows for larger batch size,
+// SizedScheduler provides balanced workload to each of the workers while
+// limiting the peak device memory usage; this allows for larger batch size,
 // improving the scalability by reducing the overhead of communications.
-type StaticScheduler struct {
+type SizedScheduler struct {
 	*SchedulerBase
 	binSize int
 }
 
-// NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) *StaticScheduler {
-	return &StaticScheduler{
+// NewSizedScheduler creates a new sized scheduler with the given arguments.
+func NewSizedScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) *SizedScheduler {
+	return &SizedScheduler{
 		SchedulerBase: NewSchedulerBase(dataset, worldSize, batchSize),
 		binSize:       binSize,
 	}
@@ -127,7 +127,7 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 // bin packing, but with the random first pivots.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s *StaticScheduler) Schedule() []map[int]struct{} {
+func (s *SizedScheduler) Schedule() []map[int]struct{} {
 	bins := make([]int, s.worldSize)
 	indices := make([]map[int]struct{}, s.worldSize)
 	for rank := range indices {
