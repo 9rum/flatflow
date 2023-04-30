@@ -127,8 +127,8 @@ func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 func defaultDegree[T Item]() int {
 	var zero T
 	size := int(unsafe.Sizeof(zero))
-	ptrsize := int(unsafe.Sizeof(uintptr(0)))
-	return (os.Getpagesize() + size - ptrsize) / (2 * (size + ptrsize))
+	ptrSize := int(unsafe.Sizeof(uintptr(0)))
+	return (os.Getpagesize() + size - ptrSize) / (2 * (size + ptrSize))
 }
 
 // items stores items in a node.
