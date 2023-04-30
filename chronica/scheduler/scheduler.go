@@ -144,16 +144,21 @@ func (s *SizedScheduler) Schedule() []map[int]struct{} {
 	}
 
 	// pack the bins concurrently in a first-fit-decreasing fashion
-	var wg sync.WaitGroup
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
 	for rank := range indices {
 		wg.Add(1)
 		go func(rank int) {
 			defer wg.Done()
 			for step := 1; step < s.batchSize/s.worldSize; step++ {
+				mu.Lock()
 				if s.dataset.Len(rank) <= 0 {
 					break
 				}
 				index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
+				mu.Unlock()
 				indices[rank][index] = struct{}{}
 				bins[rank] += size
 			}

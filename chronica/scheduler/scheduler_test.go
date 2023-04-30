@@ -16,6 +16,7 @@ package scheduler
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -42,6 +43,14 @@ func reduce(indices []map[int]struct{}, sizes []int) []int {
 	return sums
 }
 
+func mean(sizes []int) float64 {
+	sum := 0
+	for _, size := range sizes {
+		sum += size
+	}
+	return float64(sum) / float64(len(sizes))
+}
+
 func TestSchedulerBase(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
@@ -64,16 +73,58 @@ func TestSchedulerBase(t *testing.T) {
 	dataset.OnTrainEnd()
 }
 
+func TestSizedScheduler(t *testing.T) {
+	const (
+		datasetSize = 1 << 10
+		worldSize   = 1 << 2
+		batchSize   = 1 << 5
+	)
+	var (
+		sizes                  = rand.Perm(datasetSize)
+		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
+		scheduler Scheduler    = NewSizedScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
+	)
+	for epoch := 0; epoch < 10; epoch++ {
+		t.Logf("epoch: %d", epoch)
+		for step := 0; step < datasetSize/batchSize; step++ {
+			indices := scheduler.Schedule()
+			t.Logf("step: %d got: %v", step, reduce(indices, sizes))
+		}
+		dataset.OnEpochEnd()
+	}
+	dataset.OnTrainEnd()
+}
+
+const benchmarkDatasetSize = 1 << 14
+
 func BenchmarkSchedulerBase(b *testing.B) {
 	const (
-		benchmarkDatasetSize = 1 << 14
-		worldSize            = 1 << 3
-		batchSize            = 1 << 7
+		worldSize = 1 << 3
+		batchSize = 1 << 7
 	)
 	var (
 		sizes                  = rand.Perm(benchmarkDatasetSize)
 		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
 		scheduler Scheduler    = NewSchedulerBase(dataset, worldSize, batchSize)
+	)
+	for epoch := 0; epoch < b.N; epoch++ {
+		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
+			scheduler.Schedule()
+		}
+		dataset.OnEpochEnd()
+	}
+	dataset.OnTrainEnd()
+}
+
+func BenchmarkSizedScheduler(b *testing.B) {
+	const (
+		worldSize = 1 << 3
+		batchSize = 1 << 7
+	)
+	var (
+		sizes                  = rand.Perm(benchmarkDatasetSize)
+		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
+		scheduler Scheduler    = NewSizedScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
 	)
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
