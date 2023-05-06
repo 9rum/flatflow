@@ -66,6 +66,9 @@ class Dataset(Generic[T_co]):
     # See NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
     # in pytorch/torch/utils/data/sampler.py
 
+    def __sizeof__(self, index) -> int:
+        return 1
+
 
 class IterableDataset(Dataset[T_co]):
     r"""An iterable Dataset.
