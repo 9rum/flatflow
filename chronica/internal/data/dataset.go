@@ -55,7 +55,7 @@ type ShardedDataset[T btree.Item] struct {
 	recycleBin *btree.BTree[T]
 }
 
-// NewShardedDataset creates a new sharded dataset with the given arguments.
+// NewShardedDataset creates a new sharded dataset with the given argument.
 func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
 	// We use the default degree for the nodes to fit on a single memory page.
 	dataset := &ShardedDataset[T]{
@@ -143,6 +143,31 @@ type PartitionedDataset[T btree.Item] struct {
 	recycleBins []*btree.BTree[T]
 }
 
+// NewPartitionedDataset creates a new partitioned dataset with the given argument.
+func NewPartitionedDataset[T btree.Item](sizes [][]int) *PartitionedDataset[T] {
+	dataset := &PartitionedDataset[T]{
+		partitions:  make([]*btree.BTree[T], len(sizes)),
+		recycleBins: make([]*btree.BTree[T], len(sizes)),
+	}
+
+	// We assume that the indices are sequentially distributed across workers.
+	base := 0
+
+	for rank, set := range sizes {
+		// We use the default degree for the nodes to fit on a single memory page.
+		dataset.partitions[rank] = btree.New[T](0)
+		dataset.recycleBins[rank] = btree.New[T](0)
+		for index, size := range set {
+			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
+				panic("insert found item")
+			}
+		}
+		base += len(sizes[rank])
+	}
+
+	return dataset
+}
+
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
 func (d *PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
@@ -190,6 +215,18 @@ func (d *PartitionedDataset[T]) Rand(rank int) (index, size int) {
 	}
 
 	return
+}
+
+// OnEpochEnd resets the data partitions.
+func (d *PartitionedDataset[T]) OnEpochEnd() {
+	for rank, partition := range d.partitions {
+		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
+			if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
+				panic("insert found item")
+			}
+		}
+		d.partitions[rank], d.recycleBins[rank] = d.recycleBins[rank], d.partitions[rank]
+	}
 }
 
 // OnTrainEnd terminates the training environment.
