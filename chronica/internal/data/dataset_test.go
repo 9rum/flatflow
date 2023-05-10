@@ -42,7 +42,7 @@ func TestShardedDataset(t *testing.T) {
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
+				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -60,8 +60,59 @@ func TestShardedDataset(t *testing.T) {
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if idx, size := dataset.Getitem(sizes[index], sizes[index]); idx != index || size != sizes[index] {
+				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
+				}
+			}
+		}
+		dataset.OnEpochEnd()
+	}
+	dataset.OnTrainEnd()
+}
+
+func TestPartitionedDataset(t *testing.T) {
+	const (
+		datasetSize = 10000
+		batchSize   = 40
+		worldSize   = 4
+	)
+
+	sizes := make([][]int, worldSize)
+	for rank := range sizes {
+		sizes[rank] = rand.Perm(datasetSize / worldSize)
+	}
+
+	var dataset Dataset = NewPartitionedDataset[*btree.ItemBase](sizes)
+
+	for epoch := 0; epoch < 10; epoch++ {
+		for step := 0; step < datasetSize/batchSize; step++ {
+			for rank := 0; rank < worldSize; rank++ {
+				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
+					if _, size := dataset.Getitem(rank, sizes[rank][index]); size != sizes[rank][index] {
+						t.Fatalf("did not find %d", sizes[rank][index])
+					}
+				}
+			}
+		}
+		dataset.OnEpochEnd()
+	}
+	dataset.OnTrainEnd()
+
+	for _, partition := range sizes {
+		for size := range partition {
+			partition[size] = size
+		}
+	}
+
+	dataset = NewPartitionedDataset[*btree.ItemBase](sizes)
+
+	for epoch := 0; epoch < 10; epoch++ {
+		for step := 0; step < datasetSize/batchSize; step++ {
+			for rank := 0; rank < worldSize; rank++ {
+				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
+					if _, size := dataset.Getitem(rank, sizes[rank][index]); size != sizes[rank][index] {
+						t.Fatalf("did not find %d", sizes[rank][index])
+					}
 				}
 			}
 		}
@@ -87,6 +138,36 @@ func BenchmarkShardedDataset(b *testing.B) {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				dataset.Getitem(sizes[index], sizes[index])
+			}
+		}
+		dataset.OnEpochEnd()
+	}
+	dataset.OnTrainEnd()
+}
+
+func BenchmarkPartitionedDataset(b *testing.B) {
+	b.StopTimer()
+
+	const (
+		batchSize = 40
+		worldSize = 4
+	)
+
+	sizes := make([][]int, worldSize)
+	for rank := range sizes {
+		sizes[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
+	}
+
+	b.StartTimer()
+
+	var dataset Dataset = NewPartitionedDataset[*btree.ItemBase](sizes)
+
+	for epoch := 0; epoch < b.N; epoch++ {
+		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
+			for rank := 0; rank < worldSize; rank++ {
+				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
+					dataset.Getitem(rank, sizes[rank][index])
+				}
 			}
 		}
 		dataset.OnEpochEnd()

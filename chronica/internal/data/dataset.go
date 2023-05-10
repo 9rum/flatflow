@@ -153,11 +153,11 @@ func NewPartitionedDataset[T btree.Item](sizes [][]int) *PartitionedDataset[T] {
 	// We assume that the indices are sequentially distributed across workers.
 	base := 0
 
-	for rank, set := range sizes {
+	for rank, partition := range sizes {
 		// We use the default degree for the nodes to fit on a single memory page.
 		dataset.partitions[rank] = btree.New[T](0)
 		dataset.recycleBins[rank] = btree.New[T](0)
-		for index, size := range set {
+		for index, size := range partition {
 			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
 				panic("insert found item")
 			}
