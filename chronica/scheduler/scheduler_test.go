@@ -31,11 +31,11 @@ func init() {
 	rand.Seed(seed)
 }
 
-func reduce(indices []map[int]struct{}, sizes []int) []int {
+func reduce(indices [][]int, sizes []int) []int {
 	sums := make([]int, len(indices))
-	for rank, set := range indices {
+	for rank, indexes := range indices {
 		sum := 0
-		for index := range set {
+		for _, index := range indexes {
 			sum += sizes[index]
 		}
 		sums[rank] = sum
@@ -51,7 +51,7 @@ func mean(sizes []int) float64 {
 	return float64(sum) / float64(len(sizes))
 }
 
-func TestSchedulerBase(t *testing.T) {
+func TestStaticScheduler(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
 		worldSize   = 1 << 2
@@ -60,29 +60,7 @@ func TestSchedulerBase(t *testing.T) {
 	var (
 		sizes                  = rand.Perm(datasetSize)
 		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewSchedulerBase(dataset, worldSize, batchSize)
-	)
-	for epoch := 0; epoch < 10; epoch++ {
-		t.Logf("epoch: %d", epoch)
-		for step := 0; step < datasetSize/batchSize; step++ {
-			indices := scheduler.Schedule()
-			t.Logf("step: %d got: %v", step, reduce(indices, sizes))
-		}
-		dataset.OnEpochEnd()
-	}
-	dataset.OnTrainEnd()
-}
-
-func TestSizedScheduler(t *testing.T) {
-	const (
-		datasetSize = 1 << 10
-		worldSize   = 1 << 2
-		batchSize   = 1 << 5
-	)
-	var (
-		sizes                  = rand.Perm(datasetSize)
-		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewSizedScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
+		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
 	)
 	for epoch := 0; epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
@@ -97,7 +75,7 @@ func TestSizedScheduler(t *testing.T) {
 
 const benchmarkDatasetSize = 1 << 14
 
-func BenchmarkSchedulerBase(b *testing.B) {
+func BenchmarkStaticScheduler(b *testing.B) {
 	b.StopTimer()
 	const (
 		worldSize = 1 << 3
@@ -106,28 +84,7 @@ func BenchmarkSchedulerBase(b *testing.B) {
 	var (
 		sizes                  = rand.Perm(benchmarkDatasetSize)
 		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewSchedulerBase(dataset, worldSize, batchSize)
-	)
-	b.StartTimer()
-	for epoch := 0; epoch < b.N; epoch++ {
-		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
-			scheduler.Schedule()
-		}
-		dataset.OnEpochEnd()
-	}
-	dataset.OnTrainEnd()
-}
-
-func BenchmarkSizedScheduler(b *testing.B) {
-	b.StopTimer()
-	const (
-		worldSize = 1 << 3
-		batchSize = 1 << 7
-	)
-	var (
-		sizes                  = rand.Perm(benchmarkDatasetSize)
-		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewSizedScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
+		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
 	)
 	b.StartTimer()
 	for epoch := 0; epoch < b.N; epoch++ {

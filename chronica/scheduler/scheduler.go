@@ -31,110 +31,56 @@ type Scheduler interface {
 
 	// Schedule provides a mechanism for selecting data samples to be assigned
 	// to each worker.
-	Schedule() []map[int]struct{}
+	Schedule() [][]int
 }
 
-// SchedulerBase aims to reduce the load imbalance between workers.  It provides
-// static data scheduling, which can be effective in a group of workers with
-// similar performance.
-type SchedulerBase struct {
+// StaticScheduler provides balanced workload to each of the workers while
+// limiting the peak device memory usage; this allows for larger batch size,
+// improving the scalability by reducing the overhead of communications.
+type StaticScheduler struct {
 	dataset   data.Dataset
 	worldSize int
 	batchSize int
+	binSize   int
 }
 
-// NewSchedulerBase creates a new base scheduler with the given arguments.
-func NewSchedulerBase(dataset data.Dataset, worldSize, batchSize int) *SchedulerBase {
-	return &SchedulerBase{
+// NewStaticScheduler creates a new static scheduler with the given arguments.
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) *StaticScheduler {
+	return &StaticScheduler{
 		dataset:   dataset,
 		worldSize: worldSize,
 		batchSize: batchSize,
+		binSize:   binSize,
 	}
 }
 
 // WorldSize returns the total number of workers in the group.
-func (s SchedulerBase) WorldSize() int {
+func (s StaticScheduler) WorldSize() int {
 	return s.worldSize
 }
 
 // BatchSize returns the batch size.
-func (s SchedulerBase) BatchSize() int {
+func (s StaticScheduler) BatchSize() int {
 	return s.batchSize
 }
 
-// Schedule assigns the next mini-batch to each of the workers.  It utilizes the
-// best-fit bin packing, but with the random first pivots.
-// Best-fit bin packing paper: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=26899b37abf3df0c1d2adaeb51acad2ab44b9c43
-func (s *SchedulerBase) Schedule() []map[int]struct{} {
-	binSize := 0
-	bins := make([]int, s.worldSize)
-	indices := make([]map[int]struct{}, s.worldSize)
-	for rank := range indices {
-		indices[rank] = make(map[int]struct{})
-	}
-
-	// assign random first pivots
-	for rank := range indices {
-		if 0 < s.dataset.Len(rank) {
-			index, size := s.dataset.Rand(rank)
-			indices[rank][index] = struct{}{}
-			bins[rank] = size
-			if binSize < bins[rank] {
-				binSize = bins[rank]
-			}
-		}
-	}
-
-	// select data samples iteratively in a best-fit fashion
-	for step := 1; step < s.batchSize/s.worldSize; step++ {
-		for rank := range indices {
-			if 0 < s.dataset.Len(rank) {
-				index, size := s.dataset.Getitem(rank, binSize-bins[rank])
-				indices[rank][index] = struct{}{}
-				bins[rank] += size
-				if binSize < bins[rank] {
-					binSize = bins[rank]
-				}
-			}
-		}
-	}
-
-	return indices
-}
-
-// SizedScheduler provides balanced workload to each of the workers while
-// limiting the peak device memory usage; this allows for larger batch size,
-// improving the scalability by reducing the overhead of communications.
-type SizedScheduler struct {
-	*SchedulerBase
-	binSize int
-}
-
-// NewSizedScheduler creates a new sized scheduler with the given arguments.
-func NewSizedScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) *SizedScheduler {
-	return &SizedScheduler{
-		SchedulerBase: NewSchedulerBase(dataset, worldSize, batchSize),
-		binSize:       binSize,
-	}
-}
-
-// Schedule returns the indices of the scheduled data samples.  It adopts
+// Schedule assigns the next mini-batch to each of the workers.  It adopts
 // first-fit-decreasing (FFD), which is an approximately-optimal heuristic for
 // bin packing, but with the random first pivots.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s *SizedScheduler) Schedule() []map[int]struct{} {
+func (s *StaticScheduler) Schedule() [][]int {
 	bins := make([]int, s.worldSize)
-	indices := make([]map[int]struct{}, s.worldSize)
+	indices := make([][]int, s.worldSize)
 	for rank := range indices {
-		indices[rank] = make(map[int]struct{})
+		indices[rank] = make([]int, 0, s.batchSize/s.worldSize)
 	}
 
 	// assign random first pivots
 	for rank := range indices {
 		if 0 < s.dataset.Len(rank) {
 			index, size := s.dataset.Rand(rank)
-			indices[rank][index] = struct{}{}
+			indices[rank] = append(indices[rank], index)
 			bins[rank] = size
 		}
 	}
@@ -146,7 +92,7 @@ func (s *SizedScheduler) Schedule() []map[int]struct{} {
 				break
 			}
 			index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
-			indices[rank][index] = struct{}{}
+			indices[rank] = append(indices[rank], index)
 			bins[rank] += size
 		}
 	}
