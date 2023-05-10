@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // The messages and services in this file describe the definitions for
-// communicating with the scheduler of Chronica.
+// communicating with Chronica's scheduler.
 
 syntax = "proto3";
 
@@ -31,9 +31,8 @@ service Scheduler {
 }
 
 enum Schedule {
-  SIZED = 0;
-  STATIC = 1;
-  DYNAMIC = 2;
+  STATIC = 0;
+  DYNAMIC = 1;
 }
 
 message Arguments {
