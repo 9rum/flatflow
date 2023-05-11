@@ -22,13 +22,6 @@ import "github.com/9rum/chronica/internal/data"
 
 // Scheduler represents the data scheduler.
 type Scheduler interface {
-	// WorldSize provides a primitive for the total number of workers in the group.
-	WorldSize() int
-
-	// BatchSize provides a primitive for the number of data samples to select
-	// at each step.
-	BatchSize() int
-
 	// Schedule provides a mechanism for selecting data samples to be assigned
 	// to each worker.
 	Schedule() [][]int
@@ -52,16 +45,6 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 		batchSize: batchSize,
 		binSize:   binSize,
 	}
-}
-
-// WorldSize returns the total number of workers in the group.
-func (s StaticScheduler) WorldSize() int {
-	return s.worldSize
-}
-
-// BatchSize returns the batch size.
-func (s StaticScheduler) BatchSize() int {
-	return s.batchSize
 }
 
 // Schedule assigns the next mini-batch to each of the workers.  It adopts
