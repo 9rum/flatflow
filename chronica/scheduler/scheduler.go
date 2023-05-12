@@ -22,8 +22,7 @@ import "github.com/9rum/chronica/internal/data"
 
 // Scheduler represents the data scheduler.
 type Scheduler interface {
-	// Schedule provides a mechanism for selecting data samples to be assigned
-	// to each worker.
+	// Schedule selects data samples for the next mini-batch.
 	Schedule() [][]int
 }
 
