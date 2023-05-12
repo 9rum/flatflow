@@ -27,23 +27,20 @@ import (
 
 // Dataset represents the given dataset.
 type Dataset interface {
-	// Getitem provides a mechanism to retrieve a data sample with the given
-	// arguments.  This must provide an index identifying the scheduled
-	// data sample and its size.
+	// Getitem retrieves a data sample with the given arguments.  This must provide
+	// an index identifying the scheduled data sample and its size.
 	Getitem(rank, size int) (index, siz int)
 
-	// Len provides a primitive for the number of data samples currently
-	// in the dataset.
+	// Len returns the number of data samples currently in the dataset.
 	Len(rank int) int
 
-	// Rand provides a primitive for selecting an arbitrary data sample
-	// from the dataset.
+	// Rand retrieves an arbitrary data sample from the dataset.
 	Rand(rank int) (index, size int)
 
-	// OnEpochEnd provides a mechanism to be called at the end of every epoch.
+	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd()
 
-	// OnTrainEnd provides a mechanism to terminate the training environment.
+	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
 }
 
@@ -73,7 +70,7 @@ func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
-func (d *ShardedDataset[T]) Getitem(rank, size int) (index, siz int) {
+func (d ShardedDataset[T]) Getitem(rank, size int) (index, siz int) {
 	if item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size)); !ok {
 		panic("didn't find item")
 	} else {
@@ -91,7 +88,7 @@ func (d ShardedDataset[T]) Len(rank int) int {
 }
 
 // Rand selects a random data sample from the dataset.
-func (d *ShardedDataset[T]) Rand(rank int) (index, size int) {
+func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 	rand.Seed(time.Now().Unix())
 
 	item, ok := d.items.Min()
@@ -133,7 +130,9 @@ func (d *ShardedDataset[T]) OnEpochEnd() {
 // OnTrainEnd terminates the training environment.
 func (d *ShardedDataset[T]) OnTrainEnd() {
 	d.items.Clear(false)
+	d.items = nil
 	d.recycleBin.Clear(false)
+	d.recycleBin = nil
 }
 
 // PartitionedDataset represents a partitioned dataset where each of the nodes
@@ -170,7 +169,7 @@ func NewPartitionedDataset[T btree.Item](sizes [][]int) *PartitionedDataset[T] {
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
-func (d *PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
+func (d PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
 	if item, ok := d.partitions[rank].DeleteNearest(btree.NewItem[T](size, size)); !ok {
 		panic("didn't find item")
 	} else {
@@ -188,7 +187,7 @@ func (d PartitionedDataset[T]) Len(rank int) int {
 }
 
 // Rand selects a random data sample from the dataset.
-func (d *PartitionedDataset[T]) Rand(rank int) (index, size int) {
+func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 	rand.Seed(time.Now().Unix())
 
 	item, ok := d.partitions[rank].Min()
@@ -218,7 +217,7 @@ func (d *PartitionedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data partitions.
-func (d *PartitionedDataset[T]) OnEpochEnd() {
+func (d PartitionedDataset[T]) OnEpochEnd() {
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
 			if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
@@ -233,6 +232,10 @@ func (d *PartitionedDataset[T]) OnEpochEnd() {
 func (d *PartitionedDataset[T]) OnTrainEnd() {
 	for rank, partition := range d.partitions {
 		partition.Clear(false)
+		d.partitions[rank] = nil
 		d.recycleBins[rank].Clear(false)
+		d.recycleBins[rank] = nil
 	}
+	d.partitions = nil
+	d.recycleBins = nil
 }
