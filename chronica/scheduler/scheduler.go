@@ -26,6 +26,18 @@ type Scheduler interface {
 	Schedule() [][]int
 }
 
+// New creates a new data scheduler.
+func New(typ Schedule, dataset data.Dataset, worldSize, batchSize, binSize int) Scheduler {
+	switch typ {
+	case Schedule_STATIC:
+		return NewStaticScheduler(dataset, worldSize, batchSize, binSize)
+	case Schedule_DYNAMIC:
+		fallthrough
+	default:
+		panic("invalid type")
+	}
+}
+
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,
 // improving the scalability by reducing the overhead of communications.

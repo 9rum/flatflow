@@ -44,6 +44,18 @@ type Dataset interface {
 	OnTrainEnd()
 }
 
+// New creates a new dataset with the given arguments.
+func New[T btree.Item](sizes []int, partition bool, partitionSize int) Dataset {
+	if partition {
+		partitions := make([][]int, 0)
+		for base := 0; base < len(sizes); base += partitionSize {
+			partitions = append(partitions, sizes[base:base+partitionSize])
+		}
+		return NewPartitionedDataset[T](partitions)
+	}
+	return NewShardedDataset[T](sizes)
+}
+
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
 // the data sample.
