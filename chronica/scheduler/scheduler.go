@@ -63,7 +63,7 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 // bin packing, but with the random first pivots.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s *StaticScheduler) Schedule() [][]int {
+func (s StaticScheduler) Schedule() [][]int {
 	bins := make([]int, s.worldSize)
 	indices := make([][]int, s.worldSize)
 	for rank := range indices {

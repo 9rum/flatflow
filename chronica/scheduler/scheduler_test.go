@@ -53,15 +53,6 @@ func reduce(indices [][]int, sizes []int64) []int64 {
 	return sums
 }
 
-// mean returns the mean of the given sizes.
-func mean(sizes []int64) float64 {
-	sum := int64(0)
-	for _, size := range sizes {
-		sum += size
-	}
-	return float64(sum) / float64(len(sizes))
-}
-
 func TestStaticScheduler(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
