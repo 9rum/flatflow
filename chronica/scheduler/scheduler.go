@@ -21,27 +21,40 @@ package scheduler
 import "github.com/9rum/chronica/internal/data"
 
 // Scheduler represents the data scheduler.
+// All implementations must embed SchedulerBase for forward compatibility.
 type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
 	Schedule() [][]int
+
+	// OnBatchEnd is called at the end of a training batch.
+	OnBatchEnd()
+
+	// OnEpochEnd is called at the end of an epoch during training.
+	OnEpochEnd()
+
+	// OnTrainEnd terminates the training environment.
+	OnTrainEnd()
+
+	mustEmbedSchedulerBase()
 }
 
-// New creates a new data scheduler.
-func New(typ Schedule, dataset data.Dataset, worldSize, batchSize, binSize int) Scheduler {
-	switch typ {
-	case Schedule_STATIC:
-		return NewStaticScheduler(dataset, worldSize, batchSize, binSize)
-	case Schedule_DYNAMIC:
-		fallthrough
-	default:
-		panic("invalid type")
-	}
+// SchedulerBase must be embedded to have forward compatible implementations.
+type SchedulerBase struct {
 }
+
+func (SchedulerBase) Schedule() [][]int {
+	return nil
+}
+func (SchedulerBase) OnBatchEnd()             {}
+func (SchedulerBase) OnEpochEnd()             {}
+func (SchedulerBase) OnTrainEnd()             {}
+func (SchedulerBase) mustEmbedSchedulerBase() {}
 
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,
 // improving the scalability by reducing the overhead of communications.
 type StaticScheduler struct {
+	SchedulerBase
 	dataset   data.Dataset
 	worldSize int
 	batchSize int
@@ -92,4 +105,20 @@ func (s StaticScheduler) Schedule() [][]int {
 	}
 
 	return indices
+}
+
+// OnBatchEnd is called at the end of a training batch.
+func (s StaticScheduler) OnBatchEnd() {
+	s.dataset.OnBatchEnd()
+}
+
+// OnEpochEnd is called at the end of an epoch during training.
+func (s StaticScheduler) OnEpochEnd() {
+	s.dataset.OnEpochEnd()
+}
+
+// OnTrainEnd terminates the training environment.
+func (s *StaticScheduler) OnTrainEnd() {
+	s.dataset.OnTrainEnd()
+	s.dataset = nil
 }
