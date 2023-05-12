@@ -26,6 +26,7 @@ import (
 )
 
 // Dataset represents the given dataset.
+// All implementations must embed DatasetBase for forward compatibility.
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
@@ -37,29 +38,41 @@ type Dataset interface {
 	// Rand retrieves an arbitrary data sample from the dataset.
 	Rand(rank int) (index, size int)
 
+	// OnBatchEnd is called at the end of a training batch.
+	OnBatchEnd()
+
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd()
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
+
+	mustEmbedDatasetBase()
 }
 
-// New creates a new dataset with the given arguments.
-func New[T btree.Item](sizes []int64, partition bool, partitionSize int) Dataset {
-	if partition {
-		partitions := make([][]int64, 0)
-		for base := 0; base < len(sizes); base += partitionSize {
-			partitions = append(partitions, sizes[base:base+partitionSize])
-		}
-		return NewPartitionedDataset[T](partitions)
-	}
-	return NewShardedDataset[T](sizes)
+// DatasetBase must be embedded to have forward compatible implementations.
+type DatasetBase struct {
 }
+
+func (DatasetBase) Getitem(int, int) (_, _ int) {
+	return
+}
+func (DatasetBase) Len(int) (_ int) {
+	return
+}
+func (DatasetBase) Rand(int) (_, _ int) {
+	return
+}
+func (DatasetBase) OnBatchEnd()           {}
+func (DatasetBase) OnEpochEnd()           {}
+func (DatasetBase) OnTrainEnd()           {}
+func (DatasetBase) mustEmbedDatasetBase() {}
 
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
 // the data sample.
 type ShardedDataset[T btree.Item] struct {
+	DatasetBase
 	items      *btree.BTree[T]
 	recycleBin *btree.BTree[T]
 }
@@ -150,6 +163,7 @@ func (d *ShardedDataset[T]) OnTrainEnd() {
 // PartitionedDataset represents a partitioned dataset where each of the nodes
 // in the cluster holds only a portion of the given dataset.
 type PartitionedDataset[T btree.Item] struct {
+	DatasetBase
 	partitions  []*btree.BTree[T]
 	recycleBins []*btree.BTree[T]
 }
