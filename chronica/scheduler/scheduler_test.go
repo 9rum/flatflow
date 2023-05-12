@@ -31,6 +31,7 @@ func init() {
 	rand.Seed(seed)
 }
 
+// reduce extracts all rank-wise sums of the selected data sample size.
 func reduce(indices [][]int, sizes []int) []int {
 	sums := make([]int, len(indices))
 	for rank, indexes := range indices {
@@ -43,6 +44,7 @@ func reduce(indices [][]int, sizes []int) []int {
 	return sums
 }
 
+// mean returns the mean of the given sizes.
 func mean(sizes []int) float64 {
 	sum := 0
 	for _, size := range sizes {
