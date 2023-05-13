@@ -34,8 +34,6 @@ type Scheduler interface {
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
-
-	mustEmbedSchedulerBase()
 }
 
 // SchedulerBase must be embedded to have forward compatible implementations.
@@ -45,10 +43,9 @@ type SchedulerBase struct {
 func (SchedulerBase) Schedule() [][]int {
 	return nil
 }
-func (SchedulerBase) OnBatchEnd()             {}
-func (SchedulerBase) OnEpochEnd()             {}
-func (SchedulerBase) OnTrainEnd()             {}
-func (SchedulerBase) mustEmbedSchedulerBase() {}
+func (SchedulerBase) OnBatchEnd() {}
+func (SchedulerBase) OnEpochEnd() {}
+func (SchedulerBase) OnTrainEnd() {}
 
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,

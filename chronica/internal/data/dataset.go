@@ -46,27 +46,24 @@ type Dataset interface {
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
-
-	mustEmbedDatasetBase()
 }
 
 // DatasetBase must be embedded to have forward compatible implementations.
 type DatasetBase struct {
 }
 
-func (DatasetBase) Getitem(int, int) (_, _ int) {
+func (DatasetBase) Getitem(rank, size int) (index, siz int) {
 	return
 }
-func (DatasetBase) Len(int) (_ int) {
+func (DatasetBase) Len(rank int) int {
+	return 0
+}
+func (DatasetBase) Rand(rank int) (index, size int) {
 	return
 }
-func (DatasetBase) Rand(int) (_, _ int) {
-	return
-}
-func (DatasetBase) OnBatchEnd()           {}
-func (DatasetBase) OnEpochEnd()           {}
-func (DatasetBase) OnTrainEnd()           {}
-func (DatasetBase) mustEmbedDatasetBase() {}
+func (DatasetBase) OnBatchEnd() {}
+func (DatasetBase) OnEpochEnd() {}
+func (DatasetBase) OnTrainEnd() {}
 
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
