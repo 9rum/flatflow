@@ -27,7 +27,7 @@ type Scheduler interface {
 	Schedule() [][]int
 
 	// OnBatchEnd is called at the end of a training batch.
-	OnBatchEnd()
+	OnBatchEnd(rank int, coefficient, intercept float64)
 
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd()
@@ -43,9 +43,9 @@ type SchedulerBase struct {
 func (SchedulerBase) Schedule() [][]int {
 	return nil
 }
-func (SchedulerBase) OnBatchEnd() {}
-func (SchedulerBase) OnEpochEnd() {}
-func (SchedulerBase) OnTrainEnd() {}
+func (SchedulerBase) OnBatchEnd(rank int, coefficient, intercept float64) {}
+func (SchedulerBase) OnEpochEnd()                                         {}
+func (SchedulerBase) OnTrainEnd()                                         {}
 
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,
@@ -105,7 +105,7 @@ func (s StaticScheduler) Schedule() [][]int {
 }
 
 // OnBatchEnd is called at the end of a training batch.
-func (s StaticScheduler) OnBatchEnd() {
+func (s StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
 	s.dataset.OnBatchEnd()
 }
 
