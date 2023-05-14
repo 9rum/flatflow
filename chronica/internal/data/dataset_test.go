@@ -29,29 +29,20 @@ func init() {
 	rand.Seed(seed)
 }
 
-// conv converts the type of all items in the given slice.
-func conv(sizes []int) (out []int64) {
-	out = make([]int64, 0, len(sizes))
-	for _, size := range sizes {
-		out = append(out, int64(size))
-	}
-	return
-}
-
 func TestShardedDataset(t *testing.T) {
 	const (
 		datasetSize = 10000
 		batchSize   = 10
 	)
 
-	sizes := conv(rand.Perm(datasetSize))
+	sizes := rand.Perm(datasetSize)
 
 	var dataset Dataset = NewShardedDataset[*btree.ItemBase](sizes)
 
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(int(sizes[index]), int(sizes[index])); size != int(sizes[index]) {
+				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -61,7 +52,7 @@ func TestShardedDataset(t *testing.T) {
 	dataset.OnTrainEnd()
 
 	for size := range sizes {
-		sizes[size] = int64(size)
+		sizes[size] = size
 	}
 
 	dataset = NewShardedDataset[*btree.ItemBase](sizes)
@@ -69,7 +60,7 @@ func TestShardedDataset(t *testing.T) {
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(int(sizes[index]), int(sizes[index])); size != int(sizes[index]) {
+				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -86,9 +77,9 @@ func TestPartitionedDataset(t *testing.T) {
 		worldSize   = 4
 	)
 
-	sizes := make([][]int64, worldSize)
+	sizes := make([][]int, worldSize)
 	for rank := range sizes {
-		sizes[rank] = conv(rand.Perm(datasetSize / worldSize))
+		sizes[rank] = rand.Perm(datasetSize / worldSize)
 	}
 
 	var dataset Dataset = NewPartitionedDataset[*btree.ItemBase](sizes)
@@ -97,7 +88,7 @@ func TestPartitionedDataset(t *testing.T) {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, int(sizes[rank][index])); size != int(sizes[rank][index]) {
+					if _, size := dataset.Getitem(rank, sizes[rank][index]); size != sizes[rank][index] {
 						t.Fatalf("did not find %d", sizes[rank][index])
 					}
 				}
@@ -109,7 +100,7 @@ func TestPartitionedDataset(t *testing.T) {
 
 	for _, partition := range sizes {
 		for size := range partition {
-			partition[size] = int64(size)
+			partition[size] = size
 		}
 	}
 
@@ -119,7 +110,7 @@ func TestPartitionedDataset(t *testing.T) {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, int(sizes[rank][index])); size != int(sizes[rank][index]) {
+					if _, size := dataset.Getitem(rank, sizes[rank][index]); size != sizes[rank][index] {
 						t.Fatalf("did not find %d", sizes[rank][index])
 					}
 				}
@@ -137,7 +128,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 
 	const batchSize = 10
 
-	sizes := conv(rand.Perm(benchmarkDatasetSize))
+	sizes := rand.Perm(benchmarkDatasetSize)
 
 	b.StartTimer()
 
@@ -146,7 +137,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				dataset.Getitem(int(sizes[index]), int(sizes[index]))
+				dataset.Getitem(sizes[index], sizes[index])
 			}
 		}
 		dataset.OnEpochEnd()
@@ -162,9 +153,9 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		worldSize = 4
 	)
 
-	sizes := make([][]int64, worldSize)
+	sizes := make([][]int, worldSize)
 	for rank := range sizes {
-		sizes[rank] = conv(rand.Perm(benchmarkDatasetSize / worldSize))
+		sizes[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
 	}
 
 	b.StartTimer()
@@ -175,7 +166,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					dataset.Getitem(rank, int(sizes[rank][index]))
+					dataset.Getitem(rank, sizes[rank][index])
 				}
 			}
 		}

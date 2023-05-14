@@ -75,7 +75,7 @@ type ShardedDataset[T btree.Item] struct {
 }
 
 // NewShardedDataset creates a new sharded dataset with the given argument.
-func NewShardedDataset[T btree.Item](sizes []int64) *ShardedDataset[T] {
+func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
 	// We use the default degree for the nodes to fit on a single memory page.
 	dataset := &ShardedDataset[T]{
 		items:      btree.New[T](0),
@@ -83,7 +83,7 @@ func NewShardedDataset[T btree.Item](sizes []int64) *ShardedDataset[T] {
 	}
 
 	for index, size := range sizes {
-		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, int(size))); found {
+		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
 			panic("insert found item")
 		}
 	}
@@ -166,7 +166,7 @@ type PartitionedDataset[T btree.Item] struct {
 }
 
 // NewPartitionedDataset creates a new partitioned dataset with the given argument.
-func NewPartitionedDataset[T btree.Item](sizes [][]int64) *PartitionedDataset[T] {
+func NewPartitionedDataset[T btree.Item](sizes [][]int) *PartitionedDataset[T] {
 	dataset := &PartitionedDataset[T]{
 		partitions:  make([]*btree.BTree[T], len(sizes)),
 		recycleBins: make([]*btree.BTree[T], len(sizes)),
@@ -180,7 +180,7 @@ func NewPartitionedDataset[T btree.Item](sizes [][]int64) *PartitionedDataset[T]
 		dataset.partitions[rank] = btree.New[T](0)
 		dataset.recycleBins[rank] = btree.New[T](0)
 		for index, size := range partition {
-			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, int(size))); found {
+			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
 				panic("insert found item")
 			}
 		}
@@ -240,15 +240,15 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data partitions.
-func (d PartitionedDataset[T]) OnEpochEnd() {
+func (d *PartitionedDataset[T]) OnEpochEnd() {
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
 			if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
 				panic("insert found item")
 			}
 		}
-		d.partitions[rank], d.recycleBins[rank] = d.recycleBins[rank], d.partitions[rank]
 	}
+	d.partitions, d.recycleBins = d.recycleBins, d.partitions
 }
 
 // OnTrainEnd terminates the training environment.
