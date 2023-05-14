@@ -39,7 +39,7 @@ type Dataset interface {
 	Rand(rank int) (index, size int)
 
 	// OnBatchEnd is called at the end of a training batch.
-	OnBatchEnd()
+	OnBatchEnd(rank int)
 
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd()
@@ -61,9 +61,9 @@ func (DatasetBase) Len(rank int) int {
 func (DatasetBase) Rand(rank int) (index, size int) {
 	return
 }
-func (DatasetBase) OnBatchEnd() {}
-func (DatasetBase) OnEpochEnd() {}
-func (DatasetBase) OnTrainEnd() {}
+func (DatasetBase) OnBatchEnd(rank int) {}
+func (DatasetBase) OnEpochEnd()         {}
+func (DatasetBase) OnTrainEnd()         {}
 
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
