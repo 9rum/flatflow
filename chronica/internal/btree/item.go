@@ -22,6 +22,7 @@ import "reflect"
 var typeOfItemBase = reflect.TypeOf(new(ItemBase))
 
 // Item represents a single object in the tree.
+// All implementations must embed ItemBase for forward compatibility.
 type Item interface {
 	// Index provides a primitive to identify a particular item in the tree.
 	Index() int
