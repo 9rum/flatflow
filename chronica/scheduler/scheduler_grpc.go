@@ -34,7 +34,6 @@ import (
 // schedulerServer implements the server API for Scheduler service.
 type schedulerServer struct {
 	UnimplementedSchedulerServer
-	dataset   data.Dataset
 	scheduler Scheduler
 	done      chan<- os.Signal
 }
@@ -47,6 +46,7 @@ func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
 // Init initializes the training environment.
 func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
 	// initialize a dataset with the given sizes
+	var dataset data.Dataset
 	sizes := cast(in.GetSizes())
 
 	if in.GetPartition() {
@@ -54,15 +54,15 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 		for base := 0; base < len(sizes); base += int(in.GetPartitionSize()) {
 			partitions = append(partitions, sizes[base:base+int(in.GetPartitionSize())])
 		}
-		s.dataset = data.NewPartitionedDataset[*btree.ItemBase](partitions)
+		dataset = data.NewPartitionedDataset[*btree.ItemBase](partitions)
 	} else {
-		s.dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
+		dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
 	}
 
 	// initialize a scheduler based on the given schedule type
 	switch in.GetType() {
 	case Schedule_STATIC:
-		s.scheduler = NewStaticScheduler(s.dataset, int(in.GetWorldSize()), int(in.GetBatchSize()), binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()))
+		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()), binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()))
 	case Schedule_DYNAMIC:
 		fallthrough
 	default:
@@ -118,7 +118,6 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 // the training environment for scheduling in the next training epoch.
 func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
 	s.scheduler.OnEpochEnd()
-	s.dataset.OnEpochEnd()
 
 	if r := recover(); r != nil {
 		return nil, status.Errorf(codes.Internal, "%v", r)
@@ -135,8 +134,6 @@ func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty
 
 	s.scheduler.OnTrainEnd()
 	s.scheduler = nil
-	s.dataset.OnTrainEnd()
-	s.dataset = nil
 
 	if r := recover(); r != nil {
 		return nil, status.Errorf(codes.Internal, "%v", r)
