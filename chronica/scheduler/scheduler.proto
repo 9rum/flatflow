@@ -30,7 +30,7 @@ service Scheduler {
   rpc Finalize(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
-enum Schedule {
+enum SCHEDULE {
   STATIC = 0;
   DYNAMIC = 1;
 }
@@ -41,7 +41,7 @@ message Arguments {
   repeated int64 sizes = 3;
   optional bool partition = 4;
   optional int64 partition_size = 5;
-  optional Schedule type = 6;
+  optional SCHEDULE type = 6;
 }
 
 message Feedback {
