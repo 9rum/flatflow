@@ -16,7 +16,6 @@ package scheduler
 
 import (
 	"fmt"
-	"math"
 	"math/rand"
 	"testing"
 	"time"
@@ -31,20 +30,11 @@ func init() {
 	rand.Seed(seed)
 }
 
-// conv converts the type of all items in the given slice.
-func conv(sizes []int) (out []int64) {
-	out = make([]int64, 0, len(sizes))
-	for _, size := range sizes {
-		out = append(out, int64(size))
-	}
-	return
-}
-
 // reduce extracts all rank-wise sums of the selected data sample size.
-func reduce(indices [][]int, sizes []int64) []int64 {
-	sums := make([]int64, len(indices))
+func reduce(indices [][]int, sizes []int) []int {
+	sums := make([]int, len(indices))
 	for rank, indexes := range indices {
-		sum := int64(0)
+		sum := 0
 		for _, index := range indexes {
 			sum += sizes[index]
 		}
@@ -60,9 +50,9 @@ func TestStaticScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	var (
-		sizes                  = conv(rand.Perm(datasetSize))
+		sizes                  = rand.Perm(datasetSize)
 		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
+		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
 	)
 	for epoch := 0; epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
@@ -84,9 +74,9 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	var (
-		sizes                  = conv(rand.Perm(benchmarkDatasetSize))
+		sizes                  = rand.Perm(benchmarkDatasetSize)
 		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, int(math.Round(mean(sizes)*batchSize/worldSize)))
+		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
 	)
 	b.StartTimer()
 	for epoch := 0; epoch < b.N; epoch++ {

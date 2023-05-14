@@ -104,18 +104,7 @@ func (s StaticScheduler) Schedule() [][]int {
 	return indices
 }
 
-// OnBatchEnd is called at the end of a training batch.
-func (s StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
-	s.dataset.OnBatchEnd()
-}
-
-// OnEpochEnd is called at the end of an epoch during training.
-func (s StaticScheduler) OnEpochEnd() {
-	s.dataset.OnEpochEnd()
-}
-
 // OnTrainEnd terminates the training environment.
 func (s *StaticScheduler) OnTrainEnd() {
-	s.dataset.OnTrainEnd()
 	s.dataset = nil
 }
