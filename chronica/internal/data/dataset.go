@@ -75,7 +75,7 @@ type ShardedDataset[T btree.Item] struct {
 }
 
 // NewShardedDataset creates a new sharded dataset with the given argument.
-func NewShardedDataset[T btree.Item](sizes []int) *ShardedDataset[T] {
+func NewShardedDataset[T btree.Item](sizes []int) Dataset {
 	// We use the default degree for the nodes to fit on a single memory page.
 	dataset := &ShardedDataset[T]{
 		items:      btree.New[T](0),
@@ -166,7 +166,7 @@ type PartitionedDataset[T btree.Item] struct {
 }
 
 // NewPartitionedDataset creates a new partitioned dataset with the given argument.
-func NewPartitionedDataset[T btree.Item](sizes [][]int) *PartitionedDataset[T] {
+func NewPartitionedDataset[T btree.Item](sizes [][]int) Dataset {
 	dataset := &PartitionedDataset[T]{
 		partitions:  make([]*btree.BTree[T], len(sizes)),
 		recycleBins: make([]*btree.BTree[T], len(sizes)),
