@@ -35,6 +35,8 @@ import (
 type schedulerServer struct {
 	UnimplementedSchedulerServer
 	scheduler Scheduler
+	fanin     chan struct{}
+	fanout    []chan []int
 	done      chan<- os.Signal
 }
 
@@ -45,9 +47,17 @@ func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
 
 // Init initializes the training environment.
 func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
+	s.fanin = make(chan struct{})
+	s.fanout = make([]chan []int, in.GetWorldSize())
+	for rank := range s.fanout {
+		s.fanout[rank] = make(chan []int)
+	}
+
 	// initialize a dataset with the given sizes
-	var dataset data.Dataset
-	sizes := cast(in.GetSizes())
+	var (
+		dataset data.Dataset
+		sizes   = cast[int64, int](in.GetSizes())
+	)
 
 	if in.GetPartition() {
 		partitions := make([][]int, 0, in.GetWorldSize())
@@ -61,9 +71,9 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 
 	// initialize a scheduler based on the given schedule type
 	switch in.GetType() {
-	case Schedule_STATIC:
+	case SCHEDULE_STATIC:
 		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()), binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()))
-	case Schedule_DYNAMIC:
+	case SCHEDULE_DYNAMIC:
 		fallthrough
 	default:
 		panic("invalid type")
@@ -75,18 +85,18 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	return new(empty.Empty), nil
 }
 
-// cast casts the given sizes to integer.
-func cast[T constraints.Integer](sizes []T) []int {
-	out := make([]int, len(sizes))
-	stride := int(math.Ceil(float64(len(sizes)) / float64(runtime.NumCPU())))
+// cast casts the given slice.
+func cast[T, U constraints.Integer](slice []T) []U {
+	out := make([]U, len(slice))
+	stride := int(math.Ceil(float64(len(slice)) / float64(runtime.NumCPU())))
 
 	var wg sync.WaitGroup
-	for base := 0; base < len(sizes); base += stride {
+	for base := 0; base < len(slice); base += stride {
 		wg.Add(1)
 		go func(base int) {
 			defer wg.Done()
 			for index := base; index < base+stride; index++ {
-				out[index] = int(sizes[index])
+				out[index] = U(slice[index])
 			}
 		}(base)
 	}
@@ -112,7 +122,32 @@ func mean[T constraints.Integer](sizes []T) float64 {
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
 // feedback-directed optimization, the performance indicators in the given
 // feedback are used to estimate the training time.
-func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, error)
+func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, error) {
+	go func() {
+		s.scheduler.OnBatchEnd(int(in.GetRank()), in.GetCoefficient(), in.GetIntercept())
+		s.fanin <- struct{}{}
+	}()
+
+	if in.GetRank() == 0 {
+		go func() {
+			for range s.fanout {
+				<-s.fanin
+			}
+			for rank, indices := range s.scheduler.Schedule() {
+				go func(rank int, indices []int) {
+					s.fanout[rank] <- indices
+				}(rank, indices)
+			}
+		}()
+	}
+
+	indices := <-s.fanout[in.GetRank()]
+
+	if r := recover(); r != nil {
+		return nil, status.Errorf(codes.Internal, "%v", r)
+	}
+	return &Indices{Indices: cast[int, int64](indices)}, nil
+}
 
 // Reset is called at the end of an epoch during training. This typically resets
 // the training environment for scheduling in the next training epoch.
@@ -134,6 +169,11 @@ func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty
 
 	s.scheduler.OnTrainEnd()
 	s.scheduler = nil
+
+	close(s.fanin)
+	for _, ch := range s.fanout {
+		close(ch)
+	}
 
 	if r := recover(); r != nil {
 		return nil, status.Errorf(codes.Internal, "%v", r)
