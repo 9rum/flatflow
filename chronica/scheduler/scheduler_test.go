@@ -44,11 +44,10 @@ func TestStaticScheduler(t *testing.T) {
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
 	)
-	var (
-		sizes                  = rand.Perm(datasetSize)
-		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
-	)
+	sizes := rand.Perm(datasetSize)
+	dataset := data.NewShardedDataset[*btree.ItemBase](sizes)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
+
 	for epoch := 0; epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
@@ -70,12 +69,11 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		worldSize = 1 << 3
 		batchSize = 1 << 7
 	)
-	var (
-		sizes                  = rand.Perm(benchmarkDatasetSize)
-		dataset   data.Dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
-		scheduler Scheduler    = NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
-	)
+	sizes := rand.Perm(benchmarkDatasetSize)
+	dataset := data.NewShardedDataset[*btree.ItemBase](sizes)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
 	b.StartTimer()
+
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			scheduler.Schedule()

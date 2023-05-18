@@ -61,10 +61,8 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	}
 
 	// initialize a dataset with the given sizes
-	var (
-		dataset data.Dataset
-		sizes   = cast[int64, int](in.GetSizes())
-	)
+	sizes := cast[int64, int](in.GetSizes())
+	var dataset data.Dataset
 
 	if in.GetPartition() {
 		partitions := make([][]int, 0, in.GetWorldSize())

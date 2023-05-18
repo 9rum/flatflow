@@ -67,7 +67,7 @@ type StaticScheduler struct {
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) *StaticScheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) Scheduler {
 	return &StaticScheduler{
 		dataset:   dataset,
 		worldSize: worldSize,
