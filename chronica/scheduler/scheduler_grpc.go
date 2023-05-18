@@ -61,17 +61,24 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	}
 
 	// initialize a dataset with the given sizes
+	var (
+		dataset data.Dataset
+		err     error
+	)
 	sizes := cast[int64, int](in.GetSizes())
-	var dataset data.Dataset
 
 	if in.GetPartition() {
 		partitions := make([][]int, 0, in.GetWorldSize())
 		for base := 0; base < len(sizes); base += int(in.GetPartitionSize()) {
 			partitions = append(partitions, sizes[base:base+int(in.GetPartitionSize())])
 		}
-		dataset = data.NewPartitionedDataset[*btree.ItemBase](partitions)
+		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](partitions)
 	} else {
-		dataset = data.NewShardedDataset[*btree.ItemBase](sizes)
+		dataset, err = data.NewShardedDataset[*btree.ItemBase](sizes)
+	}
+
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// initialize a scheduler based on the given schedule type
@@ -84,9 +91,6 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 		panic("invalid type")
 	}
 
-	if r := recover(); r != nil {
-		return nil, status.Errorf(codes.Internal, "%v", r)
-	}
 	return new(empty.Empty), nil
 }
 
@@ -147,10 +151,6 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 	}
 
 	indices := <-s.fanout[in.GetRank()]
-
-	if r := recover(); r != nil {
-		return nil, status.Errorf(codes.Internal, "%v", r)
-	}
 	return &Indices{Indices: cast[int, int64](indices)}, nil
 }
 
@@ -161,9 +161,6 @@ func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Emp
 
 	s.scheduler.OnEpochEnd()
 
-	if r := recover(); r != nil {
-		return nil, status.Errorf(codes.Internal, "%v", r)
-	}
 	return new(empty.Empty), nil
 }
 
@@ -184,8 +181,5 @@ func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty
 		close(ch)
 	}
 
-	if r := recover(); r != nil {
-		return nil, status.Errorf(codes.Internal, "%v", r)
-	}
 	return new(empty.Empty), nil
 }

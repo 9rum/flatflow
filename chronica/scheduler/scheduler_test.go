@@ -45,7 +45,10 @@ func TestStaticScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
+	if err != nil {
+		t.Fatal(err)
+	}
 	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
 
 	for epoch := 0; epoch < 10; epoch++ {
@@ -70,7 +73,7 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, _ := data.NewShardedDataset[*btree.ItemBase](sizes)
 	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize))
 	b.StartTimer()
 
