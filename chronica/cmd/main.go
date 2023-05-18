@@ -25,6 +25,7 @@ import (
 	"os"
 
 	"github.com/9rum/chronica/scheduler"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"google.golang.org/grpc"
 )
 
@@ -53,7 +54,11 @@ func serve(port int) error {
 }
 
 func newServer() *grpc.Server {
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			grpc_recovery.UnaryServerInterceptor(),
+		),
+	)
 	done := make(chan os.Signal)
 
 	go func(done <-chan os.Signal, server *grpc.Server) {
