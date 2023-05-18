@@ -35,19 +35,21 @@ import (
 type schedulerServer struct {
 	UnimplementedSchedulerServer
 	scheduler Scheduler
+	done      chan<- os.Signal
 	fanin     chan struct{}
 	fanout    []chan []int
-	done      chan<- os.Signal
 }
 
 // NewSchedulerServer creates a new scheduler server.
 func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
-	return &schedulerServer{done: done}
+	return &schedulerServer{
+		done:  done,
+		fanin: make(chan struct{}),
+	}
 }
 
 // Init initializes the training environment.
 func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
-	s.fanin = make(chan struct{})
 	s.fanout = make([]chan []int, in.GetWorldSize())
 	for rank := range s.fanout {
 		s.fanout[rank] = make(chan []int)
@@ -147,8 +149,8 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 	return &Indices{Indices: cast[int, int64](indices)}, nil
 }
 
-// Reset is called at the end of an epoch during training. This typically resets
-// the training environment for scheduling in the next training epoch.
+// Reset is called at the end of an epoch during training. It resets the
+// training environment for scheduling in the next training epoch.
 func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
 	s.scheduler.OnEpochEnd()
 
