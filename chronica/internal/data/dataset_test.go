@@ -35,7 +35,10 @@ func TestShardedDataset(t *testing.T) {
 		batchSize   = 10
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := NewShardedDataset[*btree.ItemBase](sizes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
@@ -52,7 +55,10 @@ func TestShardedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset = NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err = NewShardedDataset[*btree.ItemBase](sizes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
@@ -77,7 +83,10 @@ func TestPartitionedDataset(t *testing.T) {
 	for rank := range sizes {
 		sizes[rank] = rand.Perm(datasetSize / worldSize)
 	}
-	dataset := NewPartitionedDataset[*btree.ItemBase](sizes)
+	dataset, err := NewPartitionedDataset[*btree.ItemBase](sizes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
@@ -98,7 +107,10 @@ func TestPartitionedDataset(t *testing.T) {
 			partition[size] = size
 		}
 	}
-	dataset = NewPartitionedDataset[*btree.ItemBase](sizes)
+	dataset, err = NewPartitionedDataset[*btree.ItemBase](sizes)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for epoch := 0; epoch < 10; epoch++ {
 		for step := 0; step < datasetSize/batchSize; step++ {
@@ -122,7 +134,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 	const batchSize = 10
 	sizes := rand.Perm(benchmarkDatasetSize)
 	b.StartTimer()
-	dataset := NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, _ := NewShardedDataset[*btree.ItemBase](sizes)
 
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
@@ -146,7 +158,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		sizes[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
 	}
 	b.StartTimer()
-	dataset := NewPartitionedDataset[*btree.ItemBase](sizes)
+	dataset, _ := NewPartitionedDataset[*btree.ItemBase](sizes)
 
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {

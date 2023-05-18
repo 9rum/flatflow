@@ -19,6 +19,7 @@
 package data
 
 import (
+	"errors"
 	"math/rand"
 	"time"
 
@@ -75,7 +76,7 @@ type ShardedDataset[T btree.Item] struct {
 }
 
 // NewShardedDataset creates a new sharded dataset with the given argument.
-func NewShardedDataset[T btree.Item](sizes []int) Dataset {
+func NewShardedDataset[T btree.Item](sizes []int) (Dataset, error) {
 	// We use the default degree for the nodes to fit on a single memory page.
 	dataset := &ShardedDataset[T]{
 		items:      btree.New[T](0),
@@ -84,23 +85,21 @@ func NewShardedDataset[T btree.Item](sizes []int) Dataset {
 
 	for index, size := range sizes {
 		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
-			panic("insert found item")
+			return nil, errors.New("insert found item")
 		}
 	}
 
-	return dataset
+	return dataset, nil
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
 func (d ShardedDataset[T]) Getitem(rank, size int) (index, siz int) {
-	if item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size)); !ok {
-		panic("didn't find item")
-	} else {
-		index, siz = item.Index(), item.Size()
-		if _, found := d.recycleBin.ReplaceOrInsert(item); found {
-			panic("insert found item")
-		}
+	item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size))
+	if !ok {
+		return
 	}
+	index, siz = item.Index(), item.Size()
+	d.recycleBin.ReplaceOrInsert(item)
 	return
 }
 
@@ -115,26 +114,24 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 
 	item, ok := d.items.Min()
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	min := item.Size()
 
 	item, ok = d.items.Max()
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
 	item, ok = d.items.DeleteNearest(btree.NewItem[T](pivot, pivot))
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	index, size = item.Index(), item.Size()
 
-	if _, found := d.recycleBin.ReplaceOrInsert(item); found {
-		panic("insert found item")
-	}
+	d.recycleBin.ReplaceOrInsert(item)
 
 	return
 }
@@ -142,9 +139,7 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 // OnEpochEnd resets the data samples.
 func (d *ShardedDataset[T]) OnEpochEnd() {
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
-		if _, found := d.recycleBin.ReplaceOrInsert(item); found {
-			panic("insert found item")
-		}
+		d.recycleBin.ReplaceOrInsert(item)
 	}
 	d.items, d.recycleBin = d.recycleBin, d.items
 }
@@ -166,7 +161,7 @@ type PartitionedDataset[T btree.Item] struct {
 }
 
 // NewPartitionedDataset creates a new partitioned dataset with the given argument.
-func NewPartitionedDataset[T btree.Item](sizes [][]int) Dataset {
+func NewPartitionedDataset[T btree.Item](sizes [][]int) (Dataset, error) {
 	dataset := &PartitionedDataset[T]{
 		partitions:  make([]*btree.BTree[T], len(sizes)),
 		recycleBins: make([]*btree.BTree[T], len(sizes)),
@@ -181,26 +176,24 @@ func NewPartitionedDataset[T btree.Item](sizes [][]int) Dataset {
 		dataset.recycleBins[rank] = btree.New[T](0)
 		for index, size := range partition {
 			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
-				panic("insert found item")
+				return nil, errors.New("insert found item")
 			}
 		}
 		base += len(sizes[rank])
 	}
 
-	return dataset
+	return dataset, nil
 }
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
 func (d PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
-	if item, ok := d.partitions[rank].DeleteNearest(btree.NewItem[T](size, size)); !ok {
-		panic("didn't find item")
-	} else {
-		index, siz = item.Index(), item.Size()
-		if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
-			panic("insert found item")
-		}
+	item, ok := d.partitions[rank].DeleteNearest(btree.NewItem[T](size, size))
+	if !ok {
+		return
 	}
+	index, siz = item.Index(), item.Size()
+	d.recycleBins[rank].ReplaceOrInsert(item)
 	return
 }
 
@@ -215,26 +208,24 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 
 	item, ok := d.partitions[rank].Min()
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	min := item.Size()
 
 	item, ok = d.partitions[rank].Max()
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
 	item, ok = d.partitions[rank].DeleteNearest(btree.NewItem[T](pivot, pivot))
 	if !ok {
-		panic("didn't find item")
+		return
 	}
 	index, size = item.Index(), item.Size()
 
-	if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
-		panic("insert found item")
-	}
+	d.recycleBins[rank].ReplaceOrInsert(item)
 
 	return
 }
@@ -243,9 +234,7 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 func (d *PartitionedDataset[T]) OnEpochEnd() {
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
-			if _, found := d.recycleBins[rank].ReplaceOrInsert(item); found {
-				panic("insert found item")
-			}
+			d.recycleBins[rank].ReplaceOrInsert(item)
 		}
 	}
 	d.partitions, d.recycleBins = d.recycleBins, d.partitions
