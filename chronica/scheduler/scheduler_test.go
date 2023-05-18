@@ -30,17 +30,12 @@ func init() {
 	rand.Seed(seed)
 }
 
-// reduce extracts all rank-wise sums of the selected data sample size.
-func reduce(indices [][]int, sizes []int) []int {
-	sums := make([]int, len(indices))
-	for rank, indexes := range indices {
-		sum := 0
-		for _, index := range indexes {
-			sum += sizes[index]
-		}
-		sums[rank] = sum
+// sum returns the sum of the selected data samples size.
+func sum(indices, sizes []int) (sum int) {
+	for _, index := range indices {
+		sum += sizes[index]
 	}
-	return sums
+	return
 }
 
 func TestStaticScheduler(t *testing.T) {
@@ -57,12 +52,14 @@ func TestStaticScheduler(t *testing.T) {
 	for epoch := 0; epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
-			indices := scheduler.Schedule()
-			t.Logf("step: %d got: %v", step, reduce(indices, sizes))
+			sums := make([]int, 0, worldSize)
+			for _, indices := range scheduler.Schedule() {
+				sums = append(sums, sum(indices, sizes))
+			}
+			t.Logf("step: %d got: %v", step, sums)
 		}
-		dataset.OnEpochEnd()
+		scheduler.OnEpochEnd()
 	}
-	dataset.OnTrainEnd()
 }
 
 const benchmarkDatasetSize = 1 << 14
@@ -83,7 +80,6 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			scheduler.Schedule()
 		}
-		dataset.OnEpochEnd()
+		scheduler.OnEpochEnd()
 	}
-	dataset.OnTrainEnd()
 }

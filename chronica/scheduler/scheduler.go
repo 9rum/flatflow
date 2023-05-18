@@ -18,7 +18,12 @@
 // the workload on each worker.
 package scheduler
 
-import "github.com/9rum/chronica/internal/data"
+import (
+	"math/rand"
+	"time"
+
+	"github.com/9rum/chronica/internal/data"
+)
 
 // Scheduler represents the data scheduler.
 // All implementations must embed SchedulerBase for forward compatibility.
@@ -49,13 +54,16 @@ func (SchedulerBase) OnTrainEnd()                                         {}
 
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,
-// improving the scalability by reducing the overhead of communications.
+// reducing the communication overheads and thereby improving the scalability.
 type StaticScheduler struct {
 	SchedulerBase
 	dataset   data.Dataset
 	worldSize int
 	batchSize int
 	binSize   int
+	epoch     int
+	step      int
+	indices   [][][]int
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
@@ -68,30 +76,35 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 	}
 }
 
-// Schedule assigns the next mini-batch to each of the workers.  It adopts
+// Schedule returns the next mini-batch. It selects data samples in a
+// first-fit-decreasing manner in the first epoch, while the training sequence
+// is randomized by shuffling the batch indices in the subsequent epochs.
+func (s *StaticScheduler) Schedule() [][]int {
+	defer func() {
+		s.step++
+	}()
+
+	if s.epoch == 0 {
+		s.indices = append(s.indices, s.schedule())
+	}
+	return s.indices[s.step]
+}
+
+// schedule assigns the next mini-batch to each of the workers.  It adopts
 // first-fit-decreasing (FFD), which is an approximately-optimal heuristic for
-// bin packing, but with the random first pivots.
+// bin packing.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s StaticScheduler) Schedule() [][]int {
+func (s StaticScheduler) schedule() [][]int {
 	bins := make([]int, s.worldSize)
 	indices := make([][]int, s.worldSize)
 	for rank := range indices {
 		indices[rank] = make([]int, 0, s.batchSize/s.worldSize)
 	}
 
-	// assign random first pivots
-	for rank := range indices {
-		if 0 < s.dataset.Len(rank) {
-			index, size := s.dataset.Rand(rank)
-			indices[rank] = append(indices[rank], index)
-			bins[rank] = size
-		}
-	}
-
 	// pack the bins in a first-fit-decreasing fashion
 	for rank := range indices {
-		for step := 1; step < s.batchSize/s.worldSize; step++ {
+		for step := 0; step < s.batchSize/s.worldSize; step++ {
 			if s.dataset.Len(rank) <= 0 {
 				break
 			}
@@ -104,7 +117,18 @@ func (s StaticScheduler) Schedule() [][]int {
 	return indices
 }
 
-// OnTrainEnd terminates the training environment.
-func (s *StaticScheduler) OnTrainEnd() {
-	s.dataset = nil
+// OnEpochEnd randomizes the training sequence.
+func (s *StaticScheduler) OnEpochEnd() {
+	if s.epoch == 0 {
+		s.dataset.OnTrainEnd()
+		s.dataset = nil
+	}
+
+	rand.Seed(time.Now().Unix())
+	rand.Shuffle(len(s.indices), func(i, j int) {
+		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
+	})
+
+	s.epoch++
+	s.step = 0
 }
