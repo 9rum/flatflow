@@ -32,6 +32,9 @@ func main() {
 	port := flag.Int("p", 50051, "The server port")
 	flag.Parse()
 
+	log.SetOutput(os.Stderr)
+	log.SetFlags(log.LstdFlags)
+
 	if err := serve(*port); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
@@ -44,6 +47,7 @@ func serve(port int) error {
 	}
 
 	server := newServer()
+	log.Printf("server listening at %v", lis.Addr())
 
 	return server.Serve(lis)
 }
