@@ -134,9 +134,7 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 				<-s.fanin
 			}
 			for rank, indices := range s.scheduler.Schedule() {
-				go func(rank int, indices []int) {
-					s.fanout[rank] <- indices
-				}(rank, indices)
+				s.fanout[rank] <- indices
 			}
 		}()
 	}
