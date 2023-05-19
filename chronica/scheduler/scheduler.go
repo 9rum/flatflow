@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build goexperiment.arenas
+
 // Package scheduler provides primitives for scheduling imbalanced data.
 // In addition to static scheduling that reduces the load imbalance,
 // it supports a feedback-directed optimization that adaptively adjusts
@@ -19,6 +21,7 @@
 package scheduler
 
 import (
+	"arena"
 	"math/rand"
 	"time"
 
@@ -61,19 +64,24 @@ type StaticScheduler struct {
 	worldSize int
 	batchSize int
 	binSize   int
-	epoch     int
 	step      int
 	indices   [][][]int
+	arena     *arena.Arena
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
 func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) Scheduler {
-	return &StaticScheduler{
+	// We use memory arenas to reduce GC overhead.
+	scheduler := &StaticScheduler{
 		dataset:   dataset,
 		worldSize: worldSize,
 		batchSize: batchSize,
 		binSize:   binSize,
+		arena:     arena.NewArena(),
 	}
+	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, 0)
+
+	return scheduler
 }
 
 // Schedule returns the next mini-batch. It selects data samples in a
@@ -84,7 +92,7 @@ func (s *StaticScheduler) Schedule() [][]int {
 		s.step++
 	}()
 
-	if s.epoch == 0 {
+	if s.dataset != nil {
 		s.indices = append(s.indices, s.schedule())
 	}
 	return s.indices[s.step]
@@ -97,9 +105,9 @@ func (s *StaticScheduler) Schedule() [][]int {
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
 func (s StaticScheduler) schedule() [][]int {
 	bins := make([]int, s.worldSize)
-	indices := make([][]int, s.worldSize)
+	indices := arena.MakeSlice[[]int](s.arena, s.worldSize, s.worldSize)
 	for rank := range indices {
-		indices[rank] = make([]int, 0, s.batchSize/s.worldSize)
+		indices[rank] = arena.MakeSlice[int](s.arena, 0, s.batchSize/s.worldSize)
 	}
 
 	// pack the bins in a first-fit-decreasing fashion
@@ -117,9 +125,15 @@ func (s StaticScheduler) schedule() [][]int {
 	return indices
 }
 
+func (s StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
+	if s.dataset != nil {
+		s.dataset.OnBatchEnd(rank)
+	}
+}
+
 // OnEpochEnd randomizes the training sequence.
 func (s *StaticScheduler) OnEpochEnd() {
-	if s.epoch == 0 {
+	if s.dataset != nil {
 		s.dataset.OnTrainEnd()
 		s.dataset = nil
 	}
@@ -129,6 +143,10 @@ func (s *StaticScheduler) OnEpochEnd() {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
 
-	s.epoch++
 	s.step = 0
+}
+
+// OnTrainEnd frees the allocated memory arena.
+func (s StaticScheduler) OnTrainEnd() {
+	s.arena.Free()
 }
