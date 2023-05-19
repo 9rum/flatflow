@@ -170,6 +170,10 @@ func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Emp
 // Finalize terminates the training environment.
 func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
 	defer func() {
+		close(s.fanin)
+		for _, c := range s.fanout {
+			close(c)
+		}
 		signal.Notify(s.done, syscall.SIGTERM)
 		close(s.done)
 	}()
@@ -178,11 +182,6 @@ func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty
 
 	s.scheduler.OnTrainEnd()
 	s.scheduler = nil
-
-	close(s.fanin)
-	for _, ch := range s.fanout {
-		close(ch)
-	}
 
 	return new(empty.Empty), nil
 }
