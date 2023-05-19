@@ -25,8 +25,8 @@ import (
 
 	"github.com/9rum/chronica/internal/btree"
 	"github.com/9rum/chronica/internal/data"
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
-	"go.uber.org/zap"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -39,24 +39,20 @@ type schedulerServer struct {
 	done      chan<- os.Signal
 	fanin     chan struct{}
 	fanout    []chan []int
-	logger    *zap.SugaredLogger
 }
 
 // NewSchedulerServer creates a new scheduler server.
 func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
-	logger, _ := zap.NewProduction()
-	defer logger.Sync()
-
 	return &schedulerServer{
-		done:   done,
-		fanin:  make(chan struct{}),
-		logger: logger.Sugar(),
+		done:  done,
+		fanin: make(chan struct{}),
 	}
 }
 
 // Init initializes the training environment.
 func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
-	s.logger.Infof("Init called with world size: %d batch size: %d partition: %t partition size: %d type: %s", in.GetWorldSize(), in.GetBatchSize(), in.GetPartition(), in.GetPartitionSize(), in.GetType())
+	glog.Infof("Init called with world size: %d batch size: %d partition: %t partition size: %d type: %s",
+		in.GetWorldSize(), in.GetBatchSize(), in.GetPartition(), in.GetPartitionSize(), in.GetType())
 
 	s.fanout = make([]chan []int, in.GetWorldSize())
 	for rank := range s.fanout {
@@ -135,7 +131,7 @@ func mean[T constraints.Integer](sizes []T) float64 {
 // feedback-directed optimization, the performance indicators in the given
 // feedback are used to estimate the training time.
 func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, error) {
-	s.logger.Infof("Bcast called from rank %d", in.GetRank())
+	glog.Infof("Bcast called from rank %d", in.GetRank())
 
 	go func() {
 		s.scheduler.OnBatchEnd(int(in.GetRank()), in.GetCoefficient(), in.GetIntercept())
@@ -160,7 +156,7 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 // Reset is called at the end of an epoch during training. It resets the
 // training environment for scheduling in the next training epoch.
 func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
-	s.logger.Info("Reset called")
+	glog.Info("Reset called")
 
 	s.scheduler.OnEpochEnd()
 
@@ -178,7 +174,8 @@ func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty
 		close(s.done)
 	}()
 
-	s.logger.Info("Finalize called")
+	glog.Info("Finalize called")
+	defer glog.Flush()
 
 	s.scheduler.OnTrainEnd()
 	s.scheduler = nil

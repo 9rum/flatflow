@@ -20,11 +20,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 
 	"github.com/9rum/chronica/scheduler"
+	"github.com/golang/glog"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"google.golang.org/grpc"
 )
@@ -33,11 +33,8 @@ func main() {
 	port := flag.Int("p", 50051, "The server port")
 	flag.Parse()
 
-	log.SetOutput(os.Stderr)
-	log.SetFlags(log.LstdFlags)
-
 	if err := serve(*port); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		glog.Fatalf("failed to serve: %v", err)
 	}
 }
 
@@ -48,7 +45,7 @@ func serve(port int) error {
 	}
 
 	server := newServer()
-	log.Printf("server listening at %v", lis.Addr())
+	glog.Infof("server listening at %v", lis.Addr())
 
 	return server.Serve(lis)
 }
