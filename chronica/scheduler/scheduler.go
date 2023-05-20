@@ -70,7 +70,7 @@ type StaticScheduler struct {
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int) Scheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, steps int) Scheduler {
 	// We use memory arenas to reduce GC overhead.
 	scheduler := &StaticScheduler{
 		dataset:   dataset,
@@ -79,7 +79,7 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize int)
 		binSize:   binSize,
 		arena:     arena.NewArena(),
 	}
-	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, 0)
+	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, steps)
 
 	return scheduler
 }

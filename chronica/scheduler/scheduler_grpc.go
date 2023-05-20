@@ -83,7 +83,9 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	// initialize a scheduler based on the given schedule type
 	switch in.GetType() {
 	case SCHEDULE_STATIC:
-		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()), binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()))
+		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()),
+			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()),
+			int(math.Ceil(float64(len(sizes))/float64(in.GetBatchSize()))))
 	case SCHEDULE_DYNAMIC:
 		fallthrough
 	default:
