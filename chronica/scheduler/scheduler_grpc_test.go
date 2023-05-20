@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -65,7 +64,6 @@ func TestSchedulerServer(t *testing.T) {
 				}(rank)
 			}
 			wg.Wait()
-			time.Sleep(time.Second)
 		}
 		if _, err = c.Reset(context.Background(), new(emptypb.Empty)); err != nil {
 			t.Fatalf("could not reset: %v", err)
