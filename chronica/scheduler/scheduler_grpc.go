@@ -87,7 +87,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()),
 			int(math.Ceil(float64(len(sizes))/float64(in.GetBatchSize()))))
 	case SCHEDULE_DYNAMIC:
-		fallthrough
+		s.scheduler = NewDynamicScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()))
 	default:
 		panic("invalid type")
 	}
