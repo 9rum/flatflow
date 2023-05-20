@@ -110,8 +110,6 @@ func (d ShardedDataset[T]) Len(rank int) int {
 
 // Rand selects a random data sample from the dataset.
 func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
-	rand.Seed(time.Now().Unix())
-
 	item, ok := d.items.Min()
 	if !ok {
 		return
@@ -138,6 +136,8 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 
 // OnEpochEnd resets the data samples.
 func (d *ShardedDataset[T]) OnEpochEnd() {
+	rand.Seed(time.Now().Unix())
+
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
 		d.recycleBin.ReplaceOrInsert(item)
 	}
@@ -204,8 +204,6 @@ func (d PartitionedDataset[T]) Len(rank int) int {
 
 // Rand selects a random data sample from the dataset.
 func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
-	rand.Seed(time.Now().Unix())
-
 	item, ok := d.partitions[rank].Min()
 	if !ok {
 		return
@@ -232,6 +230,8 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 
 // OnEpochEnd resets the data partitions.
 func (d *PartitionedDataset[T]) OnEpochEnd() {
+	rand.Seed(time.Now().Unix())
+
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
 			d.recycleBins[rank].ReplaceOrInsert(item)
