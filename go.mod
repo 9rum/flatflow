@@ -1,3 +1,5 @@
+// This is a generated file. Do not edit directly.
+
 module github.com/9rum/chronica
 
 go 1.20
