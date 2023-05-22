@@ -139,7 +139,7 @@ func (s *StaticScheduler) OnEpochEnd() {
 		s.dataset = nil
 	}
 
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(s.indices), func(i, j int) {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
