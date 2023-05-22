@@ -85,6 +85,7 @@ func NewShardedDataset[T btree.Item](sizes []int) (Dataset, error) {
 
 	for index, size := range sizes {
 		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
+			dataset.OnTrainEnd()
 			return nil, errors.New("insert found item")
 		}
 	}
@@ -163,8 +164,8 @@ type PartitionedDataset[T btree.Item] struct {
 // NewPartitionedDataset creates a new partitioned dataset with the given argument.
 func NewPartitionedDataset[T btree.Item](sizes [][]int) (Dataset, error) {
 	dataset := &PartitionedDataset[T]{
-		partitions:  make([]*btree.BTree[T], len(sizes)),
-		recycleBins: make([]*btree.BTree[T], len(sizes)),
+		partitions:  make([]*btree.BTree[T], 0, len(sizes)),
+		recycleBins: make([]*btree.BTree[T], 0, len(sizes)),
 	}
 
 	// We assume that the indices are sequentially distributed across workers.
@@ -172,10 +173,11 @@ func NewPartitionedDataset[T btree.Item](sizes [][]int) (Dataset, error) {
 
 	for rank, partition := range sizes {
 		// We use the default degree for the nodes to fit on a single memory page.
-		dataset.partitions[rank] = btree.New[T](0)
-		dataset.recycleBins[rank] = btree.New[T](0)
+		dataset.partitions = append(dataset.partitions, btree.New[T](0))
+		dataset.recycleBins = append(dataset.recycleBins, btree.New[T](0))
 		for index, size := range partition {
 			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
+				dataset.OnTrainEnd()
 				return nil, errors.New("insert found item")
 			}
 		}
