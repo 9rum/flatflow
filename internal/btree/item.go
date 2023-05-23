@@ -38,10 +38,10 @@ type Item interface {
 	Less(than Item) bool
 }
 
-// NewItem creates a new item with the given constraints.  This uses reflection
-// to mimic type switches. If type switches are supported in the future,
-// reflection may be removed; there is no language support for type switches on
-// the type parameter.
+// NewItem creates a new item with the given constraints, using reflection to
+// mimic type switches.  If type switches are supported in the future,
+// reflection may be removed; there is no current language support for type
+// switches on the type parameter.
 func NewItem[T Item](index, size int) T {
 	var zero T
 
