@@ -84,8 +84,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	switch in.GetType() {
 	case SCHEDULE_STATIC:
 		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()),
-			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()),
-			int(math.Ceil(float64(len(sizes))/float64(in.GetBatchSize()))))
+			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()), ceil(len(sizes), int(in.GetBatchSize())))
 	case SCHEDULE_DYNAMIC:
 		s.scheduler = NewDynamicScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()))
 	default:
@@ -98,7 +97,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 // cast casts the given slice.
 func cast[T, U constraints.Integer](slice []T) []U {
 	out := make([]U, len(slice))
-	stride := int(math.Ceil(float64(len(slice)) / float64(runtime.NumCPU())))
+	stride := ceil(len(slice), runtime.NumCPU())
 
 	var wg sync.WaitGroup
 	for base := 0; base < len(slice); base += stride {
@@ -113,6 +112,15 @@ func cast[T, U constraints.Integer](slice []T) []U {
 	wg.Wait()
 
 	return out
+}
+
+// ceil returns the least integer value greater than or equal to numerator / denominator.
+// This is an alternative to the Ceil function in the standard math package.
+func ceil(numerator, denominator int) int {
+	if numerator%denominator == 0 {
+		return numerator / denominator
+	}
+	return numerator/denominator + 1
 }
 
 // binSize returns the bin size to be used for static scheduling.
