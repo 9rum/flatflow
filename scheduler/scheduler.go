@@ -153,8 +153,8 @@ func (s StaticScheduler) OnTrainEnd() {
 }
 
 // DynamicScheduler provides a feedback-directed optimization. It adaptively
-// adjusts the workload on each worker, thereby useful in heterogeneous clusters
-// where the workers have different compute capabilities.
+// adjusts the workload on each worker, which can be useful in heterogeneous
+// clusters where the workers have different compute capabilities.
 type DynamicScheduler struct {
 	SchedulerBase
 	dataset      data.Dataset
@@ -179,7 +179,7 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) Schedul
 // performance indicators. It adopts best-fit with random first pivots to
 // equalize the estimated training time while randomizing the training sequence.
 // This is a revised version of our original solution for straggler mitigation
-// against imbalanced datasets, which has been proposed in the 23rd IEEE/ACM
+// against imbalanced data, which has been proposed in the 23rd IEEE/ACM
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://discos.sogang.ac.kr/file/2023/intl_conf/ccgrid23_chronica.pdf
 func (s DynamicScheduler) Schedule() [][]int {
@@ -206,9 +206,15 @@ func (s DynamicScheduler) Schedule() [][]int {
 	for step := 1; step < s.batchSize/s.worldSize; step++ {
 		for rank := range indices {
 			if 0 < s.dataset.Len(rank) {
-				index, size := s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
-				indices[rank] = append(indices[rank], index)
-				bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
+				if s.coefficients[rank] == 0. {
+					index, _ := s.dataset.Rand(rank)
+					indices[rank] = append(indices[rank], index)
+					bins[rank] += s.intercepts[rank]
+				} else {
+					index, size := s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+					indices[rank] = append(indices[rank], index)
+					bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
+				}
 				if binSize < bins[rank] {
 					binSize = bins[rank]
 				}
