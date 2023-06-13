@@ -176,7 +176,7 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) Schedul
 }
 
 // Schedule assigns the next mini-batch to each of the workers based on their
-// performance indicators. It adopts best-fit with random first pivots to
+// performance indicators. It adopts best-fit with a random first pivot to
 // equalize the estimated training time while randomizing the training sequence.
 // This is a revised version of our original solution for straggler mitigation
 // against imbalanced data, which has been proposed in the 23rd IEEE/ACM
@@ -190,19 +190,34 @@ func (s DynamicScheduler) Schedule() [][]int {
 		indices[rank] = make([]int, 0, s.batchSize/s.worldSize)
 	}
 
-	// assign random first pivots
-	for rank := range indices {
+	// assign a random first pivot
+	if 0 < s.dataset.Len(0) {
+		index, size := s.dataset.Rand(0)
+		indices[0] = append(indices[0], index)
+		bins[0] = s.coefficients[0]*float64(size) + s.intercepts[0]
+		if binSize < bins[0] {
+			binSize = bins[0]
+		}
+	}
+
+	// select data samples iteratively in a best-fit fashion
+	for rank := 1; rank < s.worldSize; rank++ {
 		if 0 < s.dataset.Len(rank) {
-			index, size := s.dataset.Rand(rank)
-			indices[rank] = append(indices[rank], index)
-			bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
+			if s.coefficients[rank] == 0. {
+				index, _ := s.dataset.Rand(rank)
+				indices[rank] = append(indices[rank], index)
+				bins[rank] = s.intercepts[rank]
+			} else {
+				index, size := s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+				indices[rank] = append(indices[rank], index)
+				bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
+			}
 			if binSize < bins[rank] {
 				binSize = bins[rank]
 			}
 		}
 	}
 
-	// select data samples iteratively in a best-fit fashion
 	for step := 1; step < s.batchSize/s.worldSize; step++ {
 		for rank := range indices {
 			if 0 < s.dataset.Len(rank) {
