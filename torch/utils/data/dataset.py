@@ -29,12 +29,13 @@ class Dataset(Generic[T_co]):
     of :class:`~torch.utils.data.DataLoader`. Subclasses could also
     optionally implement :meth:`__getitems__`, for speedup batched samples
     loading. This method accepts list of indices of samples of batch and returns
-    list of samples.
+    list of samples. Subclasses could also optionally implement :meth:`__sizeof__`,
+    which delivers benefits of Chronica's data-imbalance-aware scheduling.
 
     .. note::
-      :class:`~torch.utils.data.DataLoader` by default constructs a index
-      sampler that yields integral indices.  To make it work with a map-style
-      dataset with non-integral indices/keys, a custom sampler must be provided.
+      :class:`~torch.utils.data.DataLoader` by default constructs a index sampler
+      that yields integral indices.  To make it work with Chronica's dataset,
+      Chronica's distributed sampler must be provided.
     """
 
     def __getitem__(self, index) -> T_co:
@@ -115,16 +116,16 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self):
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, idx):
-        if idx < 0:
-            if len(self) < -idx:
+    def __getitem__(self, index):
+        if index < 0:
+            if len(self) < -index:
                 raise ValueError("absolute value of index should not exceed dataset length")
-            idx = len(self) + idx
-        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
+            index = len(self) + index
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, index)
         if dataset_idx == 0:
-            sample_idx = idx
+            sample_idx = index
         else:
-            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+            sample_idx = index - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
 
     @property
