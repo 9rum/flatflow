@@ -83,7 +83,7 @@ func TestDynamicScheduler(t *testing.T) {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			sums := make([]int, 0, worldSize)
 			for rank := range sums {
-				scheduler.OnBatchEnd(rank, 1, 0)
+				scheduler.OnBatchEnd(rank, 1., 0.)
 			}
 			for _, indices := range scheduler.Schedule() {
 				sums = append(sums, sum(indices, sizes))
@@ -131,7 +131,7 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 	for epoch := 0; epoch < b.N; epoch++ {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
-				scheduler.OnBatchEnd(rank, 1, 0)
+				scheduler.OnBatchEnd(rank, 1., 0.)
 			}
 			scheduler.Schedule()
 		}
