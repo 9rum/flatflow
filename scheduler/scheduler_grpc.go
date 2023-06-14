@@ -51,8 +51,7 @@ func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
 
 // Init initializes the training environment.
 func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
-	glog.Infof("Init called with world size: %d batch size: %d partition: %t partition size: %d type: %s",
-		in.GetWorldSize(), in.GetBatchSize(), in.GetPartition(), in.GetPartitionSize(), in.GetType())
+	glog.Infof("Init called with world size: %d batch size: %d type: %s", in.GetWorldSize(), in.GetBatchSize(), in.GetType())
 
 	s.fanout = make([]chan []int, in.GetWorldSize())
 	for rank := range s.fanout {
@@ -67,11 +66,17 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	sizes := cast[int64, int](in.GetSizes())
 
 	if in.GetPartition() {
+		groups := make(map[int]int)
 		partitions := make([][]int, 0, in.GetWorldSize())
+		for index, ranks := range in.GetGroups() {
+			for _, rank := range ranks.GetValues() {
+				groups[int(rank.GetNumberValue())] = index
+			}
+		}
 		for base := 0; base < len(sizes); base += int(in.GetPartitionSize()) {
 			partitions = append(partitions, sizes[base:base+int(in.GetPartitionSize())])
 		}
-		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](partitions)
+		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](groups, partitions)
 	} else {
 		dataset, err = data.NewShardedDataset[*btree.ItemBase](sizes)
 	}
@@ -140,7 +145,7 @@ func mean[T constraints.Integer](sizes []T) float64 {
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
 // feedback-directed optimization, the performance indicators in the given
 // feedback are used to estimate the training time.
-func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, error) {
+func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Schedule, error) {
 	glog.Infof("Bcast called from rank %d", in.GetRank())
 
 	go func() {
@@ -160,7 +165,7 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Indices, err
 	}
 
 	indices := <-s.fanout[in.GetRank()]
-	return &Indices{Indices: cast[int, int64](indices)}, nil
+	return &Schedule{Indices: cast[int, int64](indices)}, nil
 }
 
 // Reset is called at the end of an epoch during training. It resets the
