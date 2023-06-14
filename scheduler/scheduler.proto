@@ -20,12 +20,13 @@ syntax = "proto3";
 package scheduler;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 option go_package = "github.com/9rum/chronica/scheduler";
 
 service Scheduler {
   rpc Init(Arguments) returns (google.protobuf.Empty) {}
-  rpc Bcast(Feedback) returns (Indices) {}
+  rpc Bcast(Feedback) returns (Schedule) {}
   rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Finalize(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
@@ -38,10 +39,11 @@ enum SCHEDULE {
 message Arguments {
   int64 world_size = 1;
   int64 batch_size = 2;
-  repeated int64 sizes = 3;
-  optional bool partition = 4;
-  optional int64 partition_size = 5;
-  optional SCHEDULE type = 6;
+  repeated int64 sizes = 3 [packed = true];
+  repeated google.protobuf.ListValue groups = 4;
+  optional bool partition = 5;
+  optional int64 partition_size = 6;
+  optional SCHEDULE type = 7;
 }
 
 message Feedback {
@@ -50,6 +52,6 @@ message Feedback {
   optional double intercept = 3;
 }
 
-message Indices {
-  repeated int64 indices = 1;
+message Schedule {
+  repeated int64 indices = 1 [packed = true];
 }
