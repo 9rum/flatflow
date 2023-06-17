@@ -68,13 +68,14 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 	if in.GetPartition() {
 		groups := make(map[int]int)
 		partitions := make([][]int, 0, in.GetWorldSize())
+		partitionSize := len(sizes) / int(in.GetWorldSize())
 		for index, ranks := range in.GetGroups() {
 			for _, rank := range ranks.GetValues() {
 				groups[int(rank.GetNumberValue())] = index
 			}
 		}
-		for base := 0; base < len(sizes); base += int(in.GetPartitionSize()) {
-			partitions = append(partitions, sizes[base:base+int(in.GetPartitionSize())])
+		for base := 0; base < len(sizes); base += partitionSize {
+			partitions = append(partitions, sizes[base:base+partitionSize])
 		}
 		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](groups, partitions)
 	} else {

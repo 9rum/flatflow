@@ -42,8 +42,7 @@ message Arguments {
   repeated int64 sizes = 3 [packed = true];
   repeated google.protobuf.ListValue groups = 4;
   optional bool partition = 5;
-  optional int64 partition_size = 6;
-  optional SCHEDULE type = 7;
+  optional SCHEDULE type = 6;
 }
 
 message Feedback {
