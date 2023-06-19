@@ -79,7 +79,7 @@ func TestPartitionedDataset(t *testing.T) {
 		batchSize   = 40
 		worldSize   = 4
 	)
-	groups := make(map[int]int)
+	groups := make([]int, worldSize)
 	partitions := make([][]int, worldSize)
 	for rank := range partitions {
 		groups[rank] = rank
@@ -158,7 +158,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		batchSize = 40
 		worldSize = 4
 	)
-	groups := make(map[int]int)
+	groups := make([]int, worldSize)
 	partitions := make([][]int, worldSize)
 	for rank := range partitions {
 		groups[rank] = rank

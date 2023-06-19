@@ -157,13 +157,13 @@ func (d *ShardedDataset[T]) OnTrainEnd() {
 // in the cluster holds only a portion of the given dataset.
 type PartitionedDataset[T btree.Item] struct {
 	DatasetBase
-	groups      map[int]int
+	groups      []int
 	partitions  []*btree.BTree[T]
 	recycleBins []*btree.BTree[T]
 }
 
 // NewPartitionedDataset creates a new partitioned dataset with the given arguments.
-func NewPartitionedDataset[T btree.Item](groups map[int]int, partitions [][]int) (Dataset, error) {
+func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (Dataset, error) {
 	dataset := &PartitionedDataset[T]{
 		groups:      groups,
 		partitions:  make([]*btree.BTree[T], 0, len(partitions)),
