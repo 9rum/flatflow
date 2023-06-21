@@ -24,7 +24,6 @@ import (
 	"arena"
 	"math"
 	"math/rand"
-	"time"
 
 	"github.com/9rum/chronica/internal/data"
 )
@@ -66,6 +65,7 @@ type StaticScheduler struct {
 	batchSize int
 	binSize   int
 	step      int
+	epoch     int64
 	indices   [][][]int
 	arena     *arena.Arena
 }
@@ -81,6 +81,7 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, ste
 		arena:     arena.NewArena(),
 	}
 	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, steps)
+	rand.Seed(scheduler.epoch)
 
 	return scheduler
 }
@@ -139,7 +140,8 @@ func (s *StaticScheduler) OnEpochEnd() {
 		s.dataset = nil
 	}
 
-	rand.Seed(time.Now().UnixNano())
+	s.epoch++
+	rand.Seed(s.epoch)
 	rand.Shuffle(len(s.indices), func(i, j int) {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
