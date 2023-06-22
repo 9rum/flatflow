@@ -140,13 +140,12 @@ func (s *StaticScheduler) OnEpochEnd() {
 		s.dataset = nil
 	}
 
+	s.step = 0
 	s.epoch++
 	rand.Seed(s.epoch)
 	rand.Shuffle(len(s.indices), func(i, j int) {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
-
-	s.step = 0
 }
 
 // OnTrainEnd frees the allocated memory arena.
