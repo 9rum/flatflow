@@ -67,11 +67,18 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 
 	if in.GetPartition() {
 		groups := cast[int64, int](in.GetGroups())
-		groupSize := max(groups) + 1
-		partitions := make([][]int, 0, groupSize)
-		partitionSize := ceil(len(sizes), groupSize)
-		for base := 0; base < len(sizes); base += partitionSize {
+		partitionSize := len(sizes) / int(in.GetWorldSize())
+		partitionSizes := make([]int, max(groups)+1)
+		for _, rank := range groups {
+			partitionSizes[rank] += partitionSize
+		}
+
+		// We assume that the indices are sequentially distributed across workers.
+		partitions := make([][]int, 0, len(partitionSizes))
+		base := 0
+		for _, partitionSize = range partitionSizes {
 			partitions = append(partitions, sizes[base:base+partitionSize])
+			base += partitionSize
 		}
 		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](groups, partitions)
 	} else {

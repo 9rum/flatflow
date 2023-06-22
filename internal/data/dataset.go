@@ -187,7 +187,7 @@ func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (Data
 				return nil, errors.New("insert found item")
 			}
 		}
-		base += len(partitions[rank])
+		base += len(partition)
 	}
 
 	return dataset, nil
