@@ -67,9 +67,9 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 
 	if in.GetPartition() {
 		groups := cast[int64, int](in.GetGroups())
-		nodes := max(groups) + 1
-		partitions := make([][]int, 0, nodes)
-		partitionSize := ceil(len(sizes), nodes)
+		groupSize := max(groups) + 1
+		partitions := make([][]int, 0, groupSize)
+		partitionSize := ceil(len(sizes), groupSize)
 		for base := 0; base < len(sizes); base += partitionSize {
 			partitions = append(partitions, sizes[base:base+partitionSize])
 		}
@@ -126,18 +126,17 @@ func ceil(numerator, denominator int) int {
 }
 
 // max returns the maximum value in the given slice.
-func max[T constraints.Ordered](slice []T) T {
+func max[T constraints.Ordered](slice []T) (max T) {
 	if len(slice) == 0 {
-		var zero T
-		return zero
+		return
 	}
-	max := slice[0]
+	max = slice[0]
 	for _, v := range slice[1:] {
 		if max < v {
 			max = v
 		}
 	}
-	return max
+	return
 }
 
 // binSize returns the bin size to be used for static scheduling.
