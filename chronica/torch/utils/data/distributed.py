@@ -129,7 +129,10 @@ class DistributedSampler(Sampler[T_co]):
                     self.indices += perm[:padding_size]
         assert len(self.indices) == total_size
 
-        self.stub = SchedulerStub(grpc.insecure_channel("{}:{}".format(master_addr, master_port)))
+        channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
+        # block until the scheduler server is initialized.
+        grpc.channel_ready_future(channel).result()
+        self.stub = SchedulerStub(channel)
 
         if self.rank == 0:
             sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.indices))
