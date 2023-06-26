@@ -6,10 +6,12 @@ from typing import TypeVar, Optional, Iterable, Iterator
 import grpc
 import torch
 import torch.distributed as dist
-from torch.utils.data import Sampler
 from chronica import sys
+from chronica.rpc import Arguments, Feedback, STATIC, DYNAMIC, SchedulerStub
 from chronica.torch.utils.data import Dataset
-from chronica.rpc import Arguments, Feedback, Schedule, STATIC, DYNAMIC, SchedulerStub
+from google.protobuf.empty_pb2 import Empty
+from google.protobuf.internal.containers import RepeatedScalarFieldContainer
+from torch.utils.data import Sampler
 
 __all__ = ["DistributedSampler"]
 
@@ -86,7 +88,8 @@ class DistributedSampler(Sampler[T_co]):
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
         if master_addr is None:
-            master_addr = os.getenv("MASTER_ADDR", "127.0.0.1")
+            master_addr = os.getenv("MASTER_ADDR")
+            assert master_addr is not None
         if schedule is None or schedule == "static":
             self.schedule = STATIC
         elif schedule == "dynamic":
@@ -109,13 +112,13 @@ class DistributedSampler(Sampler[T_co]):
             self.num_samples += 1
         total_size = self.num_samples * num_replicas
 
-        self.indices = list(range(len(dataset)))  # type: ignore[arg-type]
+        self.map = list(range(len(dataset)))  # type: ignore[arg-type]
         if drop_last:
             # remove tail of data to make it evenly divisible.
-            self.indices = self.indices[:total_size]
+            self.map = self.map[:total_size]
         else:
             # add extra samples to make it evenly divisible.
-            padding_size = total_size - len(self.indices)
+            padding_size = total_size - len(self.map)
             # deterministically shuffle based on seed.
             g = torch.Generator()
             g.manual_seed(seed)
@@ -123,18 +126,23 @@ class DistributedSampler(Sampler[T_co]):
                 assert groups is not None
                 last = max(groups)
                 base = len(list(filter(lambda rank: rank < last, groups))) * self.num_samples
-                perm = torch.randperm(len(self.indices[base:]), generator=g).add(base).tolist()
-                if len(self.indices[base:]) < padding_size:
-                    self.indices += self.indices[base:] * (padding_size // len(self.indices[base:])) + perm[:padding_size % len(self.indices[base:])]
+                perm = torch.randperm(len(self.map[base:]), generator=g).add(base).tolist()
+                if len(self.map[base:]) < padding_size:
+                    self.map += self.map[base:] * (padding_size // len(self.map[base:])) + perm[:padding_size % len(self.map[base:])]
                 else:
-                    self.indices += perm[:padding_size]
+                    self.map += perm[:padding_size]
             else:
-                perm = torch.randperm(len(self.indices), generator=g).tolist()
-                if len(self.indices) < padding_size:
-                    self.indices += self.indices * (padding_size // len(self.indices)) + perm[:padding_size % len(self.indices)]
+                perm = torch.randperm(len(self.map), generator=g).tolist()
+                if len(self.map) < padding_size:
+                    self.map += self.map * (padding_size // len(self.map)) + perm[:padding_size % len(self.map)]
                 else:
-                    self.indices += perm[:padding_size]
-        assert len(self.indices) == total_size
+                    self.map += perm[:padding_size]
+        assert len(self.map) == total_size
+
+        self.indices = RepeatedScalarFieldContainer(None, None)
+        self.num_yielded = 0
+        self.coefficient = 1.
+        self.intercept = 0.
 
         channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
         # block until the scheduler server is initialized.
@@ -142,21 +150,29 @@ class DistributedSampler(Sampler[T_co]):
         self.stub = SchedulerStub(channel)
 
         if self.rank == 0:
-            sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.indices))
-            self.stub.Init(Arguments(num_replicas, batch_size, sizes, groups, partition, self.schedule))
+            sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
+            self.stub.Init(Arguments(world_size=num_replicas, batch_size=batch_size, sizes=sizes, groups=groups, partition=partition, type=self.schedule))
 
     def __iter__(self) -> Iterator[T_co]:
         return self
 
     def __next__(self) -> T_co:
-        pass
+        if self.num_samples <= self.num_yielded:
+            raise StopIteration
+        if 0 < len(self.indices):
+            index = self.indices[0]
+            self.indices = self.indices[1:]
+            self.num_yielded += 1
+            return self.map[index]
+        self.indices = self.stub.Bcast(Feedback(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
+        return next(self)
 
     def __len__(self) -> int:
         return self.num_samples
 
     def __del__(self) -> None:
         if self.rank == 0:
-            self.stub.Finalize()
+            self.stub.Finalize(Empty())
 
     def set_epoch(self, epoch: int) -> None:
         r"""
@@ -166,4 +182,4 @@ class DistributedSampler(Sampler[T_co]):
             epoch (int): Epoch number.
         """
         if self.rank == 0 and 0 < epoch:
-            self.stub.Reset()
+            self.stub.Reset(Empty())
