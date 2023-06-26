@@ -139,7 +139,7 @@ class DistributedSampler(Sampler[T_co]):
                     self.map += perm[:padding_size]
         assert len(self.map) == total_size
 
-        self.indices = RepeatedScalarFieldContainer(None, None)
+        self.indices = RepeatedScalarFieldContainer[int](None, None)
         self.num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
