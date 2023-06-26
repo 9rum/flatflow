@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from typing import TypeVar, Optional, Iterable, Iterator
 
@@ -94,6 +95,12 @@ class DistributedSampler(Sampler[T_co]):
             raise ValueError("Invalid schedule type {}, schedule should be either static or dynamic".format(schedule))
         self.rank = rank
         self.interval = interval
+
+        # automatically run scheduler server on master.
+        if self.rank == 0:
+            assert shutil.which("go") is not None
+            args = "GOEXPERIMENT=arenas go install github.com/9rum/chronica@latest && chronica -p {} -logtostderr true"
+            subprocess.Popen(args.format(master_port).split())
 
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
