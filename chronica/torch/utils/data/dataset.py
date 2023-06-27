@@ -1,12 +1,6 @@
 import bisect
 import warnings
-from typing import (
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    TypeVar
-)
+from typing import Generic, Iterable, Iterator, List, TypeVar
 
 __all__ = [
     "Dataset",

@@ -1,17 +1,21 @@
 import os
 import shutil
 import subprocess
-from typing import TypeVar, Optional, Iterable, Iterator
+import time
+from typing import Iterable, Iterator, Optional, TypeVar
 
 import grpc
+import numpy as np
 import torch
 import torch.distributed as dist
-from chronica import sys
-from chronica.rpc import Arguments, Feedback, STATIC, DYNAMIC, SchedulerStub
-from chronica.torch.utils.data import Dataset
 from google.protobuf.empty_pb2 import Empty
 from google.protobuf.internal.containers import RepeatedScalarFieldContainer
+from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
+
+from chronica import sys
+from chronica.rpc import DYNAMIC, STATIC, Arguments, Feedback, SchedulerStub
+from chronica.torch.utils.data import Dataset
 
 __all__ = ["DistributedSampler"]
 
@@ -87,9 +91,12 @@ class DistributedSampler(Sampler[T_co]):
             rank = dist.get_rank()
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
+        if batch_size % num_replicas != 0:
+            raise ValueError("Invalid batch size {}, batch size shoud be multiple of world size".format(batch_size))
         if master_addr is None:
             master_addr = os.getenv("MASTER_ADDR")
-            assert master_addr is not None
+            if master_addr is None:
+                raise ValueError("Invalid master address {}, either master address or MASTER_ADDR should be given".format(master_addr))
         if schedule is None or schedule == "static":
             self.schedule = STATIC
         elif schedule == "dynamic":
@@ -97,11 +104,12 @@ class DistributedSampler(Sampler[T_co]):
         else:
             raise ValueError("Invalid schedule type {}, schedule should be either static or dynamic".format(schedule))
         self.rank = rank
-        self.interval = interval
+        self.interval = interval * batch_size / num_replicas
 
         # automatically run scheduler server on master.
         if self.rank == 0:
-            assert shutil.which("go") is not None
+            if shutil.which("go") is None:
+                raise RuntimeError("Requires Go compiler to be installed")
             args = "GOEXPERIMENT=arenas go install github.com/9rum/chronica@latest && chronica -p {} -logtostderr true"
             subprocess.Popen(args.format(master_port).split())
 
@@ -123,7 +131,8 @@ class DistributedSampler(Sampler[T_co]):
             g = torch.Generator()
             g.manual_seed(seed)
             if partition:
-                assert groups is not None
+                if groups is None:
+                    raise ValueError("Invalid groups {}, groups should be given if partition is True".format(groups))
                 last = max(groups)
                 base = len(list(filter(lambda rank: rank < last, groups))) * self.num_samples
                 perm = torch.randperm(len(self.map[base:]), generator=g).add(base).tolist()
@@ -139,10 +148,16 @@ class DistributedSampler(Sampler[T_co]):
                     self.map += perm[:padding_size]
         assert len(self.map) == total_size
 
+        self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
         self.indices = RepeatedScalarFieldContainer[int](None, None)
         self.num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
+        self.tic = time.time()
+        self.toc = time.time()
+        self.xs = np.array(list())
+        self.ys = np.array(list())
+        self.reg = LinearRegression(positive=True)
 
         channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
         # block until the scheduler server is initialized.
@@ -150,8 +165,7 @@ class DistributedSampler(Sampler[T_co]):
         self.stub = SchedulerStub(channel)
 
         if self.rank == 0:
-            sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
-            self.stub.Init(Arguments(world_size=num_replicas, batch_size=batch_size, sizes=sizes, groups=groups, partition=partition, type=self.schedule))
+            self.stub.Init(Arguments(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
 
     def __iter__(self) -> Iterator[T_co]:
         return self
@@ -164,7 +178,17 @@ class DistributedSampler(Sampler[T_co]):
             self.indices = self.indices[1:]
             self.num_yielded += 1
             return self.map[index]
+        self.toc = time.time()
+        if 0 < self.num_yielded:
+            self.ys = np.append(self.ys, self.toc - self.tic)
+            # recalculate performance indicators.
+            if self.schedule == DYNAMIC and self.num_yielded % self.interval == 0:
+                self.reg.fit(self.xs, self.ys)
+                self.coefficient = self.reg.coef_
+                self.intercept = self.reg.intercept_
         self.indices = self.stub.Bcast(Feedback(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
+        self.xs = np.append(self.xs, sum(map(lambda index: self.sizes[index], self.indices)))
+        self.tic = time.time()
         return next(self)
 
     def __len__(self) -> int:
