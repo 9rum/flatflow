@@ -92,7 +92,7 @@ class DistributedSampler(Sampler[T_co]):
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
         if batch_size % num_replicas != 0:
-            raise ValueError("Invalid batch size {}, batch size shoud be multiple of world size".format(batch_size))
+            raise ValueError("Invalid batch size {}, batch size is not divisible by world size {}".format(batch_size, num_replicas))
         if master_addr is None:
             master_addr = os.getenv("MASTER_ADDR")
             if master_addr is None:
@@ -104,7 +104,7 @@ class DistributedSampler(Sampler[T_co]):
         else:
             raise ValueError("Invalid schedule type {}, schedule should be either static or dynamic".format(schedule))
         self.rank = rank
-        self.interval = interval * batch_size / num_replicas
+        self.interval = interval * batch_size // num_replicas
 
         # automatically run scheduler server on master.
         if self.rank == 0:
@@ -155,8 +155,8 @@ class DistributedSampler(Sampler[T_co]):
         self.intercept = 0.
         self.tic = time.time()
         self.toc = time.time()
-        self.xs = np.array(list())
-        self.ys = np.array(list())
+        self.sums = np.array(list(), np.int_)
+        self.times = np.array(list(), np.float_)
         self.reg = LinearRegression(positive=True)
 
         channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
@@ -180,14 +180,14 @@ class DistributedSampler(Sampler[T_co]):
             return self.map[index]
         self.toc = time.time()
         if 0 < self.num_yielded:
-            self.ys = np.append(self.ys, self.toc - self.tic)
+            self.times = np.append(self.times, self.toc - self.tic)
             # recalculate performance indicators.
             if self.schedule == DYNAMIC and self.num_yielded % self.interval == 0:
-                self.reg.fit(self.xs, self.ys)
+                self.reg.fit(self.sums, self.times)
                 self.coefficient = self.reg.coef_
                 self.intercept = self.reg.intercept_
         self.indices = self.stub.Bcast(Feedback(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
-        self.xs = np.append(self.xs, sum(map(lambda index: self.sizes[index], self.indices)))
+        self.sums = np.append(self.sums, sum(map(lambda index: self.sizes[index], self.indices)))
         self.tic = time.time()
         return next(self)
 
