@@ -14,7 +14,7 @@ from torch.utils.data import Sampler
 
 from chronica import sys
 from chronica.rpc import DYNAMIC, STATIC, Arguments, Feedback, SchedulerStub
-from chronica.torch.utils.data import Dataset
+from chronica.torch.utils.data.dataset import Dataset
 
 __all__ = ["DistributedSampler"]
 
@@ -148,7 +148,7 @@ class DistributedSampler(Sampler[T_co]):
         assert len(self.map) == total_size
 
         self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
-        self.indices = list()
+        self.indices = list()  # type: ignore[var-annotated]
         self.num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.

@@ -15,8 +15,7 @@
 __all__ = ["getsizeof"]
 
 def getsizeof(obj: object, index: int) -> int:
-    r"""
-    Return the relative size of an object at position ``index``.
+    r"""Returns the relative size of an object at position ``index``.
 
     :func:`getsizeof` calls the object's :meth:`__sizeof__` method. If the object
     does not provide means to retrieve the size, a TypeError will be raised.
@@ -25,4 +24,4 @@ def getsizeof(obj: object, index: int) -> int:
         obj (object): an object to get the relative size of
         index (int): index of the object
     """
-    return obj.__sizeof__(index)
+    return obj.__sizeof__(index)  # type: ignore[call-arg]

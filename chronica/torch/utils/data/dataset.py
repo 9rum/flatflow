@@ -46,7 +46,7 @@ class Dataset(Generic[T_co]):
     # See NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
     # in pytorch/torch/utils/data/sampler.py
 
-    def __sizeof__(self, index) -> int:
+    def __sizeof__(self, index) -> int:  # type: ignore[override]
         return 1
 
 
