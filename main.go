@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate protoc --proto_path=protos/ --go_out=scheduler/ --go_opt=paths=source_relative --go-grpc_out=scheduler/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional scheduler.proto
+//go:generate protoc --proto_path=proto/ --go_out=scheduler/ --go_opt=paths=source_relative --go-grpc_out=scheduler/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional scheduler.proto
 
 // Package main implements the scheduler server. The initialization and
 // termination of the server may be invoked by the sampler, and the type of
