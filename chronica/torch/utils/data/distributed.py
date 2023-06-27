@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from google.protobuf.empty_pb2 import Empty
-from google.protobuf.internal.containers import RepeatedScalarFieldContainer
 from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
@@ -149,7 +148,7 @@ class DistributedSampler(Sampler[T_co]):
         assert len(self.map) == total_size
 
         self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
-        self.indices = RepeatedScalarFieldContainer[int](None, None)
+        self.indices = list()
         self.num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
