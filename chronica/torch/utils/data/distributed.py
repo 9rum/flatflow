@@ -35,7 +35,7 @@ class DistributedSampler(Sampler[T_co]):
         returns the same elements in the same order.
 
     Args:
-        dataset: Dataset used for sampling.
+        dataset (Dataset): Dataset used for sampling.
         num_replicas (int, optional): Number of processes participating in
             distributed training. By default, :attr:`world_size` is retrieved from the
             current distributed group.
@@ -44,25 +44,27 @@ class DistributedSampler(Sampler[T_co]):
             group.
         shuffle (bool, optional): Not used but for PyTorch compatibility.
         seed (int, optional): Random seed used to shuffle the sampler.
-            This number should be identical across all processes in the distributed group. Default: ``0``.
+            This number should be identical across all processes in the distributed group. (default: ``0``)
         drop_last (bool, optional): If ``True``, then the sampler will drop the
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
-            the data evenly divisible across the replicas. Default: ``False``.
-        batch_size (int, optional): How many samples per batch to load. Default: ``1``.
+            the data evenly divisible across the replicas. (default: ``False``)
+        batch_size (int, optional): How many samples per batch to load.
+            By default, :attr:`world_size` is retrieved from the current distributed group.
         master_addr (str, optional): Address of the master node (rank 0).
             If rendezvous protocol is enabled using ``torchrun``, the sampler automatically gets the address
             from the environment variable.
         master_port (int, optional): Port on the master node (rank 0) to be used for initializing
-            the scheduler server. Default: ``50051``.
+            the scheduler server. (default: ``50051``)
         schedule (str, optional): Schedule type (must be either ``"static"`` or ``"dynamic"``).
             By default, ``"static"`` is set for static scheduling that reduces the workload imbalance between workers.
             If ``"dynamic"``, the scheduler provides a feedback-directed optimization that adaptively adjusts
             the workload on each worker.
         interval (int, optional): Interval, in # of steps, to report the performance indicators for dynamic scheduling.
+            (default: ``1``)
         partition (bool, optional): If ``True``, then the sampler will restrict remote data fetching.
             It is especially useful when the data is distributed among devices and machines. In such a case,
-            ``groups`` should tell the mapping about which workers are on which nodes. Default: ``False``.
+            ``groups`` should tell the mapping about which workers are on which nodes. (default: ``False``)
         groups (Iterable, optional): Mapping from worker rank to node rank. For instance, if the cluster is homogeneous
             of two nodes with four GPUs each, ``groups`` would be ``[0, 0, 0, 0, 1, 1, 1, 1]``. On the other hand,
             if the cluster is heterogeneous with four GPUs on node #0 and two GPUs on node #1,
@@ -76,10 +78,10 @@ class DistributedSampler(Sampler[T_co]):
 
     def __init__(self, dataset: Dataset, num_replicas: Optional[int] = None,
                  rank: Optional[int] = None, shuffle: bool = True,
-                 seed: int = 0, drop_last: bool = False, batch_size: int = 1,
-                 master_addr: str = None, master_port: int = 50051,
-                 schedule: str = None, interval: int = 1,
-                 partition: bool = False, groups: Iterable = None) -> None:
+                 seed: int = 0, drop_last: bool = False, batch_size: Optional[int] = None,
+                 master_addr: Optional[str] = None, master_port: int = 50051,
+                 schedule: Optional[str] = None, interval: int = 1,
+                 partition: bool = False, groups: Optional[Iterable] = None) -> None:
         if num_replicas is None:
             if not dist.is_available():
                 raise RuntimeError("Requires distributed package to be available")
@@ -90,7 +92,9 @@ class DistributedSampler(Sampler[T_co]):
             rank = dist.get_rank()
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
-        if batch_size % num_replicas != 0:
+        if batch_size is None:
+            batch_size = num_replicas
+        elif batch_size % num_replicas != 0:
             raise ValueError("Invalid batch size {}, batch size is not divisible by world size {}".format(batch_size, num_replicas))
         if master_addr is None:
             master_addr = os.getenv("MASTER_ADDR")
@@ -153,7 +157,6 @@ class DistributedSampler(Sampler[T_co]):
         self.coefficient = 1.
         self.intercept = 0.
         self.tic = time.time()
-        self.toc = time.time()
         self.sums = np.array(list(), np.int_)
         self.times = np.array(list(), np.float_)
         self.reg = LinearRegression(positive=True)
@@ -177,9 +180,9 @@ class DistributedSampler(Sampler[T_co]):
             self.indices = self.indices[1:]
             self.num_yielded += 1
             return self.map[index]
-        self.toc = time.time()
+        toc = time.time()
         if 0 < self.num_yielded:
-            self.times = np.append(self.times, self.toc - self.tic)
+            self.times = np.append(self.times, toc - self.tic)
             # recalculate performance indicators.
             if self.schedule == DYNAMIC and self.num_yielded % self.interval == 0:
                 self.reg.fit(self.sums, self.times)
