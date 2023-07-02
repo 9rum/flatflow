@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
 from chronica import sys
-from chronica.rpc import DYNAMIC, STATIC, Arguments, Feedback, SchedulerStub
+from chronica.rpc import DYNAMIC, STATIC, BcastRequest, InitRequest, SchedulerStub
 from chronica.torch.utils.data.dataset import Dataset
 
 __all__ = ["DistributedSampler"]
@@ -167,7 +167,7 @@ class DistributedSampler(Sampler[T_co]):
         self.stub = SchedulerStub(channel)
 
         if self.rank == 0:
-            self.stub.Init(Arguments(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
+            self.stub.Init(InitRequest(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
 
     def __iter__(self) -> Iterator[T_co]:
         return self
@@ -188,7 +188,7 @@ class DistributedSampler(Sampler[T_co]):
                 self.reg.fit(self.sums, self.times)
                 self.coefficient = self.reg.coef_
                 self.intercept = self.reg.intercept_
-        self.indices = self.stub.Bcast(Feedback(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
+        self.indices = self.stub.Bcast(BcastRequest(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
         self.sums = np.append(self.sums, sum(map(lambda index: self.sizes[index], self.indices)))
         self.tic = time.time()
         return next(self)
