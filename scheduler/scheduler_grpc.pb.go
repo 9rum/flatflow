@@ -47,9 +47,13 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SchedulerClient interface {
-	Init(ctx context.Context, in *Arguments, opts ...grpc.CallOption) (*empty.Empty, error)
-	Bcast(ctx context.Context, in *Feedback, opts ...grpc.CallOption) (*Schedule, error)
+	// RPC for initializing training environment.
+	Init(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// RPC for broadcasting schedule to all workers.
+	Bcast(ctx context.Context, in *BcastRequest, opts ...grpc.CallOption) (*BcastResponse, error)
+	// RPC for resetting training environment.
 	Reset(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	// RPC for terminating training environment.
 	Finalize(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
@@ -61,7 +65,7 @@ func NewSchedulerClient(cc grpc.ClientConnInterface) SchedulerClient {
 	return &schedulerClient{cc}
 }
 
-func (c *schedulerClient) Init(ctx context.Context, in *Arguments, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *schedulerClient) Init(ctx context.Context, in *InitRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, Scheduler_Init_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -70,8 +74,8 @@ func (c *schedulerClient) Init(ctx context.Context, in *Arguments, opts ...grpc.
 	return out, nil
 }
 
-func (c *schedulerClient) Bcast(ctx context.Context, in *Feedback, opts ...grpc.CallOption) (*Schedule, error) {
-	out := new(Schedule)
+func (c *schedulerClient) Bcast(ctx context.Context, in *BcastRequest, opts ...grpc.CallOption) (*BcastResponse, error) {
+	out := new(BcastResponse)
 	err := c.cc.Invoke(ctx, Scheduler_Bcast_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -101,9 +105,13 @@ func (c *schedulerClient) Finalize(ctx context.Context, in *empty.Empty, opts ..
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
 type SchedulerServer interface {
-	Init(context.Context, *Arguments) (*empty.Empty, error)
-	Bcast(context.Context, *Feedback) (*Schedule, error)
+	// RPC for initializing training environment.
+	Init(context.Context, *InitRequest) (*empty.Empty, error)
+	// RPC for broadcasting schedule to all workers.
+	Bcast(context.Context, *BcastRequest) (*BcastResponse, error)
+	// RPC for resetting training environment.
 	Reset(context.Context, *empty.Empty) (*empty.Empty, error)
+	// RPC for terminating training environment.
 	Finalize(context.Context, *empty.Empty) (*empty.Empty, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
@@ -112,10 +120,10 @@ type SchedulerServer interface {
 type UnimplementedSchedulerServer struct {
 }
 
-func (UnimplementedSchedulerServer) Init(context.Context, *Arguments) (*empty.Empty, error) {
+func (UnimplementedSchedulerServer) Init(context.Context, *InitRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Init not implemented")
 }
-func (UnimplementedSchedulerServer) Bcast(context.Context, *Feedback) (*Schedule, error) {
+func (UnimplementedSchedulerServer) Bcast(context.Context, *BcastRequest) (*BcastResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Bcast not implemented")
 }
 func (UnimplementedSchedulerServer) Reset(context.Context, *empty.Empty) (*empty.Empty, error) {
@@ -138,7 +146,7 @@ func RegisterSchedulerServer(s grpc.ServiceRegistrar, srv SchedulerServer) {
 }
 
 func _Scheduler_Init_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Arguments)
+	in := new(InitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -150,13 +158,13 @@ func _Scheduler_Init_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: Scheduler_Init_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).Init(ctx, req.(*Arguments))
+		return srv.(SchedulerServer).Init(ctx, req.(*InitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Scheduler_Bcast_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Feedback)
+	in := new(BcastRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -168,7 +176,7 @@ func _Scheduler_Bcast_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: Scheduler_Bcast_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).Bcast(ctx, req.(*Feedback))
+		return srv.(SchedulerServer).Bcast(ctx, req.(*BcastRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

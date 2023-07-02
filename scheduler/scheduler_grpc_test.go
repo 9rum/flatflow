@@ -44,7 +44,7 @@ func TestSchedulerServer(t *testing.T) {
 
 	c := NewSchedulerClient(conn)
 
-	if _, err = c.Init(context.Background(), &Arguments{WorldSize: worldSize, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
+	if _, err = c.Init(context.Background(), &InitRequest{WorldSize: worldSize, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
 		t.Fatalf("could not init: %v", err)
 	}
 
@@ -56,7 +56,7 @@ func TestSchedulerServer(t *testing.T) {
 				wg.Add(1)
 				go func(rank int) {
 					defer wg.Done()
-					r, err := c.Bcast(context.Background(), &Feedback{Rank: int64(rank)})
+					r, err := c.Bcast(context.Background(), &BcastRequest{Rank: int64(rank)})
 					if err != nil {
 						t.Errorf("could not bcast: %v", err)
 					}

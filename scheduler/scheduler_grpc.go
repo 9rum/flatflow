@@ -50,7 +50,7 @@ func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
 }
 
 // Init initializes the training environment.
-func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty, error) {
+func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
 	glog.Infof("Init called with world size: %d batch size: %d type: %s", in.GetWorldSize(), in.GetBatchSize(), in.GetType())
 
 	s.fanout = make([]chan []int, in.GetWorldSize())
@@ -91,10 +91,10 @@ func (s *schedulerServer) Init(ctx context.Context, in *Arguments) (*empty.Empty
 
 	// initialize a scheduler based on the given schedule type
 	switch in.GetType() {
-	case SCHEDULE_STATIC:
+	case Schedule_STATIC:
 		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()),
 			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()), ceil(len(sizes), int(in.GetBatchSize())))
-	case SCHEDULE_DYNAMIC:
+	case Schedule_DYNAMIC:
 		s.scheduler = NewDynamicScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()))
 	default:
 		panic("invalid type")
@@ -163,7 +163,7 @@ func mean[T constraints.Integer](sizes []T) float64 {
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
 // feedback-directed optimization, the performance indicators in the given
 // feedback are used to estimate the training time.
-func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Schedule, error) {
+func (s schedulerServer) Bcast(ctx context.Context, in *BcastRequest) (*BcastResponse, error) {
 	glog.Infof("Bcast called from rank %d", in.GetRank())
 
 	go func() {
@@ -183,7 +183,7 @@ func (s schedulerServer) Bcast(ctx context.Context, in *Feedback) (*Schedule, er
 	}
 
 	indices := <-s.fanout[in.GetRank()]
-	return &Schedule{Indices: cast[int, int64](indices)}, nil
+	return &BcastResponse{Indices: cast[int, int64](indices)}, nil
 }
 
 // Reset is called at the end of an epoch during training. It resets the
