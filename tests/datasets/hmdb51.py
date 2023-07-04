@@ -28,7 +28,8 @@ class HMDB51(Dataset):
             and returns a transformed version.
         output_format (str, optional): The format of the output video tensors (before transforms).
             Can be either "THWC" (default) or "TCHW".
-        download (bool, optional): If ``True``, downloads the dataset to :attr:`root`.
+        download (bool, optional): If ``True``, downloads the dataset from the internet and
+            puts it in :attr:`root` directory.
     Returns:
         tuple: A 3-tuple with the following entries:
             - video (Tensor[T, H, W, C] or Tensor[T, C, H, W]): The `T` video frames
