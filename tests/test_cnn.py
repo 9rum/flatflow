@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sys
 import time
 
 import torch
@@ -12,6 +13,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
 
+sys.path.append(os.path.abspath(os.curdir))
+
 from tests.datasets import HMDB51
 
 
@@ -19,13 +22,12 @@ def run(epochs: int, lr: float):
     dist.init_process_group(backend=dist.Backend.NCCL)
 
     # environment variables set by torchrun
-    local_rank = int(os.getenv("LOCAL_RANK"))  # type: ignore[arg-type]
-    rank = int(os.getenv("RANK"))  # type: ignore[arg-type]
+    rank = int(os.getenv("LOCAL_RANK"))  # type: ignore[arg-type]
 
     model = r2plus1d_18(weights=R2Plus1D_18_Weights.DEFAULT)
     model.fc = nn.Linear(512, 51)
-    model = DistributedDataParallel(model.cuda(local_rank), device_ids=[local_rank])
-    loss = nn.CrossEntropyLoss().cuda(local_rank)
+    model = DistributedDataParallel(model.cuda(rank), device_ids=[rank])
+    loss = nn.CrossEntropyLoss().cuda(rank)
     optimizer = torch.optim.SGD(model.parameters(), lr)
     scheduler = StepLR(optimizer, 10)
 
@@ -47,21 +49,21 @@ def run(epochs: int, lr: float):
 
         tic = time.time()
         for video, _, label in trainloader:
-            video = video.transpose(1, 2).cuda(local_rank)
-            label = nn.functional.one_hot(label, num_classes=51).cuda(local_rank)
+            video = video.transpose(1, 2).cuda(rank)
+            label = nn.functional.one_hot(label, num_classes=51).cuda(rank)
             optimizer.zero_grad()
             loss(model(video), label).backward()
             optimizer.step()
         toc = time.time()
         logging.info("Epoch: {:2d} Elapsed time: {:.4f}".format(epoch, toc - tic))
 
-        if rank == 0:
+        if dist.get_rank() == 0:
             model.eval()
             correct = 0
             with torch.no_grad():
                 for video, _, label in testloader:
-                    video = video.transpose(1, 2).cuda(local_rank)
-                    label = label.cuda(local_rank)
+                    video = video.transpose(1, 2).cuda(rank)
+                    label = label.cuda(rank)
                     correct += model(video).argmax(dim=1).eq(label).sum().item()
             logging.info("Epoch: {:2d} Accuracy: {:.4f}".format(epoch, correct / len(testloader.dataset)))  # type: ignore[arg-type]
 
