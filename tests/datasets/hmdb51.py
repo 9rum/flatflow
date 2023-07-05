@@ -1,8 +1,8 @@
 import os
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import functorch
 import patoolib
-import torch
 import wget
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -104,7 +104,7 @@ class HMDB51(Dataset):
         video, audio, _ = read_video(self.videos[index], pts_unit="sec", output_format=self.output_format)
         if self.transform is not None:
             # apply :attr:`transform` to each of the video frames.
-            video = torch.vmap(self.transform)(video)
+            video = functorch.vmap(self.transform)(video)
         return video, audio, self.labels[index]
 
     def __len__(self) -> int:
