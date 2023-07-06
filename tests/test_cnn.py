@@ -57,6 +57,7 @@ def run(epochs: int, lr: float, root: str):
             optimizer.step()
         toc = time.time()
         logging.info("Epoch: {:2d} Elapsed time: {:.4f}".format(epoch, toc - tic))
+        dist.barrier()
 
         if dist.get_rank() == 0:
             model.eval()
