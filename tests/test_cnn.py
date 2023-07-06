@@ -50,7 +50,7 @@ def run(epochs: int, lr: float):
         tic = time.time()
         for video, _, label in trainloader:
             video = video.transpose(1, 2).cuda(rank)
-            label = nn.functional.one_hot(label, num_classes=51).cuda(rank)
+            label = nn.functional.one_hot(label, num_classes=51).float().cuda(rank)
             optimizer.zero_grad()
             loss(model(video), label).backward()
             optimizer.step()
