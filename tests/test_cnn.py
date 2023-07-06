@@ -57,20 +57,18 @@ def run(epochs: int, lr: float, root: str):
             optimizer.step()
         toc = time.time()
         logging.info("Epoch: {:2d} Elapsed time: {:.4f}".format(epoch, toc - tic))
-        dist.barrier()
 
         if dist.get_rank() == 0:
             model.eval()
             correct = 0
             with torch.no_grad():
-                for video, _, label in tqdm(testloader, desc="Epoch {}/{}".format(epoch+1, epochs), ascii=" >="):
+                for video, _, label in tqdm(testloader, ascii=" >="):
                     video = video.transpose(1, 2).cuda(rank)
                     label = label.cuda(rank)
                     correct += model(video).argmax(dim=1).eq(label).sum().item()
             logging.info("Epoch: {:2d} Accuracy: {:.4f}".format(epoch, correct / len(testloader.dataset)))  # type: ignore[arg-type]
 
         scheduler.step()
-        dist.barrier()
     dist.destroy_process_group()
 
 def parse_args():
