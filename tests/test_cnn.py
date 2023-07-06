@@ -12,6 +12,7 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, DistributedSampler
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
+from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.curdir))
 
@@ -48,7 +49,7 @@ def run(epochs: int, lr: float, root: str):
         model.train()
 
         tic = time.time()
-        for video, _, label in trainloader:
+        for video, _, label in tqdm(trainloader, desc="Epoch {}/{}".format(epoch+1, epochs), ascii=" >="):
             video = video.transpose(1, 2).cuda(rank)
             label = nn.functional.one_hot(label, num_classes=51).float().cuda(rank)
             optimizer.zero_grad()
@@ -61,7 +62,7 @@ def run(epochs: int, lr: float, root: str):
             model.eval()
             correct = 0
             with torch.no_grad():
-                for video, _, label in testloader:
+                for video, _, label in tqdm(testloader, desc="Epoch {}/{}".format(epoch+1, epochs), ascii=" >="):
                     video = video.transpose(1, 2).cuda(rank)
                     label = label.cuda(rank)
                     correct += model(video).argmax(dim=1).eq(label).sum().item()
