@@ -18,10 +18,10 @@ sys.path.append(os.path.abspath(os.curdir))
 from tests.datasets import HMDB51
 
 
-def run(epochs: int, lr: float):
+def run(epochs: int, lr: float, root: str):
     dist.init_process_group(backend=dist.Backend.NCCL)
 
-    # environment variables set by torchrun
+    # environment variable set by torchrun
     rank = int(os.getenv("LOCAL_RANK"))  # type: ignore[arg-type]
 
     model = r2plus1d_18(weights=R2Plus1D_18_Weights.DEFAULT)
@@ -36,8 +36,8 @@ def run(epochs: int, lr: float):
         Lambda(lambda x: x/255.0),
         Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225), inplace=True),
     ])
-    trainset = HMDB51("dataset", "", 0, transform=transform, output_format="TCHW")
-    testset = HMDB51("dataset", "", 0, train=False, transform=transform, output_format="TCHW")
+    trainset = HMDB51(root, "", 0, transform=transform, output_format="TCHW")
+    testset = HMDB51(root, "", 0, train=False, transform=transform, output_format="TCHW")
 
     sampler = DistributedSampler(trainset)  # type: ignore[var-annotated]
     trainloader = DataLoader(trainset, sampler=sampler)
@@ -75,10 +75,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Distributed training with R(2+1)D and HMDB")
     parser.add_argument("--epochs", default=45, type=int, help="number of epochs to train (default: 45)")
     parser.add_argument("--lr", default=0.01, type=float, help="initial learning rate (default: 0.01)")
+    parser.add_argument("--root", default="dataset", type=str, help="root directory of dataset (default: \"dataset\")")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(filename)s:%(lineno)s: %(message)s")
     logging.info(args)
-    run(args.epochs, args.lr)
+    run(args.epochs, args.lr, args.root)
