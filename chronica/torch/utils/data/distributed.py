@@ -111,12 +111,12 @@ class DistributedSampler(Sampler[T_co]):
 
         # automatically run scheduler server on master.
         if self.rank == 0:
-            args = "chronica -p {} -logtostderr true"
+            cmd = "chronica -p {} -logtostderr true"
             if shutil.which("chronica") is None:
                 if shutil.which("go") is None:
                     raise RuntimeError("Requires Go compiler to be installed")
-                args = "GOEXPERIMENT=arenas go install github.com/9rum/chronica@latest && {}".format(args)
-            subprocess.Popen(args.format(master_port).split())
+                cmd = "GOEXPERIMENT=arenas go install github.com/9rum/chronica@latest; {}".format(cmd)
+            subprocess.Popen(cmd.format(master_port), shell=True)
 
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
