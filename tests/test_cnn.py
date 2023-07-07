@@ -14,10 +14,9 @@ from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
 from tqdm import tqdm
 
-from chronica.torch.utils.data import DistributedSampler
-
 sys.path.append(os.path.abspath(os.curdir))
 
+from chronica.torch.utils.data import DistributedSampler
 from tests.datasets import HMDB51
 
 
