@@ -32,7 +32,7 @@ class Dataset(Generic[T_co]):
       Chronica's distributed sampler must be provided.
     """
 
-    def __getitem__(self, index) -> T_co:
+    def __getitem__(self, index: int) -> T_co:
         raise NotImplementedError("Subclasses of Dataset should implement __getitem__.")
 
     # def __getitems__(self, indices: List) -> List[T_co]:
@@ -46,7 +46,7 @@ class Dataset(Generic[T_co]):
     # See NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
     # in pytorch/torch/utils/data/sampler.py
 
-    def __sizeof__(self, index) -> int:  # type: ignore[override]
+    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
         return 1
 
 
@@ -110,7 +110,7 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self):
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> T_co:
         if index < 0:
             if len(self) < -index:
                 raise ValueError("absolute value of index should not exceed dataset length")
