@@ -68,7 +68,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Emp
 	if in.GetPartition() {
 		groups := cast[int64, int](in.GetGroups())
 		partitionSize := len(sizes) / int(in.GetWorldSize())
-		partitionSizes := make([]int, max(groups)+1)
+		partitionSizes := make([]int, max(groups...)+1)
 		for _, rank := range groups {
 			partitionSizes[rank] += partitionSize
 		}
@@ -103,7 +103,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Emp
 	return new(empty.Empty), nil
 }
 
-// cast casts the given slice.
+// cast casts the given slice in parallel.
 func cast[T, U constraints.Integer](slice []T) []U {
 	out := make([]U, len(slice))
 	stride := ceil(len(slice), runtime.NumCPU())
@@ -113,7 +113,7 @@ func cast[T, U constraints.Integer](slice []T) []U {
 		wg.Add(1)
 		go func(base int) {
 			defer wg.Done()
-			for index := base; index < base+stride; index++ {
+			for index := base; index < min(base+stride, len(slice)); index++ {
 				out[index] = U(slice[index])
 			}
 		}(base)
@@ -132,8 +132,22 @@ func ceil(numerator, denominator int) int {
 	return numerator/denominator + 1
 }
 
+// min returns the minimum value in the given slice.
+func min[T constraints.Ordered](slice ...T) (min T) {
+	if len(slice) == 0 {
+		return
+	}
+	min = slice[0]
+	for _, v := range slice[1:] {
+		if v < min {
+			min = v
+		}
+	}
+	return
+}
+
 // max returns the maximum value in the given slice.
-func max[T constraints.Ordered](slice []T) (max T) {
+func max[T constraints.Ordered](slice ...T) (max T) {
 	if len(slice) == 0 {
 		return
 	}
