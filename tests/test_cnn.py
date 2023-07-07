@@ -9,10 +9,12 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
 from tqdm import tqdm
+
+from chronica.torch.utils.data import DistributedSampler
 
 sys.path.append(os.path.abspath(os.curdir))
 
@@ -40,9 +42,9 @@ def run(epochs: int, lr: float, root: str):
     trainset = HMDB51(root, "", 0, transform=transform, output_format="TCHW")
     testset = HMDB51(root, "", 0, train=False, transform=transform, output_format="TCHW")
 
-    sampler = DistributedSampler(trainset)  # type: ignore[var-annotated]
-    trainloader = DataLoader(trainset, sampler=sampler)
-    testloader = DataLoader(testset)
+    sampler = DistributedSampler(trainset, batch_size=dist.get_world_size())  # type: ignore[var-annotated]
+    trainloader = DataLoader(trainset, sampler=sampler)  # type: ignore[arg-type,var-annotated]
+    testloader = DataLoader(testset)  # type: ignore[arg-type,var-annotated]
 
     for epoch in range(epochs):
         sampler.set_epoch(epoch)

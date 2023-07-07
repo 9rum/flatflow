@@ -1,12 +1,14 @@
 import os
 from typing import Any, Callable, Dict, Optional, Tuple
 
+import cv2
 import functorch
 import patoolib
 import wget
 from torch import Tensor
-from torch.utils.data import Dataset
 from torchvision.io import read_video
+
+from chronica.torch.utils.data import Dataset
 
 __all__ = ["HMDB51"]
 
@@ -106,6 +108,9 @@ class HMDB51(Dataset):
             # apply :attr:`transform` to each of the video frames.
             video = functorch.vmap(self.transform)(video)
         return video, audio, self.labels[index]
+
+    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
+        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
 
     def __len__(self) -> int:
         return len(self.videos)
