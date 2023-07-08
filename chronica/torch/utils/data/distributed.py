@@ -82,13 +82,11 @@ class DistributedSampler(Sampler[T_co]):
                  master_addr: Optional[str] = None, master_port: int = 50051,
                  schedule: Optional[str] = None, interval: int = 1,
                  partition: bool = False, groups: Optional[Iterable] = None) -> None:
+        if not dist.is_available():
+            raise RuntimeError("Requires distributed package to be available")
         if num_replicas is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
             num_replicas = dist.get_world_size()
         if rank is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
@@ -171,6 +169,7 @@ class DistributedSampler(Sampler[T_co]):
 
         if self.rank == 0:
             self.stub.Init(InitRequest(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
+        dist.barrier()
 
     def __iter__(self) -> Iterator[T_co]:
         if self.rank == 0 and 0 < self.num_yielded:
