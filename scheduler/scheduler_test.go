@@ -60,7 +60,7 @@ func TestStaticScheduler(t *testing.T) {
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd()
+		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -90,7 +90,7 @@ func TestDynamicScheduler(t *testing.T) {
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd()
+		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -112,7 +112,7 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd()
+		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -135,7 +135,7 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 			}
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd()
+		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }

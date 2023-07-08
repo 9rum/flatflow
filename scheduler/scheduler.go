@@ -38,7 +38,7 @@ type Scheduler interface {
 	OnBatchEnd(rank int, coefficient, intercept float64)
 
 	// OnEpochEnd is called at the end of an epoch during training.
-	OnEpochEnd()
+	OnEpochEnd(epoch int64)
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
@@ -52,7 +52,7 @@ func (SchedulerBase) Schedule() [][]int {
 	return nil
 }
 func (SchedulerBase) OnBatchEnd(rank int, coefficient, intercept float64) {}
-func (SchedulerBase) OnEpochEnd()                                         {}
+func (SchedulerBase) OnEpochEnd(epoch int64)                              {}
 func (SchedulerBase) OnTrainEnd()                                         {}
 
 // StaticScheduler provides balanced workload to each of the workers while
@@ -65,7 +65,6 @@ type StaticScheduler struct {
 	batchSize int
 	binSize   int
 	step      int
-	epoch     int64
 	indices   [][][]int
 	arena     *arena.Arena
 }
@@ -81,7 +80,6 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, ste
 		arena:     arena.NewArena(),
 	}
 	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, steps)
-	rand.Seed(scheduler.epoch)
 
 	return scheduler
 }
@@ -134,15 +132,14 @@ func (s StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
 }
 
 // OnEpochEnd randomizes the training sequence.
-func (s *StaticScheduler) OnEpochEnd() {
+func (s *StaticScheduler) OnEpochEnd(epoch int64) {
 	if s.dataset != nil {
 		s.dataset.OnTrainEnd()
 		s.dataset = nil
 	}
 
 	s.step = 0
-	s.epoch++
-	rand.Seed(s.epoch)
+	rand.Seed(epoch)
 	rand.Shuffle(len(s.indices), func(i, j int) {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
@@ -247,8 +244,8 @@ func (s *DynamicScheduler) OnBatchEnd(rank int, coefficient, intercept float64) 
 	s.dataset.OnBatchEnd(rank)
 }
 
-func (s DynamicScheduler) OnEpochEnd() {
-	s.dataset.OnEpochEnd()
+func (s DynamicScheduler) OnEpochEnd(epoch int64) {
+	s.dataset.OnEpochEnd(epoch)
 }
 
 func (s *DynamicScheduler) OnTrainEnd() {

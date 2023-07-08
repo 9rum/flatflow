@@ -48,7 +48,7 @@ func TestShardedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
@@ -68,7 +68,7 @@ func TestShardedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -100,7 +100,7 @@ func TestPartitionedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
@@ -124,7 +124,7 @@ func TestPartitionedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -147,7 +147,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 				dataset.Getitem(sizes[index], sizes[index])
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -178,7 +178,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 				}
 			}
 		}
-		dataset.OnEpochEnd()
+		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }

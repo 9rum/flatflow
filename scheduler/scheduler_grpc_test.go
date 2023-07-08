@@ -65,7 +65,7 @@ func TestSchedulerServer(t *testing.T) {
 			}
 			wg.Wait()
 		}
-		if _, err = c.Reset(context.Background(), new(emptypb.Empty)); err != nil {
+		if _, err = c.Reset(context.Background(), &ResetRequest{Epoch: int64(epoch)}); err != nil {
 			t.Fatalf("could not reset: %v", err)
 		}
 	}

@@ -42,7 +42,7 @@ type Dataset interface {
 	OnBatchEnd(rank int)
 
 	// OnEpochEnd is called at the end of an epoch during training.
-	OnEpochEnd()
+	OnEpochEnd(epoch int64)
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
@@ -61,16 +61,15 @@ func (DatasetBase) Len(rank int) int {
 func (DatasetBase) Rand(rank int) (index, size int) {
 	return
 }
-func (DatasetBase) OnBatchEnd(rank int) {}
-func (DatasetBase) OnEpochEnd()         {}
-func (DatasetBase) OnTrainEnd()         {}
+func (DatasetBase) OnBatchEnd(rank int)    {}
+func (DatasetBase) OnEpochEnd(epoch int64) {}
+func (DatasetBase) OnTrainEnd()            {}
 
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
 // the data sample.
 type ShardedDataset[T btree.Item] struct {
 	DatasetBase
-	epoch      int64
 	items      *btree.BTree[T]
 	recycleBin *btree.BTree[T]
 }
@@ -82,7 +81,6 @@ func NewShardedDataset[T btree.Item](sizes []int) (Dataset, error) {
 		items:      btree.New[T](0),
 		recycleBin: btree.New[T](0),
 	}
-	rand.Seed(dataset.epoch)
 
 	for index, size := range sizes {
 		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
@@ -137,9 +135,8 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data samples.
-func (d *ShardedDataset[T]) OnEpochEnd() {
-	d.epoch++
-	rand.Seed(d.epoch)
+func (d *ShardedDataset[T]) OnEpochEnd(epoch int64) {
+	rand.Seed(epoch)
 
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
 		d.recycleBin.ReplaceOrInsert(item)
@@ -159,7 +156,6 @@ func (d *ShardedDataset[T]) OnTrainEnd() {
 // in the cluster holds only a portion of the given dataset.
 type PartitionedDataset[T btree.Item] struct {
 	DatasetBase
-	epoch       int64
 	groups      []int
 	partitions  []*btree.BTree[T]
 	recycleBins []*btree.BTree[T]
@@ -172,7 +168,6 @@ func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (Data
 		partitions:  make([]*btree.BTree[T], 0, len(partitions)),
 		recycleBins: make([]*btree.BTree[T], 0, len(partitions)),
 	}
-	rand.Seed(dataset.epoch)
 
 	// We assume that the indices are sequentially distributed across workers.
 	base := 0
@@ -237,9 +232,8 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data partitions.
-func (d *PartitionedDataset[T]) OnEpochEnd() {
-	d.epoch++
-	rand.Seed(d.epoch)
+func (d *PartitionedDataset[T]) OnEpochEnd(epoch int64) {
+	rand.Seed(epoch)
 
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {

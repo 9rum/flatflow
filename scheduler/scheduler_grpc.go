@@ -202,10 +202,10 @@ func (s schedulerServer) Bcast(ctx context.Context, in *BcastRequest) (*BcastRes
 
 // Reset is called at the end of an epoch during training. It resets the
 // training environment for scheduling in the next training epoch.
-func (s schedulerServer) Reset(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
+func (s schedulerServer) Reset(ctx context.Context, in *ResetRequest) (*empty.Empty, error) {
 	glog.Info("Reset called")
 
-	s.scheduler.OnEpochEnd()
+	s.scheduler.OnEpochEnd(in.GetEpoch())
 
 	return new(empty.Empty), nil
 }

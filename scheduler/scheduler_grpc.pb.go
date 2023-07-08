@@ -52,7 +52,7 @@ type SchedulerClient interface {
 	// RPC for broadcasting schedule to all workers.
 	Bcast(ctx context.Context, in *BcastRequest, opts ...grpc.CallOption) (*BcastResponse, error)
 	// RPC for resetting training environment.
-	Reset(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	Reset(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// RPC for terminating training environment.
 	Finalize(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 }
@@ -83,7 +83,7 @@ func (c *schedulerClient) Bcast(ctx context.Context, in *BcastRequest, opts ...g
 	return out, nil
 }
 
-func (c *schedulerClient) Reset(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *schedulerClient) Reset(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, Scheduler_Reset_FullMethodName, in, out, opts...)
 	if err != nil {
@@ -110,7 +110,7 @@ type SchedulerServer interface {
 	// RPC for broadcasting schedule to all workers.
 	Bcast(context.Context, *BcastRequest) (*BcastResponse, error)
 	// RPC for resetting training environment.
-	Reset(context.Context, *empty.Empty) (*empty.Empty, error)
+	Reset(context.Context, *ResetRequest) (*empty.Empty, error)
 	// RPC for terminating training environment.
 	Finalize(context.Context, *empty.Empty) (*empty.Empty, error)
 	mustEmbedUnimplementedSchedulerServer()
@@ -126,7 +126,7 @@ func (UnimplementedSchedulerServer) Init(context.Context, *InitRequest) (*empty.
 func (UnimplementedSchedulerServer) Bcast(context.Context, *BcastRequest) (*BcastResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Bcast not implemented")
 }
-func (UnimplementedSchedulerServer) Reset(context.Context, *empty.Empty) (*empty.Empty, error) {
+func (UnimplementedSchedulerServer) Reset(context.Context, *ResetRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
 }
 func (UnimplementedSchedulerServer) Finalize(context.Context, *empty.Empty) (*empty.Empty, error) {
@@ -182,7 +182,7 @@ func _Scheduler_Bcast_Handler(srv interface{}, ctx context.Context, dec func(int
 }
 
 func _Scheduler_Reset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(empty.Empty)
+	in := new(ResetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func _Scheduler_Reset_Handler(srv interface{}, ctx context.Context, dec func(int
 		FullMethod: Scheduler_Reset_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).Reset(ctx, req.(*empty.Empty))
+		return srv.(SchedulerServer).Reset(ctx, req.(*ResetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
