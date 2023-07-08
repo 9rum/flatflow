@@ -17,7 +17,7 @@ from tqdm import tqdm
 sys.path.append(os.path.abspath(os.curdir))
 
 from chronica.torch.utils.data import DistributedSampler
-from tests.datasets import HMDB51
+from tests.torch.datasets import HMDB51
 
 
 def run(epochs: int, lr: float, root: str):
