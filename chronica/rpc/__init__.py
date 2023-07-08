@@ -9,6 +9,7 @@ from chronica.rpc.scheduler_pb2 import (
     BcastRequest,
     BcastResponse,
     InitRequest,
+    ResetRequest,
     Schedule,
 )
 from chronica.rpc.scheduler_pb2_grpc import SchedulerStub
@@ -18,5 +19,6 @@ __all__ = ["DYNAMIC",
            "BcastRequest",
            "BcastResponse",
            "InitRequest",
+           "ResetRequest",
            "Schedule",
            "SchedulerStub"]

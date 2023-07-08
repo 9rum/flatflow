@@ -47,6 +47,10 @@ message BcastResponse {
   repeated int64 indices = 1 [packed = true];
 }
 
+message ResetRequest {
+  int64 epoch = 1;
+}
+
 service Scheduler {
   // RPC for initializing training environment.
   rpc Init(InitRequest) returns (google.protobuf.Empty) {}
@@ -55,7 +59,7 @@ service Scheduler {
   rpc Bcast(BcastRequest) returns (BcastResponse) {}
 
   // RPC for resetting training environment.
-  rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Reset(ResetRequest) returns (google.protobuf.Empty) {}
 
   // RPC for terminating training environment.
   rpc Finalize(google.protobuf.Empty) returns (google.protobuf.Empty) {}

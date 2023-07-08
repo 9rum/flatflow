@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
 from chronica import sys
-from chronica.rpc import DYNAMIC, STATIC, BcastRequest, InitRequest, SchedulerStub
+from chronica.rpc import DYNAMIC, STATIC, BcastRequest, InitRequest, ResetRequest, SchedulerStub
 from chronica.torch.utils.data.dataset import Dataset
 
 __all__ = ["DistributedSampler"]
@@ -107,6 +107,7 @@ class DistributedSampler(Sampler[T_co]):
         else:
             raise ValueError("Invalid schedule type {}, schedule should be either static or dynamic".format(schedule))
         self.rank = rank
+        self.epoch = 0
         self.interval = interval * batch_size // num_replicas
 
         # automatically run scheduler server on master.
@@ -172,6 +173,9 @@ class DistributedSampler(Sampler[T_co]):
             self.stub.Init(InitRequest(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
 
     def __iter__(self) -> Iterator[T_co]:
+        if self.rank == 0 and 0 < self.num_yielded:
+            self.stub.Reset(ResetRequest(epoch=self.epoch))
+        self.num_yielded = 0
         return self
 
     def __next__(self) -> T_co:
@@ -204,10 +208,10 @@ class DistributedSampler(Sampler[T_co]):
 
     def set_epoch(self, epoch: int) -> None:
         r"""
-        Sets the epoch for this sampler. This ensures scheduling work properly across multiple epochs.
+        Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
+        Otherwise, the next iteration of this sampler will yield the same ordering.
 
         Args:
             epoch (int): Epoch number.
         """
-        if self.rank == 0 and 0 < epoch:
-            self.stub.Reset(Empty())
+        self.epoch = epoch
