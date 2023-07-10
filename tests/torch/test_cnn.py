@@ -9,14 +9,13 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, DistributedSampler
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
 from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.curdir))
 
-from chronica.torch.utils.data import DistributedSampler
 from tests.torch.datasets import HMDB51
 
 
@@ -35,13 +34,13 @@ def run(epochs: int, lr: float, root: str):
 
     transform = Compose([
         Resize((112, 112), antialias=True),
-        Lambda(lambda x: x/255.0),
+        Lambda(lambda x: x / 255.0),
         Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225), inplace=True),
     ])
     trainset = HMDB51(root, "", 0, transform=transform, output_format="TCHW")
     testset = HMDB51(root, "", 0, train=False, transform=transform, output_format="TCHW")
 
-    sampler = DistributedSampler(trainset)  # type: ignore[var-annotated]
+    sampler = DistributedSampler(trainset)  # type: ignore[arg-type,var-annotated]
     trainloader = DataLoader(trainset, sampler=sampler)  # type: ignore[arg-type,var-annotated]
     testloader = DataLoader(testset)  # type: ignore[arg-type,var-annotated]
 
@@ -51,6 +50,8 @@ def run(epochs: int, lr: float, root: str):
 
         tic = time.time()
         for video, _, label in tqdm(trainloader, desc="Epoch {}/{}".format(epoch+1, epochs), ascii=" >="):
+            if 266 < video.shape[1]:
+                video = video[:, :266]
             video = video.transpose(1, 2).cuda(rank)
             label = nn.functional.one_hot(label, num_classes=51).float().cuda(rank)
             optimizer.zero_grad()
