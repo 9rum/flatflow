@@ -57,9 +57,9 @@ def run(epochs: int, lr: float, root: str):
             loss(model(video), label).backward()
             optimizer.step()
         toc = time.time()
-        logging.info("Epoch: {:2d} Elapsed time: {:.4f}".format(epoch, toc - tic))
 
         if dist.get_rank() == 0:
+            logging.info("Epoch: {:2d} Elapsed time: {:.4f}".format(epoch, toc - tic))
             model.eval()
             correct = 0
             with torch.no_grad():
@@ -67,7 +67,7 @@ def run(epochs: int, lr: float, root: str):
                     video = video.transpose(1, 2).cuda(rank)
                     label = label.cuda(rank)
                     correct += model(video).argmax(dim=1).eq(label).sum().item()
-            logging.info("Epoch: {:2d} Accuracy: {:.4f}".format(epoch, correct / len(testloader.dataset)))  # type: ignore[arg-type]
+            logging.info("Epoch: {:2d} Accuracy: {:.4f}".format(epoch, correct / len(testset)))  # type: ignore[arg-type]
 
         scheduler.step()
     dist.destroy_process_group()
