@@ -70,7 +70,7 @@ type StaticScheduler struct {
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, steps int) Scheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, steps int) *StaticScheduler {
 	// We use memory arenas to reduce GC overhead.
 	scheduler := &StaticScheduler{
 		dataset:   dataset,
@@ -163,7 +163,7 @@ type DynamicScheduler struct {
 }
 
 // NewDynamicScheduler creates a new dynamic scheduler with the given arguments.
-func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) Scheduler {
+func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) *DynamicScheduler {
 	return &DynamicScheduler{
 		dataset:      dataset,
 		worldSize:    worldSize,

@@ -162,7 +162,7 @@ func max[T constraints.Ordered](slice ...T) (max T) {
 
 // binSize returns the bin size to be used for static scheduling.
 func binSize[T constraints.Integer](sizes []T, worldSize, batchSize T) int {
-	return int(math.Round(mean(sizes) * float64(batchSize) / float64(worldSize)))
+	return int(math.Round(mean(sizes) * float64(batchSize/worldSize)))
 }
 
 // mean averages the given sizes.
