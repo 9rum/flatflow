@@ -19,8 +19,6 @@ import (
 	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/9rum/chronica/internal/btree"
 )
 
 func init() {
@@ -35,7 +33,7 @@ func TestShardedDataset(t *testing.T) {
 		batchSize   = 10
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := NewShardedDataset(sizes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +53,7 @@ func TestShardedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset, err = NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err = NewShardedDataset(sizes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +83,7 @@ func TestPartitionedDataset(t *testing.T) {
 		groups[rank] = rank
 		partitions[rank] = rand.Perm(datasetSize / worldSize)
 	}
-	dataset, err := NewPartitionedDataset[*btree.ItemBase](groups, partitions)
+	dataset, err := NewPartitionedDataset(groups, partitions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +107,7 @@ func TestPartitionedDataset(t *testing.T) {
 			partition[size] = size
 		}
 	}
-	dataset, err = NewPartitionedDataset[*btree.ItemBase](groups, partitions)
+	dataset, err = NewPartitionedDataset(groups, partitions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +134,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 	const batchSize = 10
 	sizes := rand.Perm(benchmarkDatasetSize)
 	b.StartTimer()
-	dataset, err := NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := NewShardedDataset(sizes)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -165,7 +163,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		partitions[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
 	}
 	b.StartTimer()
-	dataset, err := NewPartitionedDataset[*btree.ItemBase](groups, partitions)
+	dataset, err := NewPartitionedDataset(groups, partitions)
 	if err != nil {
 		b.Fatal(err)
 	}

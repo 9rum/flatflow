@@ -68,22 +68,22 @@ func (DatasetBase) OnTrainEnd()            {}
 // ShardedDataset represents a sharded dataset where every node in the cluster
 // has a replica of the given dataset; hence it ignores rank when looking for
 // the data sample.
-type ShardedDataset[T btree.Item] struct {
+type ShardedDataset struct {
 	DatasetBase
-	items      *btree.BTree[T]
-	recycleBin *btree.BTree[T]
+	items      *btree.BTree[Sample]
+	recycleBin *btree.BTree[Sample]
 }
 
 // NewShardedDataset creates a new sharded dataset with the given argument.
-func NewShardedDataset[T btree.Item](sizes []int) (*ShardedDataset[T], error) {
+func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 	// We use the default degree for the items to fit on a single memory page.
-	dataset := &ShardedDataset[T]{
-		items:      btree.New[T](0),
-		recycleBin: btree.New[T](0),
+	dataset := &ShardedDataset{
+		items:      btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
+		recycleBin: btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
 	}
 
 	for index, size := range sizes {
-		if _, found := dataset.items.ReplaceOrInsert(btree.NewItem[T](index, size)); found {
+		if _, found := dataset.items.ReplaceOrInsert(NewSample(index, size)); found {
 			dataset.OnTrainEnd()
 			return nil, errors.New("insert found item")
 		}
@@ -93,8 +93,8 @@ func NewShardedDataset[T btree.Item](sizes []int) (*ShardedDataset[T], error) {
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
-func (d ShardedDataset[T]) Getitem(rank, size int) (index, siz int) {
-	item, ok := d.items.DeleteNearest(btree.NewItem[T](size, size))
+func (d ShardedDataset) Getitem(rank, size int) (index, siz int) {
+	item, ok := d.items.DeleteNearest(NewSample(size, size))
 	if !ok {
 		return
 	}
@@ -104,12 +104,12 @@ func (d ShardedDataset[T]) Getitem(rank, size int) (index, siz int) {
 }
 
 // Len returns the number of data samples currently in the dataset.
-func (d ShardedDataset[T]) Len(rank int) int {
+func (d ShardedDataset) Len(rank int) int {
 	return d.items.Len()
 }
 
 // Rand selects a random data sample from the dataset.
-func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
+func (d ShardedDataset) Rand(rank int) (index, size int) {
 	item, ok := d.items.Min()
 	if !ok {
 		return
@@ -123,7 +123,7 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
-	item, ok = d.items.DeleteNearest(btree.NewItem[T](pivot, pivot))
+	item, ok = d.items.DeleteNearest(NewSample(pivot, pivot))
 	if !ok {
 		return
 	}
@@ -135,7 +135,7 @@ func (d ShardedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data samples.
-func (d *ShardedDataset[T]) OnEpochEnd(epoch int64) {
+func (d *ShardedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
 
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
@@ -145,7 +145,7 @@ func (d *ShardedDataset[T]) OnEpochEnd(epoch int64) {
 }
 
 // OnTrainEnd terminates the training environment.
-func (d *ShardedDataset[T]) OnTrainEnd() {
+func (d *ShardedDataset) OnTrainEnd() {
 	d.items.Clear(false)
 	d.items = nil
 	d.recycleBin.Clear(false)
@@ -154,19 +154,19 @@ func (d *ShardedDataset[T]) OnTrainEnd() {
 
 // PartitionedDataset represents a partitioned dataset where each of the nodes
 // in the cluster holds only a portion of the given dataset.
-type PartitionedDataset[T btree.Item] struct {
+type PartitionedDataset struct {
 	DatasetBase
 	groups      []int
-	partitions  []*btree.BTree[T]
-	recycleBins []*btree.BTree[T]
+	partitions  []*btree.BTree[Sample]
+	recycleBins []*btree.BTree[Sample]
 }
 
 // NewPartitionedDataset creates a new partitioned dataset with the given arguments.
-func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (*PartitionedDataset[T], error) {
-	dataset := &PartitionedDataset[T]{
+func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDataset, error) {
+	dataset := &PartitionedDataset{
 		groups:      groups,
-		partitions:  make([]*btree.BTree[T], 0, len(partitions)),
-		recycleBins: make([]*btree.BTree[T], 0, len(partitions)),
+		partitions:  make([]*btree.BTree[Sample], 0, len(partitions)),
+		recycleBins: make([]*btree.BTree[Sample], 0, len(partitions)),
 	}
 
 	// We assume that the indices are sequentially distributed across workers.
@@ -174,10 +174,10 @@ func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (*Par
 
 	for rank, partition := range partitions {
 		// We use the default degree for the items to fit on a single memory page.
-		dataset.partitions = append(dataset.partitions, btree.New[T](0))
-		dataset.recycleBins = append(dataset.recycleBins, btree.New[T](0))
+		dataset.partitions = append(dataset.partitions, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
+		dataset.recycleBins = append(dataset.recycleBins, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		for index, size := range partition {
-			if _, found := dataset.partitions[rank].ReplaceOrInsert(btree.NewItem[T](base+index, size)); found {
+			if _, found := dataset.partitions[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
 				dataset.OnTrainEnd()
 				return nil, errors.New("insert found item")
 			}
@@ -190,8 +190,8 @@ func NewPartitionedDataset[T btree.Item](groups []int, partitions [][]int) (*Par
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
-func (d PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
-	item, ok := d.partitions[d.groups[rank]].DeleteNearest(btree.NewItem[T](size, size))
+func (d PartitionedDataset) Getitem(rank, size int) (index, siz int) {
+	item, ok := d.partitions[d.groups[rank]].DeleteNearest(NewSample(size, size))
 	if !ok {
 		return
 	}
@@ -201,12 +201,12 @@ func (d PartitionedDataset[T]) Getitem(rank, size int) (index, siz int) {
 }
 
 // Len returns the number of data samples currently in the dataset.
-func (d PartitionedDataset[T]) Len(rank int) int {
+func (d PartitionedDataset) Len(rank int) int {
 	return d.partitions[d.groups[rank]].Len()
 }
 
 // Rand selects a random data sample from the dataset.
-func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
+func (d PartitionedDataset) Rand(rank int) (index, size int) {
 	item, ok := d.partitions[d.groups[rank]].Min()
 	if !ok {
 		return
@@ -220,7 +220,7 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
-	item, ok = d.partitions[d.groups[rank]].DeleteNearest(btree.NewItem[T](pivot, pivot))
+	item, ok = d.partitions[d.groups[rank]].DeleteNearest(NewSample(pivot, pivot))
 	if !ok {
 		return
 	}
@@ -232,7 +232,7 @@ func (d PartitionedDataset[T]) Rand(rank int) (index, size int) {
 }
 
 // OnEpochEnd resets the data partitions.
-func (d *PartitionedDataset[T]) OnEpochEnd(epoch int64) {
+func (d *PartitionedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
 
 	for rank, partition := range d.partitions {
@@ -244,7 +244,7 @@ func (d *PartitionedDataset[T]) OnEpochEnd(epoch int64) {
 }
 
 // OnTrainEnd terminates the training environment.
-func (d *PartitionedDataset[T]) OnTrainEnd() {
+func (d *PartitionedDataset) OnTrainEnd() {
 	for rank, partition := range d.partitions {
 		partition.Clear(false)
 		d.partitions[rank] = nil
