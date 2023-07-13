@@ -179,7 +179,7 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) *Dynami
 // This is a revised version of our original solution for straggler mitigation
 // against imbalanced data, which has been proposed in the 23rd IEEE/ACM
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
-// Chronica paper: https://discos.sogang.ac.kr/file/2023/intl_conf/ccgrid23_chronica.pdf
+// Chronica paper: https://ieeexplore.ieee.org/document/10171495
 func (s DynamicScheduler) Schedule() [][]int {
 	binSize := 0.
 	bins := make([]float64, s.worldSize)

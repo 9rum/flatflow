@@ -23,7 +23,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/9rum/chronica/internal/btree"
 	"github.com/9rum/chronica/internal/data"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
@@ -80,9 +79,9 @@ func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Emp
 			partitions = append(partitions, sizes[base:base+partitionSize])
 			base += partitionSize
 		}
-		dataset, err = data.NewPartitionedDataset[*btree.ItemBase](groups, partitions)
+		dataset, err = data.NewPartitionedDataset(groups, partitions)
 	} else {
-		dataset, err = data.NewShardedDataset[*btree.ItemBase](sizes)
+		dataset, err = data.NewShardedDataset(sizes)
 	}
 
 	if err != nil {

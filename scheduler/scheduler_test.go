@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/9rum/chronica/internal/btree"
 	"github.com/9rum/chronica/internal/data"
 )
 
@@ -45,7 +44,7 @@ func TestStaticScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := data.NewShardedDataset(sizes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +71,7 @@ func TestDynamicScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := data.NewShardedDataset(sizes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +103,7 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := data.NewShardedDataset(sizes)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -127,7 +126,7 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
+	dataset, err := data.NewShardedDataset(sizes)
 	if err != nil {
 		b.Fatal(err)
 	}
