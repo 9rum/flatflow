@@ -17,10 +17,6 @@
 
 package btree
 
-import "reflect"
-
-var typeOfItemBase = reflect.TypeOf(new(ItemBase))
-
 // Item represents a single object in the tree.
 // All implementations must embed ItemBase for forward compatibility.
 type Item interface {
@@ -36,21 +32,6 @@ type Item interface {
 	// we treat this to mean a == b (i.e., we can only hold one of either a or b
 	// in the tree).
 	Less(than Item) bool
-}
-
-// NewItem creates a new item with the given constraints, using reflection to
-// mimic type switches.  If type switches are supported in the future,
-// reflection may be removed; there is no current language support for type
-// switches on the type parameter.
-func NewItem[T Item](index, size int) T {
-	var zero T
-
-	switch reflect.TypeOf(zero) {
-	case typeOfItemBase:
-		return Item(NewItemBase(index, size)).(T)
-	default:
-		panic("invalid type")
-	}
 }
 
 // ItemBase meets the minimum requirements for identifying the item.
