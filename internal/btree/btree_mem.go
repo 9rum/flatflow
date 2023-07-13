@@ -31,25 +31,25 @@ import (
 
 var (
 	size   = flag.Int("size", 1000000, "size of the tree to build")
-	degree = flag.Int("degree", 0, "degree of btree")
+	degree = flag.Int("degree", btree.DefaultTargetNodeSize[btree.ItemBase](), "degree of btree")
 	gollrb = flag.Bool("llrb", false, "use llrb instead of btree")
 )
 
 type ItemWrapper struct {
-	*btree.ItemBase
+	btree.ItemBase
 }
 
-func NewItemWrapper(index, size int) *ItemWrapper {
-	return &ItemWrapper{
+func NewItemWrapper(index, size int) ItemWrapper {
+	return ItemWrapper{
 		ItemBase: btree.NewItemBase(index, size),
 	}
 }
 
 func (i ItemWrapper) Less(than llrb.Item) bool {
-	if i.Size() == than.(*ItemWrapper).Size() {
-		return i.Index() < than.(*ItemWrapper).Index()
+	if i.Size() == than.(ItemWrapper).Size() {
+		return i.Index() < than.(ItemWrapper).Index()
 	}
-	return i.Size() < than.(*ItemWrapper).Size()
+	return i.Size() < than.(ItemWrapper).Size()
 }
 
 func main() {
@@ -74,7 +74,7 @@ func main() {
 		}
 		t = tr // keep it around
 	} else {
-		tr := btree.New[*btree.ItemBase](*degree)
+		tr := btree.New[btree.ItemBase](*degree)
 		for _, v := range vals {
 			tr.ReplaceOrInsert(btree.NewItemBase(v, v))
 		}

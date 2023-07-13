@@ -41,8 +41,8 @@ type ItemBase struct {
 }
 
 // NewItemBase creates a new base item with the given arguments.
-func NewItemBase(index, size int) *ItemBase {
-	return &ItemBase{
+func NewItemBase(index, size int) ItemBase {
+	return ItemBase{
 		index: index,
 		size:  size,
 	}
