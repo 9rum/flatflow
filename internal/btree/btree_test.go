@@ -76,7 +76,7 @@ func allrev[T Item](t *BTree[T]) (out []T) {
 	return
 }
 
-var btreeDegree = flag.Int("degree", DefaultTargetNodeSize, "B-tree degree")
+var btreeDegree = flag.Int("degree", DefaultTargetNodeSize[*ItemBase](), "B-tree degree")
 
 func TestBTree(t *testing.T) {
 	tr := New[*ItemBase](*btreeDegree)

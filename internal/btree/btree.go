@@ -54,14 +54,13 @@
 package btree
 
 import (
+	"os"
 	"sort"
 	"sync"
+	"unsafe"
 )
 
-const (
-	DefaultFreeListSize   = 32
-	DefaultTargetNodeSize = 128
-)
+const DefaultFreeListSize = 32
 
 // FreeList represents a free list of BTree nodes. By default each
 // BTree has its own FreeList, but multiple BTrees can share the same
@@ -115,12 +114,20 @@ func New[T Item](degree int) *BTree[T] {
 // NewWithFreeList creates a new B-tree that uses the given node free list.
 func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 	if degree <= 1 {
-		degree = DefaultTargetNodeSize
+		degree = DefaultTargetNodeSize[T]()
 	}
 	return &BTree[T]{
 		degree: degree,
 		cow:    &copyOnWriteContext[T]{freelist: f},
 	}
+}
+
+// DefaultTargetNodeSize finds the degree for type T that allows items[T] to fit
+// on a single memory page.
+func DefaultTargetNodeSize[T Item]() int {
+	var zero T
+	size := int(unsafe.Sizeof(zero))
+	return (os.Getpagesize() + size) / (size << 1)
 }
 
 // items stores items in a node.
