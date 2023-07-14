@@ -93,7 +93,7 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
-func (d ShardedDataset) Getitem(rank, size int) (index, siz int) {
+func (d *ShardedDataset) Getitem(rank, size int) (index, siz int) {
 	item, ok := d.items.DeleteNearest(NewSample(size, size))
 	if !ok {
 		return
@@ -104,12 +104,12 @@ func (d ShardedDataset) Getitem(rank, size int) (index, siz int) {
 }
 
 // Len returns the number of data samples currently in the dataset.
-func (d ShardedDataset) Len(rank int) int {
+func (d *ShardedDataset) Len(rank int) int {
 	return d.items.Len()
 }
 
 // Rand selects a random data sample from the dataset.
-func (d ShardedDataset) Rand(rank int) (index, size int) {
+func (d *ShardedDataset) Rand(rank int) (index, size int) {
 	item, ok := d.items.Min()
 	if !ok {
 		return
@@ -190,7 +190,7 @@ func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDatase
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
-func (d PartitionedDataset) Getitem(rank, size int) (index, siz int) {
+func (d *PartitionedDataset) Getitem(rank, size int) (index, siz int) {
 	item, ok := d.partitions[d.groups[rank]].DeleteNearest(NewSample(size, size))
 	if !ok {
 		return
@@ -201,12 +201,12 @@ func (d PartitionedDataset) Getitem(rank, size int) (index, siz int) {
 }
 
 // Len returns the number of data samples currently in the dataset.
-func (d PartitionedDataset) Len(rank int) int {
+func (d *PartitionedDataset) Len(rank int) int {
 	return d.partitions[d.groups[rank]].Len()
 }
 
 // Rand selects a random data sample from the dataset.
-func (d PartitionedDataset) Rand(rank int) (index, size int) {
+func (d *PartitionedDataset) Rand(rank int) (index, size int) {
 	item, ok := d.partitions[d.groups[rank]].Min()
 	if !ok {
 		return
