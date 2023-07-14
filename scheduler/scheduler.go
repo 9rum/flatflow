@@ -79,7 +79,14 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, ste
 		binSize:   binSize,
 		arena:     arena.NewArena(),
 	}
+
 	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, steps)
+	for len(scheduler.indices) < cap(scheduler.indices) {
+		scheduler.indices = append(scheduler.indices, scheduler.schedule())
+	}
+	rand.Shuffle(len(scheduler.indices), func(i, j int) {
+		scheduler.indices[i], scheduler.indices[j] = scheduler.indices[j], scheduler.indices[i]
+	})
 
 	return scheduler
 }
@@ -92,9 +99,6 @@ func (s *StaticScheduler) Schedule() [][]int {
 		s.step++
 	}()
 
-	if s.dataset != nil {
-		s.indices = append(s.indices, s.schedule())
-	}
 	return s.indices[s.step]
 }
 
@@ -126,27 +130,31 @@ func (s *StaticScheduler) schedule() [][]int {
 }
 
 func (s *StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
-	if s.dataset != nil {
-		s.dataset.OnBatchEnd(rank)
-	}
+	s.dataset.OnBatchEnd(rank)
 }
 
 // OnEpochEnd randomizes the training sequence.
 func (s *StaticScheduler) OnEpochEnd(epoch int64) {
-	if s.dataset != nil {
-		s.dataset.OnTrainEnd()
-		s.dataset = nil
-	}
+	s.dataset.OnEpochEnd(epoch)
 
-	s.step = 0
-	rand.Seed(epoch)
+	s.arena.Free()
+	s.arena = arena.NewArena()
+
+	s.indices = arena.MakeSlice[[][]int](s.arena, 0, s.step)
+	for len(s.indices) < cap(s.indices) {
+		s.indices = append(s.indices, s.schedule())
+	}
 	rand.Shuffle(len(s.indices), func(i, j int) {
 		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
 	})
+
+	s.step = 0
 }
 
 // OnTrainEnd frees the allocated memory arena.
 func (s *StaticScheduler) OnTrainEnd() {
+	s.dataset.OnTrainEnd()
+	s.dataset = nil
 	s.arena.Free()
 	s.arena = nil
 }
