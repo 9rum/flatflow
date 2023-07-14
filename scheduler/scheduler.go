@@ -103,7 +103,7 @@ func (s *StaticScheduler) Schedule() [][]int {
 // bin packing.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s StaticScheduler) schedule() [][]int {
+func (s *StaticScheduler) schedule() [][]int {
 	bins := make([]int, s.worldSize)
 	indices := arena.MakeSlice[[]int](s.arena, s.worldSize, s.worldSize)
 	for rank := range indices {
@@ -125,7 +125,7 @@ func (s StaticScheduler) schedule() [][]int {
 	return indices
 }
 
-func (s StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
+func (s *StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
 	if s.dataset != nil {
 		s.dataset.OnBatchEnd(rank)
 	}
@@ -146,8 +146,9 @@ func (s *StaticScheduler) OnEpochEnd(epoch int64) {
 }
 
 // OnTrainEnd frees the allocated memory arena.
-func (s StaticScheduler) OnTrainEnd() {
+func (s *StaticScheduler) OnTrainEnd() {
 	s.arena.Free()
+	s.arena = nil
 }
 
 // DynamicScheduler provides a feedback-directed optimization. It adaptively
@@ -180,7 +181,7 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) *Dynami
 // against imbalanced data, which has been proposed in the 23rd IEEE/ACM
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://ieeexplore.ieee.org/document/10171495
-func (s DynamicScheduler) Schedule() [][]int {
+func (s *DynamicScheduler) Schedule() [][]int {
 	binSize := 0.
 	bins := make([]float64, s.worldSize)
 	indices := make([][]int, s.worldSize)
@@ -244,7 +245,7 @@ func (s *DynamicScheduler) OnBatchEnd(rank int, coefficient, intercept float64) 
 	s.dataset.OnBatchEnd(rank)
 }
 
-func (s DynamicScheduler) OnEpochEnd(epoch int64) {
+func (s *DynamicScheduler) OnEpochEnd(epoch int64) {
 	s.dataset.OnEpochEnd(epoch)
 }
 
