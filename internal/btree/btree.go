@@ -617,13 +617,25 @@ func (n *node[T]) iterate(dir direction, start, stop optionalItem[T], includeSta
 	return hit, true
 }
 
+// reset returns a subtree to the freelist.  It breaks out immediately if the
+// freelist is full, since the only benefit of iterating is to fill that
+// freelist up.  Returns true if parent reset call should continue.
+func (n *node[T]) reset(c *copyOnWriteContext[T]) bool {
+	for _, child := range n.children {
+		if !child.reset(c) {
+			return false
+		}
+	}
+	return c.freeNode(n) != ftFreelistFull
+}
+
 // BTree is a generic implementation of a B-tree.
 //
 // BTree stores items of type T in an ordered structure, allowing easy insertion,
 // removal, and iteration.
 //
 // Write operations are not safe for concurrent mutation by multiple
-// goroutines, but Read operations are.
+// goroutines, but read operations are.
 type BTree[T Item] struct {
 	degree int
 	length int
@@ -914,16 +926,4 @@ func (t *BTree[T]) Clear(addNodesToFreelist bool) {
 		t.root.reset(t.cow)
 	}
 	t.root, t.length = nil, 0
-}
-
-// reset returns a subtree to the freelist.  It breaks out immediately if the
-// freelist is full, since the only benefit of iterating is to fill that
-// freelist up.  Returns true if parent reset call should continue.
-func (n *node[T]) reset(c *copyOnWriteContext[T]) bool {
-	for _, child := range n.children {
-		if !child.reset(c) {
-			return false
-		}
-	}
-	return c.freeNode(n) != ftFreelistFull
 }
