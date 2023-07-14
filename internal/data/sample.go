@@ -14,11 +14,7 @@
 
 package data
 
-import (
-	"time"
-
-	"github.com/9rum/chronica/internal/btree"
-)
+import "github.com/9rum/chronica/internal/btree"
 
 // Sample represents a single data sample in the dataset.
 type Sample struct {
@@ -37,7 +33,7 @@ func NewSample(index, size int) Sample {
 // for a given key while keeping the sorting order.
 func (s Sample) Less(than btree.Item) bool {
 	if s.Size() == than.Size() {
-		return time.Now().UnixNano()%2 == 0
+		return mapping[s.Index()] < mapping[than.Index()]
 	}
 	return s.Size() < than.Size()
 }

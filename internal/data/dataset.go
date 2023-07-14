@@ -25,6 +25,8 @@ import (
 	"github.com/9rum/chronica/internal/btree"
 )
 
+var mapping []int
+
 // Dataset represents the given dataset.
 // All implementations must embed DatasetBase for forward compatibility.
 type Dataset interface {
@@ -81,6 +83,7 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 		items:      btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
 		recycleBin: btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
 	}
+	mapping = rand.Perm(len(sizes))
 
 	for index, size := range sizes {
 		if _, found := dataset.items.ReplaceOrInsert(NewSample(index, size)); found {
@@ -88,6 +91,7 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 			return nil, errors.New("insert found item")
 		}
 	}
+	mapping = rand.Perm(len(mapping))
 
 	return dataset, nil
 }
@@ -137,6 +141,7 @@ func (d *ShardedDataset) Rand(rank int) (index, size int) {
 // OnEpochEnd resets the data samples.
 func (d *ShardedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
+	mapping = rand.Perm(len(mapping))
 
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
 		d.recycleBin.ReplaceOrInsert(item)
@@ -168,6 +173,12 @@ func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDatase
 		partitions:  make([]*btree.BTree[Sample], 0, len(partitions)),
 		recycleBins: make([]*btree.BTree[Sample], 0, len(partitions)),
 	}
+	mapping = rand.Perm(func() (sum int) {
+		for _, partition := range partitions {
+			sum += len(partition)
+		}
+		return
+	}())
 
 	// We assume that the indices are sequentially distributed across workers.
 	base := 0
@@ -184,6 +195,7 @@ func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDatase
 		}
 		base += len(partition)
 	}
+	mapping = rand.Perm(len(mapping))
 
 	return dataset, nil
 }
@@ -234,6 +246,7 @@ func (d *PartitionedDataset) Rand(rank int) (index, size int) {
 // OnEpochEnd resets the data partitions.
 func (d *PartitionedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
+	mapping = rand.Perm(len(mapping))
 
 	for rank, partition := range d.partitions {
 		for item, ok := partition.DeleteMin(); ok; item, ok = partition.DeleteMin() {
