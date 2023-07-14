@@ -15,19 +15,11 @@
 package scheduler
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/9rum/chronica/internal/data"
 )
-
-func init() {
-	seed := time.Now().Unix()
-	fmt.Println(seed)
-	rand.Seed(seed)
-}
 
 // sum returns the sum of the selected data samples size.
 func sum(indices, sizes []int) (sum int) {

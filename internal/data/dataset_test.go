@@ -15,17 +15,9 @@
 package data
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 )
-
-func init() {
-	seed := time.Now().Unix()
-	fmt.Println(seed)
-	rand.Seed(seed)
-}
 
 func TestShardedDataset(t *testing.T) {
 	const (
