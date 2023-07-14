@@ -116,7 +116,7 @@ func (s *StaticScheduler) schedule() [][]int {
 
 	// pack the bins in a first-fit-decreasing fashion
 	for rank := range indices {
-		for step := 0; step < s.batchSize/s.worldSize; step++ {
+		for len(indices[rank]) < cap(indices[rank]) {
 			if s.dataset.Len(rank) <= 0 {
 				break
 			}
@@ -225,7 +225,7 @@ func (s *DynamicScheduler) Schedule() [][]int {
 		}
 	}
 
-	for step := 1; step < s.batchSize/s.worldSize; step++ {
+	for len(indices[0]) < cap(indices[0]) {
 		for rank := range indices {
 			if 0 < s.dataset.Len(rank) {
 				if s.coefficients[rank] == 0. {
