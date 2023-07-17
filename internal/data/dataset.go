@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package data provides primitives for representing and organizing
-// the given dataset.  In addition to the traditional sharded dataset,
-// it supports a partitioned dataset where the data is split into
-// multiple data partitions across nodes in the cluster.
+// Package data provides primitives for representing and organizing the given
+// data sets.  In addition to the traditional sharded data set, it supports a
+// partitioned data set where the data is split into multiple data partitions
+// across nodes in the cluster.
 package data
 
 import (
@@ -27,18 +27,18 @@ import (
 
 var mapping []int
 
-// Dataset represents the given dataset.
+// Dataset represents the given data set.
 // All implementations must embed DatasetBase for forward compatibility.
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
-	Getitem(rank, size int) (index, siz int)
+	Getitem(rank, size int) (_, _ int)
 
-	// Len returns the number of data samples currently in the dataset.
+	// Len returns the number of data samples currently in the data set.
 	Len(rank int) int
 
-	// Rand retrieves an arbitrary data sample from the dataset.
-	Rand(rank int) (index, size int)
+	// Rand retrieves an arbitrary data sample from the data set.
+	Rand(rank int) (_, _ int)
 
 	// OnBatchEnd is called at the end of a training batch.
 	OnBatchEnd(rank int)
@@ -54,21 +54,21 @@ type Dataset interface {
 type DatasetBase struct {
 }
 
-func (DatasetBase) Getitem(rank, size int) (index, siz int) {
+func (DatasetBase) Getitem(rank, size int) (_, _ int) {
 	return
 }
-func (DatasetBase) Len(rank int) int {
-	return 0
+func (DatasetBase) Len(rank int) (_ int) {
+	return
 }
-func (DatasetBase) Rand(rank int) (index, size int) {
+func (DatasetBase) Rand(rank int) (_, _ int) {
 	return
 }
 func (DatasetBase) OnBatchEnd(rank int)    {}
 func (DatasetBase) OnEpochEnd(epoch int64) {}
 func (DatasetBase) OnTrainEnd()            {}
 
-// ShardedDataset represents a sharded dataset where every node in the cluster
-// has a replica of the given dataset; hence it ignores rank when looking for
+// ShardedDataset represents a sharded data set where every node in the cluster
+// has a replica of the given data set; hence it ignores rank when looking for
 // the data sample.
 type ShardedDataset struct {
 	DatasetBase
@@ -76,7 +76,7 @@ type ShardedDataset struct {
 	recycleBin *btree.BTree[Sample]
 }
 
-// NewShardedDataset creates a new sharded dataset with the given argument.
+// NewShardedDataset creates a new sharded data set with the given argument.
 func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 	// We use the default degree for the items to fit on a single memory page.
 	dataset := &ShardedDataset{
@@ -97,23 +97,22 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
-func (d *ShardedDataset) Getitem(rank, size int) (index, siz int) {
-	item, ok := d.items.DeleteNearest(NewSample(size, size))
+func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
+	item, ok := d.items.DeleteNearest(NewSample(0, size))
 	if !ok {
 		return
 	}
-	index, siz = item.Index(), item.Size()
-	d.recycleBin.ReplaceOrInsert(item)
-	return
+	defer d.recycleBin.ReplaceOrInsert(item)
+	return item.Index(), item.Size()
 }
 
-// Len returns the number of data samples currently in the dataset.
+// Len returns the number of data samples currently in the data set.
 func (d *ShardedDataset) Len(rank int) int {
 	return d.items.Len()
 }
 
-// Rand selects a random data sample from the dataset.
-func (d *ShardedDataset) Rand(rank int) (index, size int) {
+// Rand selects a random data sample from the data set.
+func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 	item, ok := d.items.Min()
 	if !ok {
 		return
@@ -127,15 +126,12 @@ func (d *ShardedDataset) Rand(rank int) (index, size int) {
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
-	item, ok = d.items.DeleteNearest(NewSample(pivot, pivot))
+	item, ok = d.items.DeleteNearest(NewSample(0, pivot))
 	if !ok {
 		return
 	}
-	index, size = item.Index(), item.Size()
-
-	d.recycleBin.ReplaceOrInsert(item)
-
-	return
+	defer d.recycleBin.ReplaceOrInsert(item)
+	return item.Index(), item.Size()
 }
 
 // OnEpochEnd resets the data samples.
@@ -157,8 +153,8 @@ func (d *ShardedDataset) OnTrainEnd() {
 	d.recycleBin = nil
 }
 
-// PartitionedDataset represents a partitioned dataset where each of the nodes
-// in the cluster holds only a portion of the given dataset.
+// PartitionedDataset represents a partitioned data set where each of the nodes
+// in the cluster holds only a portion of the given data set.
 type PartitionedDataset struct {
 	DatasetBase
 	groups      []int
@@ -166,7 +162,7 @@ type PartitionedDataset struct {
 	recycleBins []*btree.BTree[Sample]
 }
 
-// NewPartitionedDataset creates a new partitioned dataset with the given arguments.
+// NewPartitionedDataset creates a new partitioned data set with the given arguments.
 func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDataset, error) {
 	dataset := &PartitionedDataset{
 		groups:      groups,
@@ -202,23 +198,22 @@ func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDatase
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
-func (d *PartitionedDataset) Getitem(rank, size int) (index, siz int) {
-	item, ok := d.partitions[d.groups[rank]].DeleteNearest(NewSample(size, size))
+func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
+	item, ok := d.partitions[d.groups[rank]].DeleteNearest(NewSample(0, size))
 	if !ok {
 		return
 	}
-	index, siz = item.Index(), item.Size()
-	d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
-	return
+	defer d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
+	return item.Index(), item.Size()
 }
 
-// Len returns the number of data samples currently in the dataset.
+// Len returns the number of data samples currently in the data set.
 func (d *PartitionedDataset) Len(rank int) int {
 	return d.partitions[d.groups[rank]].Len()
 }
 
-// Rand selects a random data sample from the dataset.
-func (d *PartitionedDataset) Rand(rank int) (index, size int) {
+// Rand selects a random data sample from the data set.
+func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 	item, ok := d.partitions[d.groups[rank]].Min()
 	if !ok {
 		return
@@ -232,15 +227,12 @@ func (d *PartitionedDataset) Rand(rank int) (index, size int) {
 	max := item.Size()
 
 	pivot := rand.Intn(max-min+1) + min
-	item, ok = d.partitions[d.groups[rank]].DeleteNearest(NewSample(pivot, pivot))
+	item, ok = d.partitions[d.groups[rank]].DeleteNearest(NewSample(0, pivot))
 	if !ok {
 		return
 	}
-	index, size = item.Index(), item.Size()
-
-	d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
-
-	return
+	defer d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
+	return item.Index(), item.Size()
 }
 
 // OnEpochEnd resets the data partitions.
