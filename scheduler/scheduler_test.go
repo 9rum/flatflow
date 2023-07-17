@@ -40,10 +40,13 @@ func TestStaticScheduler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize), datasetSize/batchSize)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
 		for step := 0; step < datasetSize/batchSize; step++ {
 			sums := make([]int, 0, worldSize)
 			for _, indices := range scheduler.Schedule() {
@@ -51,7 +54,6 @@ func TestStaticScheduler(t *testing.T) {
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -69,19 +71,18 @@ func TestDynamicScheduler(t *testing.T) {
 	}
 	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 1., 0.)
+		}
 		for step := 0; step < datasetSize/batchSize; step++ {
 			sums := make([]int, 0, worldSize)
-			for rank := range sums {
-				scheduler.OnBatchEnd(rank, 1., 0.)
-			}
 			for _, indices := range scheduler.Schedule() {
 				sums = append(sums, sum(indices, sizes))
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -99,14 +100,16 @@ func BenchmarkStaticScheduler(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize), benchmarkDatasetSize/batchSize)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	b.StartTimer()
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -125,14 +128,13 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize)
 	b.StartTimer()
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 1., 0.)
+		}
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
-			for rank := 0; rank < worldSize; rank++ {
-				scheduler.OnBatchEnd(rank, 1., 0.)
-			}
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }

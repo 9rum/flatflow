@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build goexperiment.arenas
-
 // Package scheduler provides primitives for scheduling imbalanced data.
 // In addition to static scheduling that reduces the load imbalance,
 // it supports a feedback-directed optimization that adaptively adjusts
@@ -21,9 +19,9 @@
 package scheduler
 
 import (
-	"arena"
 	"math"
 	"math/rand"
+	"sync"
 
 	"github.com/9rum/chronica/internal/data"
 )
@@ -34,11 +32,8 @@ type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
 	Schedule() [][]int
 
-	// OnBatchEnd is called at the end of a training batch.
-	OnBatchEnd(rank int, coefficient, intercept float64)
-
 	// OnEpochEnd is called at the end of an epoch during training.
-	OnEpochEnd(epoch int64)
+	OnEpochEnd(epoch, rank int64, coefficient, intercept float64)
 
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
@@ -48,12 +43,53 @@ type Scheduler interface {
 type SchedulerBase struct {
 }
 
-func (SchedulerBase) Schedule() [][]int {
-	return nil
+func (SchedulerBase) Schedule() (_ [][]int) {
+	return
 }
-func (SchedulerBase) OnBatchEnd(rank int, coefficient, intercept float64) {}
-func (SchedulerBase) OnEpochEnd(epoch int64)                              {}
-func (SchedulerBase) OnTrainEnd()                                         {}
+func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {}
+func (SchedulerBase) OnTrainEnd()                                                  {}
+
+// NextN returns the next n mini-batches from the given scheduler.
+func NextN(scheduler Scheduler, n int) (_ [][]int) {
+	if n < 1 {
+		return
+	}
+
+	indices := make([][][]int, 0, n)
+	for len(indices) < cap(indices) {
+		indices = append(indices, scheduler.Schedule())
+	}
+	size := (len(indices)-1)*len(indices[0][0]) + len(indices[len(indices)-1][0])
+
+	// shuffle between batches
+	rand.Shuffle(len(indices), func(i, j int) {
+		indices[i], indices[j] = indices[j], indices[i]
+	})
+
+	return transpose(indices, size)
+}
+
+// transpose reshapes the given tensor into the corresponding matrix.
+func transpose(tensor [][][]int, size int) [][]int {
+	matrix := make([][]int, 0, len(tensor[0]))
+	for len(matrix) < cap(matrix) {
+		matrix = append(matrix, make([]int, 0, size))
+	}
+
+	var wg sync.WaitGroup
+	for rank := range matrix {
+		wg.Add(1)
+		go func(rank int) {
+			defer wg.Done()
+			for _, mat := range tensor {
+				matrix[rank] = append(matrix[rank], mat[rank]...)
+			}
+		}(rank)
+	}
+	wg.Wait()
+
+	return matrix
+}
 
 // StaticScheduler provides balanced workload to each of the workers while
 // limiting the peak device memory usage; this allows for larger batch size,
@@ -64,54 +100,39 @@ type StaticScheduler struct {
 	worldSize int
 	batchSize int
 	binSize   int
-	step      int
-	indices   [][][]int
-	arena     *arena.Arena
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, binSize, steps int) *StaticScheduler {
-	// We use memory arenas to reduce GC overhead.
-	scheduler := &StaticScheduler{
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *StaticScheduler {
+	return &StaticScheduler{
 		dataset:   dataset,
 		worldSize: worldSize,
 		batchSize: batchSize,
-		binSize:   binSize,
-		arena:     arena.NewArena(),
+		binSize:   int(math.Round(mean(sizes) * float64(batchSize/worldSize))),
 	}
-
-	scheduler.indices = arena.MakeSlice[[][]int](scheduler.arena, 0, steps)
-	for len(scheduler.indices) < cap(scheduler.indices) {
-		scheduler.indices = append(scheduler.indices, scheduler.schedule())
-	}
-	rand.Shuffle(len(scheduler.indices), func(i, j int) {
-		scheduler.indices[i], scheduler.indices[j] = scheduler.indices[j], scheduler.indices[i]
-	})
-
-	return scheduler
 }
 
-// Schedule returns the next mini-batch. It selects data samples in a
-// first-fit-decreasing manner in the first epoch, while the training sequence
-// is randomized by shuffling the batch indices in the subsequent epochs.
-func (s *StaticScheduler) Schedule() [][]int {
-	defer func() {
-		s.step++
+// mean averages the given sizes.
+func mean(sizes []int) float64 {
+	sum := func() (sum int) {
+		for _, size := range sizes {
+			sum += size
+		}
+		return
 	}()
-
-	return s.indices[s.step]
+	return float64(sum) / float64(len(sizes))
 }
 
-// schedule assigns the next mini-batch to each of the workers.  It adopts
+// Schedule assigns the next mini-batch to each of the workers.  It adopts
 // first-fit-decreasing (FFD), which is an approximately-optimal heuristic for
 // bin packing.
-// FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf?sequence=2
+// FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s *StaticScheduler) schedule() [][]int {
+func (s *StaticScheduler) Schedule() [][]int {
 	bins := make([]int, s.worldSize)
-	indices := arena.MakeSlice[[]int](s.arena, s.worldSize, s.worldSize)
-	for rank := range indices {
-		indices[rank] = arena.MakeSlice[int](s.arena, 0, s.batchSize/s.worldSize)
+	indices := make([][]int, 0, s.worldSize)
+	for len(indices) < cap(indices) {
+		indices = append(indices, make([]int, 0, s.batchSize/s.worldSize))
 	}
 
 	// pack the bins in a first-fit-decreasing fashion
@@ -129,34 +150,15 @@ func (s *StaticScheduler) schedule() [][]int {
 	return indices
 }
 
-func (s *StaticScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
-	s.dataset.OnBatchEnd(rank)
-}
-
-// OnEpochEnd randomizes the training sequence.
-func (s *StaticScheduler) OnEpochEnd(epoch int64) {
-	s.dataset.OnEpochEnd(epoch)
-
-	s.arena.Free()
-	s.arena = arena.NewArena()
-
-	s.indices = arena.MakeSlice[[][]int](s.arena, 0, s.step)
-	for len(s.indices) < cap(s.indices) {
-		s.indices = append(s.indices, s.schedule())
+func (s *StaticScheduler) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {
+	if rank == 0 {
+		s.dataset.OnEpochEnd(epoch)
 	}
-	rand.Shuffle(len(s.indices), func(i, j int) {
-		s.indices[i], s.indices[j] = s.indices[j], s.indices[i]
-	})
-
-	s.step = 0
 }
 
-// OnTrainEnd frees the allocated memory arena.
 func (s *StaticScheduler) OnTrainEnd() {
 	s.dataset.OnTrainEnd()
 	s.dataset = nil
-	s.arena.Free()
-	s.arena = nil
 }
 
 // DynamicScheduler provides a feedback-directed optimization. It adaptively
@@ -185,16 +187,16 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) *Dynami
 // Schedule assigns the next mini-batch to each of the workers based on their
 // performance indicators. It adopts best-fit with a random first pivot to
 // equalize the estimated training time while randomizing the training sequence.
-// This is a revised version of our original solution for straggler mitigation
+// This is a revised version of our original scheme for straggler mitigation
 // against imbalanced data, which has been proposed in the 23rd IEEE/ACM
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://ieeexplore.ieee.org/document/10171495
 func (s *DynamicScheduler) Schedule() [][]int {
 	binSize := 0.
 	bins := make([]float64, s.worldSize)
-	indices := make([][]int, s.worldSize)
-	for rank := range indices {
-		indices[rank] = make([]int, 0, s.batchSize/s.worldSize)
+	indices := make([][]int, 0, s.worldSize)
+	for len(indices) < cap(indices) {
+		indices = append(indices, make([]int, 0, s.batchSize/s.worldSize))
 	}
 
 	// assign a random first pivot
@@ -247,14 +249,12 @@ func (s *DynamicScheduler) Schedule() [][]int {
 	return indices
 }
 
-// OnBatchEnd updates the worker profile with the given feedback.
-func (s *DynamicScheduler) OnBatchEnd(rank int, coefficient, intercept float64) {
+// OnEpochEnd updates the worker profile with the given feedback.
+func (s *DynamicScheduler) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {
 	s.coefficients[rank], s.intercepts[rank] = coefficient, intercept
-	s.dataset.OnBatchEnd(rank)
-}
-
-func (s *DynamicScheduler) OnEpochEnd(epoch int64) {
-	s.dataset.OnEpochEnd(epoch)
+	if rank == 0 {
+		s.dataset.OnEpochEnd(epoch)
+	}
 }
 
 func (s *DynamicScheduler) OnTrainEnd() {
