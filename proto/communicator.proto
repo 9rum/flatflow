@@ -17,11 +17,11 @@
 
 syntax = "proto3";
 
-package scheduler;
+package communicator;
 
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/9rum/chronica/scheduler";
+option go_package = "github.com/9rum/chronica/communicator";
 
 enum Schedule {
   STATIC = 0;
@@ -31,35 +31,29 @@ enum Schedule {
 message InitRequest {
   int64 world_size = 1;
   int64 batch_size = 2;
-  repeated int64 sizes = 3 [packed = true];
-  repeated int64 groups = 4 [packed = true];
+  repeated int64 sizes = 3;
+  repeated int64 groups = 4;
   optional bool partition = 5;
   optional Schedule type = 6;
 }
 
 message BcastRequest {
-  int64 rank = 1;
-  optional double coefficient = 2;
-  optional double intercept = 3;
+  int64 epoch = 1;
+  int64 rank = 2;
+  optional double coefficient = 3;
+  optional double intercept = 4;
 }
 
 message BcastResponse {
-  repeated int64 indices = 1 [packed = true];
+  repeated int64 indices = 1;
 }
 
-message ResetRequest {
-  int64 epoch = 1;
-}
-
-service Scheduler {
+service Communicator {
   // RPC for initializing training environment.
   rpc Init(InitRequest) returns (google.protobuf.Empty) {}
 
   // RPC for broadcasting schedule to all workers.
   rpc Bcast(BcastRequest) returns (BcastResponse) {}
-
-  // RPC for resetting training environment.
-  rpc Reset(ResetRequest) returns (google.protobuf.Empty) {}
 
   // RPC for terminating training environment.
   rpc Finalize(google.protobuf.Empty) returns (google.protobuf.Empty) {}
