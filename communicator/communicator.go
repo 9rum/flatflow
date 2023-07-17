@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+// Package communicator implements an intermediary to communicate with
+// Chronica's scheduler.
+package communicator
 
 import (
 	"context"
-	"math"
 	"os"
 	"os/signal"
 	"runtime"
@@ -24,6 +25,7 @@ import (
 	"syscall"
 
 	"github.com/9rum/chronica/internal/data"
+	"github.com/9rum/chronica/scheduler"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
 	"golang.org/x/exp/constraints"
@@ -31,42 +33,47 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// schedulerServer implements the server API for Scheduler service.
-type schedulerServer struct {
-	UnimplementedSchedulerServer
-	scheduler Scheduler
+// communicatorServer implements the server API for Communicator service.
+type communicatorServer struct {
+	UnimplementedCommunicatorServer
+	scheduler scheduler.Scheduler
 	done      chan<- os.Signal
 	fanin     chan struct{}
 	fanout    []chan []int
+	steps     int
 }
 
-// NewSchedulerServer creates a new scheduler server.
-func NewSchedulerServer(done chan<- os.Signal) SchedulerServer {
-	return &schedulerServer{
+// NewCommunicatorServer creates a new communicator server.
+func NewCommunicatorServer(done chan<- os.Signal) CommunicatorServer {
+	return &communicatorServer{
 		done:  done,
 		fanin: make(chan struct{}),
 	}
 }
 
 // Init initializes the training environment.
-func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
-	glog.Infof("Init called with world size: %d batch size: %d type: %s", in.GetWorldSize(), in.GetBatchSize(), in.GetType())
+func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
+	worldSize := int(in.GetWorldSize())
+	batchSize := int(in.GetBatchSize())
 
-	s.fanout = make([]chan []int, in.GetWorldSize())
-	for rank := range s.fanout {
-		s.fanout[rank] = make(chan []int)
+	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, in.GetType())
+
+	c.fanout = make([]chan []int, 0, worldSize)
+	for len(c.fanout) < cap(c.fanout) {
+		c.fanout = append(c.fanout, make(chan []int))
 	}
 
-	// initialize a dataset with the given sizes
+	// initialize a data set with the given sizes
 	var (
 		dataset data.Dataset
 		err     error
 	)
 	sizes := cast[int64, int](in.GetSizes())
+	c.steps = ceil(len(sizes), batchSize)
 
 	if in.GetPartition() {
 		groups := cast[int64, int](in.GetGroups())
-		partitionSize := len(sizes) / int(in.GetWorldSize())
+		partitionSize := len(sizes) / worldSize
 		partitionSizes := make([]int, max(groups...)+1)
 		for _, rank := range groups {
 			partitionSizes[rank] += partitionSize
@@ -91,10 +98,9 @@ func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Emp
 	// initialize a scheduler based on the given schedule type
 	switch in.GetType() {
 	case Schedule_STATIC:
-		s.scheduler = NewStaticScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()),
-			binSize(in.GetSizes(), in.GetWorldSize(), in.GetBatchSize()), ceil(len(sizes), int(in.GetBatchSize())))
+		c.scheduler = scheduler.NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	case Schedule_DYNAMIC:
-		s.scheduler = NewDynamicScheduler(dataset, int(in.GetWorldSize()), int(in.GetBatchSize()))
+		c.scheduler = scheduler.NewDynamicScheduler(dataset, worldSize, batchSize)
 	default:
 		panic("invalid type")
 	}
@@ -102,7 +108,7 @@ func (s *schedulerServer) Init(ctx context.Context, in *InitRequest) (*empty.Emp
 	return new(empty.Empty), nil
 }
 
-// cast casts the given slice in parallel.
+// cast casts the given slice.
 func cast[T, U constraints.Integer](slice []T) []U {
 	out := make([]U, len(slice))
 	stride := ceil(len(slice), runtime.NumCPU())
@@ -159,72 +165,48 @@ func max[T constraints.Ordered](slice ...T) (max T) {
 	return
 }
 
-// binSize returns the bin size to be used for static scheduling.
-func binSize[T constraints.Integer](sizes []T, worldSize, batchSize T) int {
-	return int(math.Round(mean(sizes) * float64(batchSize/worldSize)))
-}
-
-// mean averages the given sizes.
-func mean[T constraints.Integer](sizes []T) float64 {
-	var sum T
-	for _, size := range sizes {
-		sum += size
-	}
-	return float64(sum) / float64(len(sizes))
-}
-
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
 // feedback-directed optimization, the performance indicators in the given
 // feedback are used to estimate the training time.
-func (s schedulerServer) Bcast(ctx context.Context, in *BcastRequest) (*BcastResponse, error) {
-	glog.Infof("Bcast called from rank %d", in.GetRank())
+func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*BcastResponse, error) {
+	glog.Infof("epoch: %d Bcast called from rank %d", in.GetEpoch(), in.GetRank())
 
 	go func() {
-		s.scheduler.OnBatchEnd(int(in.GetRank()), in.GetCoefficient(), in.GetIntercept())
-		s.fanin <- struct{}{}
+		c.scheduler.OnEpochEnd(in.GetEpoch(), in.GetRank(), in.GetCoefficient(), in.GetIntercept())
+		c.fanin <- struct{}{}
 	}()
 
 	if in.GetRank() == 0 {
 		go func() {
-			for range s.fanout {
-				<-s.fanin
+			for range c.fanout {
+				<-c.fanin
 			}
-			for rank, indices := range s.scheduler.Schedule() {
-				s.fanout[rank] <- indices
+			for rank, indices := range scheduler.NextN(c.scheduler, c.steps) {
+				c.fanout[rank] <- indices
 			}
 		}()
 	}
 
-	indices := <-s.fanout[in.GetRank()]
+	indices := <-c.fanout[in.GetRank()]
 	return &BcastResponse{Indices: cast[int, int64](indices)}, nil
 }
 
-// Reset is called at the end of an epoch during training. It resets the
-// training environment for scheduling in the next training epoch.
-func (s schedulerServer) Reset(ctx context.Context, in *ResetRequest) (*empty.Empty, error) {
-	glog.Info("Reset called")
-
-	s.scheduler.OnEpochEnd(in.GetEpoch())
-
-	return new(empty.Empty), nil
-}
-
 // Finalize terminates the training environment.
-func (s *schedulerServer) Finalize(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
+func (c *communicatorServer) Finalize(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
 	defer func() {
-		close(s.fanin)
-		for _, c := range s.fanout {
-			close(c)
+		close(c.fanin)
+		for _, ch := range c.fanout {
+			close(ch)
 		}
-		signal.Notify(s.done, syscall.SIGTERM)
-		close(s.done)
+		signal.Notify(c.done, syscall.SIGTERM)
+		close(c.done)
 	}()
 
 	glog.Info("Finalize called")
 	defer glog.Flush()
 
-	s.scheduler.OnTrainEnd()
-	s.scheduler = nil
+	c.scheduler.OnTrainEnd()
+	c.scheduler = nil
 
 	return new(empty.Empty), nil
 }
