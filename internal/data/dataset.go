@@ -40,9 +40,6 @@ type Dataset interface {
 	// Rand retrieves an arbitrary data sample from the data set.
 	Rand(rank int) (_, _ int)
 
-	// OnBatchEnd is called at the end of a training batch.
-	OnBatchEnd(rank int)
-
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch int64)
 
@@ -63,7 +60,6 @@ func (DatasetBase) Len(rank int) (_ int) {
 func (DatasetBase) Rand(rank int) (_, _ int) {
 	return
 }
-func (DatasetBase) OnBatchEnd(rank int)    {}
 func (DatasetBase) OnEpochEnd(epoch int64) {}
 func (DatasetBase) OnTrainEnd()            {}
 
@@ -86,12 +82,11 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 	mapping = rand.Perm(len(sizes))
 
 	for index, size := range sizes {
-		if _, found := dataset.items.ReplaceOrInsert(NewSample(index, size)); found {
+		if _, found := dataset.recycleBin.ReplaceOrInsert(NewSample(index, size)); found {
 			dataset.OnTrainEnd()
 			return nil, errors.New("insert found item")
 		}
 	}
-	mapping = rand.Perm(len(mapping))
 
 	return dataset, nil
 }
@@ -184,14 +179,13 @@ func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDatase
 		dataset.partitions = append(dataset.partitions, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		dataset.recycleBins = append(dataset.recycleBins, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		for index, size := range partition {
-			if _, found := dataset.partitions[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
+			if _, found := dataset.recycleBins[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
 				dataset.OnTrainEnd()
 				return nil, errors.New("insert found item")
 			}
 		}
 		base += len(partition)
 	}
-	mapping = rand.Perm(len(mapping))
 
 	return dataset, nil
 }

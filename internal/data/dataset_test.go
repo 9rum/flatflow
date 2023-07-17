@@ -30,7 +30,8 @@ func TestShardedDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
@@ -38,7 +39,6 @@ func TestShardedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
@@ -50,7 +50,8 @@ func TestShardedDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
@@ -58,7 +59,6 @@ func TestShardedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -80,7 +80,8 @@ func TestPartitionedDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
@@ -90,7 +91,6 @@ func TestPartitionedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
@@ -104,7 +104,8 @@ func TestPartitionedDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
@@ -114,7 +115,6 @@ func TestPartitionedDataset(t *testing.T) {
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -131,13 +131,13 @@ func BenchmarkShardedDataset(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				dataset.Getitem(sizes[index], sizes[index])
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -160,7 +160,8 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
@@ -168,7 +169,6 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
