@@ -34,11 +34,11 @@ type Dataset interface {
 	// an index identifying the scheduled data sample and its size.
 	Getitem(rank, size int) (_, _ int)
 
-	// Len returns the number of data samples currently in the data set.
-	Len(rank int) int
-
 	// Rand retrieves an arbitrary data sample from the data set.
 	Rand(rank int) (_, _ int)
+
+	// Len returns the number of data samples currently in the data set.
+	Len(rank int) int
 
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch int64)
@@ -54,10 +54,10 @@ type DatasetBase struct {
 func (DatasetBase) Getitem(rank, size int) (_, _ int) {
 	return
 }
-func (DatasetBase) Len(rank int) (_ int) {
+func (DatasetBase) Rand(rank int) (_, _ int) {
 	return
 }
-func (DatasetBase) Rand(rank int) (_, _ int) {
+func (DatasetBase) Len(rank int) (_ int) {
 	return
 }
 func (DatasetBase) OnEpochEnd(epoch int64) {}
@@ -101,11 +101,6 @@ func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
 	return item.Index(), item.Size()
 }
 
-// Len returns the number of data samples currently in the data set.
-func (d *ShardedDataset) Len(rank int) int {
-	return d.items.Len()
-}
-
 // Rand selects a random data sample from the data set.
 func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 	item, ok := d.items.Min()
@@ -129,7 +124,12 @@ func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 	return item.Index(), item.Size()
 }
 
-// OnEpochEnd resets the data samples.
+// Len returns the number of data samples currently in the data set.
+func (d *ShardedDataset) Len(rank int) int {
+	return d.items.Len()
+}
+
+// OnEpochEnd restores the data samples.
 func (d *ShardedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
 	mapping = rand.Perm(len(mapping))
@@ -201,11 +201,6 @@ func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
 	return item.Index(), item.Size()
 }
 
-// Len returns the number of data samples currently in the data set.
-func (d *PartitionedDataset) Len(rank int) int {
-	return d.partitions[d.groups[rank]].Len()
-}
-
 // Rand selects a random data sample from the data set.
 func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 	item, ok := d.partitions[d.groups[rank]].Min()
@@ -229,7 +224,12 @@ func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 	return item.Index(), item.Size()
 }
 
-// OnEpochEnd resets the data partitions.
+// Len returns the number of data samples currently in the data set.
+func (d *PartitionedDataset) Len(rank int) int {
+	return d.partitions[d.groups[rank]].Len()
+}
+
+// OnEpochEnd restores the data partitions.
 func (d *PartitionedDataset) OnEpochEnd(epoch int64) {
 	rand.Seed(epoch)
 	mapping = rand.Perm(len(mapping))
