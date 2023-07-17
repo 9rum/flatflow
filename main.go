@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate protoc --proto_path=proto/ --go_out=scheduler/ --go_opt=paths=source_relative --go-grpc_out=scheduler/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional scheduler.proto
+//go:generate protoc --proto_path=proto/ --go_out=communicator/ --go_opt=paths=source_relative --go-grpc_out=communicator/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional communicator.proto
 
-// Package main implements the scheduler server. The initialization and
+// Package main implements the communicator server. The initialization and
 // termination of the server may be invoked by the sampler, and the types of
-// scheduler and dataset are provided upon the initialization.
+// scheduler and data set are provided upon the initialization.
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/9rum/chronica/scheduler"
+	"github.com/9rum/chronica/communicator"
 	"github.com/golang/glog"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"google.golang.org/grpc"
@@ -65,7 +65,7 @@ func newServer() *grpc.Server {
 		server.GracefulStop()
 	}(done, server)
 
-	scheduler.RegisterSchedulerServer(server, scheduler.NewSchedulerServer(done))
+	communicator.RegisterCommunicatorServer(server, communicator.NewCommunicatorServer(done))
 
 	return server
 }
