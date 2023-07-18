@@ -49,7 +49,8 @@ func (SchedulerBase) Schedule() (_ [][]int) {
 func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {}
 func (SchedulerBase) OnTrainEnd()                                                  {}
 
-// NextN returns the next n mini-batches from the given scheduler.
+// NextN returns the next n mini-batches from the given scheduler. This returns
+// a matrix of shape (world size, n x local batch size).
 func NextN(scheduler Scheduler, n int) (_ [][]int) {
 	if n < 1 {
 		return
@@ -59,6 +60,9 @@ func NextN(scheduler Scheduler, n int) (_ [][]int) {
 	for len(indices) < cap(indices) {
 		indices = append(indices, scheduler.Schedule())
 	}
+
+	// store the number of scheduled data samples considering
+	// insufficient data samples before shuffling
 	size := (len(indices)-1)*len(indices[0][0]) + len(indices[len(indices)-1][0])
 
 	// shuffle between batches
@@ -69,11 +73,15 @@ func NextN(scheduler Scheduler, n int) (_ [][]int) {
 	return transpose(indices, size)
 }
 
-// transpose reshapes the given tensor into the corresponding matrix.
+// transpose returns a corresponding two-dimensional tensor (i.e., a matrix)
+// of the given three-dimensional tensor.  This converts the given tensor of
+// shape (n, world size, local batch size) to a tensor of shape
+// (world size, n x local batch size). size stands for the number of scheduled
+// data samples to each of the workers.
 func transpose(tensor [][][]int, size int) [][]int {
 	matrix := make([][]int, 0, len(tensor[0]))
 	for len(matrix) < cap(matrix) {
-		matrix = append(matrix, make([]int, 0, size))
+		matrix = append(matrix, make([]int, size))
 	}
 
 	var wg sync.WaitGroup
@@ -81,8 +89,9 @@ func transpose(tensor [][][]int, size int) [][]int {
 		wg.Add(1)
 		go func(rank int) {
 			defer wg.Done()
-			for _, mat := range tensor {
-				matrix[rank] = append(matrix[rank], mat[rank]...)
+			base := 0
+			for _, m := range tensor {
+				base += copy(matrix[rank][base:], m[rank])
 			}
 		}(rank)
 	}
