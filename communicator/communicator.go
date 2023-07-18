@@ -31,7 +31,6 @@ import (
 	"github.com/9rum/chronica/scheduler"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
-	"golang.org/x/exp/constraints"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -87,29 +86,13 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (_ *empt
 }
 
 // init initializes the data set and scheduler with the given arguments.
-func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) (err error) {
+func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) error {
 	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, typ)
 
 	// initialize a data set with the given sizes
-	var dataset data.Dataset
-
-	if partition {
-		partitionSize := len(sizes) / worldSize
-		partitionSizes := make([]int, max(groups...)+1)
-		for _, rank := range groups {
-			partitionSizes[rank] += partitionSize
-		}
-
-		// We assume that the indices are sequentially distributed across workers.
-		partitions := make([][]int, 0, len(partitionSizes))
-		base := 0
-		for _, partitionSize = range partitionSizes {
-			partitions = append(partitions, sizes[base:base+partitionSize])
-			base += partitionSize
-		}
-		dataset, err = data.NewPartitionedDataset(groups, partitions)
-	} else {
-		dataset, err = data.NewShardedDataset(sizes)
+	dataset, err := data.New(sizes, groups, partition)
+	if err != nil {
+		return err
 	}
 
 	c.steps = ceil(len(sizes), batchSize)
@@ -124,11 +107,11 @@ func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int,
 		panic("invalid type")
 	}
 
-	return
+	return nil
 }
 
 // cast casts the given slice.
-func cast[T, U constraints.Integer](slice []T) []U {
+func cast[T, U ~int | ~int64](slice []T) []U {
 	out := make([]U, len(slice))
 	stride := ceil(len(slice), runtime.NumCPU())
 
@@ -156,32 +139,11 @@ func ceil(numerator, denominator int) int {
 	return numerator/denominator + 1
 }
 
-// min returns the minimum value in the given slice.
-func min[T constraints.Ordered](slice ...T) (min T) {
-	if len(slice) == 0 {
-		return
+func min(lhs, rhs int) int {
+	if lhs < rhs {
+		return lhs
 	}
-	min = slice[0]
-	for _, v := range slice[1:] {
-		if v < min {
-			min = v
-		}
-	}
-	return
-}
-
-// max returns the maximum value in the given slice.
-func max[T constraints.Ordered](slice ...T) (max T) {
-	if len(slice) == 0 {
-		return
-	}
-	max = slice[0]
-	for _, v := range slice[1:] {
-		if max < v {
-			max = v
-		}
-	}
-	return
+	return rhs
 }
 
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
