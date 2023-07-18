@@ -29,7 +29,7 @@ enum Schedule {
 }
 
 message InitRequest {
-  int64 world_size = 1;
+  int64 rank = 1;
   int64 batch_size = 2;
   repeated int64 sizes = 3;
   repeated int64 groups = 4;
