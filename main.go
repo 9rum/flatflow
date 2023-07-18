@@ -33,26 +33,27 @@ import (
 
 func main() {
 	port := flag.Int("p", 50051, "The server port")
+	worldSize := flag.Int("w", 0, "Number of processes participating in distributed training")
 	flag.Parse()
 
-	if err := serve(*port); err != nil {
+	if err := serve(*port, *worldSize); err != nil {
 		glog.Fatalf("failed to serve: %v", err)
 	}
 }
 
-func serve(port int) error {
+func serve(port, worldSize int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
 	}
 
-	server := newServer()
+	server := newServer(worldSize)
 	glog.Infof("server listening at %v", lis.Addr())
 
 	return server.Serve(lis)
 }
 
-func newServer() *grpc.Server {
+func newServer(worldSize int) *grpc.Server {
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			grpc_recovery.UnaryServerInterceptor(),
@@ -65,7 +66,7 @@ func newServer() *grpc.Server {
 		server.GracefulStop()
 	}(done, server)
 
-	communicator.RegisterCommunicatorServer(server, communicator.NewCommunicatorServer(done))
+	communicator.RegisterCommunicatorServer(server, communicator.NewCommunicatorServer(done, worldSize))
 
 	return server
 }

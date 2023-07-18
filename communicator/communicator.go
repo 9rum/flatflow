@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package communicator implements an intermediary to communicate with
-// Chronica's scheduler.
+// The communicator package implements an intermediary to communicate with
+// Chronica's scheduler.  The primitives are based on the syntax of the Message
+// Passing Interface (MPI); the communicator runtime always starts with Init and
+// ends with Finalize. At the beginning of each training epoch, Bcast is invoked
+// to broadcast the schedule for the corresponding epoch to all workers.
 package communicator
 
 import (
@@ -43,36 +46,54 @@ type communicatorServer struct {
 	steps     int
 }
 
-// NewCommunicatorServer creates a new communicator server.
-func NewCommunicatorServer(done chan<- os.Signal) CommunicatorServer {
+// NewCommunicatorServer creates a new communicator server with the given
+// arguments.
+func NewCommunicatorServer(done chan<- os.Signal, worldSize int) CommunicatorServer {
+	fanout := make([]chan []int, 0, worldSize)
+	for len(fanout) < cap(fanout) {
+		fanout = append(fanout, make(chan []int))
+	}
 	return &communicatorServer{
-		done:  done,
-		fanin: make(chan struct{}),
+		done:   done,
+		fanin:  make(chan struct{}),
+		fanout: fanout,
 	}
 }
 
 // Init initializes the training environment.
-func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
-	worldSize := int(in.GetWorldSize())
-	batchSize := int(in.GetBatchSize())
+func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (_ *empty.Empty, err error) {
+	go func() {
+		c.fanin <- struct{}{}
+	}()
 
-	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, in.GetType())
-
-	c.fanout = make([]chan []int, 0, worldSize)
-	for len(c.fanout) < cap(c.fanout) {
-		c.fanout = append(c.fanout, make(chan []int))
+	if in.GetRank() == 0 {
+		go func() {
+			for range c.fanout {
+				<-c.fanin
+			}
+			err = c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
+			for _, ch := range c.fanout {
+				ch <- nil
+			}
+		}()
 	}
 
-	// initialize a data set with the given sizes
-	var (
-		dataset data.Dataset
-		err     error
-	)
-	sizes := cast[int64, int](in.GetSizes())
-	c.steps = ceil(len(sizes), batchSize)
+	<-c.fanout[in.GetRank()]
 
-	if in.GetPartition() {
-		groups := cast[int64, int](in.GetGroups())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return new(empty.Empty), nil
+}
+
+// init initializes the data set and scheduler with the given arguments.
+func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) (err error) {
+	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, typ)
+
+	// initialize a data set with the given sizes
+	var dataset data.Dataset
+
+	if partition {
 		partitionSize := len(sizes) / worldSize
 		partitionSizes := make([]int, max(groups...)+1)
 		for _, rank := range groups {
@@ -91,12 +112,10 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 		dataset, err = data.NewShardedDataset(sizes)
 	}
 
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+	c.steps = ceil(len(sizes), batchSize)
 
 	// initialize a scheduler based on the given schedule type
-	switch in.GetType() {
+	switch typ {
 	case Schedule_STATIC:
 		c.scheduler = scheduler.NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	case Schedule_DYNAMIC:
@@ -105,7 +124,7 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 		panic("invalid type")
 	}
 
-	return new(empty.Empty), nil
+	return
 }
 
 // cast casts the given slice.
@@ -193,20 +212,23 @@ func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*Bcas
 
 // Finalize terminates the training environment.
 func (c *communicatorServer) Finalize(ctx context.Context, in *empty.Empty) (*empty.Empty, error) {
-	defer func() {
-		close(c.fanin)
-		for _, ch := range c.fanout {
-			close(ch)
-		}
-		signal.Notify(c.done, syscall.SIGTERM)
-		close(c.done)
-	}()
-
 	glog.Info("Finalize called")
 	defer glog.Flush()
+	defer c.close()
 
 	c.scheduler.OnTrainEnd()
 	c.scheduler = nil
 
 	return new(empty.Empty), nil
+}
+
+// close closes all open channels and notifies the main goroutine that the
+// communicator runtime has ended.
+func (c *communicatorServer) close() {
+	close(c.fanin)
+	for _, ch := range c.fanout {
+		close(ch)
+	}
+	signal.Notify(c.done, syscall.SIGTERM)
+	close(c.done)
 }

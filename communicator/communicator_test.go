@@ -44,11 +44,18 @@ func TestCommunicatorServer(t *testing.T) {
 
 	c := NewCommunicatorClient(conn)
 
-	if _, err = c.Init(context.Background(), &InitRequest{WorldSize: worldSize, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
-		t.Fatalf("could not init: %v", err)
-	}
-
 	var wg sync.WaitGroup
+	for rank := int64(0); rank < worldSize; rank++ {
+		wg.Add(1)
+		go func(rank int64) {
+			defer wg.Done()
+			if _, err = c.Init(context.Background(), &InitRequest{Rank: rank, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
+				t.Errorf("could not init: %v", err)
+			}
+		}(rank)
+	}
+	wg.Wait()
+
 	for epoch := int64(0); epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
 		for rank := int64(0); rank < worldSize; rank++ {
