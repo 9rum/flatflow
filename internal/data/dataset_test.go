@@ -34,7 +34,7 @@ func TestShardedDataset(t *testing.T) {
 		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
+				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -54,7 +54,7 @@ func TestShardedDataset(t *testing.T) {
 		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
+				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
@@ -69,13 +69,12 @@ func TestPartitionedDataset(t *testing.T) {
 		batchSize   = 40
 		worldSize   = 4
 	)
-	groups := make([]int, worldSize)
-	partitions := make([][]int, worldSize)
-	for rank := range partitions {
-		groups[rank] = rank
-		partitions[rank] = rand.Perm(datasetSize / worldSize)
+	sizes := rand.Perm(datasetSize)
+	groups := make([]int, 0, worldSize)
+	for len(groups) < cap(groups) {
+		groups = append(groups, len(groups))
 	}
-	dataset, err := NewPartitionedDataset(groups, partitions)
+	dataset, err := NewPartitionedDataset(sizes, groups)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +84,8 @@ func TestPartitionedDataset(t *testing.T) {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, partitions[rank][index]); size != partitions[rank][index] {
-						t.Fatalf("did not find %d", partitions[rank][index])
+					if _, size := dataset.Getitem(rank, sizes[datasetSize/worldSize*rank+index]); size != sizes[datasetSize/worldSize*rank+index] {
+						t.Fatalf("did not find %d", sizes[datasetSize/worldSize*rank+index])
 					}
 				}
 			}
@@ -94,12 +93,10 @@ func TestPartitionedDataset(t *testing.T) {
 	}
 	dataset.OnTrainEnd()
 
-	for _, partition := range partitions {
-		for size := range partition {
-			partition[size] = size
-		}
+	for size := range sizes {
+		sizes[size] = size
 	}
-	dataset, err = NewPartitionedDataset(groups, partitions)
+	dataset, err = NewPartitionedDataset(sizes, groups)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,8 +106,8 @@ func TestPartitionedDataset(t *testing.T) {
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, partitions[rank][index]); size != partitions[rank][index] {
-						t.Fatalf("did not find %d", partitions[rank][index])
+					if _, size := dataset.Getitem(rank, sizes[datasetSize/worldSize*rank+index]); size != sizes[datasetSize/worldSize*rank+index] {
+						t.Fatalf("did not find %d", sizes[datasetSize/worldSize*rank+index])
 					}
 				}
 			}
@@ -135,7 +132,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 		dataset.OnEpochEnd(epoch)
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				dataset.Getitem(sizes[index], sizes[index])
+				dataset.Getitem(0, sizes[index])
 			}
 		}
 	}
@@ -148,14 +145,13 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		batchSize = 40
 		worldSize = 4
 	)
-	groups := make([]int, worldSize)
-	partitions := make([][]int, worldSize)
-	for rank := range partitions {
-		groups[rank] = rank
-		partitions[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
+	sizes := rand.Perm(benchmarkDatasetSize)
+	groups := make([]int, 0, worldSize)
+	for len(groups) < cap(groups) {
+		groups = append(groups, len(groups))
 	}
 	b.StartTimer()
-	dataset, err := NewPartitionedDataset(groups, partitions)
+	dataset, err := NewPartitionedDataset(sizes, groups)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -165,7 +161,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					dataset.Getitem(rank, partitions[rank][index])
+					dataset.Getitem(rank, sizes[benchmarkDatasetSize/worldSize*rank+index])
 				}
 			}
 		}

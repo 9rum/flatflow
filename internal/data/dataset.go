@@ -63,6 +63,14 @@ func (DatasetBase) Len(rank int) (_ int) {
 func (DatasetBase) OnEpochEnd(epoch int64) {}
 func (DatasetBase) OnTrainEnd()            {}
 
+// New creates a new data set with the given arguments.
+func New(sizes, groups []int, partition bool) (Dataset, error) {
+	if partition {
+		return NewPartitionedDataset(sizes, groups)
+	}
+	return NewShardedDataset(sizes)
+}
+
 // ShardedDataset represents a sharded data set where every node in the cluster
 // has a replica of the given data set; hence it ignores rank when looking for
 // the data sample.
@@ -158,36 +166,51 @@ type PartitionedDataset struct {
 }
 
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
-func NewPartitionedDataset(groups []int, partitions [][]int) (*PartitionedDataset, error) {
+func NewPartitionedDataset(sizes, groups []int) (*PartitionedDataset, error) {
+	partitionSize := len(sizes) / len(groups)
+	partitionSizes := make([]int, max(groups...)+1)
+	for _, rank := range groups {
+		partitionSizes[rank] += partitionSize
+	}
+
 	dataset := &PartitionedDataset{
 		groups:      groups,
-		partitions:  make([]*btree.BTree[Sample], 0, len(partitions)),
-		recycleBins: make([]*btree.BTree[Sample], 0, len(partitions)),
+		partitions:  make([]*btree.BTree[Sample], 0, len(partitionSizes)),
+		recycleBins: make([]*btree.BTree[Sample], 0, len(partitionSizes)),
 	}
-	mapping = rand.Perm(func() (sum int) {
-		for _, partition := range partitions {
-			sum += len(partition)
-		}
-		return
-	}())
+	mapping = rand.Perm(len(sizes))
 
 	// We assume that the indices are sequentially distributed across workers.
 	base := 0
 
-	for rank, partition := range partitions {
+	for rank, partitionSize := range partitionSizes {
 		// We use the default degree for the items to fit on a single memory page.
 		dataset.partitions = append(dataset.partitions, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		dataset.recycleBins = append(dataset.recycleBins, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
-		for index, size := range partition {
+		for index, size := range sizes[base : base+partitionSize] {
 			if _, found := dataset.recycleBins[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
 				dataset.OnTrainEnd()
 				return nil, errors.New("insert found item")
 			}
 		}
-		base += len(partition)
+		base += partitionSize
 	}
 
 	return dataset, nil
+}
+
+// max returns the maximum value in the given slice.
+func max(slice ...int) (max int) {
+	if len(slice) == 0 {
+		return
+	}
+	max = slice[0]
+	for _, v := range slice[1:] {
+		if max < v {
+			max = v
+		}
+	}
+	return
 }
 
 // Getitem looks for the data sample with the size nearest to the given size
