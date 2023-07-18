@@ -8,7 +8,6 @@ require (
 	github.com/golang/glog v1.1.1
 	github.com/golang/protobuf v1.5.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 )
