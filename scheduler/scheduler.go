@@ -26,6 +26,11 @@ import (
 	"github.com/9rum/chronica/internal/data"
 )
 
+const (
+	STATIC = iota
+	DYNAMIC
+)
+
 // Scheduler represents the data scheduler.
 // All implementations must embed SchedulerBase for forward compatibility.
 type Scheduler interface {
@@ -48,6 +53,18 @@ func (SchedulerBase) Schedule() (_ [][]int) {
 }
 func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {}
 func (SchedulerBase) OnTrainEnd()                                                  {}
+
+// New creates a new scheduler with the given arguments.
+func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, typ T) Scheduler {
+	switch typ {
+	case STATIC:
+		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
+	case DYNAMIC:
+		return NewDynamicScheduler(dataset, worldSize, batchSize)
+	default:
+		panic("invalid type")
+	}
+}
 
 // NextN returns the next n mini-batches from the given scheduler. This returns
 // a matrix of shape (world size, n x local batch size).
