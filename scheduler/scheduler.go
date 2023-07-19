@@ -83,9 +83,15 @@ func NextN(scheduler Scheduler, n int) (_ [][]int) {
 	size := (len(indices)-1)*len(indices[0][0]) + len(indices[len(indices)-1][0])
 
 	// shuffle between batches
-	rand.Shuffle(len(indices), func(i, j int) {
-		indices[i], indices[j] = indices[j], indices[i]
-	})
+	if size%len(indices[0][0]) == 0 {
+		rand.Shuffle(len(indices), func(i, j int) {
+			indices[i], indices[j] = indices[j], indices[i]
+		})
+	} else {
+		rand.Shuffle(len(indices)-1, func(i, j int) {
+			indices[i], indices[j] = indices[j], indices[i]
+		})
+	}
 
 	return transpose(indices, size)
 }
