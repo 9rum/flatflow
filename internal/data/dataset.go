@@ -165,8 +165,17 @@ type PartitionedDataset struct {
 
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
 func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
+	nodes := func() int {
+		max := groups[0]
+		for _, rank := range groups[1:] {
+			if max < rank {
+				max = rank
+			}
+		}
+		return max + 1
+	}()
 	partitionSize := len(sizes) / len(groups)
-	partitionSizes := make([]int, max(groups...)+1)
+	partitionSizes := make([]int, nodes)
 	for _, rank := range groups {
 		partitionSizes[rank] += partitionSize
 	}
@@ -194,20 +203,6 @@ func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
 	}
 
 	return dataset
-}
-
-// max returns the maximum value in the given slice.
-func max(slice ...int) (max int) {
-	if len(slice) == 0 {
-		return
-	}
-	max = slice[0]
-	for _, v := range slice[1:] {
-		if max < v {
-			max = v
-		}
-	}
-	return
 }
 
 // Getitem looks for the data sample with the size nearest to the given size
