@@ -64,10 +64,10 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 
 	if in.GetRank() == 0 {
 		go func() {
+			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
 			for range c.fanout {
 				<-c.fanin
 			}
-			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
 			for _, ch := range c.fanout {
 				ch <- nil
 			}
