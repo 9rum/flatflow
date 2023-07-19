@@ -40,7 +40,6 @@ type communicatorServer struct {
 	done      chan<- os.Signal
 	fanin     chan struct{}
 	fanout    []chan []int
-	steps     int
 }
 
 // NewCommunicatorServer creates a new communicator server with the given
@@ -86,20 +85,30 @@ func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int,
 	// initialize the data set and scheduler
 	dataset := data.New(sizes, groups, partition)
 	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, typ)
-	c.steps = ceil(len(sizes), batchSize)
 }
 
 // cast casts the given slice.
 func cast[T, U ~int | ~int64](slice []T) []U {
 	out := make([]U, len(slice))
-	stride := ceil(len(slice), runtime.NumCPU())
+	stride := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(slice), runtime.NumCPU())
 
 	var wg sync.WaitGroup
 	for base := 0; base < len(slice); base += stride {
 		wg.Add(1)
 		go func(base int) {
 			defer wg.Done()
-			for index := base; index < min(base+stride, len(slice)); index++ {
+			limit := func(lhs, rhs int) int {
+				if lhs < rhs {
+					return lhs
+				}
+				return rhs
+			}(base+stride, len(slice))
+			for index := base; index < limit; index++ {
 				out[index] = U(slice[index])
 			}
 		}(base)
@@ -107,22 +116,6 @@ func cast[T, U ~int | ~int64](slice []T) []U {
 	wg.Wait()
 
 	return out
-}
-
-// ceil returns the least integer value greater than or equal to numerator / denominator.
-// This is an alternative to the Ceil function in the standard math package.
-func ceil(numerator, denominator int) int {
-	if numerator%denominator == 0 {
-		return numerator / denominator
-	}
-	return numerator/denominator + 1
-}
-
-func min(lhs, rhs int) int {
-	if lhs < rhs {
-		return lhs
-	}
-	return rhs
 }
 
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
@@ -141,7 +134,7 @@ func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*Bcas
 			for range c.fanout {
 				<-c.fanin
 			}
-			for rank, indices := range scheduler.NextN(c.scheduler, c.steps) {
+			for rank, indices := range scheduler.Next(c.scheduler) {
 				c.fanout[rank] <- indices
 			}
 		}()

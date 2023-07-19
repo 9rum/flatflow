@@ -37,6 +37,9 @@ type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
 	Schedule() [][]int
 
+	// Len returns the number of required steps for each training epoch.
+	Len() int
+
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch, rank int64, coefficient, intercept float64)
 
@@ -51,39 +54,45 @@ type SchedulerBase struct {
 func (SchedulerBase) Schedule() (_ [][]int) {
 	return
 }
+func (SchedulerBase) Len() (_ int) {
+	return
+}
 func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {}
 func (SchedulerBase) OnTrainEnd()                                                  {}
 
 // New creates a new scheduler with the given arguments.
 func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, typ T) Scheduler {
+	steps := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(sizes), batchSize)
+
 	switch typ {
 	case STATIC:
-		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
+		return NewStaticScheduler(dataset, worldSize, batchSize, steps, sizes)
 	case DYNAMIC:
-		return NewDynamicScheduler(dataset, worldSize, batchSize)
+		return NewDynamicScheduler(dataset, worldSize, batchSize, steps)
 	default:
 		panic("invalid type")
 	}
 }
 
-// NextN returns the next n mini-batches from the given scheduler. This returns
-// a matrix of shape (world size, n x local batch size).
-func NextN(scheduler Scheduler, n int) (_ [][]int) {
-	if n < 1 {
-		return
-	}
-
-	indices := make([][][]int, 0, n)
+// Next returns mini-batches for the next training epoch. This returns a matrix
+// of shape (world size, # of samples).
+func Next(scheduler Scheduler) [][]int {
+	indices := make([][][]int, 0, scheduler.Len())
 	for len(indices) < cap(indices) {
 		indices = append(indices, scheduler.Schedule())
 	}
 
 	// store the number of scheduled data samples considering
 	// insufficient data samples before shuffling
-	size := (len(indices)-1)*len(indices[0][0]) + len(indices[len(indices)-1][0])
+	samples := (len(indices)-1)*len(indices[0][0]) + len(indices[len(indices)-1][0])
 
 	// shuffle between batches
-	if size%len(indices[0][0]) == 0 {
+	if samples%len(indices[0][0]) == 0 {
 		rand.Shuffle(len(indices), func(i, j int) {
 			indices[i], indices[j] = indices[j], indices[i]
 		})
@@ -93,18 +102,18 @@ func NextN(scheduler Scheduler, n int) (_ [][]int) {
 		})
 	}
 
-	return transpose(indices, size)
+	return transpose(indices, samples)
 }
 
-// transpose returns a corresponding two-dimensional tensor (i.e., a matrix)
-// of the given three-dimensional tensor.  This converts the given tensor of
-// shape (n, world size, local batch size) to a tensor of shape
-// (world size, n x local batch size). size stands for the number of scheduled
-// data samples to each of the workers.
-func transpose(tensor [][][]int, size int) [][]int {
+// transpose returns a corresponding two-dimensional tensor (i.e., a matrix) of
+// the given three-dimensional tensor.  This converts the given tensor of shape
+// (# of steps, world size, local batch size) to a tensor of shape
+// (world size, # of samples). samples stands for the number of scheduled data
+// samples to each of the workers.
+func transpose(tensor [][][]int, samples int) [][]int {
 	matrix := make([][]int, 0, len(tensor[0]))
 	for len(matrix) < cap(matrix) {
-		matrix = append(matrix, make([]int, size))
+		matrix = append(matrix, make([]int, samples))
 	}
 
 	var wg sync.WaitGroup
@@ -132,15 +141,17 @@ type StaticScheduler struct {
 	worldSize int
 	batchSize int
 	binSize   int
+	steps     int
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *StaticScheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, steps int, sizes []int) *StaticScheduler {
 	return &StaticScheduler{
 		dataset:   dataset,
 		worldSize: worldSize,
 		batchSize: batchSize,
 		binSize:   int(math.Round(mean(sizes) * float64(batchSize/worldSize))),
+		steps:     steps,
 	}
 }
 
@@ -182,6 +193,10 @@ func (s *StaticScheduler) Schedule() [][]int {
 	return indices
 }
 
+func (s *StaticScheduler) Len() int {
+	return s.steps
+}
+
 func (s *StaticScheduler) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {
 	if rank == 0 {
 		s.dataset.OnEpochEnd(epoch)
@@ -201,16 +216,18 @@ type DynamicScheduler struct {
 	dataset      data.Dataset
 	worldSize    int
 	batchSize    int
+	steps        int
 	coefficients []float64
 	intercepts   []float64
 }
 
 // NewDynamicScheduler creates a new dynamic scheduler with the given arguments.
-func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int) *DynamicScheduler {
+func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize, steps int) *DynamicScheduler {
 	return &DynamicScheduler{
 		dataset:      dataset,
 		worldSize:    worldSize,
 		batchSize:    batchSize,
+		steps:        steps,
 		coefficients: make([]float64, worldSize),
 		intercepts:   make([]float64, worldSize),
 	}
@@ -279,6 +296,10 @@ func (s *DynamicScheduler) Schedule() [][]int {
 	}
 
 	return indices
+}
+
+func (s *DynamicScheduler) Len() int {
+	return s.steps
 }
 
 // OnEpochEnd updates the worker profile with the given feedback.
