@@ -25,10 +25,7 @@ func TestShardedDataset(t *testing.T) {
 		batchSize   = 10
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := NewShardedDataset(sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset := NewShardedDataset(sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -45,10 +42,7 @@ func TestShardedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset, err = NewShardedDataset(sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset = NewShardedDataset(sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -74,10 +68,7 @@ func TestPartitionedDataset(t *testing.T) {
 	for len(groups) < cap(groups) {
 		groups = append(groups, len(groups))
 	}
-	dataset, err := NewPartitionedDataset(sizes, groups)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset := NewPartitionedDataset(sizes, groups)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -96,10 +87,7 @@ func TestPartitionedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset, err = NewPartitionedDataset(sizes, groups)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset = NewPartitionedDataset(sizes, groups)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -123,10 +111,7 @@ func BenchmarkShardedDataset(b *testing.B) {
 	const batchSize = 10
 	sizes := rand.Perm(benchmarkDatasetSize)
 	b.StartTimer()
-	dataset, err := NewShardedDataset(sizes)
-	if err != nil {
-		b.Fatal(err)
-	}
+	dataset := NewShardedDataset(sizes)
 
 	for epoch := int64(0); epoch < int64(b.N); epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -151,10 +136,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		groups = append(groups, len(groups))
 	}
 	b.StartTimer()
-	dataset, err := NewPartitionedDataset(sizes, groups)
-	if err != nil {
-		b.Fatal(err)
-	}
+	dataset := NewPartitionedDataset(sizes, groups)
 
 	for epoch := int64(0); epoch < int64(b.N); epoch++ {
 		dataset.OnEpochEnd(epoch)

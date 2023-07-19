@@ -19,7 +19,6 @@
 package data
 
 import (
-	"errors"
 	"math/rand"
 
 	"github.com/9rum/chronica/internal/btree"
@@ -64,7 +63,7 @@ func (DatasetBase) OnEpochEnd(epoch int64) {}
 func (DatasetBase) OnTrainEnd()            {}
 
 // New creates a new data set with the given arguments.
-func New(sizes, groups []int, partition bool) (Dataset, error) {
+func New(sizes, groups []int, partition bool) Dataset {
 	if partition {
 		return NewPartitionedDataset(sizes, groups)
 	}
@@ -81,7 +80,7 @@ type ShardedDataset struct {
 }
 
 // NewShardedDataset creates a new sharded data set with the given argument.
-func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
+func NewShardedDataset(sizes []int) *ShardedDataset {
 	// We use the default degree for the items to fit on a single memory page.
 	dataset := &ShardedDataset{
 		items:      btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
@@ -91,12 +90,11 @@ func NewShardedDataset(sizes []int) (*ShardedDataset, error) {
 
 	for index, size := range sizes {
 		if _, found := dataset.recycleBin.ReplaceOrInsert(NewSample(index, size)); found {
-			dataset.OnTrainEnd()
-			return nil, errors.New("insert found item")
+			panic("insert found item")
 		}
 	}
 
-	return dataset, nil
+	return dataset
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
@@ -166,7 +164,7 @@ type PartitionedDataset struct {
 }
 
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
-func NewPartitionedDataset(sizes, groups []int) (*PartitionedDataset, error) {
+func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
 	partitionSize := len(sizes) / len(groups)
 	partitionSizes := make([]int, max(groups...)+1)
 	for _, rank := range groups {
@@ -189,14 +187,13 @@ func NewPartitionedDataset(sizes, groups []int) (*PartitionedDataset, error) {
 		dataset.recycleBins = append(dataset.recycleBins, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		for index, size := range sizes[base : base+partitionSize] {
 			if _, found := dataset.recycleBins[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
-				dataset.OnTrainEnd()
-				return nil, errors.New("insert found item")
+				panic("insert found item")
 			}
 		}
 		base += partitionSize
 	}
 
-	return dataset, nil
+	return dataset
 }
 
 // max returns the maximum value in the given slice.

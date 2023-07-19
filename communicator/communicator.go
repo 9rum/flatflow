@@ -83,13 +83,8 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) {
 	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, typ)
 
-	// initialize a data set with the given sizes
-	dataset, err := data.New(sizes, groups, partition)
-	if err != nil {
-		panic(err)
-	}
-
-	// initialize a scheduler based on the given schedule type
+	// initialize the data set and scheduler
+	dataset := data.New(sizes, groups, partition)
 	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, typ)
 	c.steps = ceil(len(sizes), batchSize)
 }
