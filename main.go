@@ -14,9 +14,9 @@
 
 //go:generate protoc --proto_path=proto/ --go_out=communicator/ --go_opt=paths=source_relative --go-grpc_out=communicator/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional communicator.proto
 
-// Package main implements the communicator server. The initialization and
-// termination of the server may be invoked by the sampler, and the types of
-// scheduler and data set are provided upon the initialization.
+// Package main runs the communicator server. The initialization and termination
+// of the server may be invoked by the sampler, and the types of data set and
+// scheduler are provided upon the initialization.
 package main
 
 import (

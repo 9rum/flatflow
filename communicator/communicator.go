@@ -31,8 +31,6 @@ import (
 	"github.com/9rum/chronica/scheduler"
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes/empty"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // communicatorServer implements the server API for Communicator service.
@@ -60,7 +58,7 @@ func NewCommunicatorServer(done chan<- os.Signal, worldSize int) CommunicatorSer
 }
 
 // Init initializes the training environment.
-func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (_ *empty.Empty, err error) {
+func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
 	go func() {
 		c.fanin <- struct{}{}
 	}()
@@ -70,7 +68,7 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (_ *empt
 			for range c.fanout {
 				<-c.fanin
 			}
-			err = c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
+			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
 			for _, ch := range c.fanout {
 				ch <- nil
 			}
@@ -78,36 +76,22 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (_ *empt
 	}
 
 	<-c.fanout[in.GetRank()]
-
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
 	return new(empty.Empty), nil
 }
 
 // init initializes the data set and scheduler with the given arguments.
-func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) error {
+func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) {
 	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, typ)
 
 	// initialize a data set with the given sizes
 	dataset, err := data.New(sizes, groups, partition)
 	if err != nil {
-		return err
+		panic(err)
 	}
-
-	c.steps = ceil(len(sizes), batchSize)
 
 	// initialize a scheduler based on the given schedule type
-	switch typ {
-	case Schedule_STATIC:
-		c.scheduler = scheduler.NewStaticScheduler(dataset, worldSize, batchSize, sizes)
-	case Schedule_DYNAMIC:
-		c.scheduler = scheduler.NewDynamicScheduler(dataset, worldSize, batchSize)
-	default:
-		panic("invalid type")
-	}
-
-	return nil
+	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, typ)
+	c.steps = ceil(len(sizes), batchSize)
 }
 
 // cast casts the given slice.
