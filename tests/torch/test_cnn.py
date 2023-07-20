@@ -9,13 +9,14 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from torchvision.transforms import Compose, Lambda, Normalize, Resize
 from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.curdir))
 
+from chronica.torch.utils.data import DistributedSampler
 from tests.torch.datasets import HMDB51
 
 

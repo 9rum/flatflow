@@ -110,7 +110,7 @@ class HMDB51(Dataset):
         return video, audio, self.labels[index]
 
     def __sizeof__(self, index: int) -> int:  # type: ignore[override]
-        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+        return min(int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT)), 266)
 
     def __len__(self) -> int:
         return len(self.videos)
