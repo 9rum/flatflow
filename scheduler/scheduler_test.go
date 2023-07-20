@@ -15,20 +15,11 @@
 package scheduler
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
-	"time"
 
-	"github.com/9rum/chronica/internal/btree"
 	"github.com/9rum/chronica/internal/data"
 )
-
-func init() {
-	seed := time.Now().Unix()
-	fmt.Println(seed)
-	rand.Seed(seed)
-}
 
 // sum returns the sum of the selected data samples size.
 func sum(indices, sizes []int) (sum int) {
@@ -45,14 +36,14 @@ func TestStaticScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize), datasetSize/batchSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, datasetSize/batchSize, sizes)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
 		for step := 0; step < datasetSize/batchSize; step++ {
 			sums := make([]int, 0, worldSize)
 			for _, indices := range scheduler.Schedule() {
@@ -60,7 +51,6 @@ func TestStaticScheduler(t *testing.T) {
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -72,25 +62,21 @@ func TestDynamicScheduler(t *testing.T) {
 		batchSize   = 1 << 5
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := data.NewShardedDataset[*btree.ItemBase](sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, datasetSize/batchSize)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 1., 0.)
+		}
 		for step := 0; step < datasetSize/batchSize; step++ {
 			sums := make([]int, 0, worldSize)
-			for rank := range sums {
-				scheduler.OnBatchEnd(rank, 1., 0.)
-			}
 			for _, indices := range scheduler.Schedule() {
 				sums = append(sums, sum(indices, sizes))
 			}
 			t.Logf("step: %d got: %v", step, sums)
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -104,15 +90,17 @@ func BenchmarkStaticScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset, _ := data.NewShardedDataset[*btree.ItemBase](sizes)
-	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, binSize(sizes, worldSize, batchSize), benchmarkDatasetSize/batchSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, benchmarkDatasetSize/batchSize, sizes)
 	b.StartTimer()
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }
@@ -124,18 +112,17 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 		batchSize = 1 << 7
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset, _ := data.NewShardedDataset[*btree.ItemBase](sizes)
-	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, benchmarkDatasetSize/batchSize)
 	b.StartTimer()
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 1., 0.)
+		}
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
-			for rank := 0; rank < worldSize; rank++ {
-				scheduler.OnBatchEnd(rank, 1., 0.)
-			}
 			scheduler.Schedule()
 		}
-		scheduler.OnEpochEnd(int64(epoch))
 	}
 	scheduler.OnTrainEnd()
 }

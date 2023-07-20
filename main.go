@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate protoc --proto_path=proto/ --go_out=scheduler/ --go_opt=paths=source_relative --go-grpc_out=scheduler/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional scheduler.proto
+//go:generate protoc --proto_path=proto/ --go_out=communicator/ --go_opt=paths=source_relative --go-grpc_out=communicator/ --go-grpc_opt=paths=source_relative --experimental_allow_proto3_optional communicator.proto
 
-// Package main implements the scheduler server. The initialization and
-// termination of the server may be invoked by the sampler, and the type of
-// scheduler and dataset is provided by the sampler.
+// Package main runs the communicator server. The initialization and termination
+// of the server may be invoked by the sampler, and the types of data set and
+// scheduler are provided upon the initialization.
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/9rum/chronica/scheduler"
+	"github.com/9rum/chronica/communicator"
 	"github.com/golang/glog"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"google.golang.org/grpc"
@@ -33,26 +33,27 @@ import (
 
 func main() {
 	port := flag.Int("p", 50051, "The server port")
+	worldSize := flag.Int("w", 0, "Number of processes participating in distributed training")
 	flag.Parse()
 
-	if err := serve(*port); err != nil {
+	if err := serve(*port, *worldSize); err != nil {
 		glog.Fatalf("failed to serve: %v", err)
 	}
 }
 
-func serve(port int) error {
+func serve(port, worldSize int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
 	}
 
-	server := newServer()
+	server := newServer(worldSize)
 	glog.Infof("server listening at %v", lis.Addr())
 
 	return server.Serve(lis)
 }
 
-func newServer() *grpc.Server {
+func newServer(worldSize int) *grpc.Server {
 	server := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			grpc_recovery.UnaryServerInterceptor(),
@@ -65,7 +66,7 @@ func newServer() *grpc.Server {
 		server.GracefulStop()
 	}(done, server)
 
-	scheduler.RegisterSchedulerServer(server, scheduler.NewSchedulerServer(done))
+	communicator.RegisterCommunicatorServer(server, communicator.NewCommunicatorServer(done, worldSize))
 
 	return server
 }

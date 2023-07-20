@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scheduler
+package communicator
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func TestSchedulerServer(t *testing.T) {
+func TestCommunicatorServer(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
 		worldSize   = 1 << 2
@@ -42,32 +42,34 @@ func TestSchedulerServer(t *testing.T) {
 	}
 	defer conn.Close()
 
-	c := NewSchedulerClient(conn)
-
-	if _, err = c.Init(context.Background(), &InitRequest{WorldSize: worldSize, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
-		t.Fatalf("could not init: %v", err)
-	}
+	c := NewCommunicatorClient(conn)
 
 	var wg sync.WaitGroup
-	for epoch := 0; epoch < 10; epoch++ {
-		t.Logf("epoch: %d", epoch)
-		for step := 0; step < datasetSize/batchSize; step++ {
-			for rank := 0; rank < worldSize; rank++ {
-				wg.Add(1)
-				go func(rank int) {
-					defer wg.Done()
-					r, err := c.Bcast(context.Background(), &BcastRequest{Rank: int64(rank)})
-					if err != nil {
-						t.Errorf("could not bcast: %v", err)
-					}
-					t.Logf("step: %d rank: %d got: %v", step, rank, r.GetIndices())
-				}(rank)
+	for rank := int64(0); rank < worldSize; rank++ {
+		wg.Add(1)
+		go func(rank int64) {
+			defer wg.Done()
+			if _, err = c.Init(context.Background(), &InitRequest{Rank: rank, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
+				t.Errorf("could not init: %v", err)
 			}
-			wg.Wait()
+		}(rank)
+	}
+	wg.Wait()
+
+	for epoch := int64(0); epoch < 10; epoch++ {
+		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			wg.Add(1)
+			go func(rank int64) {
+				defer wg.Done()
+				r, err := c.Bcast(context.Background(), &BcastRequest{Epoch: epoch, Rank: rank})
+				if err != nil {
+					t.Errorf("could not bcast: %v", err)
+				}
+				t.Logf("rank: %d got: %v", rank, r.GetIndices())
+			}(rank)
 		}
-		if _, err = c.Reset(context.Background(), &ResetRequest{Epoch: int64(epoch)}); err != nil {
-			t.Fatalf("could not reset: %v", err)
-		}
+		wg.Wait()
 	}
 
 	if _, err = c.Finalize(context.Background(), new(emptypb.Empty)); err != nil {

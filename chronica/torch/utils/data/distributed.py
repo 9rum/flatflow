@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
 from chronica import sys
-from chronica.rpc import DYNAMIC, STATIC, BcastRequest, InitRequest, ResetRequest, SchedulerStub
+from chronica.rpc import DYNAMIC, STATIC, BcastRequest, CommunicatorStub, InitRequest
 from chronica.torch.utils.data.dataset import Dataset
 
 __all__ = ["DistributedSampler"]
@@ -55,13 +55,11 @@ class DistributedSampler(Sampler[T_co]):
             If rendezvous protocol is enabled using ``torchrun``, the sampler automatically gets the address
             from the environment variable.
         master_port (int, optional): Port on the master node (rank 0) to be used for initializing
-            the scheduler server. (default: ``50051``)
-        schedule (str, optional): Schedule type (must be either ``"static"`` or ``"dynamic"``).
+            the communicator server. (default: ``50051``)
+        type (str, optional): Schedule type (must be either ``"static"`` or ``"dynamic"``).
             By default, ``"static"`` is set for static scheduling that reduces the workload imbalance between workers.
             If ``"dynamic"``, the scheduler provides a feedback-directed optimization that adaptively adjusts
             the workload on each worker.
-        interval (int, optional): Interval, in # of steps, to report the performance indicators for dynamic scheduling.
-            (default: ``1``)
         partition (bool, optional): If ``True``, then the sampler will restrict remote data fetching.
             It is especially useful when the data is distributed among devices and machines. In such a case,
             ``groups`` should tell the mapping about which workers are on which nodes. (default: ``False``)
@@ -78,9 +76,9 @@ class DistributedSampler(Sampler[T_co]):
 
     def __init__(self, dataset: Dataset, num_replicas: Optional[int] = None,
                  rank: Optional[int] = None, shuffle: bool = True,
-                 seed: int = 0, drop_last: bool = False, batch_size: Optional[int] = None,
-                 master_addr: Optional[str] = None, master_port: int = 50051,
-                 schedule: Optional[str] = None, interval: int = 1,
+                 seed: int = 0, drop_last: bool = False,
+                 batch_size: Optional[int] = None, master_addr: Optional[str] = None,
+                 master_port: int = 50051, type: Optional[str] = None,
                  partition: bool = False, groups: Optional[Iterable] = None) -> None:
         if not dist.is_available():
             raise RuntimeError("Requires distributed package to be available")
@@ -98,24 +96,24 @@ class DistributedSampler(Sampler[T_co]):
             master_addr = os.getenv("MASTER_ADDR")
             if master_addr is None:
                 raise ValueError("Invalid master address {}, either master address or MASTER_ADDR should be given".format(master_addr))
-        if schedule is None or schedule == "static":
-            self.schedule = STATIC
-        elif schedule == "dynamic":
-            self.schedule = DYNAMIC
+        if type is None or type == "static":
+            self.type = STATIC
+        elif type == "dynamic":
+            self.type = DYNAMIC
         else:
-            raise ValueError("Invalid schedule type {}, schedule should be either static or dynamic".format(schedule))
+            raise ValueError("Invalid schedule type {}, type should be either static or dynamic".format(type))
         self.rank = rank
         self.epoch = 0
-        self.interval = interval * batch_size // num_replicas
+        self.batch_size = batch_size // num_replicas
 
-        # automatically run scheduler server on master.
+        # automatically run communicator server on master.
         if self.rank == 0:
-            cmd = "chronica -p {} -logtostderr true"
+            cmd = "chronica -p {} -w {} -logtostderr true"
             if shutil.which("chronica") is None:
                 if shutil.which("go") is None:
                     raise RuntimeError("Requires Go compiler to be installed")
-                cmd = "GOEXPERIMENT=arenas go install github.com/9rum/chronica@latest; {}".format(cmd)
-            subprocess.Popen(cmd.format(master_port), shell=True)
+                cmd = "go install github.com/9rum/chronica@latest; {}".format(cmd)
+            subprocess.Popen(cmd.format(master_port, num_replicas), shell=True)
 
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
@@ -154,49 +152,51 @@ class DistributedSampler(Sampler[T_co]):
 
         self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
         self.indices = list()  # type: ignore[var-annotated]
+        self.sums = np.array(list(), np.int_)
+        self.times = np.array(list(), np.float_)
         self.num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
         self.tic = time.time()
-        self.sums = np.array(list(), np.int_)
-        self.times = np.array(list(), np.float_)
         self.reg = LinearRegression(positive=True)
 
         channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
-        # block until the scheduler server is initialized.
+        # block until the communicator server is initialized.
         grpc.channel_ready_future(channel).result()
-        self.stub = SchedulerStub(channel)
-
-        if self.rank == 0:
-            self.stub.Init(InitRequest(world_size=num_replicas, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.schedule))
-        dist.barrier()
+        self.stub = CommunicatorStub(channel)
+        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.type))
 
     def __iter__(self) -> Iterator[T_co]:
-        if self.rank == 0 and 0 < self.num_yielded:
-            self.stub.Reset(ResetRequest(epoch=self.epoch))
+        if self.type == DYNAMIC and 0 < self.num_yielded:
+            toc = time.time()
+            self.times = np.append(self.times, toc - self.tic)
+            # recalculate performance indicators.
+            self.reg.fit(self.sums, self.times)
+            self.coefficient = self.reg.coef_
+            self.intercept = self.reg.intercept_
+            self.sums = np.array(list(), np.int_)
+            self.times = np.array(list(), np.float_)
+        self.indices = self.stub.Bcast(BcastRequest(epoch=self.epoch, rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
         self.num_yielded = 0
         return self
 
     def __next__(self) -> T_co:
         if self.num_samples <= self.num_yielded:
             raise StopIteration
-        if 0 < len(self.indices):
-            index = self.indices[0]
-            self.indices = self.indices[1:]
-            self.num_yielded += 1
-            return self.map[index]
-        toc = time.time()
-        if 0 < self.num_yielded:
-            self.times = np.append(self.times, toc - self.tic)
-            # recalculate performance indicators.
-            if self.schedule == DYNAMIC and self.num_yielded % self.interval == 0:
-                self.reg.fit(self.sums, self.times)
-                self.coefficient = self.reg.coef_
-                self.intercept = self.reg.intercept_
-        self.indices = self.stub.Bcast(BcastRequest(rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
-        self.sums = np.append(self.sums, sum(map(lambda index: self.sizes[index], self.indices)))
-        self.tic = time.time()
-        return next(self)
+        index = self.indices[self.num_yielded]
+
+        if self.type == DYNAMIC:
+            if self.num_yielded % self.batch_size == 0:
+                if 0 < self.num_yielded:
+                    toc = time.time()
+                    self.times = np.append(self.times, toc - self.tic)
+                self.sums = np.append(self.sums, self.sizes[index])
+            else:
+                self.sums[-1] += self.sizes[index]
+            self.tic = time.time()
+
+        self.num_yielded += 1
+        return self.map[index]
 
     def __len__(self) -> int:
         return self.num_samples

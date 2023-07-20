@@ -25,19 +25,12 @@ import (
 	"sort"
 	"sync"
 	"testing"
-	"time"
 )
-
-func init() {
-	seed := time.Now().Unix()
-	fmt.Println(seed)
-	rand.Seed(seed)
-}
 
 // perm returns a random permutation of n items with size in the range [0, n).
 func perm(n int) (out []*ItemBase) {
 	for _, v := range rand.Perm(n) {
-		out = append(out, NewItemBase(v, v))
+		out = append(out, &ItemBase{v, v})
 	}
 	return
 }
@@ -45,7 +38,7 @@ func perm(n int) (out []*ItemBase) {
 // rang returns an ordered list of items with size in the range [0, n).
 func rang(n int) (out []*ItemBase) {
 	for i := 0; i < n; i++ {
-		out = append(out, NewItemBase(i, i))
+		out = append(out, &ItemBase{i, i})
 	}
 	return
 }
@@ -62,7 +55,7 @@ func all[T Item](t *BTree[T]) (out []T) {
 // rangerev returns a reversed ordered list of items with size in the range [0, n).
 func rangrev(n int) (out []*ItemBase) {
 	for i := n - 1; 0 <= i; i-- {
-		out = append(out, NewItemBase(i, i))
+		out = append(out, &ItemBase{i, i})
 	}
 	return
 }
@@ -76,7 +69,7 @@ func allrev[T Item](t *BTree[T]) (out []T) {
 	return
 }
 
-var btreeDegree = flag.Int("degree", 0, "B-tree degree")
+var btreeDegree = flag.Int("degree", DefaultTargetNodeSize[*ItemBase](), "B-tree degree")
 
 func TestBTree(t *testing.T) {
 	tr := New[*ItemBase](*btreeDegree)
@@ -103,11 +96,11 @@ func TestBTree(t *testing.T) {
 				t.Fatal("insert didn't find item", item)
 			}
 		}
-		want := NewItemBase(0, 0)
+		want := &ItemBase{0, 0}
 		if min, ok := tr.Min(); !ok || min.Size() != want.Size() {
 			t.Fatalf("min: ok %v want %+v, got %+v", ok, want, min)
 		}
-		want = NewItemBase(treeSize-1, treeSize-1)
+		want = &ItemBase{treeSize - 1, treeSize - 1}
 		if max, ok := tr.Max(); !ok || max.Size() != want.Size() {
 			t.Fatalf("max: ok %v want %+v, got %+v", ok, want, max)
 		}
@@ -140,20 +133,20 @@ func TestBTree(t *testing.T) {
 func ExampleBTree() {
 	tr := New[*ItemBase](*btreeDegree)
 	for i := 0; i < 10; i++ {
-		tr.ReplaceOrInsert(NewItemBase(i, i))
+		tr.ReplaceOrInsert(&ItemBase{i, i})
 	}
 	fmt.Println("len:       ", tr.Len())
-	v, ok := tr.Get(NewItemBase(3, 3))
+	v, ok := tr.Get(&ItemBase{3, 3})
 	fmt.Println("get3:      ", v, ok)
-	v, ok = tr.Get(NewItemBase(100, 100))
+	v, ok = tr.Get(&ItemBase{100, 100})
 	fmt.Println("get100:    ", v, ok)
-	v, ok = tr.Delete(NewItemBase(4, 4))
+	v, ok = tr.Delete(&ItemBase{4, 4})
 	fmt.Println("del4:      ", v, ok)
-	v, ok = tr.Delete(NewItemBase(100, 100))
+	v, ok = tr.Delete(&ItemBase{100, 100})
 	fmt.Println("del100:    ", v, ok)
-	v, ok = tr.ReplaceOrInsert(NewItemBase(5, 5))
+	v, ok = tr.ReplaceOrInsert(&ItemBase{5, 5})
 	fmt.Println("replace5:  ", v, ok)
-	v, ok = tr.ReplaceOrInsert(NewItemBase(100, 100))
+	v, ok = tr.ReplaceOrInsert(&ItemBase{100, 100})
 	fmt.Println("replace100:", v, ok)
 	v, ok = tr.Min()
 	fmt.Println("min:       ", v, ok)
@@ -235,7 +228,7 @@ func TestAscendRange(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.AscendRange(NewItemBase(40, 40), NewItemBase(60, 60), func(a *ItemBase) bool {
+	tr.AscendRange(&ItemBase{40, 40}, &ItemBase{60, 60}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -243,7 +236,7 @@ func TestAscendRange(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendRange(NewItemBase(40, 40), NewItemBase(60, 60), func(a *ItemBase) bool {
+	tr.AscendRange(&ItemBase{40, 40}, &ItemBase{60, 60}, func(a *ItemBase) bool {
 		if 50 < a.Size() {
 			return false
 		}
@@ -261,7 +254,7 @@ func TestDescendRange(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.DescendRange(NewItemBase(60, 60), NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.DescendRange(&ItemBase{60, 60}, &ItemBase{40, 40}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -269,7 +262,7 @@ func TestDescendRange(t *testing.T) {
 		t.Fatalf("descendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendRange(NewItemBase(60, 60), NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.DescendRange(&ItemBase{60, 60}, &ItemBase{40, 40}, func(a *ItemBase) bool {
 		if a.Size() < 50 {
 			return false
 		}
@@ -287,7 +280,7 @@ func TestAscendLessThan(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.AscendLessThan(NewItemBase(60, 60), func(a *ItemBase) bool {
+	tr.AscendLessThan(&ItemBase{60, 60}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -295,7 +288,7 @@ func TestAscendLessThan(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendLessThan(NewItemBase(60, 60), func(a *ItemBase) bool {
+	tr.AscendLessThan(&ItemBase{60, 60}, func(a *ItemBase) bool {
 		if 50 < a.Size() {
 			return false
 		}
@@ -313,7 +306,7 @@ func TestDescendLessOrEqual(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.DescendLessOrEqual(NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.DescendLessOrEqual(&ItemBase{40, 40}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -321,7 +314,7 @@ func TestDescendLessOrEqual(t *testing.T) {
 		t.Fatalf("descendlessorequal:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendLessOrEqual(NewItemBase(60, 60), func(a *ItemBase) bool {
+	tr.DescendLessOrEqual(&ItemBase{60, 60}, func(a *ItemBase) bool {
 		if a.Size() < 50 {
 			return false
 		}
@@ -339,7 +332,7 @@ func TestAscendGreaterOrEqual(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.AscendGreaterOrEqual(NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.AscendGreaterOrEqual(&ItemBase{40, 40}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -347,7 +340,7 @@ func TestAscendGreaterOrEqual(t *testing.T) {
 		t.Fatalf("ascendrange:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.AscendGreaterOrEqual(NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.AscendGreaterOrEqual(&ItemBase{40, 40}, func(a *ItemBase) bool {
 		if 50 < a.Size() {
 			return false
 		}
@@ -365,7 +358,7 @@ func TestDescendGreaterThan(t *testing.T) {
 		tr.ReplaceOrInsert(v)
 	}
 	var got []*ItemBase
-	tr.DescendGreaterThan(NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.DescendGreaterThan(&ItemBase{40, 40}, func(a *ItemBase) bool {
 		got = append(got, a)
 		return true
 	})
@@ -373,7 +366,7 @@ func TestDescendGreaterThan(t *testing.T) {
 		t.Fatalf("descendgreaterthan:\n got: %v\nwant: %v", got, want)
 	}
 	got = got[:0]
-	tr.DescendGreaterThan(NewItemBase(40, 40), func(a *ItemBase) bool {
+	tr.DescendGreaterThan(&ItemBase{40, 40}, func(a *ItemBase) bool {
 		if a.Size() < 50 {
 			return false
 		}
@@ -415,7 +408,7 @@ func BenchmarkSeek(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		tr.AscendGreaterOrEqual(NewItemBase(i%size, i%size), func(a *ItemBase) bool { return false })
+		tr.AscendGreaterOrEqual(&ItemBase{i % size, i % size}, func(a *ItemBase) bool { return false })
 	}
 }
 
@@ -592,7 +585,7 @@ func BenchmarkAscendRange(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := 100
-		tr.AscendRange(NewItemBase(100, 100), arr[len(arr)-100], func(item *ItemBase) bool {
+		tr.AscendRange(&ItemBase{100, 100}, arr[len(arr)-100], func(item *ItemBase) bool {
 			if item.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], item)
 			}
@@ -617,7 +610,7 @@ func BenchmarkDescendRange(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		j := len(arr) - 100
-		tr.DescendRange(arr[len(arr)-100], NewItemBase(100, 100), func(item *ItemBase) bool {
+		tr.DescendRange(arr[len(arr)-100], &ItemBase{100, 100}, func(item *ItemBase) bool {
 			if item.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], item)
 			}
@@ -643,7 +636,7 @@ func BenchmarkAscendGreaterOrEqual(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		j := 100
 		k := 0
-		tr.AscendGreaterOrEqual(NewItemBase(100, 100), func(item *ItemBase) bool {
+		tr.AscendGreaterOrEqual(&ItemBase{100, 100}, func(item *ItemBase) bool {
 			if item.Size() != arr[j].Size() {
 				b.Fatalf("mismatch: expected: %v, got %v", arr[j], item)
 			}

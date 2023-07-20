@@ -114,7 +114,7 @@ func New[T Item](degree int) *BTree[T] {
 // NewWithFreeList creates a new B-tree that uses the given node free list.
 func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 	if degree <= 1 {
-		degree = defaultDegree[T]()
+		degree = DefaultTargetNodeSize[T]()
 	}
 	return &BTree[T]{
 		degree: degree,
@@ -122,13 +122,12 @@ func NewWithFreeList[T Item](degree int, f *FreeList[T]) *BTree[T] {
 	}
 }
 
-// defaultDegree finds the degree for type T that allows node[T] to fit on a
-// single memory page.
-func defaultDegree[T Item]() int {
+// DefaultTargetNodeSize finds the degree for type T that allows items[T] to fit
+// on a single memory page.
+func DefaultTargetNodeSize[T Item]() int {
 	var zero T
 	size := int(unsafe.Sizeof(zero))
-	ptrSize := int(unsafe.Sizeof(uintptr(0)))
-	return (os.Getpagesize() + size - ptrSize) / (2 * (size + ptrSize))
+	return (os.Getpagesize() + size) / (size << 1)
 }
 
 // items stores items in a node.
@@ -618,13 +617,25 @@ func (n *node[T]) iterate(dir direction, start, stop optionalItem[T], includeSta
 	return hit, true
 }
 
+// reset returns a subtree to the freelist.  It breaks out immediately if the
+// freelist is full, since the only benefit of iterating is to fill that
+// freelist up.  Returns true if parent reset call should continue.
+func (n *node[T]) reset(c *copyOnWriteContext[T]) bool {
+	for _, child := range n.children {
+		if !child.reset(c) {
+			return false
+		}
+	}
+	return c.freeNode(n) != ftFreelistFull
+}
+
 // BTree is a generic implementation of a B-tree.
 //
 // BTree stores items of type T in an ordered structure, allowing easy insertion,
 // removal, and iteration.
 //
 // Write operations are not safe for concurrent mutation by multiple
-// goroutines, but Read operations are.
+// goroutines, but read operations are.
 type BTree[T Item] struct {
 	degree int
 	length int
@@ -915,16 +926,4 @@ func (t *BTree[T]) Clear(addNodesToFreelist bool) {
 		t.root.reset(t.cow)
 	}
 	t.root, t.length = nil, 0
-}
-
-// reset returns a subtree to the freelist.  It breaks out immediately if the
-// freelist is full, since the only benefit of iterating is to fill that
-// freelist up.  Returns true if parent reset call should continue.
-func (n *node[T]) reset(c *copyOnWriteContext[T]) bool {
-	for _, child := range n.children {
-		if !child.reset(c) {
-			return false
-		}
-	}
-	return c.freeNode(n) != ftFreelistFull
 }

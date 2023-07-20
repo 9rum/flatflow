@@ -15,19 +15,9 @@
 package data
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
-	"time"
-
-	"github.com/9rum/chronica/internal/btree"
 )
-
-func init() {
-	seed := time.Now().Unix()
-	fmt.Println(seed)
-	rand.Seed(seed)
-}
 
 func TestShardedDataset(t *testing.T) {
 	const (
@@ -35,40 +25,34 @@ func TestShardedDataset(t *testing.T) {
 		batchSize   = 10
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset, err := NewShardedDataset[*btree.ItemBase](sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset := NewShardedDataset(sizes)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
+				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset, err = NewShardedDataset[*btree.ItemBase](sizes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset = NewShardedDataset(sizes)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				if _, size := dataset.Getitem(sizes[index], sizes[index]); size != sizes[index] {
+				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
 					t.Fatalf("did not find %d", sizes[index])
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -79,52 +63,43 @@ func TestPartitionedDataset(t *testing.T) {
 		batchSize   = 40
 		worldSize   = 4
 	)
-	groups := make([]int, worldSize)
-	partitions := make([][]int, worldSize)
-	for rank := range partitions {
-		groups[rank] = rank
-		partitions[rank] = rand.Perm(datasetSize / worldSize)
+	sizes := rand.Perm(datasetSize)
+	groups := make([]int, 0, worldSize)
+	for len(groups) < cap(groups) {
+		groups = append(groups, len(groups))
 	}
-	dataset, err := NewPartitionedDataset[*btree.ItemBase](groups, partitions)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset := NewPartitionedDataset(sizes, groups)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, partitions[rank][index]); size != partitions[rank][index] {
-						t.Fatalf("did not find %d", partitions[rank][index])
+					if _, size := dataset.Getitem(rank, sizes[datasetSize/worldSize*rank+index]); size != sizes[datasetSize/worldSize*rank+index] {
+						t.Fatalf("did not find %d", sizes[datasetSize/worldSize*rank+index])
 					}
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 
-	for _, partition := range partitions {
-		for size := range partition {
-			partition[size] = size
-		}
+	for size := range sizes {
+		sizes[size] = size
 	}
-	dataset, err = NewPartitionedDataset[*btree.ItemBase](groups, partitions)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dataset = NewPartitionedDataset(sizes, groups)
 
-	for epoch := 0; epoch < 10; epoch++ {
+	for epoch := int64(0); epoch < 10; epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					if _, size := dataset.Getitem(rank, partitions[rank][index]); size != partitions[rank][index] {
-						t.Fatalf("did not find %d", partitions[rank][index])
+					if _, size := dataset.Getitem(rank, sizes[datasetSize/worldSize*rank+index]); size != sizes[datasetSize/worldSize*rank+index] {
+						t.Fatalf("did not find %d", sizes[datasetSize/worldSize*rank+index])
 					}
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -136,18 +111,15 @@ func BenchmarkShardedDataset(b *testing.B) {
 	const batchSize = 10
 	sizes := rand.Perm(benchmarkDatasetSize)
 	b.StartTimer()
-	dataset, err := NewShardedDataset[*btree.ItemBase](sizes)
-	if err != nil {
-		b.Fatal(err)
-	}
+	dataset := NewShardedDataset(sizes)
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
-				dataset.Getitem(sizes[index], sizes[index])
+				dataset.Getitem(0, sizes[index])
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
@@ -158,27 +130,23 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		batchSize = 40
 		worldSize = 4
 	)
-	groups := make([]int, worldSize)
-	partitions := make([][]int, worldSize)
-	for rank := range partitions {
-		groups[rank] = rank
-		partitions[rank] = rand.Perm(benchmarkDatasetSize / worldSize)
+	sizes := rand.Perm(benchmarkDatasetSize)
+	groups := make([]int, 0, worldSize)
+	for len(groups) < cap(groups) {
+		groups = append(groups, len(groups))
 	}
 	b.StartTimer()
-	dataset, err := NewPartitionedDataset[*btree.ItemBase](groups, partitions)
-	if err != nil {
-		b.Fatal(err)
-	}
+	dataset := NewPartitionedDataset(sizes, groups)
 
-	for epoch := 0; epoch < b.N; epoch++ {
+	for epoch := int64(0); epoch < int64(b.N); epoch++ {
+		dataset.OnEpochEnd(epoch)
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
-					dataset.Getitem(rank, partitions[rank][index])
+					dataset.Getitem(rank, sizes[benchmarkDatasetSize/worldSize*rank+index])
 				}
 			}
 		}
-		dataset.OnEpochEnd(int64(epoch))
 	}
 	dataset.OnTrainEnd()
 }
