@@ -35,7 +35,7 @@ const (
 // All implementations must embed SchedulerBase for forward compatibility.
 type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
-	Schedule() [][]int
+	Schedule(step int) [][]int
 
 	// Len returns the number of required steps for each training epoch.
 	Len() int
@@ -51,7 +51,7 @@ type Scheduler interface {
 type SchedulerBase struct {
 }
 
-func (SchedulerBase) Schedule() (_ [][]int) {
+func (SchedulerBase) Schedule(step int) (_ [][]int) {
 	return
 }
 func (SchedulerBase) Len() (_ int) {
@@ -62,18 +62,11 @@ func (SchedulerBase) OnTrainEnd()                                               
 
 // New creates a new scheduler with the given arguments.
 func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, typ T) Scheduler {
-	steps := func(numerator, denominator int) int {
-		if numerator%denominator == 0 {
-			return numerator / denominator
-		}
-		return numerator/denominator + 1
-	}(len(sizes), batchSize)
-
 	switch typ {
 	case STATIC:
-		return NewStaticScheduler(dataset, worldSize, batchSize, steps, sizes)
+		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	case DYNAMIC:
-		return NewDynamicScheduler(dataset, worldSize, batchSize, steps)
+		return NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
 	default:
 		panic("invalid type")
 	}
@@ -84,7 +77,7 @@ func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, 
 func Next(scheduler Scheduler) [][]int {
 	indices := make([][][]int, 0, scheduler.Len())
 	for len(indices) < cap(indices) {
-		indices = append(indices, scheduler.Schedule())
+		indices = append(indices, scheduler.Schedule(len(indices)))
 	}
 
 	// store the number of scheduled data samples considering
@@ -137,21 +130,30 @@ func transpose(tensor [][][]int, samples int) [][]int {
 // reducing the communication overheads and thereby improving the scalability.
 type StaticScheduler struct {
 	SchedulerBase
-	dataset   data.Dataset
-	worldSize int
-	batchSize int
-	binSize   int
-	steps     int
+	dataset       data.Dataset
+	worldSize     int
+	batchSize     int
+	lastBatchSize int
+	steps         int
+	binSize       int
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize, steps int, sizes []int) *StaticScheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *StaticScheduler {
+	steps := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(sizes), batchSize)
+
 	return &StaticScheduler{
-		dataset:   dataset,
-		worldSize: worldSize,
-		batchSize: batchSize,
-		binSize:   int(math.Round(mean(sizes) * float64(batchSize/worldSize))),
-		steps:     steps,
+		dataset:       dataset,
+		worldSize:     worldSize,
+		batchSize:     batchSize,
+		lastBatchSize: (len(sizes)-1)%batchSize + 1,
+		steps:         steps,
+		binSize:       int(math.Round(mean(sizes) * float64(batchSize/worldSize))),
 	}
 }
 
@@ -171,19 +173,22 @@ func mean(sizes []int) float64 {
 // bin packing.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
 // Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
-func (s *StaticScheduler) Schedule() [][]int {
+func (s *StaticScheduler) Schedule(step int) [][]int {
 	bins := make([]int, s.worldSize)
 	indices := make([][]int, 0, s.worldSize)
-	for len(indices) < cap(indices) {
-		indices = append(indices, make([]int, 0, s.batchSize/s.worldSize))
-	}
+	localBatchSize := func() int {
+		if step == s.steps-1 {
+			return s.lastBatchSize / s.worldSize
+		}
+		return s.batchSize / s.worldSize
+	}()
 
 	// pack the bins in a first-fit-decreasing fashion
-	for rank := range indices {
+	for len(indices) < cap(indices) {
+		rank := len(indices)
+		indices = append(indices, make([]int, 0, localBatchSize))
+
 		for len(indices[rank]) < cap(indices[rank]) {
-			if s.dataset.Len(rank) <= 0 {
-				break
-			}
 			index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
 			indices[rank] = append(indices[rank], index)
 			bins[rank] += size
@@ -213,23 +218,32 @@ func (s *StaticScheduler) OnTrainEnd() {
 // clusters where the workers have different compute capabilities.
 type DynamicScheduler struct {
 	SchedulerBase
-	dataset      data.Dataset
-	worldSize    int
-	batchSize    int
-	steps        int
-	coefficients []float64
-	intercepts   []float64
+	dataset       data.Dataset
+	worldSize     int
+	batchSize     int
+	lastBatchSize int
+	steps         int
+	coefficients  []float64
+	intercepts    []float64
 }
 
 // NewDynamicScheduler creates a new dynamic scheduler with the given arguments.
-func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize, steps int) *DynamicScheduler {
+func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *DynamicScheduler {
+	steps := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(sizes), batchSize)
+
 	return &DynamicScheduler{
-		dataset:      dataset,
-		worldSize:    worldSize,
-		batchSize:    batchSize,
-		steps:        steps,
-		coefficients: make([]float64, worldSize),
-		intercepts:   make([]float64, worldSize),
+		dataset:       dataset,
+		worldSize:     worldSize,
+		batchSize:     batchSize,
+		lastBatchSize: (len(sizes)-1)%batchSize + 1,
+		steps:         steps,
+		coefficients:  make([]float64, worldSize),
+		intercepts:    make([]float64, worldSize),
 	}
 }
 
@@ -240,57 +254,54 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize, steps int) 
 // against imbalanced data, which has been proposed in the 23rd IEEE/ACM
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://ieeexplore.ieee.org/document/10171495
-func (s *DynamicScheduler) Schedule() [][]int {
+func (s *DynamicScheduler) Schedule(step int) [][]int {
 	binSize := 0.
 	bins := make([]float64, s.worldSize)
 	indices := make([][]int, 0, s.worldSize)
-	for len(indices) < cap(indices) {
-		indices = append(indices, make([]int, 0, s.batchSize/s.worldSize))
-	}
+	localBatchSize := func() int {
+		if step == s.steps-1 {
+			return s.lastBatchSize / s.worldSize
+		}
+		return s.batchSize / s.worldSize
+	}()
 
 	// assign a random first pivot
-	if 0 < s.dataset.Len(0) {
-		index, size := s.dataset.Rand(0)
-		indices[0] = append(indices[0], index)
-		bins[0] = s.coefficients[0]*float64(size) + s.intercepts[0]
-		if binSize < bins[0] {
-			binSize = bins[0]
-		}
+	indices = append(indices, make([]int, 0, localBatchSize))
+	index, size := s.dataset.Rand(0)
+	indices[0] = append(indices[0], index)
+	bins[0] = s.coefficients[0]*float64(size) + s.intercepts[0]
+	if binSize < bins[0] {
+		binSize = bins[0]
 	}
 
 	// select data samples iteratively in a best-fit fashion
-	for rank := 1; rank < s.worldSize; rank++ {
-		if 0 < s.dataset.Len(rank) {
-			if s.coefficients[rank] == 0. {
-				index, _ := s.dataset.Rand(rank)
-				indices[rank] = append(indices[rank], index)
-				bins[rank] = s.intercepts[rank]
-			} else {
-				index, size := s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
-				indices[rank] = append(indices[rank], index)
-				bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
-			}
-			if binSize < bins[rank] {
-				binSize = bins[rank]
-			}
+	for len(indices) < cap(indices) {
+		rank := len(indices)
+		indices = append(indices, make([]int, 0, localBatchSize))
+
+		if s.coefficients[rank] == 0. {
+			index, size = s.dataset.Rand(rank)
+		} else {
+			index, size = s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+		}
+		indices[rank] = append(indices[rank], index)
+		bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
+		if binSize < bins[rank] {
+			binSize = bins[rank]
 		}
 	}
 
 	for len(indices[0]) < cap(indices[0]) {
 		for rank := range indices {
-			if 0 < s.dataset.Len(rank) {
-				if s.coefficients[rank] == 0. {
-					index, _ := s.dataset.Rand(rank)
-					indices[rank] = append(indices[rank], index)
-					bins[rank] += s.intercepts[rank]
-				} else {
-					index, size := s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
-					indices[rank] = append(indices[rank], index)
-					bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
-				}
-				if binSize < bins[rank] {
-					binSize = bins[rank]
-				}
+			if s.coefficients[rank] == 0. {
+				index, size = s.dataset.Rand(rank)
+			} else {
+				index, size = s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+			}
+			indices[rank] = append(indices[rank], index)
+			bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
+			if binSize < bins[rank] {
+				binSize = bins[rank]
 			}
 		}
 	}
