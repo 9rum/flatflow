@@ -171,8 +171,8 @@ class DistributedSampler(Sampler[T_co]):
             toc = time.time()
             self.times = np.append(self.times, toc - self.tic)
             # recalculate performance indicators.
-            self.reg.fit(self.sums, self.times)
-            self.coefficient = self.reg.coef_
+            self.reg.fit(self.sums.reshape(-1, 1), self.times)
+            self.coefficient = self.reg.coef_[0]
             self.intercept = self.reg.intercept_
             self.sums = np.array(list(), np.int_)
             self.times = np.array(list(), np.float_)
