@@ -36,9 +36,6 @@ type Dataset interface {
 	// Rand retrieves an arbitrary data sample from the data set.
 	Rand(rank int) (_, _ int)
 
-	// Len returns the number of data samples currently in the data set.
-	Len(rank int) int
-
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch int64)
 
@@ -54,9 +51,6 @@ func (DatasetBase) Getitem(rank, size int) (_, _ int) {
 	return
 }
 func (DatasetBase) Rand(rank int) (_, _ int) {
-	return
-}
-func (DatasetBase) Len(rank int) (_ int) {
 	return
 }
 func (DatasetBase) OnEpochEnd(epoch int64) {}
@@ -128,11 +122,6 @@ func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 	}
 	defer d.recycleBin.ReplaceOrInsert(item)
 	return item.Index(), item.Size()
-}
-
-// Len returns the number of data samples currently in the data set.
-func (d *ShardedDataset) Len(rank int) int {
-	return d.items.Len()
 }
 
 // OnEpochEnd restores the data samples.
@@ -237,11 +226,6 @@ func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 	}
 	defer d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
 	return item.Index(), item.Size()
-}
-
-// Len returns the number of data samples currently in the data set.
-func (d *PartitionedDataset) Len(rank int) int {
-	return d.partitions[d.groups[rank]].Len()
 }
 
 // OnEpochEnd restores the data partitions.
