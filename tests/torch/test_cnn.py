@@ -41,7 +41,7 @@ def run(epochs: int, lr: float, root: str):
     trainset = HMDB51(root, "", 0, transform=transform, output_format="TCHW")
     testset = HMDB51(root, "", 0, train=False, transform=transform, output_format="TCHW")
 
-    sampler = DistributedSampler(trainset)  # type: ignore[arg-type,var-annotated]
+    sampler = DistributedSampler(trainset, type="dynamic", partition=True, groups=[0,0,0,0,1,1,1,1])  # type: ignore[arg-type,var-annotated]
     trainloader = DataLoader(trainset, sampler=sampler)  # type: ignore[arg-type,var-annotated]
     testloader = DataLoader(testset)  # type: ignore[arg-type,var-annotated]
 
