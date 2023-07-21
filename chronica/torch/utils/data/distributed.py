@@ -63,10 +63,10 @@ class DistributedSampler(Sampler[T_co]):
         partition (bool, optional): If ``True``, then the sampler will restrict remote data fetching.
             It is especially useful when the data is distributed among devices and machines. In such a case,
             ``groups`` should tell the mapping about which workers are on which nodes. (default: ``False``)
-        groups (Iterable, optional): Mapping from worker rank to node rank. For instance, if the cluster is homogeneous
-            of two nodes with four GPUs each, ``groups`` would be ``[0, 0, 0, 0, 1, 1, 1, 1]``. On the other hand,
-            if the cluster is heterogeneous with four GPUs on node #0 and two GPUs on node #1,
-            then ``groups`` would be ``[0, 0, 0, 0, 1, 1]``.
+        groups (Iterable, optional): A vector representing the mapping from worker rank to node rank.
+            For instance, if the cluster is homogeneous of two nodes with four GPUs each, ``groups`` would be
+            ``[0, 0, 0, 0, 1, 1, 1, 1]``. On the other hand, if the cluster is heterogeneous with four GPUs
+            on node #0 and two GPUs on node #1, then ``groups`` would be ``[0, 0, 0, 0, 1, 1]``.
 
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
