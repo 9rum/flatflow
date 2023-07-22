@@ -20,7 +20,6 @@ This is an artifact as well as an open source implementation of our paper `Chron
 
 Highlighted Features
 --------------------
-
 Data-imbalance-aware scheduling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -38,7 +37,6 @@ Minimal code modification
 
 Get Started
 -----------
-
 Prerequisites
 ^^^^^^^^^^^^^
 
@@ -51,22 +49,21 @@ Install
 
 Citation
 --------
-
 If you ...
 
 ::
 
-@INPROCEEDINGS{10171495,
-    author={Maeng, Sanha and Moon, Gordon Euhyun and Park, Sungyong},
-    booktitle={2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid)}, 
-    title={Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning}, 
-    year={2023},
-    volume={},
-    number={},
-    pages={262-272},
-    doi={10.1109/CCGrid57682.2023.00033}}
+    @INPROCEEDINGS{10171495,
+        author={Maeng, Sanha and Moon, Gordon Euhyun and Park, Sungyong},
+        booktitle={2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid)}, 
+        title={Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning}, 
+        year={2023},
+        volume={},
+        number={},
+        pages={262-272},
+        doi={10.1109/CCGrid57682.2023.00033}
+    }
 
 Conditions for use, reproduction, and distribution
 --------------------------------------------------
-
 Chronica is licensed under the `Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0>`_.
