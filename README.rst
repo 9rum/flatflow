@@ -55,15 +55,16 @@ Citation
 If you ...
 
 ::
+
 @INPROCEEDINGS{10171495,
-author={Maeng, Sanha and Moon, Gordon Euhyun and Park, Sungyong},
-booktitle={2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid)}, 
-title={Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning}, 
-year={2023},
-volume={},
-number={},
-pages={262-272},
-doi={10.1109/CCGrid57682.2023.00033}}
+    author={Maeng, Sanha and Moon, Gordon Euhyun and Park, Sungyong},
+    booktitle={2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid)}, 
+    title={Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning}, 
+    year={2023},
+    volume={},
+    number={},
+    pages={262-272},
+    doi={10.1109/CCGrid57682.2023.00033}}
 
 Conditions for use, reproduction, and distribution
 --------------------------------------------------
