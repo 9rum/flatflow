@@ -53,7 +53,7 @@ Usage
 Publications
 ------------
 
-* Sanha Maeng, Gordon Euhyun Moon and Sungyong Park, Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning, In Proceedings of the `2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid) <https://ieeexplore.ieee.org/document/10171495>`_.
+#. Sanha Maeng, Gordon Euhyun Moon and Sungyong Park, `Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning <https://ieeexplore.ieee.org/document/10171495>`_, In Proceedings of the `2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid) <https://ccgrid2023.iisc.ac.in/>`_.
 
 Citation
 --------
