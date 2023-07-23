@@ -18,8 +18,6 @@ Chronica is a data-imbalance-aware scheduler and associated scheduling framework
 Chronica accelerates data-parallel training with imbalanced data such as video, audio, and text by reducing unnecessary operations and memory usage while improving scalability and resource utilization.
 The goal of Chronica is to make a fast, efficient and easy-to-use data scheduling framework, compatible with existing deep learning systems such as TensorFlow, PyTorch, JAX and DistDGL.
 
-This is an artifact as well as an open source implementation of our paper `Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning <https://ieeexplore.ieee.org/document/10171495>`_, which has been proposed in the `23rd IEEE/ACM International Symposium on Cluster, Cloud and Internet Computing <https://ccgrid2023.iisc.ac.in/>`_ (CCGrid'23).
-
 Highlighted Features
 --------------------
 Data-imbalance-aware scheduling
@@ -32,27 +30,35 @@ Heterogeneous data partitioning
 
 
 
-Minimal code modification
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Minimal code modifications
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 
-Get Started
------------
+Installation
+------------
 Prerequisites
 ^^^^^^^^^^^^^
 
 You need to have the `Go compiler <https://go.dev/>`_, version 1.20 or higher to be installed on the master node (rank 0) and include the `GOBIN` environment variable to `PATH`.
 i.e., ``PATH=$GOBIN:$PATH``
 
-Install
-^^^^^^^
-
 You can easily install the ``chronica`` pip package by running ``pip install chronica``.
+
+Usage
+^^^^^
+
+
+
+Publications
+------------
+
+* Sanha Maeng, Gordon Euhyun Moon and Sungyong Park, Chronica: A Data-Imbalance-Aware Scheduler for Distributed Deep Learning, In Proceedings of the `2023 IEEE/ACM 23rd International Symposium on Cluster, Cloud and Internet Computing (CCGrid) <https://ieeexplore.ieee.org/document/10171495>`_.
 
 Citation
 --------
 If you use Chronica in your publications, we would appreciate citations to the following paper:
+
 ::
 
     @inproceedings{maeng2023chronica,
@@ -63,7 +69,3 @@ If you use Chronica in your publications, we would appreciate citations to the f
         pages={262-272},
         doi={10.1109/CCGrid57682.2023.00033}
     }
-
-Conditions for use, reproduction, and distribution
---------------------------------------------------
-Chronica is licensed under the `Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0>`_.
