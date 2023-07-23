@@ -44,15 +44,15 @@ While benefiting from the above features, users only need to modify a few lines 
 Supported frameworks
 --------------------
 
-Chronica currently only supports PyTorch.
+Chronica currently supports PyTorch only.
 
 Installation
 ------------
 Prerequisites
 ^^^^^^^^^^^^^
 
-You need to have the `Go <https://go.dev/>`_ compiler, version 1.20 or higher to be installed on the master node (rank 0) and add the ``GOBIN`` environment variable to ``PATH``, *i.e.*, ``PATH=$GOBIN:$PATH``.
-Once the Go compiler is installed, you can install the ``chronica`` pip package.
+It is required for the latest version of the `Go <https://go.dev/>`_ compiler to be installed on the master node (rank 0) and add the **GOBIN** environment variable to **PATH**, *i.e.*, ``PATH=$GOBIN:$PATH``.
+Once the Go compiler is installed, you can install the **chronica** pip package.
 
 .. code-block:: bash
 
