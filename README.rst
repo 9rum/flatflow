@@ -51,7 +51,7 @@ Installation
 Prerequisites
 ^^^^^^^^^^^^^
 
-It is required for the latest version of the `Go <https://go.dev/>`_ compiler to be installed on the master node (rank 0) and add the **GOBIN** environment variable to **PATH**, *i.e.*, ``PATH=$GOBIN:$PATH``.
+You need to have the latest version of the `Go <https://go.dev/>`_ compiler installed on the master node (rank 0) and add the **GOBIN** environment variable to **PATH**, *i.e.*, ``PATH=$GOBIN:$PATH``.
 Once the Go compiler is installed, you can install the **chronica** pip package.
 
 .. code-block:: bash
@@ -61,19 +61,35 @@ Once the Go compiler is installed, you can install the **chronica** pip package.
 Usage
 ^^^^^
 
-To use Chronica, make the following modifications on the existing code:
+To use Chronica, make the following modifications to your program:
 
-#. Use Chronica's data set instead of the existing data set class.
-   e.g., For PyTorch, ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
+#. Make your data set inherit from Chronica's data set class instead of existing data set class:
+   e.g., For PyTorch, use ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
 
-#. Overwrite ``__sizeof__`` method in your data set class, which represents the relative size of each data sample.
-   e.g., For video data sets, the relative size of each data sample is determined by the number of frames:
+#. Overwrite ``__sizeof__`` in your data set, which represents the relative size of each data sample:
+   e.g., For video data sets, the relative size of each data sample is determined by the number of frames.
+   Thus, you can overwrite ``__sizeof__`` using OpenCV as follows.
 
-#. Use Chronica's data sampler instead of the existing data smapler.
-   e.g., For PyTorch, ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
+.. code-block:: python
 
-#. Pass additional parameters to the data sampler.
-   e.g., If you need dynamic scheduling, pass ``type="dynamic"`` to the constructor of ``chronica.torch.utils.data.DistributedSampler``.
+    def __sizeof__(self, index: int) -> int:
+        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+
+#. Use Chronica's data sampler instead of existing data sampler:
+   e.g., For PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
+
+#. Pass additional parameters to the data sampler:
+   e.g., Set ``type="dynamic"`` if you need dynamic scheduling.
+
+-from torch.utils.data import Dataset
++from chronica.torch.utils.data import Dataset
+
++    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
++        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+
+-from torch.utils.data import DataLoader, DistributedSampler
++from torch.utils.data import DataLoader
++from chronica.torch.utils.data import DistributedSampler
 
 Publications
 ------------
