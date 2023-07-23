@@ -24,8 +24,8 @@ The goal of Chronica is to make a fast, efficient and easy-to-use data schedulin
 
 |
 
-Features
---------
+Highlighted features
+--------------------
 Data-imbalance-aware scheduling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -34,12 +34,17 @@ Chronica provides several schedule clauses such as **static** and **dynamic**, e
 Partitioned data set
 ^^^^^^^^^^^^^^^^^^^^
 
-In addition to the traditional fully sharded data sets, Chronica supports a partitioned data set where the data is split into multiple data partitions across nodes in the cluster.
+In addition to the traditional fully sharded data sets, Chronica supports a **partitioned data set** where the data is split into multiple data partitions across nodes in the cluster.
 
 Minimal code modifications
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 While benefiting from the above features, users only need to modify a few lines in the existing code base, and the rests are transparent.
+
+Supported frameworks
+--------------------
+
+Chronica currently only supports PyTorch.
 
 Installation
 ------------
@@ -56,7 +61,19 @@ Once the Go compiler is installed, you can install the ``chronica`` pip package.
 Usage
 ^^^^^
 
+To use Chronica, make the following modifications on the existing code:
 
+#. Use Chronica's data set instead of the existing data set class.
+   e.g., For PyTorch, ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
+
+#. Overwrite ``__sizeof__`` method in your data set class, which represents the relative size of each data sample.
+   e.g., For video data sets, the relative size of each data sample is determined by the number of frames:
+
+#. Use Chronica's data sampler instead of the existing data smapler.
+   e.g., For PyTorch, ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
+
+#. Pass additional parameters to the data sampler.
+   e.g., If you need dynamic scheduling, pass ``type="dynamic"`` to the constructor of ``chronica.torch.utils.data.DistributedSampler``.
 
 Publications
 ------------
