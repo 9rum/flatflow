@@ -81,7 +81,7 @@ To use Chronica, make the following modifications to your program:
 #. Pass additional parameters to the data sampler:
    *e.g.*, set ``type="dynamic"`` if you need dynamic scheduling.
 
-In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``, as shown below.
+In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``, as shown below:
 
 .. code-block:: diff
 
