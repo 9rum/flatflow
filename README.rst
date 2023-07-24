@@ -68,7 +68,7 @@ To use Chronica, make the following modifications to your program:
 
 #. Overwrite ``__sizeof__`` in your data set, which represents the relative size of each data sample:
    *e.g.*, For video data sets, the relative size of each data sample is determined by the number of frames.
-   Thus, you can overwrite ``__sizeof__`` using OpenCV as follows.
+   Thus you can overwrite ``__sizeof__`` using OpenCV as follows.
 
    .. code-block:: python
 
@@ -81,15 +81,19 @@ To use Chronica, make the following modifications to your program:
 #. Pass additional parameters to the data sampler:
    *e.g.*, Set ``type="dynamic"`` if you need dynamic scheduling.
 
--from torch.utils.data import Dataset
-+from chronica.torch.utils.data import Dataset
+In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``.
 
-+    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
-+        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+.. code-block:: bash
 
--from torch.utils.data import DataLoader, DistributedSampler
-+from torch.utils.data import DataLoader
-+from chronica.torch.utils.data import DistributedSampler
+    -from torch.utils.data import Dataset
+    +from chronica.torch.utils.data import Dataset
+
+    +    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
+    +        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+
+    -from torch.utils.data import DataLoader, DistributedSampler
+    +from torch.utils.data import DataLoader
+    +from chronica.torch.utils.data import DistributedSampler
 
 Publications
 ------------
