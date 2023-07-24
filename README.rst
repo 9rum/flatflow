@@ -64,10 +64,10 @@ Usage
 To use Chronica, make the following modifications to your program:
 
 #. Make your data set inherit from Chronica's data set class instead of existing data set class:
-   *e.g.*, For PyTorch, use ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
+   *e.g.*, for PyTorch, use ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
 
 #. Overwrite ``__sizeof__`` in your data set, which represents the relative size of each data sample:
-   *e.g.*, For video data sets, the relative size of each data sample is determined by the number of frames.
+   *e.g.*, for video data sets, the relative size of each data sample is determined by the number of frames.
    Thus you can overwrite ``__sizeof__`` using OpenCV as follows.
 
    .. code-block:: python
@@ -76,14 +76,14 @@ To use Chronica, make the following modifications to your program:
            return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
 
 #. Use Chronica's data sampler instead of existing data sampler:
-   *e.g.*, For PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
+   *e.g.*, for PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
 
 #. Pass additional parameters to the data sampler:
-   *e.g.*, Set ``type="dynamic"`` if you need dynamic scheduling.
+   *e.g.*, set ``type="dynamic"`` if you need dynamic scheduling.
 
 In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``.
 
-.. code-block:: bash
+.. code-block:: diff
 
     -from torch.utils.data import Dataset
     +from chronica.torch.utils.data import Dataset
