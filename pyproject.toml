@@ -23,7 +23,6 @@ classifiers = [
 ]
 dependencies = [
   "grpcio",
-  "grpcio-tools",
   "numpy",
   "scikit-learn",
   "torch",
