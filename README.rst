@@ -4,6 +4,9 @@ Chronica
 .. image:: https://pkg.go.dev/badge/github.com/9rum/chronica.svg
    :target: https://pkg.go.dev/github.com/9rum/chronica
 
+.. image:: https://badge.fury.io/py/chronica.svg
+   :target: https://badge.fury.io/py/chronica
+
 .. image:: https://zenodo.org/badge/563493261.svg
    :target: https://zenodo.org/badge/latestdoi/563493261
 
