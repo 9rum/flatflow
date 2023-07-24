@@ -12,7 +12,7 @@ from google.protobuf.empty_pb2 import Empty
 from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
-from chronica import sys
+from chronica import __version__, sys
 from chronica.rpc import DYNAMIC, STATIC, BcastRequest, CommunicatorStub, InitRequest
 from chronica.torch.utils.data.dataset import Dataset
 
@@ -112,7 +112,7 @@ class DistributedSampler(Sampler[T_co]):
             if shutil.which("chronica") is None:
                 if shutil.which("go") is None:
                     raise RuntimeError("Requires Go compiler to be installed")
-                cmd = "go install github.com/9rum/chronica@latest; {}".format(cmd)
+                cmd = "go install github.com/9rum/chronica@{}; {}".format(__version__, cmd)
             subprocess.Popen(cmd.format(master_port, num_replicas), shell=True)
 
         # If the dataset length is evenly divisible by # of replicas, then there
