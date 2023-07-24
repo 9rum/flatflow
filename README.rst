@@ -70,10 +70,10 @@ To use Chronica, make the following modifications to your program:
    e.g., For video data sets, the relative size of each data sample is determined by the number of frames.
    Thus, you can overwrite ``__sizeof__`` using OpenCV as follows.
 
-   .. code-block:: python
+    .. code-block:: python
 
-   def __sizeof__(self, index: int) -> int:
-       return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
+    def __sizeof__(self, index: int) -> int:
+        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
 
 #. Use Chronica's data sampler instead of existing data sampler:
    e.g., For PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
