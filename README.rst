@@ -4,11 +4,14 @@ Chronica
 .. image:: https://pkg.go.dev/badge/github.com/9rum/chronica.svg
    :target: https://pkg.go.dev/github.com/9rum/chronica
 
-.. image:: https://badge.fury.io/py/chronica.svg
-   :target: https://badge.fury.io/py/chronica
+.. image:: https://img.shields.io/pypi/v/chronica?logo=pypi&logoColor=white
+   :target: https://pypi.org/project/chronica/
 
 .. image:: https://zenodo.org/badge/563493261.svg
    :target: https://zenodo.org/badge/latestdoi/563493261
+
+.. image:: https://img.shields.io/pypi/l/chronica?logo=apache
+   :target: https://github.com/9rum/chronica/blob/master/LICENSE
 
 .. inclusion-marker-start-do-not-remove
 
