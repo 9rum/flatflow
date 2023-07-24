@@ -81,14 +81,14 @@ To use Chronica, make the following modifications to your program:
 #. Pass additional parameters to the data sampler:
    *e.g.*, set ``type="dynamic"`` if you need dynamic scheduling.
 
-In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__`` as shown below:
+In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``, as shown below.
 
 .. code-block:: diff
 
     -from torch.utils.data import Dataset
     +from chronica.torch.utils.data import Dataset
 
-    +    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
+    +    def __sizeof__(self, index: int) -> int:
     +        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
 
     -from torch.utils.data import DistributedSampler
