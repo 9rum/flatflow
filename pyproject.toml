@@ -1,0 +1,40 @@
+[build-system]
+requires = [
+  "setuptools",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chronica"
+version = "0.1.0"
+authors = [
+  {name="Sogang University"},
+]
+description = "A data-imbalance-aware scheduler for distributed deep learning"
+readme = "README.rst"
+requires-python = ">=3.8"
+keywords = ["distributed deep learning", "straggler", "scheduler", "data imbalance"]
+license = {file = "LICENSE"}
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "grpcio",
+  "grpcio-tools",
+  "numpy",
+  "scikit-learn",
+  "torch",
+]
+
+[project.urls]
+homepage = "https://github.com/9rum/chronica"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 120
+target-version = ["py38", "py39", "py310"]
