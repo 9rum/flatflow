@@ -190,9 +190,10 @@
 
    END OF TERMS AND CONDITIONS
 
-Some of Chronica's code is derived from Google B-tree and PyTorch, which are subject to the following copyright notice:
+Some of Chronica's code is derived from Google's B-tree implementation for Go and PyTorch,
+which are subject to the following copyright notices:
 
-From Google B-tree:
+From Google's B-tree implementation for Go:
 
 Copyright 2014 Google Inc.
 
