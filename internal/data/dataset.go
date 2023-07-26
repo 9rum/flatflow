@@ -24,6 +24,20 @@ import (
 	"github.com/9rum/chronica/internal/btree"
 )
 
+// Index mapping for shuffling data samples with the same size. This makes
+// scheduling non-deterministic and data well shuffled in that most of the data
+// sample sizes are similar in data sets with power-law distribution.
+//
+// NOTE:
+//
+// If we store the index mapping inside data set, additional interface is
+// required to inform the index mapping and a copy of the data set is created
+// for each data sample. When storing the index mapping on every data sample,
+// memory usage for storing data samples increases from 16 bytes to 40 bytes
+// and the B-tree degree is severely reduced from 128 to 51. Even if we store
+// the index mapping as a pointer, there are pointer dereference overheads and
+// memory usage still increases to 24 bytes and the B-tree degree is reduced to
+// 85. Thus we store the index mapping as a package variable.
 var mapping []int
 
 // Dataset represents the given data set.
@@ -31,10 +45,10 @@ var mapping []int
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
-	Getitem(rank, size int) (_, _ int)
+	Getitem(rank, size int) (int, int)
 
 	// Rand retrieves an arbitrary data sample from the data set.
-	Rand(rank int) (_, _ int)
+	Rand(rank int) (int, int)
 
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch int64)
