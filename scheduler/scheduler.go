@@ -29,6 +29,7 @@ import (
 const (
 	STATIC = iota
 	DYNAMIC
+	GUIDED
 )
 
 // Scheduler represents the data scheduler.
@@ -67,6 +68,8 @@ func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, 
 		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	case DYNAMIC:
 		return NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
+	case GUIDED:
+		return NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
 	default:
 		panic("invalid type")
 	}
@@ -322,6 +325,80 @@ func (s *DynamicScheduler) OnEpochEnd(epoch, rank int64, coefficient, intercept 
 }
 
 func (s *DynamicScheduler) OnTrainEnd() {
+	s.dataset.OnTrainEnd()
+	s.dataset = nil
+}
+
+// GuidedScheduler is a padding-aware scheduler that provides a guided
+// optimization for packed sequences. It accelerates training by reducing
+// unnecessary operations caused by zero padding.
+type GuidedScheduler struct {
+	SchedulerBase
+	dataset       data.Dataset
+	worldSize     int
+	batchSize     int
+	lastBatchSize int
+	steps         int
+}
+
+// NewGuidedScheduler creates a new guided scheduler with the given arguments.
+func NewGuidedScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *GuidedScheduler {
+	steps := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(sizes), batchSize)
+
+	return &GuidedScheduler{
+		dataset:       dataset,
+		worldSize:     worldSize,
+		batchSize:     batchSize,
+		lastBatchSize: (len(sizes)-1)%batchSize + 1,
+		steps:         steps,
+	}
+}
+
+// Schedule assigns the next mini-batch to each of the workers while minimizing
+// the zero padding. The higher the rank, the larger the mini-batches are
+// assigned in that more workloads such as scheduling and parameter
+// synchronization are given to the master.
+func (s *GuidedScheduler) Schedule(step int) [][]int {
+	indices := make([][]int, 0, s.worldSize)
+	localBatchSize := func() int {
+		if step == s.steps-1 {
+			return s.lastBatchSize / s.worldSize
+		}
+		return s.batchSize / s.worldSize
+	}()
+
+	// select data samples in reverse order of size
+	for len(indices) < cap(indices) {
+		rank := len(indices)
+		indices = append(indices, nil)
+		copy(indices[1:], indices)
+		indices[0] = make([]int, 0, localBatchSize)
+
+		for len(indices[0]) < cap(indices[0]) {
+			index, _ := s.dataset.Getitem(rank, math.MaxInt)
+			indices[0] = append(indices[0], index)
+		}
+	}
+
+	return indices
+}
+
+func (s *GuidedScheduler) Len() int {
+	return s.steps
+}
+
+func (s *GuidedScheduler) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {
+	if rank == 0 {
+		s.dataset.OnEpochEnd(epoch)
+	}
+}
+
+func (s *GuidedScheduler) OnTrainEnd() {
 	s.dataset.OnTrainEnd()
 	s.dataset = nil
 }
