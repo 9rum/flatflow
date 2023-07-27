@@ -80,11 +80,13 @@ class DistributedSampler(Sampler[T_co]):
                  batch_size: Optional[int] = None, master_addr: Optional[str] = None,
                  master_port: int = 50051, type: Optional[str] = None,
                  partition: bool = False, groups: Optional[Iterable] = None) -> None:
-        if not dist.is_available():
-            raise RuntimeError("Requires distributed package to be available")
         if num_replicas is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
             num_replicas = dist.get_world_size()
         if rank is None:
+            if not dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
         if num_replicas <= rank or rank < 0:
             raise ValueError("Invalid rank {}, rank should be in the interval [0, {}]".format(rank, num_replicas - 1))
