@@ -187,6 +187,14 @@ func (s *StaticScheduler) Schedule(step int) [][]int {
 	}()
 
 	// pack the bins in a first-fit-decreasing fashion
+	//
+	// NOTE:
+	//
+	// For faster execution of scheduling, we use B-trees for searching and
+	// optimize the scheduling complexity to O(n*log(n)), the lower bound, as well
+	// as the number of operations in scheduling.  Instead of accessing elements
+	// in a slice through an index, we use the len and cap built-in functions to
+	// reduce the number of write operations.
 	for len(indices) < cap(indices) {
 		rank := len(indices)
 		indices = append(indices, make([]int, 0, localBatchSize))
