@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 
 from chronica import __version__, sys
-from chronica.rpc import DYNAMIC, STATIC, BcastRequest, CommunicatorStub, InitRequest
+from chronica.rpc import DYNAMIC, GUIDED, STATIC, BcastRequest, CommunicatorStub, InitRequest
 from chronica.torch.utils.data.dataset import Dataset
 
 __all__ = ["DistributedSampler"]
@@ -56,10 +56,11 @@ class DistributedSampler(Sampler[T_co]):
             from the environment variable.
         master_port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
-        type (str, optional): Schedule type (must be either ``"static"`` or ``"dynamic"``).
+        clause (str, optional): Schedule clause (must be one of ``"static"``, ``"dynamic"`` or ``"guided"``).
             By default, ``"static"`` is set for static scheduling that reduces the workload imbalance between workers.
             If ``"dynamic"``, the scheduler provides a feedback-directed optimization that adaptively adjusts
-            the workload on each worker.
+            the workload on each worker. If ``"guided"``, the scheduler provides a guided optimization that minimizes
+            zero padding for packed sequences.
         partition (bool, optional): If ``True``, then the sampler will restrict remote data fetching.
             It is especially useful when the data is distributed among devices and machines. In such a case,
             ``groups`` should tell the mapping about which workers are on which nodes. (default: ``False``)
@@ -78,7 +79,7 @@ class DistributedSampler(Sampler[T_co]):
                  rank: Optional[int] = None, shuffle: bool = True,
                  seed: int = 0, drop_last: bool = False,
                  batch_size: Optional[int] = None, master_addr: Optional[str] = None,
-                 master_port: int = 50051, type: Optional[str] = None,
+                 master_port: int = 50051, clause: Optional[str] = None,
                  partition: bool = False, groups: Optional[Iterable] = None) -> None:
         if num_replicas is None:
             if not dist.is_available():
@@ -98,12 +99,14 @@ class DistributedSampler(Sampler[T_co]):
             master_addr = os.getenv("MASTER_ADDR")
             if master_addr is None:
                 raise ValueError("Invalid master address {}, either master address or MASTER_ADDR should be given".format(master_addr))
-        if type is None or type == "static":
-            self.type = STATIC
-        elif type == "dynamic":
-            self.type = DYNAMIC
+        if clause is None or clause == "static":
+            self.clause = STATIC
+        elif clause == "dynamic":
+            self.clause = DYNAMIC
+        elif clause == "guided":
+            self.clause = GUIDED
         else:
-            raise ValueError("Invalid schedule type {}, type should be either static or dynamic".format(type))
+            raise ValueError("Invalid schedule clause {}, clause should be one of static, dynamic or guided".format(clause))
         self.rank = rank
         self.epoch = 0
         self.batch_size = batch_size // num_replicas
@@ -166,10 +169,10 @@ class DistributedSampler(Sampler[T_co]):
         # block until the communicator server is initialized.
         grpc.channel_ready_future(channel).result()
         self.stub = CommunicatorStub(channel)
-        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, type=self.type))
+        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, clause=self.clause))
 
     def __iter__(self) -> Iterator[T_co]:
-        if self.type == DYNAMIC and 0 < self.num_yielded:
+        if self.clause == DYNAMIC and 0 < self.num_yielded:
             toc = time.time()
             self.times = np.append(self.times, toc - self.tic)
             # recalculate performance indicators.
@@ -187,7 +190,7 @@ class DistributedSampler(Sampler[T_co]):
             raise StopIteration
         index = self.indices[self.num_yielded]
 
-        if self.type == DYNAMIC:
+        if self.clause == DYNAMIC:
             if self.num_yielded % self.batch_size == 0:
                 if 0 < self.num_yielded:
                     toc = time.time()

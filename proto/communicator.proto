@@ -26,6 +26,7 @@ option go_package = "github.com/9rum/chronica/communicator";
 enum Schedule {
   STATIC = 0;
   DYNAMIC = 1;
+  GUIDED = 2;
 }
 
 message InitRequest {
@@ -34,7 +35,7 @@ message InitRequest {
   repeated int64 sizes = 3;
   repeated int64 groups = 4;
   optional bool partition = 5;
-  optional Schedule type = 6;
+  optional Schedule clause = 6;
 }
 
 message BcastRequest {

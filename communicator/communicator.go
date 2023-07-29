@@ -64,7 +64,7 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 
 	if in.GetRank() == 0 {
 		go func() {
-			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetType())
+			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetPartition(), in.GetClause())
 			for range c.fanout {
 				<-c.fanin
 			}
@@ -79,12 +79,12 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 }
 
 // init initializes the data set and scheduler with the given arguments.
-func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, typ Schedule) {
-	glog.Infof("Init called with world size: %d batch size: %d type: %s", worldSize, batchSize, typ)
+func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, partition bool, clause Schedule) {
+	glog.Infof("Init called with world size: %d batch size: %d clause: %s", worldSize, batchSize, clause)
 
 	// initialize the data set and scheduler
 	dataset := data.New(sizes, groups, partition)
-	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, typ)
+	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, clause)
 }
 
 // cast casts the given slice.
