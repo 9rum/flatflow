@@ -79,7 +79,7 @@ To use Chronica, make the following modifications to your program:
    *e.g.*, for PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
 
 #. Pass additional parameters to the data sampler:
-   *e.g.*, set ``type="dynamic"`` if you need dynamic scheduling.
+   *e.g.*, set ``clause="dynamic"`` if you need dynamic scheduling.
 
 In most cases, the above modifications can be done by adding ``chronica.`` to import statements and overwriting ``__sizeof__``, as shown below:
 
