@@ -15,7 +15,8 @@
 // Package scheduler provides primitives for scheduling imbalanced data.
 // In addition to static scheduling that reduces the load imbalance,
 // it supports a feedback-directed optimization that adaptively adjusts
-// the workload on each worker.
+// the workload on each worker and a guided optimization that minimizes
+// the zero padding for packed sequences.
 package scheduler
 
 import (
@@ -381,6 +382,12 @@ func (s *GuidedScheduler) Schedule(step int) [][]int {
 	}()
 
 	// select data samples in reverse order of size
+	//
+	// NOTE:
+	//
+	// To minimize unnecessary operations due to zero padding while optimizing
+	// the training, there is no better way than to schedule in reverse order of
+	// size. This is also applied even if the data is partitioned.
 	for len(indices) < cap(indices) {
 		rank := len(indices)
 		indices = append(indices, nil)
