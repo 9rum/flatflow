@@ -381,13 +381,13 @@ func (s *GuidedScheduler) Schedule(step int) [][]int {
 		return s.batchSize / s.worldSize
 	}()
 
-	// select data samples in reverse order of size
+	// select data samples in order of size
 	//
 	// NOTE:
 	//
 	// To minimize unnecessary operations due to zero padding while optimizing
-	// the training, there is no better way than to schedule in reverse order of
-	// size. This is also applied even if the data is partitioned.
+	// the training, there is no better way than to schedule in order of size.
+	// This is also applied even if the data is partitioned.
 	for len(indices) < cap(indices) {
 		rank := len(indices)
 		indices = append(indices, nil)
@@ -395,7 +395,7 @@ func (s *GuidedScheduler) Schedule(step int) [][]int {
 		indices[0] = make([]int, 0, localBatchSize)
 
 		for len(indices[0]) < cap(indices[0]) {
-			index, _ := s.dataset.Getitem(rank, math.MaxInt)
+			index, _ := s.dataset.Getitem(rank, math.MinInt)
 			indices[0] = append(indices[0], index)
 		}
 	}
