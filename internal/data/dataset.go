@@ -108,8 +108,8 @@ func NewShardedDataset(sizes []int) *ShardedDataset {
 
 // Getitem looks for the data sample with the size nearest to the given size.
 func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
-	if size == math.MaxInt {
-		item, ok := d.items.DeleteMax()
+	if size == math.MinInt {
+		item, ok := d.items.DeleteMin()
 		if !ok {
 			return
 		}
@@ -117,8 +117,8 @@ func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
 		return item.Index(), item.Size()
 	}
 
-	if size == math.MinInt {
-		item, ok := d.items.DeleteMin()
+	if size == math.MaxInt {
+		item, ok := d.items.DeleteMax()
 		if !ok {
 			return
 		}
@@ -230,8 +230,8 @@ func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
 func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
-	if size == math.MaxInt {
-		item, ok := d.partitions[d.groups[rank]].DeleteMax()
+	if size == math.MinInt {
+		item, ok := d.partitions[d.groups[rank]].DeleteMin()
 		if !ok {
 			return
 		}
@@ -239,8 +239,8 @@ func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
 		return item.Index(), item.Size()
 	}
 
-	if size == math.MinInt {
-		item, ok := d.partitions[d.groups[rank]].DeleteMin()
+	if size == math.MaxInt {
+		item, ok := d.partitions[d.groups[rank]].DeleteMax()
 		if !ok {
 			return
 		}
