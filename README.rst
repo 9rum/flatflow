@@ -7,9 +7,6 @@ Chronica
 .. image:: https://pkg.go.dev/badge/github.com/9rum/chronica.svg
    :target: https://pkg.go.dev/github.com/9rum/chronica
 
-.. image:: https://goreportcard.com/badge/github.com/9rum/chronica
-   :target: https://goreportcard.com/report/github.com/9rum/chronica
-
 .. image:: https://img.shields.io/pypi/l/chronica?logo=apache
    :target: https://github.com/9rum/chronica/blob/master/LICENSE
 
