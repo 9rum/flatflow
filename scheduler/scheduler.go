@@ -63,8 +63,8 @@ func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float6
 func (SchedulerBase) OnTrainEnd()                                                  {}
 
 // New creates a new scheduler with the given arguments.
-func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, clause T) Scheduler {
-	switch clause {
+func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, kind T) Scheduler {
+	switch kind {
 	case STATIC:
 		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	case DYNAMIC:
@@ -72,7 +72,7 @@ func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, 
 	case GUIDED:
 		return NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
 	default:
-		panic("invalid schedule clause")
+		panic("invalid schedule kind")
 	}
 }
 

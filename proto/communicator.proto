@@ -35,7 +35,7 @@ message InitRequest {
   repeated int64 sizes = 3;
   repeated int64 groups = 4;
   optional bool partition = 5;
-  optional Schedule clause = 6;
+  optional Schedule kind = 6;
 }
 
 message BcastRequest {
