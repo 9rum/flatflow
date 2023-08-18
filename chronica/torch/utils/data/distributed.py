@@ -159,7 +159,7 @@ class DistributedSampler(Sampler[T_co]):
         self.indices = list()  # type: ignore[var-annotated]
         self.sums = np.array(list(), np.int_)
         self.times = np.array(list(), np.float_)
-        self.num_yielded = 0
+        self._num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
         self.tic = time.time()
@@ -172,7 +172,7 @@ class DistributedSampler(Sampler[T_co]):
         self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, clause=self.clause))
 
     def __iter__(self) -> Iterator[T_co]:
-        if self.clause == DYNAMIC and 0 < self.num_yielded:
+        if self.clause == DYNAMIC and 0 < self._num_yielded:
             toc = time.time()
             self.times = np.append(self.times, toc - self.tic)
             # recalculate performance indicators.
@@ -182,17 +182,17 @@ class DistributedSampler(Sampler[T_co]):
             self.sums = np.array(list(), np.int_)
             self.times = np.array(list(), np.float_)
         self.indices = self.stub.Bcast(BcastRequest(epoch=self.epoch, rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
-        self.num_yielded = 0
+        self._num_yielded = 0
         return self
 
     def __next__(self) -> T_co:
-        if self.num_samples <= self.num_yielded:
+        if self.num_samples <= self._num_yielded:
             raise StopIteration
-        index = self.indices[self.num_yielded]
+        index = self.indices[self._num_yielded]
 
         if self.clause == DYNAMIC:
-            if self.num_yielded % self.batch_size == 0:
-                if 0 < self.num_yielded:
+            if self._num_yielded % self.batch_size == 0:
+                if 0 < self._num_yielded:
                     toc = time.time()
                     self.times = np.append(self.times, toc - self.tic)
                 self.sums = np.append(self.sums, self.sizes[index])
@@ -200,7 +200,7 @@ class DistributedSampler(Sampler[T_co]):
                 self.sums[-1] += self.sizes[index]
             self.tic = time.time()
 
-        self.num_yielded += 1
+        self._num_yielded += 1
         return self.map[index]
 
     def __len__(self) -> int:
