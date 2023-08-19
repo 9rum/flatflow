@@ -55,6 +55,32 @@ func TestStaticScheduler(t *testing.T) {
 	scheduler.OnTrainEnd()
 }
 
+func TestStaticSchedulerWithRemainder(t *testing.T) {
+	const (
+		datasetSize = 1<<10 + 1<<3
+		worldSize   = 1 << 2
+		batchSize   = 1 << 5
+	)
+	sizes := rand.Perm(datasetSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
+
+	for epoch := int64(0); epoch < 10; epoch++ {
+		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
+		for step := 0; step < datasetSize/batchSize+1; step++ {
+			sums := make([]int, 0, worldSize)
+			for _, indices := range scheduler.Schedule(step) {
+				sums = append(sums, sum(indices, sizes))
+			}
+			t.Logf("step: %d got: %v", step, sums)
+		}
+	}
+	scheduler.OnTrainEnd()
+}
+
 func TestDynamicScheduler(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
@@ -81,6 +107,32 @@ func TestDynamicScheduler(t *testing.T) {
 	scheduler.OnTrainEnd()
 }
 
+func TestDynamicSchedulerWithRemainder(t *testing.T) {
+	const (
+		datasetSize = 1<<10 + 1<<3
+		worldSize   = 1 << 2
+		batchSize   = 1 << 5
+	)
+	sizes := rand.Perm(datasetSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
+
+	for epoch := int64(0); epoch < 10; epoch++ {
+		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 1., 0.)
+		}
+		for step := 0; step < datasetSize/batchSize+1; step++ {
+			sums := make([]int, 0, worldSize)
+			for _, indices := range scheduler.Schedule(step) {
+				sums = append(sums, sum(indices, sizes))
+			}
+			t.Logf("step: %d got: %v", step, sums)
+		}
+	}
+	scheduler.OnTrainEnd()
+}
+
 func TestGuidedScheduler(t *testing.T) {
 	const (
 		datasetSize = 1 << 10
@@ -97,6 +149,32 @@ func TestGuidedScheduler(t *testing.T) {
 			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
 		}
 		for step := 0; step < datasetSize/batchSize; step++ {
+			sums := make([]int, 0, worldSize)
+			for _, indices := range scheduler.Schedule(step) {
+				sums = append(sums, sum(indices, sizes))
+			}
+			t.Logf("step: %d got: %v", step, sums)
+		}
+	}
+	scheduler.OnTrainEnd()
+}
+
+func TestGuidedSchedulerWithRemainder(t *testing.T) {
+	const (
+		datasetSize = 1<<10 + 1<<3
+		worldSize   = 1 << 2
+		batchSize   = 1 << 5
+	)
+	sizes := rand.Perm(datasetSize)
+	dataset := data.NewShardedDataset(sizes)
+	scheduler := NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
+
+	for epoch := int64(0); epoch < 10; epoch++ {
+		t.Logf("epoch: %d", epoch)
+		for rank := int64(0); rank < worldSize; rank++ {
+			scheduler.OnEpochEnd(epoch, rank, 0., 0.)
+		}
+		for step := 0; step < datasetSize/batchSize+1; step++ {
 			sums := make([]int, 0, worldSize)
 			for _, indices := range scheduler.Schedule(step) {
 				sums = append(sums, sum(indices, sizes))
