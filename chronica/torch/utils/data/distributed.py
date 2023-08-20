@@ -113,7 +113,7 @@ class DistributedSampler(Sampler[T_co]):
 
         # automatically run communicator server on master.
         if self.rank == 0:
-            cmd = "chronica -p {} -w {} -logtostderr true"
+            cmd = "chronica -p {} -w {} -logtostderr"
             if shutil.which("chronica") is None:
                 if shutil.which("go") is None:
                     raise RuntimeError("Requires Go compiler to be installed")
