@@ -58,8 +58,8 @@ Once the Go compiler is installed, you can install the **chronica** pip package.
 
     $ pip install chronica
 
-Usage
-^^^^^
+How to use
+^^^^^^^^^^
 
 To use Chronica, make the following modifications to your program:
 
