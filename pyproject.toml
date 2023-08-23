@@ -7,7 +7,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chronica"
-version = "0.2.1"
 authors = [
   {name="Sogang University"},
 ]
@@ -17,7 +16,9 @@ requires-python = ">=3.8"
 keywords = ["distributed deep learning", "straggler", "scheduler", "data imbalance"]
 license = {file = "LICENSE"}
 classifiers = [
-  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
 ]
@@ -27,9 +28,13 @@ dependencies = [
   "scikit-learn",
   "torch",
 ]
+dynamic = ["version"]
 
 [project.urls]
 homepage = "https://github.com/9rum/chronica"
+
+[tool.setuptools.dynamic]
+version = {attr = "chronica.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["chronica*"]
