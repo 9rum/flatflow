@@ -33,11 +33,11 @@ dynamic = ["version"]
 [project.urls]
 homepage = "https://github.com/9rum/chronica"
 
+[tool.setuptools]
+package-dir = {"" = "python"}
+
 [tool.setuptools.dynamic]
 version = {attr = "chronica.__version__"}
-
-[tool.setuptools.packages.find]
-include = ["chronica*"]
 
 [tool.black]
 line-length = 120

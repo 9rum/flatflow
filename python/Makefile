@@ -15,7 +15,7 @@
 .PHONY: all clean
 
 all:
-	python -m grpc_tools.protoc --proto_path=proto/ --python_out=chronica/rpc/ --pyi_out=chronica/rpc/ --grpc_python_out=chronica/rpc/ communicator.proto
+	python -m grpc_tools.protoc --proto_path=../proto/ --python_out=chronica/rpc/ --pyi_out=chronica/rpc/ --grpc_python_out=chronica/rpc/ communicator.proto
 
 clean:
 	rm chronica/rpc/*_pb2.py chronica/rpc/*_pb2.pyi chronica/rpc/*_pb2_grpc.py
