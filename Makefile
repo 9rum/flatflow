@@ -1,4 +1,4 @@
-# Copyright 2022 Sogang University
+# Copyright 2023 Sogang University
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all go python clean
+.PHONY: all clean
 
-all: go python
-
-go:
-	go generate
-
-python:
+all:
 	python -m grpc_tools.protoc --proto_path=proto/ --python_out=chronica/rpc/ --pyi_out=chronica/rpc/ --grpc_python_out=chronica/rpc/ communicator.proto
 
 clean:
-	rm communicator/*.pb.go chronica/rpc/*_pb2*.py*
+	rm chronica/rpc/*_pb2.py chronica/rpc/*_pb2.pyi chronica/rpc/*_pb2_grpc.py
