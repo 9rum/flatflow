@@ -46,8 +46,8 @@ Supported frameworks
 
 Chronica currently supports PyTorch only.
 
-Installation
-------------
+Quick start
+-----------
 Prerequisites
 ^^^^^^^^^^^^^
 
