@@ -117,7 +117,7 @@ class DistributedSampler(Sampler[T_co]):
             if shutil.which("chronica") is None:
                 if shutil.which("go") is None:
                     raise RuntimeError("Requires Go compiler to be installed")
-                cmd = "go install github.com/9rum/chronica@{}; {}".format(__version__, cmd)
+                cmd = "go install github.com/9rum/chronica@v{}; {}".format(__version__, cmd)
             subprocess.Popen(cmd.format(master_port, num_replicas), shell=True)
 
         # If the dataset length is evenly divisible by # of replicas, then there
