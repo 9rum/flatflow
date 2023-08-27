@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "grpcio",
   "numpy",
+  "protobuf",
   "scikit-learn",
   "torch",
 ]
