@@ -263,7 +263,7 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes [
 // performance indicators. It adopts best-fit with a random first pivot to
 // equalize the estimated training time while randomizing the training sequence.
 // This is a revised version of our original scheme for straggler mitigation
-// against imbalanced data, which has been proposed in the 23rd IEEE/ACM
+// against imbalanced data, which has been proposed in the 2023 IEEE/ACM 23rd
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://ieeexplore.ieee.org/document/10171495
 func (s *DynamicScheduler) Schedule(step int) [][]int {
