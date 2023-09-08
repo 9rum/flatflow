@@ -102,12 +102,7 @@ func cast[T, U ~int | ~int64](slice []T) []U {
 		wg.Add(1)
 		go func(base int) {
 			defer wg.Done()
-			limit := func(lhs, rhs int) int {
-				if lhs < rhs {
-					return lhs
-				}
-				return rhs
-			}(base+stride, len(slice))
+			limit := min(base+stride, len(slice))
 			for index := base; index < limit; index++ {
 				out[index] = U(slice[index])
 			}
