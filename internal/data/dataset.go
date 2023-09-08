@@ -188,13 +188,11 @@ type PartitionedDataset struct {
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
 func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
 	nodes := func() int {
-		max := groups[0]
+		maxRank := groups[0]
 		for _, rank := range groups[1:] {
-			if max < rank {
-				max = rank
-			}
+			maxRank = max(maxRank, rank)
 		}
-		return max + 1
+		return maxRank + 1
 	}()
 	partitionSize := len(sizes) / len(groups)
 	partitionSizes := make([]int, nodes)
