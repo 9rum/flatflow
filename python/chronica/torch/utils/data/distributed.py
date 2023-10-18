@@ -181,7 +181,7 @@ class DistributedSampler(Sampler[T_co]):
             self.intercept = self.reg.intercept_
             self.sums = np.array(list(), np.int_)
             self.times = np.array(list(), np.float_)
-        self.indices = self.stub.Bcast(BcastRequest(epoch=self.epoch, rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices
+        self.indices = self.stub.Bcast(BcastRequest(epoch=self.epoch, rank=self.rank, coefficient=self.coefficient, intercept=self.intercept)).indices  # type: ignore[arg-type]
         self._num_yielded = 0
         return self
 
@@ -211,8 +211,7 @@ class DistributedSampler(Sampler[T_co]):
             self.stub.Finalize(Empty())
 
     def set_epoch(self, epoch: int) -> None:
-        r"""
-        Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
+        r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
         Otherwise, the next iteration of this sampler will yield the same ordering.
 
         Args:
