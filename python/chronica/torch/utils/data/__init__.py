@@ -6,8 +6,10 @@ from chronica.torch.utils.data.dataset import (
 )
 from chronica.torch.utils.data.distributed import DistributedSampler
 
-__all__ = ["ChainDataset",
-           "ConcatDataset",
-           "Dataset",
-           "DistributedSampler",
-           "IterableDataset"]
+__all__ = [
+    "ChainDataset",
+    "ConcatDataset",
+    "Dataset",
+    "DistributedSampler",
+    "IterableDataset",
+]

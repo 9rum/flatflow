@@ -14,11 +14,13 @@ from chronica.rpc.communicator_pb2 import (
 )
 from chronica.rpc.communicator_pb2_grpc import CommunicatorStub
 
-__all__ = ["DYNAMIC",
-           "GUIDED",
-           "STATIC",
-           "BcastRequest",
-           "BcastResponse",
-           "CommunicatorStub",
-           "InitRequest",
-           "Schedule"]
+__all__ = [
+    "DYNAMIC",
+    "GUIDED",
+    "STATIC",
+    "BcastRequest",
+    "BcastResponse",
+    "CommunicatorStub",
+    "InitRequest",
+    "Schedule",
+]
