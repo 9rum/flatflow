@@ -21,7 +21,7 @@ def getsizeof(obj: object, index: int) -> int:
     does not provide means to retrieve the size, a TypeError will be raised.
 
     Args:
-        obj (object): an object to get the relative size of
-        index (int): index of the object
+        obj (object): An object to get the relative size of.
+        index (int): Index of the object.
     """
     return obj.__sizeof__(index)  # type: ignore[call-arg]

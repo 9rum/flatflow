@@ -27,9 +27,9 @@ class Dataset(Generic[T_co]):
     which delivers benefits of Chronica's data-imbalance-aware scheduling.
 
     .. note::
-      :class:`~torch.utils.data.DataLoader` by default constructs a index sampler
-      that yields integral indices.  To make it work with Chronica's dataset,
-      Chronica's distributed sampler must be provided.
+        :class:`~torch.utils.data.DataLoader` by default constructs a index sampler
+        that yields integral indices.  To make it work with Chronica's dataset,
+        Chronica's distributed sampler must be provided.
     """
 
     def __getitem__(self, index: int) -> T_co:
