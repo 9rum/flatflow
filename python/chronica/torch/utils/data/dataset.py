@@ -85,7 +85,7 @@ class ConcatDataset(Dataset[T_co]):
     This class is useful to assemble different existing datasets.
 
     Args:
-        datasets (sequence): List of datasets to be concatenated
+        datasets (sequence): List of datasets to be concatenated.
     """
     datasets: List[Dataset[T_co]]
     cumulative_sizes: List[int]
@@ -137,7 +137,7 @@ class ChainDataset(IterableDataset):
     datasets with this class will be efficient.
 
     Args:
-        datasets (iterable of IterableDataset): datasets to be chained together
+        datasets (iterable of IterableDataset): Datasets to be chained together.
     """
     def __init__(self, datasets: Iterable[Dataset]) -> None:
         super().__init__()
