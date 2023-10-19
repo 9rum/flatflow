@@ -103,7 +103,7 @@ Citation
 --------
 If you use Chronica in your publications, we would appreciate citations to the following paper:
 
-::
+.. code-block:: bibtex
 
     @inproceedings{maeng2023chronica,
       author={Sanha Maeng, Gordon Euhyun Moon and Sungyong Park},
