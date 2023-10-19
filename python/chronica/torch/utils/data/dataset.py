@@ -1,6 +1,6 @@
 import bisect
 import warnings
-from typing import Generic, Iterable, Iterator, List, TypeVar
+from typing import Generic, Iterable, List, TypeVar
 
 __all__ = [
     "Dataset",
@@ -27,7 +27,7 @@ class Dataset(Generic[T_co]):
     which delivers benefits of Chronica's data-imbalance-aware scheduling.
 
     .. note::
-        :class:`~torch.utils.data.DataLoader` by default constructs a index sampler
+        :class:`~torch.utils.data.DataLoader` by default constructs an index sampler
         that yields integral indices.  To make it work with Chronica's dataset,
         Chronica's distributed sampler must be provided.
     """
@@ -50,7 +50,7 @@ class Dataset(Generic[T_co]):
         return 1
 
 
-class IterableDataset(Dataset[T_co]):
+class IterableDataset(Dataset[T_co], Iterable[T_co]):
     r"""An iterable Dataset.
 
     All datasets that represent an iterable of data samples should subclass it.
@@ -61,16 +61,14 @@ class IterableDataset(Dataset[T_co]):
 
     When a subclass is used with :class:`~torch.utils.data.DataLoader`, each
     item in the dataset will be yielded from the :class:`~torch.utils.data.DataLoader`
-    iterator. When :attr:`num_workers > 0`, each worker process will have a
+    iterator. When :attr:`0 < num_workers`, each worker process will have a
     different copy of the dataset object, so it is often desired to configure
     each copy independently to avoid having duplicate data returned from the
     workers. :func:`~torch.utils.data.get_worker_info`, when called in a worker
     process, returns information about the worker. It can be used in either the
-    dataset's :meth:`__iter__` method or the :class:`~torch.utils.data.DataLoader` 's
+    dataset's :meth:`__iter__` method or the :class:`~torch.utils.data.DataLoader`'s
     :attr:`worker_init_fn` option to modify each copy's behavior.
     """
-    def __iter__(self) -> Iterator[T_co]:
-        raise NotImplementedError("Subclasses of IterableDataset should implement __iter__.")
 
     def __add__(self, other: Dataset[T_co]):
         return ChainDataset([self, other])
@@ -85,7 +83,7 @@ class ConcatDataset(Dataset[T_co]):
     This class is useful to assemble different existing datasets.
 
     Args:
-        datasets (sequence): List of datasets to be concatenated.
+        datasets (Iterable[Dataset]): List of datasets to be concatenated.
     """
     datasets: List[Dataset[T_co]]
     cumulative_sizes: List[int]
@@ -124,20 +122,19 @@ class ConcatDataset(Dataset[T_co]):
 
     @property
     def cummulative_sizes(self):
-        warnings.warn("cummulative_sizes attribute is renamed to "
-                      "cumulative_sizes", DeprecationWarning, stacklevel=2)
+        warnings.warn("cummulative_sizes attribute is renamed to cumulative_sizes", DeprecationWarning, stacklevel=2)
         return self.cumulative_sizes
 
 
 class ChainDataset(IterableDataset):
-    r"""Dataset for chaining multiple :class:`IterableDataset` s.
+    r"""Dataset for chaining multiple :class:`IterableDataset`s.
 
     This class is useful to assemble different existing dataset streams. The
     chaining operation is done on-the-fly, so concatenating large-scale
     datasets with this class will be efficient.
 
     Args:
-        datasets (iterable of IterableDataset): Datasets to be chained together.
+        datasets (Iterable[Dataset]): Datasets to be chained together.
     """
     def __init__(self, datasets: Iterable[Dataset]) -> None:
         super().__init__()
