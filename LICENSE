@@ -1,4 +1,4 @@
-Some of Chronica's code is derived from Google's B-tree implementation for Go and PyTorch,
+Some of Chronica's code is derived from several open sources,
 which are subject to the following copyright notices:
 
 From Google's B-tree implementation for Go:
@@ -19,8 +19,15 @@ limitations under the License.
 
 From PyTorch:
 
-Copyright (c) Facebook Inc.
-All rights reserved.
+Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
+Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
+Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
+Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
+Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
 
 
                                  Apache License
