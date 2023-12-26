@@ -1,14 +1,14 @@
 <div align="center">
 
-Chronica
-========
-<h4>A data-imbalance-aware scheduler for distributed deep learning</h4>
+# Chronica
+
+### A data-imbalance-aware scheduler for distributed deep learning
 
 [![](https://img.shields.io/pypi/v/chronica?logo=pypi&logoColor=white)](https://pypi.org/project/chronica/)
 [![](https://pkg.go.dev/badge/github.com/9rum/chronica.svg)](https://pkg.go.dev/github.com/9rum/chronica)
 [![](https://img.shields.io/pypi/l/chronica?logo=apache)](https://github.com/9rum/chronica/blob/master/LICENSE)
 
-<div align="left">
+</div>
 
 Chronica is a data-imbalance-aware scheduler and associated scheduling framework for distributed deep learning.
 Chronica accelerates data-parallel training with imbalanced data such as video, audio, and text by reducing unnecessary operations and memory usage while improving scalability and resource utilization.
