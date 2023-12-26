@@ -52,7 +52,7 @@ To use Chronica, make the following modifications to your program:
 1. Make your data set inherit from Chronica's data set class instead of existing data set class:
    *e.g.*, for PyTorch, use ``chronica.torch.utils.data.Dataset`` instead of ``torch.utils.data.Dataset``.
 
-2. Overwrite ``__sizeof__`` in your data set, which represents the relative size of each data sample:
+1. Overwrite ``__sizeof__`` in your data set, which represents the relative size of each data sample:
    *e.g.*, for video data sets, the relative size of each data sample is determined by the number of frames.
    Thus you can overwrite ``__sizeof__`` using OpenCV as follows.
 
@@ -61,10 +61,10 @@ To use Chronica, make the following modifications to your program:
        return int(cv2.VideoCapture(self.videos[index]).get(cv2.CAP_PROP_FRAME_COUNT))
    ```
 
-3. Use Chronica's data sampler instead of existing data sampler:
+1. Use Chronica's data sampler instead of existing data sampler:
    *e.g.*, for PyTorch, use ``chronica.torch.utils.data.DistributedSampler`` instead of ``torch.utils.data.DistributedSampler``.
 
-4. Pass additional parameters to the data sampler:
+1. Pass additional parameters to the data sampler:
    *e.g.*, set ``kind="dynamic"`` if you need dynamic scheduling.
 
 > [!TIP]
