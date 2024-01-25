@@ -170,7 +170,7 @@ class DistributedSampler(Sampler[T_co]):
         # block until the communicator server is initialized.
         grpc.channel_ready_future(channel).result()
         self.stub = CommunicatorStub(channel)
-        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, sizes=self.sizes, groups=groups, partition=partition, kind=self.kind))
+        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, seed=seed, sizes=self.sizes, groups=groups, partition=partition, kind=self.kind))
 
     def __iter__(self) -> Iterator[T_co]:
         if self.kind == DYNAMIC and 0 < self._num_yielded:
