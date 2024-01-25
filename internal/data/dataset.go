@@ -72,11 +72,11 @@ func (DatasetBase) OnEpochEnd(epoch int64) {}
 func (DatasetBase) OnTrainEnd()            {}
 
 // New creates a new data set with the given arguments.
-func New(sizes, groups []int, partition bool) Dataset {
+func New(sizes, groups []int, seed int64, partition bool) Dataset {
 	if partition {
-		return NewPartitionedDataset(sizes, groups)
+		return NewPartitionedDataset(sizes, groups, seed)
 	}
-	return NewShardedDataset(sizes)
+	return NewShardedDataset(sizes, seed)
 }
 
 // ShardedDataset represents a sharded data set where every node in the cluster
@@ -84,14 +84,16 @@ func New(sizes, groups []int, partition bool) Dataset {
 // the data sample.
 type ShardedDataset struct {
 	DatasetBase
+	seed       int64
 	items      *btree.BTree[Sample]
 	recycleBin *btree.BTree[Sample]
 }
 
 // NewShardedDataset creates a new sharded data set with the given argument.
-func NewShardedDataset(sizes []int) *ShardedDataset {
+func NewShardedDataset(sizes []int, seed int64) *ShardedDataset {
 	// We use the default degree for the items to fit on a single memory page.
 	dataset := &ShardedDataset{
+		seed:       seed,
 		items:      btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
 		recycleBin: btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()),
 	}
@@ -159,7 +161,7 @@ func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 
 // OnEpochEnd restores the data samples.
 func (d *ShardedDataset) OnEpochEnd(epoch int64) {
-	rand.Seed(epoch)
+	rand.Seed(d.seed + epoch)
 	mapping = rand.Perm(len(mapping))
 
 	for item, ok := d.items.DeleteMin(); ok; item, ok = d.items.DeleteMin() {
@@ -180,13 +182,14 @@ func (d *ShardedDataset) OnTrainEnd() {
 // in the cluster holds only a portion of the given data set.
 type PartitionedDataset struct {
 	DatasetBase
+	seed        int64
 	groups      []int
 	partitions  []*btree.BTree[Sample]
 	recycleBins []*btree.BTree[Sample]
 }
 
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
-func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
+func NewPartitionedDataset(sizes, groups []int, seed int64) *PartitionedDataset {
 	nodes := func() int {
 		maxRank := groups[0]
 		for _, rank := range groups[1:] {
@@ -201,6 +204,7 @@ func NewPartitionedDataset(sizes, groups []int) *PartitionedDataset {
 	}
 
 	dataset := &PartitionedDataset{
+		seed:        seed,
 		groups:      groups,
 		partitions:  make([]*btree.BTree[Sample], 0, len(partitionSizes)),
 		recycleBins: make([]*btree.BTree[Sample], 0, len(partitionSizes)),
@@ -279,7 +283,7 @@ func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 
 // OnEpochEnd restores the data partitions.
 func (d *PartitionedDataset) OnEpochEnd(epoch int64) {
-	rand.Seed(epoch)
+	rand.Seed(d.seed + epoch)
 	mapping = rand.Perm(len(mapping))
 
 	for rank, partition := range d.partitions {

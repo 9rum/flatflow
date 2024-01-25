@@ -23,9 +23,10 @@ func TestShardedDataset(t *testing.T) {
 	const (
 		datasetSize = 10000
 		batchSize   = 10
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := NewShardedDataset(sizes)
+	dataset := NewShardedDataset(sizes, seed)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -42,7 +43,7 @@ func TestShardedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset = NewShardedDataset(sizes)
+	dataset = NewShardedDataset(sizes, seed)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -62,13 +63,14 @@ func TestPartitionedDataset(t *testing.T) {
 		datasetSize = 10000
 		batchSize   = 40
 		worldSize   = 4
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
 	groups := make([]int, 0, worldSize)
 	for len(groups) < cap(groups) {
 		groups = append(groups, len(groups))
 	}
-	dataset := NewPartitionedDataset(sizes, groups)
+	dataset := NewPartitionedDataset(sizes, groups, seed)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -87,7 +89,7 @@ func TestPartitionedDataset(t *testing.T) {
 	for size := range sizes {
 		sizes[size] = size
 	}
-	dataset = NewPartitionedDataset(sizes, groups)
+	dataset = NewPartitionedDataset(sizes, groups, seed)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -108,10 +110,13 @@ const benchmarkDatasetSize = 10000
 
 func BenchmarkShardedDataset(b *testing.B) {
 	b.StopTimer()
-	const batchSize = 10
+	const (
+		batchSize = 10
+		seed      = 0
+	)
 	sizes := rand.Perm(benchmarkDatasetSize)
 	b.StartTimer()
-	dataset := NewShardedDataset(sizes)
+	dataset := NewShardedDataset(sizes, seed)
 
 	for epoch := int64(0); epoch < int64(b.N); epoch++ {
 		dataset.OnEpochEnd(epoch)
@@ -129,6 +134,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 	const (
 		batchSize = 40
 		worldSize = 4
+		seed      = 0
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
 	groups := make([]int, 0, worldSize)
@@ -136,7 +142,7 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		groups = append(groups, len(groups))
 	}
 	b.StartTimer()
-	dataset := NewPartitionedDataset(sizes, groups)
+	dataset := NewPartitionedDataset(sizes, groups, seed)
 
 	for epoch := int64(0); epoch < int64(b.N); epoch++ {
 		dataset.OnEpochEnd(epoch)
