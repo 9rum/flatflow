@@ -34,9 +34,10 @@ func TestStaticScheduler(t *testing.T) {
 		datasetSize = 1 << 10
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -60,9 +61,10 @@ func TestStaticSchedulerWithRemainder(t *testing.T) {
 		datasetSize = 1<<10 + 1<<3
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -86,9 +88,10 @@ func TestDynamicScheduler(t *testing.T) {
 		datasetSize = 1 << 10
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -112,9 +115,10 @@ func TestDynamicSchedulerWithRemainder(t *testing.T) {
 		datasetSize = 1<<10 + 1<<3
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -138,9 +142,10 @@ func TestGuidedScheduler(t *testing.T) {
 		datasetSize = 1 << 10
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -164,9 +169,10 @@ func TestGuidedSchedulerWithRemainder(t *testing.T) {
 		datasetSize = 1<<10 + 1<<3
 		worldSize   = 1 << 2
 		batchSize   = 1 << 5
+		seed        = 0
 	)
 	sizes := rand.Perm(datasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
 
 	for epoch := int64(0); epoch < 10; epoch++ {
@@ -192,9 +198,10 @@ func BenchmarkStaticScheduler(b *testing.B) {
 	const (
 		worldSize = 1 << 3
 		batchSize = 1 << 7
+		seed      = 0
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewStaticScheduler(dataset, worldSize, batchSize, sizes)
 	b.StartTimer()
 
@@ -214,9 +221,10 @@ func BenchmarkDynamicScheduler(b *testing.B) {
 	const (
 		worldSize = 1 << 3
 		batchSize = 1 << 7
+		seed      = 0
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewDynamicScheduler(dataset, worldSize, batchSize, sizes)
 	b.StartTimer()
 
@@ -236,9 +244,10 @@ func BenchmarkGuidedScheduler(b *testing.B) {
 	const (
 		worldSize = 1 << 3
 		batchSize = 1 << 7
+		seed      = 0
 	)
 	sizes := rand.Perm(benchmarkDatasetSize)
-	dataset := data.NewShardedDataset(sizes)
+	dataset := data.NewShardedDataset(sizes, seed)
 	scheduler := NewGuidedScheduler(dataset, worldSize, batchSize, sizes)
 	b.StartTimer()
 
