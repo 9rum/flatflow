@@ -32,10 +32,11 @@ enum Schedule {
 message InitRequest {
   int64 rank = 1;
   int64 batch_size = 2;
-  repeated int64 sizes = 3;
-  repeated int64 groups = 4;
-  optional bool partition = 5;
-  optional Schedule kind = 6;
+  int64 seed = 3;
+  repeated int64 sizes = 4;
+  repeated int64 groups = 5;
+  optional bool partition = 6;
+  optional Schedule kind = 7;
 }
 
 message BcastRequest {
