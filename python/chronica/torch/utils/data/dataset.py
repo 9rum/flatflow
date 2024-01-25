@@ -1,7 +1,9 @@
 # Adapted from https://github.com/pytorch/pytorch/blob/v2.0.0/torch/utils/data/dataset.py
 import bisect
 import warnings
-from typing import Generic, Iterable, List, TypeVar
+from typing import Iterable, List, TypeVar
+
+import torch.utils.data
 
 __all__ = [
     "Dataset",
@@ -13,7 +15,7 @@ __all__ = [
 T_co = TypeVar('T_co', covariant=True)
 
 
-class Dataset(Generic[T_co]):
+class Dataset(torch.utils.data.Dataset[T_co]):
     r"""An abstract class representing a :class:`Dataset`.
 
     All datasets that represent a map from keys to data samples should subclass
@@ -33,19 +35,8 @@ class Dataset(Generic[T_co]):
         Chronica's distributed sampler must be provided.
     """
 
-    def __getitem__(self, index: int) -> T_co:
-        raise NotImplementedError("Subclasses of Dataset should implement __getitem__.")
-
-    # def __getitems__(self, indices: List) -> List[T_co]:
-    # Not implemented to prevent false-positives in fetcher check in
-    # torch.utils.data._utils.fetch._MapDatasetFetcher
-
     def __add__(self, other: 'Dataset[T_co]') -> 'ConcatDataset[T_co]':
         return ConcatDataset([self, other])
-
-    # No `def __len__(self)` default?
-    # See NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
-    # in pytorch/torch/utils/data/sampler.py
 
     def __sizeof__(self, index: int) -> int:  # type: ignore[override]
         return 1
@@ -73,9 +64,6 @@ class IterableDataset(Dataset[T_co], Iterable[T_co]):
 
     def __add__(self, other: Dataset[T_co]):
         return ChainDataset([self, other])
-
-    # No `def __len__(self)` default? Subclasses raise `TypeError` when needed.
-    # See NOTE [ Lack of Default `__len__` in Python Abstract Base Classes ]
 
 
 class ConcatDataset(Dataset[T_co]):
