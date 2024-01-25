@@ -1,3 +1,4 @@
+# Adapted from https://github.com/pytorch/pytorch/blob/v2.0.0/torch/utils/data/dataset.py
 import bisect
 import warnings
 from typing import Generic, Iterable, List, TypeVar
