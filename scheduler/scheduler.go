@@ -260,8 +260,8 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes [
 }
 
 // Schedule assigns the next mini-batch to each of the workers based on their
-// performance indicators. It adopts best-fit with a random first pivot to
-// equalize the estimated training time while randomizing the training sequence.
+// performance indicators.  It adopts best-fit-decreasing with a random first
+// pivot to equalize the training time while randomizing the training sequence.
 // This is a revised version of our original scheme for straggler mitigation
 // against imbalanced data, which has been proposed in the 2023 IEEE/ACM 23rd
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
@@ -286,7 +286,7 @@ func (s *DynamicScheduler) Schedule(step int) [][]int {
 		binSize = bins[0]
 	}
 
-	// select data samples iteratively in a best-fit fashion
+	// select data samples iteratively in a best-fit-decreasing fashion
 	for len(indices) < cap(indices) {
 		rank := len(indices)
 		indices = append(indices, make([]int, 0, localBatchSize))
