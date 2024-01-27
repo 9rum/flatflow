@@ -11,7 +11,7 @@ authors = [
   {name="Sogang University"},
 ]
 description = "A data-imbalance-aware scheduler for distributed deep learning"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.6"
 keywords = ["distributed deep learning", "straggler", "scheduler", "data imbalance"]
 license = {file = "LICENSE"}
@@ -22,6 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
 ]
@@ -45,4 +46,4 @@ version = {attr = "chronica.__version__"}
 
 [tool.black]
 line-length = 120
-target-version = ["py36", "py37", "py38", "py39", "py310", "py311"]
+target-version = ["py36", "py37", "py38", "py39", "py310", "py311", "py312"]
