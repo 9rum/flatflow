@@ -180,7 +180,7 @@ func mean(sizes []int) float64 {
 // first-fit-decreasing (FFD), which is an approximately-optimal heuristic for
 // bin packing.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
-// Python implementation: https://github.com/erelsgl/prtpy/blob/main/prtpy/packing/first_fit.py
+// Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
 func (s *StaticScheduler) Schedule(step int) [][]int {
 	bins := make([]int, s.worldSize)
 	indices := make([][]int, 0, s.worldSize)
