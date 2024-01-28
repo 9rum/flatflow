@@ -58,7 +58,6 @@ package btree
 import (
 	"os"
 	"sort"
-	"sync"
 	"unsafe"
 )
 
@@ -67,9 +66,7 @@ const DefaultFreeListSize = 32
 // FreeList represents a free list of BTree nodes. By default each
 // BTree has its own FreeList, but multiple BTrees can share the same
 // FreeList.
-// Two BTrees using the same freelist are safe for concurrent write access.
 type FreeList[T Item] struct {
-	mu       sync.Mutex
 	freelist children[T]
 }
 
@@ -80,28 +77,23 @@ func NewFreeList[T Item](size int) *FreeList[T] {
 }
 
 func (f *FreeList[T]) newNode() (n *node[T]) {
-	f.mu.Lock()
 	index := len(f.freelist) - 1
 	if index < 0 {
-		f.mu.Unlock()
 		return new(node[T])
 	}
 	n = f.freelist[index]
 	f.freelist[index] = nil
 	f.freelist = f.freelist[:index]
-	f.mu.Unlock()
 	return
 }
 
 // freeNode adds the given node to the list, returning true if it was added
 // and false if it was discarded.
 func (f *FreeList[T]) freeNode(n *node[T]) (out bool) {
-	f.mu.Lock()
 	if len(f.freelist) < cap(f.freelist) {
 		f.freelist = append(f.freelist, n)
 		out = true
 	}
-	f.mu.Unlock()
 	return
 }
 
