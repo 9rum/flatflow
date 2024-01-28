@@ -24,26 +24,26 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/9rum/chronica/communicator";
 
 enum Schedule {
-  STATIC = 0;
+  STATIC  = 0;
   DYNAMIC = 1;
-  GUIDED = 2;
+  GUIDED  = 2;
 }
 
 message InitRequest {
-  int64 rank = 1;
-  int64 batch_size = 2;
-  int64 seed = 3;
-  repeated int64 sizes = 4;
-  repeated int64 groups = 5;
+  int64 rank              = 1;
+  int64 batch_size        = 2;
+  int64 seed              = 3;
+  repeated int64 sizes    = 4;
+  repeated int64 groups   = 5;
   optional bool partition = 6;
-  optional Schedule kind = 7;
+  optional Schedule kind  = 7;
 }
 
 message BcastRequest {
-  int64 epoch = 1;
-  int64 rank = 2;
+  int64 epoch                 = 1;
+  int64 rank                  = 2;
   optional double coefficient = 3;
-  optional double intercept = 4;
+  optional double intercept   = 4;
 }
 
 message BcastResponse {
