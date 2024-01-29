@@ -36,7 +36,7 @@ const (
 // Scheduler represents the data scheduler.
 type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
-	Schedule(step int) [][]int
+	Schedule(step int) [][]int64
 
 	// Len returns the number of required steps for each training epoch.
 	Len() int
@@ -49,7 +49,7 @@ type Scheduler interface {
 }
 
 // New creates a new scheduler with the given arguments.
-func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, kind T) Scheduler {
+func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int64, kind T) Scheduler {
 	switch kind {
 	case STATIC:
 		return NewStaticScheduler(dataset, worldSize, batchSize, sizes)
@@ -64,8 +64,8 @@ func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, 
 
 // Next returns mini-batches for the next training epoch. This returns a matrix
 // of shape (world size, # of samples).
-func Next(scheduler Scheduler) [][]int {
-	indices := make([][][]int, 0, scheduler.Len())
+func Next(scheduler Scheduler) [][]int64 {
+	indices := make([][][]int64, 0, scheduler.Len())
 	for len(indices) < cap(indices) {
 		indices = append(indices, scheduler.Schedule(len(indices)))
 	}
@@ -93,10 +93,10 @@ func Next(scheduler Scheduler) [][]int {
 // (# of steps, world size, local batch size) to a tensor of shape
 // (world size, # of samples). samples stands for the number of scheduled data
 // samples to each of the workers.
-func transpose(tensor [][][]int, samples int) [][]int {
-	matrix := make([][]int, 0, len(tensor[0]))
+func transpose(tensor [][][]int64, samples int) [][]int64 {
+	matrix := make([][]int64, 0, len(tensor[0]))
 	for len(matrix) < cap(matrix) {
-		matrix = append(matrix, make([]int, samples))
+		matrix = append(matrix, make([]int64, samples))
 	}
 
 	var wg sync.WaitGroup
@@ -124,11 +124,11 @@ type StaticScheduler struct {
 	batchSize     int
 	lastBatchSize int
 	steps         int
-	binSize       int
+	binSize       int64
 }
 
 // NewStaticScheduler creates a new static scheduler with the given arguments.
-func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *StaticScheduler {
+func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int64) *StaticScheduler {
 	steps := func(numerator, denominator int) int {
 		if numerator%denominator == 0 {
 			return numerator / denominator
@@ -142,13 +142,13 @@ func NewStaticScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []
 		batchSize:     batchSize,
 		lastBatchSize: (len(sizes)-1)%batchSize + 1,
 		steps:         steps,
-		binSize:       int(math.Round(mean(sizes) * float64(batchSize/worldSize))),
+		binSize:       int64(math.Round(mean(sizes) * float64(batchSize/worldSize))),
 	}
 }
 
 // mean averages the given sizes.
-func mean(sizes []int) float64 {
-	sum := func() (sum int) {
+func mean(sizes []int64) float64 {
+	sum := func() (sum int64) {
 		for _, size := range sizes {
 			sum += size
 		}
@@ -162,9 +162,9 @@ func mean(sizes []int) float64 {
 // bin packing.
 // FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
 // Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
-func (s *StaticScheduler) Schedule(step int) [][]int {
-	bins := make([]int, s.worldSize)
-	indices := make([][]int, 0, s.worldSize)
+func (s *StaticScheduler) Schedule(step int) [][]int64 {
+	bins := make([]int64, s.worldSize)
+	indices := make([][]int64, 0, s.worldSize)
 	localBatchSize := func() int {
 		if step == s.steps-1 {
 			return s.lastBatchSize / s.worldSize
@@ -183,7 +183,7 @@ func (s *StaticScheduler) Schedule(step int) [][]int {
 	// reduce the number of write operations.
 	for len(indices) < cap(indices) {
 		rank := len(indices)
-		indices = append(indices, make([]int, 0, localBatchSize))
+		indices = append(indices, make([]int64, 0, localBatchSize))
 
 		for len(indices[rank]) < cap(indices[rank]) {
 			index, size := s.dataset.Getitem(rank, s.binSize-bins[rank])
@@ -224,7 +224,7 @@ type DynamicScheduler struct {
 }
 
 // NewDynamicScheduler creates a new dynamic scheduler with the given arguments.
-func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *DynamicScheduler {
+func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int64) *DynamicScheduler {
 	steps := func(numerator, denominator int) int {
 		if numerator%denominator == 0 {
 			return numerator / denominator
@@ -250,10 +250,10 @@ func NewDynamicScheduler(dataset data.Dataset, worldSize, batchSize int, sizes [
 // against imbalanced data, which has been proposed in the 2023 IEEE/ACM 23rd
 // International Symposium on Cluster, Cloud and Internet Computing (CCGrid).
 // Chronica paper: https://ieeexplore.ieee.org/document/10171495
-func (s *DynamicScheduler) Schedule(step int) [][]int {
+func (s *DynamicScheduler) Schedule(step int) [][]int64 {
 	binSize := 0.
 	bins := make([]float64, s.worldSize)
-	indices := make([][]int, 0, s.worldSize)
+	indices := make([][]int64, 0, s.worldSize)
 	localBatchSize := func() int {
 		if step == s.steps-1 {
 			return s.lastBatchSize / s.worldSize
@@ -262,7 +262,7 @@ func (s *DynamicScheduler) Schedule(step int) [][]int {
 	}()
 
 	// assign a random first pivot
-	indices = append(indices, make([]int, 0, localBatchSize))
+	indices = append(indices, make([]int64, 0, localBatchSize))
 	index, size := s.dataset.Rand(0)
 	indices[0] = append(indices[0], index)
 	bins[0] = s.coefficients[0]*float64(size) + s.intercepts[0]
@@ -273,12 +273,12 @@ func (s *DynamicScheduler) Schedule(step int) [][]int {
 	// select data samples iteratively in a best-fit-decreasing fashion
 	for len(indices) < cap(indices) {
 		rank := len(indices)
-		indices = append(indices, make([]int, 0, localBatchSize))
+		indices = append(indices, make([]int64, 0, localBatchSize))
 
 		if s.coefficients[rank] == 0. {
 			index, size = s.dataset.Rand(rank)
 		} else {
-			index, size = s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+			index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
 		}
 		indices[rank] = append(indices[rank], index)
 		bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
@@ -292,7 +292,7 @@ func (s *DynamicScheduler) Schedule(step int) [][]int {
 			if s.coefficients[rank] == 0. {
 				index, size = s.dataset.Rand(rank)
 			} else {
-				index, size = s.dataset.Getitem(rank, int(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+				index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
 			}
 			indices[rank] = append(indices[rank], index)
 			bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
@@ -334,7 +334,7 @@ type GuidedScheduler struct {
 }
 
 // NewGuidedScheduler creates a new guided scheduler with the given arguments.
-func NewGuidedScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int) *GuidedScheduler {
+func NewGuidedScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []int64) *GuidedScheduler {
 	steps := func(numerator, denominator int) int {
 		if numerator%denominator == 0 {
 			return numerator / denominator
@@ -355,8 +355,8 @@ func NewGuidedScheduler(dataset data.Dataset, worldSize, batchSize int, sizes []
 // the zero padding. The higher the rank, the larger the mini-batches are
 // assigned in that more workloads such as scheduling and parameter
 // synchronization are given to the master.
-func (s *GuidedScheduler) Schedule(step int) [][]int {
-	indices := make([][]int, 0, s.worldSize)
+func (s *GuidedScheduler) Schedule(step int) [][]int64 {
+	indices := make([][]int64, 0, s.worldSize)
 	localBatchSize := func() int {
 		if step == s.steps-1 {
 			return s.lastBatchSize / s.worldSize
@@ -375,7 +375,7 @@ func (s *GuidedScheduler) Schedule(step int) [][]int {
 		rank := len(indices)
 		indices = append(indices, nil)
 		copy(indices[1:], indices)
-		indices[0] = make([]int, 0, localBatchSize)
+		indices[0] = make([]int64, 0, localBatchSize)
 
 		for len(indices[0]) < cap(indices[0]) {
 			index, _ := s.dataset.Getitem(rank, math.MinInt)
