@@ -22,7 +22,7 @@ type Sample struct {
 }
 
 // NewSample creates a new data sample with the given arguments.
-func NewSample(index, size int) Sample {
+func NewSample(index, size int64) Sample {
 	return Sample{
 		ItemBase: btree.NewItemBase(index, size),
 	}

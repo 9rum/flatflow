@@ -45,10 +45,10 @@ var mapping []int
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
-	Getitem(rank, size int) (int, int)
+	Getitem(rank int, size int64) (int64, int64)
 
 	// Rand retrieves an arbitrary data sample from the data set.
-	Rand(rank int) (int, int)
+	Rand(rank int) (int64, int64)
 
 	// OnEpochEnd is called at the end of an epoch during training.
 	OnEpochEnd(epoch int64)
@@ -58,7 +58,7 @@ type Dataset interface {
 }
 
 // New creates a new data set with the given arguments.
-func New(sizes, groups []int, seed int64, partition bool) Dataset {
+func New(sizes, groups []int64, seed int64, partition bool) Dataset {
 	if partition {
 		return NewPartitionedDataset(sizes, groups, seed)
 	}
@@ -75,7 +75,7 @@ type ShardedDataset struct {
 }
 
 // NewShardedDataset creates a new sharded data set with the given argument.
-func NewShardedDataset(sizes []int, seed int64) *ShardedDataset {
+func NewShardedDataset(sizes []int64, seed int64) *ShardedDataset {
 	// We use the default degree for the items to fit on a single memory page.
 	dataset := &ShardedDataset{
 		seed:       seed,
@@ -85,7 +85,7 @@ func NewShardedDataset(sizes []int, seed int64) *ShardedDataset {
 	mapping = rand.Perm(len(sizes))
 
 	for index, size := range sizes {
-		if _, found := dataset.recycleBin.ReplaceOrInsert(NewSample(index, size)); found {
+		if _, found := dataset.recycleBin.ReplaceOrInsert(NewSample(int64(index), size)); found {
 			panic("insert found item")
 		}
 	}
@@ -94,7 +94,7 @@ func NewShardedDataset(sizes []int, seed int64) *ShardedDataset {
 }
 
 // Getitem looks for the data sample with the size nearest to the given size.
-func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
+func (d *ShardedDataset) Getitem(rank int, size int64) (_, _ int64) {
 	if size == math.MinInt {
 		item, ok := d.items.DeleteMin()
 		if !ok {
@@ -122,7 +122,7 @@ func (d *ShardedDataset) Getitem(rank, size int) (_, _ int) {
 }
 
 // Rand selects a random data sample from the data set.
-func (d *ShardedDataset) Rand(rank int) (_, _ int) {
+func (d *ShardedDataset) Rand(rank int) (_, _ int64) {
 	item, ok := d.items.Min()
 	if !ok {
 		return
@@ -135,7 +135,7 @@ func (d *ShardedDataset) Rand(rank int) (_, _ int) {
 	}
 	max := item.Size()
 
-	pivot := rand.Intn(max-min+1) + min
+	pivot := int64(rand.Intn(int(max-min+1))) + min
 	item, ok = d.items.DeleteNearest(NewSample(0, pivot))
 	if !ok {
 		return
@@ -167,14 +167,14 @@ func (d *ShardedDataset) OnTrainEnd() {
 // in the cluster holds only a portion of the given data set.
 type PartitionedDataset struct {
 	seed        int64
-	groups      []int
+	groups      []int64
 	partitions  []*btree.BTree[Sample]
 	recycleBins []*btree.BTree[Sample]
 }
 
 // NewPartitionedDataset creates a new partitioned data set with the given arguments.
-func NewPartitionedDataset(sizes, groups []int, seed int64) *PartitionedDataset {
-	nodes := func() int {
+func NewPartitionedDataset(sizes, groups []int64, seed int64) *PartitionedDataset {
+	nodes := func() int64 {
 		maxRank := groups[0]
 		for _, rank := range groups[1:] {
 			maxRank = max(maxRank, rank)
@@ -203,7 +203,7 @@ func NewPartitionedDataset(sizes, groups []int, seed int64) *PartitionedDataset 
 		dataset.partitions = append(dataset.partitions, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		dataset.recycleBins = append(dataset.recycleBins, btree.New[Sample](btree.DefaultTargetNodeSize[Sample]()))
 		for index, size := range sizes[base : base+partitionSize] {
-			if _, found := dataset.recycleBins[rank].ReplaceOrInsert(NewSample(base+index, size)); found {
+			if _, found := dataset.recycleBins[rank].ReplaceOrInsert(NewSample(int64(base+index), size)); found {
 				panic("insert found item")
 			}
 		}
@@ -215,7 +215,7 @@ func NewPartitionedDataset(sizes, groups []int, seed int64) *PartitionedDataset 
 
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
-func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
+func (d *PartitionedDataset) Getitem(rank int, size int64) (_, _ int64) {
 	if size == math.MinInt {
 		item, ok := d.partitions[d.groups[rank]].DeleteMin()
 		if !ok {
@@ -243,7 +243,7 @@ func (d *PartitionedDataset) Getitem(rank, size int) (_, _ int) {
 }
 
 // Rand selects a random data sample from the data set.
-func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
+func (d *PartitionedDataset) Rand(rank int) (_, _ int64) {
 	item, ok := d.partitions[d.groups[rank]].Min()
 	if !ok {
 		return
@@ -256,7 +256,7 @@ func (d *PartitionedDataset) Rand(rank int) (_, _ int) {
 	}
 	max := item.Size()
 
-	pivot := rand.Intn(max-min+1) + min
+	pivot := int64(rand.Intn(int(max-min+1))) + min
 	item, ok = d.partitions[d.groups[rank]].DeleteNearest(NewSample(0, pivot))
 	if !ok {
 		return

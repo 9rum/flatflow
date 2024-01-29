@@ -16,8 +16,36 @@ package data
 
 import (
 	"math/rand"
+	"runtime"
+	"sync"
 	"testing"
 )
+
+// cast casts the given slice.
+func cast(slice []int) []int64 {
+	out := make([]int64, len(slice))
+	stride := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(slice), runtime.NumCPU())
+
+	var wg sync.WaitGroup
+	for base := 0; base < len(slice); base += stride {
+		wg.Add(1)
+		go func(base int) {
+			defer wg.Done()
+			limit := min(base+stride, len(slice))
+			for index := base; index < limit; index++ {
+				out[index] = int64(slice[index])
+			}
+		}(base)
+	}
+	wg.Wait()
+
+	return out
+}
 
 func TestShardedDataset(t *testing.T) {
 	const (
@@ -25,11 +53,11 @@ func TestShardedDataset(t *testing.T) {
 		batchSize   = 10
 		seed        = 0
 	)
-	sizes := rand.Perm(datasetSize)
+	sizes := cast(rand.Perm(datasetSize))
 	dataset := NewShardedDataset(sizes, seed)
 
-	for epoch := int64(0); epoch < 10; epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < 10; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
@@ -41,12 +69,12 @@ func TestShardedDataset(t *testing.T) {
 	dataset.OnTrainEnd()
 
 	for size := range sizes {
-		sizes[size] = size
+		sizes[size] = int64(size)
 	}
 	dataset = NewShardedDataset(sizes, seed)
 
-	for epoch := int64(0); epoch < 10; epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < 10; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				if _, size := dataset.Getitem(0, sizes[index]); size != sizes[index] {
@@ -65,15 +93,15 @@ func TestPartitionedDataset(t *testing.T) {
 		worldSize   = 4
 		seed        = 0
 	)
-	sizes := rand.Perm(datasetSize)
-	groups := make([]int, 0, worldSize)
+	sizes := cast(rand.Perm(datasetSize))
+	groups := make([]int64, 0, worldSize)
 	for len(groups) < cap(groups) {
-		groups = append(groups, len(groups))
+		groups = append(groups, int64(len(groups)))
 	}
 	dataset := NewPartitionedDataset(sizes, groups, seed)
 
-	for epoch := int64(0); epoch < 10; epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < 10; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
@@ -87,12 +115,12 @@ func TestPartitionedDataset(t *testing.T) {
 	dataset.OnTrainEnd()
 
 	for size := range sizes {
-		sizes[size] = size
+		sizes[size] = int64(size)
 	}
 	dataset = NewPartitionedDataset(sizes, groups, seed)
 
-	for epoch := int64(0); epoch < 10; epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < 10; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < datasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
@@ -114,12 +142,12 @@ func BenchmarkShardedDataset(b *testing.B) {
 		batchSize = 10
 		seed      = 0
 	)
-	sizes := rand.Perm(benchmarkDatasetSize)
+	sizes := cast(rand.Perm(benchmarkDatasetSize))
 	b.StartTimer()
 	dataset := NewShardedDataset(sizes, seed)
 
-	for epoch := int64(0); epoch < int64(b.N); epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < b.N; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for index := step * batchSize; index < (step+1)*batchSize; index++ {
 				dataset.Getitem(0, sizes[index])
@@ -136,16 +164,16 @@ func BenchmarkPartitionedDataset(b *testing.B) {
 		worldSize = 4
 		seed      = 0
 	)
-	sizes := rand.Perm(benchmarkDatasetSize)
-	groups := make([]int, 0, worldSize)
+	sizes := cast(rand.Perm(benchmarkDatasetSize))
+	groups := make([]int64, 0, worldSize)
 	for len(groups) < cap(groups) {
-		groups = append(groups, len(groups))
+		groups = append(groups, int64(len(groups)))
 	}
 	b.StartTimer()
 	dataset := NewPartitionedDataset(sizes, groups, seed)
 
-	for epoch := int64(0); epoch < int64(b.N); epoch++ {
-		dataset.OnEpochEnd(epoch)
+	for epoch := 0; epoch < b.N; epoch++ {
+		dataset.OnEpochEnd(int64(epoch))
 		for step := 0; step < benchmarkDatasetSize/batchSize; step++ {
 			for rank := 0; rank < worldSize; rank++ {
 				for index := step * batchSize / worldSize; index < (step+1)*batchSize/worldSize; index++ {
