@@ -42,7 +42,6 @@ import (
 var mapping []int
 
 // Dataset represents the given data set.
-// All implementations must embed DatasetBase for forward compatibility.
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
@@ -58,19 +57,6 @@ type Dataset interface {
 	OnTrainEnd()
 }
 
-// DatasetBase must be embedded to have forward compatible implementations.
-type DatasetBase struct {
-}
-
-func (DatasetBase) Getitem(rank, size int) (_, _ int) {
-	return
-}
-func (DatasetBase) Rand(rank int) (_, _ int) {
-	return
-}
-func (DatasetBase) OnEpochEnd(epoch int64) {}
-func (DatasetBase) OnTrainEnd()            {}
-
 // New creates a new data set with the given arguments.
 func New(sizes, groups []int, seed int64, partition bool) Dataset {
 	if partition {
@@ -83,7 +69,6 @@ func New(sizes, groups []int, seed int64, partition bool) Dataset {
 // has a replica of the given data set; hence it ignores rank when looking for
 // the data sample.
 type ShardedDataset struct {
-	DatasetBase
 	seed       int64
 	items      *btree.BTree[Sample]
 	recycleBin *btree.BTree[Sample]
@@ -181,7 +166,6 @@ func (d *ShardedDataset) OnTrainEnd() {
 // PartitionedDataset represents a partitioned data set where each of the nodes
 // in the cluster holds only a portion of the given data set.
 type PartitionedDataset struct {
-	DatasetBase
 	seed        int64
 	groups      []int
 	partitions  []*btree.BTree[Sample]

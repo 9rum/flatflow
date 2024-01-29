@@ -16,7 +16,7 @@ package data
 
 import "github.com/9rum/chronica/internal/btree"
 
-// Sample represents a single data sample in the dataset.
+// Sample represents a single data sample in the data set.
 type Sample struct {
 	btree.ItemBase
 }

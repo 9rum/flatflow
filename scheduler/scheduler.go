@@ -34,7 +34,6 @@ const (
 )
 
 // Scheduler represents the data scheduler.
-// All implementations must embed SchedulerBase for forward compatibility.
 type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
 	Schedule(step int) [][]int
@@ -48,19 +47,6 @@ type Scheduler interface {
 	// OnTrainEnd terminates the training environment.
 	OnTrainEnd()
 }
-
-// SchedulerBase must be embedded to have forward compatible implementations.
-type SchedulerBase struct {
-}
-
-func (SchedulerBase) Schedule(step int) (_ [][]int) {
-	return
-}
-func (SchedulerBase) Len() (_ int) {
-	return
-}
-func (SchedulerBase) OnEpochEnd(epoch, rank int64, coefficient, intercept float64) {}
-func (SchedulerBase) OnTrainEnd()                                                  {}
 
 // New creates a new scheduler with the given arguments.
 func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, kind T) Scheduler {
@@ -133,7 +119,6 @@ func transpose(tensor [][][]int, samples int) [][]int {
 // limiting the peak device memory usage; this allows for larger batch size,
 // reducing the communication overheads and thereby improving the scalability.
 type StaticScheduler struct {
-	SchedulerBase
 	dataset       data.Dataset
 	worldSize     int
 	batchSize     int
@@ -229,7 +214,6 @@ func (s *StaticScheduler) OnTrainEnd() {
 // adjusts the workload on each worker, which can be useful in heterogeneous
 // clusters where the workers have different compute capabilities.
 type DynamicScheduler struct {
-	SchedulerBase
 	dataset       data.Dataset
 	worldSize     int
 	batchSize     int
@@ -342,7 +326,6 @@ func (s *DynamicScheduler) OnTrainEnd() {
 // optimization for packed sequences. It accelerates training by reducing
 // unnecessary operations caused by zero padding.
 type GuidedScheduler struct {
-	SchedulerBase
 	dataset       data.Dataset
 	worldSize     int
 	batchSize     int
