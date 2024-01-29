@@ -23,9 +23,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"runtime"
 	"runtime/debug"
-	"sync"
 	"syscall"
 
 	"github.com/9rum/chronica/internal/data"
@@ -40,15 +38,15 @@ type communicatorServer struct {
 	scheduler scheduler.Scheduler
 	done      chan<- os.Signal
 	fanin     chan struct{}
-	fanout    []chan []int
+	fanout    []chan []int64
 }
 
 // NewCommunicatorServer creates a new communicator server with the given
 // arguments.
 func NewCommunicatorServer(done chan<- os.Signal, worldSize int) CommunicatorServer {
-	fanout := make([]chan []int, 0, worldSize)
+	fanout := make([]chan []int64, 0, worldSize)
 	for len(fanout) < cap(fanout) {
-		fanout = append(fanout, make(chan []int))
+		fanout = append(fanout, make(chan []int64))
 	}
 	return &communicatorServer{
 		done:   done,
@@ -68,7 +66,7 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 
 	if in.GetRank() == 0 {
 		go func() {
-			c.init(len(c.fanout), int(in.GetBatchSize()), cast[int64, int](in.GetSizes()), cast[int64, int](in.GetGroups()), in.GetSeed(), in.GetPartition(), in.GetKind())
+			c.init(len(c.fanout), int(in.GetBatchSize()), in.GetSizes(), in.GetGroups(), in.GetSeed(), in.GetPartition(), in.GetKind())
 			for range c.fanout {
 				<-c.fanin
 			}
@@ -83,38 +81,12 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 }
 
 // init initializes the data set and scheduler with the given arguments.
-func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int, seed int64, partition bool, kind Schedule) {
+func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int64, seed int64, partition bool, kind Schedule) {
 	glog.Infof("Init called with world size: %d batch size: %d kind: %s", worldSize, batchSize, kind)
 
 	// initialize the data set and scheduler
 	dataset := data.New(sizes, groups, seed, partition)
 	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, kind)
-}
-
-// cast casts the given slice.
-func cast[T, U ~int | ~int64](slice []T) []U {
-	out := make([]U, len(slice))
-	stride := func(numerator, denominator int) int {
-		if numerator%denominator == 0 {
-			return numerator / denominator
-		}
-		return numerator/denominator + 1
-	}(len(slice), runtime.NumCPU())
-
-	var wg sync.WaitGroup
-	for base := 0; base < len(slice); base += stride {
-		wg.Add(1)
-		go func(base int) {
-			defer wg.Done()
-			limit := min(base+stride, len(slice))
-			for index := base; index < limit; index++ {
-				out[index] = U(slice[index])
-			}
-		}(base)
-	}
-	wg.Wait()
-
-	return out
 }
 
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
@@ -142,7 +114,7 @@ func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*Bcas
 	}
 
 	indices := <-c.fanout[in.GetRank()]
-	return &BcastResponse{Indices: cast[int, int64](indices)}, nil
+	return &BcastResponse{Indices: indices}, nil
 }
 
 // Finalize terminates the training environment.

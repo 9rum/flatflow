@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -26,6 +27,32 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+// cast casts the given slice.
+func cast(slice []int) []int64 {
+	out := make([]int64, len(slice))
+	stride := func(numerator, denominator int) int {
+		if numerator%denominator == 0 {
+			return numerator / denominator
+		}
+		return numerator/denominator + 1
+	}(len(slice), runtime.NumCPU())
+
+	var wg sync.WaitGroup
+	for base := 0; base < len(slice); base += stride {
+		wg.Add(1)
+		go func(base int) {
+			defer wg.Done()
+			limit := min(base+stride, len(slice))
+			for index := base; index < limit; index++ {
+				out[index] = int64(slice[index])
+			}
+		}(base)
+	}
+	wg.Wait()
+
+	return out
+}
 
 func TestCommunicatorServer(t *testing.T) {
 	const (
@@ -45,29 +72,29 @@ func TestCommunicatorServer(t *testing.T) {
 	c := NewCommunicatorClient(conn)
 
 	var wg sync.WaitGroup
-	for rank := int64(0); rank < worldSize; rank++ {
+	for rank := 0; rank < worldSize; rank++ {
 		wg.Add(1)
 		go func(rank int64) {
 			defer wg.Done()
-			if _, err = c.Init(context.Background(), &InitRequest{Rank: rank, BatchSize: batchSize, Sizes: cast[int, int64](rand.Perm(datasetSize))}); err != nil {
+			if _, err = c.Init(context.Background(), &InitRequest{Rank: rank, BatchSize: batchSize, Sizes: cast(rand.Perm(datasetSize))}); err != nil {
 				t.Errorf("could not init: %v", err)
 			}
-		}(rank)
+		}(int64(rank))
 	}
 	wg.Wait()
 
-	for epoch := int64(0); epoch < 10; epoch++ {
+	for epoch := 0; epoch < 10; epoch++ {
 		t.Logf("epoch: %d", epoch)
-		for rank := int64(0); rank < worldSize; rank++ {
+		for rank := 0; rank < worldSize; rank++ {
 			wg.Add(1)
 			go func(rank int64) {
 				defer wg.Done()
-				r, err := c.Bcast(context.Background(), &BcastRequest{Epoch: epoch, Rank: rank})
+				r, err := c.Bcast(context.Background(), &BcastRequest{Epoch: int64(epoch), Rank: rank})
 				if err != nil {
 					t.Errorf("could not bcast: %v", err)
 				}
 				t.Logf("rank: %d got: %v", rank, r.GetIndices())
-			}(rank)
+			}(int64(rank))
 		}
 		wg.Wait()
 	}
