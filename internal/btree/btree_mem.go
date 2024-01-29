@@ -41,7 +41,7 @@ type ItemWrapper struct {
 	btree.ItemBase
 }
 
-func NewItemWrapper(index, size int) ItemWrapper {
+func NewItemWrapper(index, size int64) ItemWrapper {
 	return ItemWrapper{
 		ItemBase: btree.NewItemBase(index, size),
 	}
@@ -72,13 +72,13 @@ func main() {
 	if *gollrb {
 		tr := llrb.New()
 		for _, v := range vals {
-			tr.ReplaceOrInsert(NewItemWrapper(v, v))
+			tr.ReplaceOrInsert(NewItemWrapper(int64(v), int64(v)))
 		}
 		t = tr // keep it around
 	} else {
 		tr := btree.New[btree.ItemBase](*degree)
 		for _, v := range vals {
-			tr.ReplaceOrInsert(btree.NewItemBase(v, v))
+			tr.ReplaceOrInsert(btree.NewItemBase(int64(v), int64(v)))
 		}
 		t = tr // keep it around
 	}

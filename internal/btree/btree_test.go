@@ -32,7 +32,7 @@ import (
 // perm returns a random permutation of n items with size in the range [0, n).
 func perm(n int) (out []*ItemBase) {
 	for _, v := range rand.Perm(n) {
-		out = append(out, &ItemBase{v, v})
+		out = append(out, &ItemBase{int64(v), int64(v)})
 	}
 	return
 }
@@ -40,7 +40,7 @@ func perm(n int) (out []*ItemBase) {
 // rang returns an ordered list of items with size in the range [0, n).
 func rang(n int) (out []*ItemBase) {
 	for i := 0; i < n; i++ {
-		out = append(out, &ItemBase{i, i})
+		out = append(out, &ItemBase{int64(i), int64(i)})
 	}
 	return
 }
@@ -57,7 +57,7 @@ func all[T Item](t *BTree[T]) (out []T) {
 // rangerev returns a reversed ordered list of items with size in the range [0, n).
 func rangrev(n int) (out []*ItemBase) {
 	for i := n - 1; 0 <= i; i-- {
-		out = append(out, &ItemBase{i, i})
+		out = append(out, &ItemBase{int64(i), int64(i)})
 	}
 	return
 }
@@ -135,7 +135,7 @@ func TestBTree(t *testing.T) {
 func ExampleBTree() {
 	tr := New[*ItemBase](*btreeDegree)
 	for i := 0; i < 10; i++ {
-		tr.ReplaceOrInsert(&ItemBase{i, i})
+		tr.ReplaceOrInsert(&ItemBase{int64(i), int64(i)})
 	}
 	fmt.Println("len:       ", tr.Len())
 	v, ok := tr.Get(&ItemBase{3, 3})
@@ -410,7 +410,7 @@ func BenchmarkSeek(b *testing.B) {
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
-		tr.AscendGreaterOrEqual(&ItemBase{i % size, i % size}, func(a *ItemBase) bool { return false })
+		tr.AscendGreaterOrEqual(&ItemBase{int64(i % size), int64(i % size)}, func(a *ItemBase) bool { return false })
 	}
 }
 

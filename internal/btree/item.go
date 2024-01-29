@@ -23,10 +23,10 @@ package btree
 // All implementations must embed ItemBase for forward compatibility.
 type Item interface {
 	// Index provides a primitive to identify a particular item in the tree.
-	Index() int
+	Index() int64
 
 	// Size provides a primitive for the user-defined relative size of the item.
-	Size() int
+	Size() int64
 
 	// Less tests whether the current item is less than the given argument.
 	//
@@ -38,12 +38,12 @@ type Item interface {
 
 // ItemBase meets the minimum requirements for identifying the item.
 type ItemBase struct {
-	index int
-	size  int
+	index int64
+	size  int64
 }
 
 // NewItemBase creates a new base item with the given arguments.
-func NewItemBase(index, size int) ItemBase {
+func NewItemBase(index, size int64) ItemBase {
 	return ItemBase{
 		index: index,
 		size:  size,
@@ -51,12 +51,12 @@ func NewItemBase(index, size int) ItemBase {
 }
 
 // Index returns the index of the item.
-func (i ItemBase) Index() int {
+func (i ItemBase) Index() int64 {
 	return i.index
 }
 
 // Size returns the relative size of the item.
-func (i ItemBase) Size() int {
+func (i ItemBase) Size() int64 {
 	return i.size
 }
 
