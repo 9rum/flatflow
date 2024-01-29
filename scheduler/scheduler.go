@@ -22,7 +22,6 @@ package scheduler
 import (
 	"math"
 	"math/rand"
-	"runtime/debug"
 	"sync"
 
 	"github.com/9rum/chronica/internal/data"
@@ -80,9 +79,6 @@ func New[T ~int32](dataset data.Dataset, worldSize, batchSize int, sizes []int, 
 // Next returns mini-batches for the next training epoch. This returns a matrix
 // of shape (world size, # of samples).
 func Next(scheduler Scheduler) [][]int {
-	debug.SetGCPercent(-1)
-	defer debug.SetGCPercent(100)
-
 	indices := make([][][]int, 0, scheduler.Len())
 	for len(indices) < cap(indices) {
 		indices = append(indices, scheduler.Schedule(len(indices)))

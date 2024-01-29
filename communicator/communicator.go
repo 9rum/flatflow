@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"syscall"
 
@@ -58,6 +59,9 @@ func NewCommunicatorServer(done chan<- os.Signal, worldSize int) CommunicatorSer
 
 // Init initializes the training environment.
 func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.Empty, error) {
+	debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(100)
+
 	go func() {
 		c.fanin <- struct{}{}
 	}()
@@ -118,6 +122,8 @@ func cast[T, U ~int | ~int64](slice []T) []U {
 // feedback are used to estimate the training time.
 func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*BcastResponse, error) {
 	glog.Infof("epoch: %d Bcast called from rank %d", in.GetEpoch(), in.GetRank())
+	debug.SetGCPercent(-1)
+	defer debug.SetGCPercent(100)
 
 	go func() {
 		c.scheduler.OnEpochEnd(in.GetEpoch(), in.GetRank(), in.GetCoefficient(), in.GetIntercept())
