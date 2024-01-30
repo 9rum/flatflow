@@ -19,7 +19,6 @@
 package data
 
 import (
-	"math"
 	"math/rand"
 
 	"github.com/9rum/chronica/internal/btree"
@@ -95,24 +94,6 @@ func NewShardedDataset(sizes []int64, seed int64) *ShardedDataset {
 
 // Getitem looks for the data sample with the size nearest to the given size.
 func (d *ShardedDataset) Getitem(rank int, size int64) (_, _ int64) {
-	if size == math.MinInt {
-		item, ok := d.items.DeleteMin()
-		if !ok {
-			return
-		}
-		defer d.recycleBin.ReplaceOrInsert(item)
-		return item.Index(), item.Size()
-	}
-
-	if size == math.MaxInt {
-		item, ok := d.items.DeleteMax()
-		if !ok {
-			return
-		}
-		defer d.recycleBin.ReplaceOrInsert(item)
-		return item.Index(), item.Size()
-	}
-
 	item, ok := d.items.DeleteNearest(NewSample(0, size))
 	if !ok {
 		return
@@ -216,24 +197,6 @@ func NewPartitionedDataset(sizes, groups []int64, seed int64) *PartitionedDatase
 // Getitem looks for the data sample with the size nearest to the given size
 // in the partition with the given rank.
 func (d *PartitionedDataset) Getitem(rank int, size int64) (_, _ int64) {
-	if size == math.MinInt {
-		item, ok := d.partitions[d.groups[rank]].DeleteMin()
-		if !ok {
-			return
-		}
-		defer d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
-		return item.Index(), item.Size()
-	}
-
-	if size == math.MaxInt {
-		item, ok := d.partitions[d.groups[rank]].DeleteMax()
-		if !ok {
-			return
-		}
-		defer d.recycleBins[d.groups[rank]].ReplaceOrInsert(item)
-		return item.Index(), item.Size()
-	}
-
 	item, ok := d.partitions[d.groups[rank]].DeleteNearest(NewSample(0, size))
 	if !ok {
 		return
