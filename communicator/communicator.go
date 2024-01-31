@@ -25,6 +25,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"syscall"
+	"time"
 
 	"github.com/9rum/chronica/internal/data"
 	"github.com/9rum/chronica/scheduler"
@@ -66,27 +67,24 @@ func (c *communicatorServer) Init(ctx context.Context, in *InitRequest) (*empty.
 
 	if in.GetRank() == 0 {
 		go func() {
-			c.init(len(c.fanout), int(in.GetBatchSize()), in.GetSizes(), in.GetGroups(), in.GetSeed(), in.GetPartition(), in.GetKind())
+			glog.Infof("Init called with world size: %d batch size: %d kind: %s", len(c.fanout), in.GetBatchSize(), in.GetKind())
+			now := time.Now()
+
+			// initialize the data set and scheduler
+			dataset := data.New(in.GetSizes(), in.GetGroups(), in.GetSeed(), in.GetPartition())
+			c.scheduler = scheduler.New(dataset, len(c.fanout), int(in.GetBatchSize()), in.GetSizes(), in.GetKind())
 			for range c.fanout {
 				<-c.fanin
 			}
 			for _, ch := range c.fanout {
 				ch <- nil
 			}
+			glog.Infof("Init took %s", time.Since(now))
 		}()
 	}
 
 	<-c.fanout[in.GetRank()]
 	return new(empty.Empty), nil
-}
-
-// init initializes the data set and scheduler with the given arguments.
-func (c *communicatorServer) init(worldSize, batchSize int, sizes, groups []int64, seed int64, partition bool, kind Schedule) {
-	glog.Infof("Init called with world size: %d batch size: %d kind: %s", worldSize, batchSize, kind)
-
-	// initialize the data set and scheduler
-	dataset := data.New(sizes, groups, seed, partition)
-	c.scheduler = scheduler.New(dataset, worldSize, batchSize, sizes, kind)
 }
 
 // Bcast broadcasts the schedule to all workers. If the scheduler provides a
@@ -104,12 +102,14 @@ func (c *communicatorServer) Bcast(ctx context.Context, in *BcastRequest) (*Bcas
 
 	if in.GetRank() == 0 {
 		go func() {
+			now := time.Now()
 			for range c.fanout {
 				<-c.fanin
 			}
 			for rank, indices := range scheduler.Next(c.scheduler) {
 				c.fanout[rank] <- indices
 			}
+			glog.Infof("epoch: %d Bcast took %s", in.GetEpoch(), time.Since(now))
 		}()
 	}
 
