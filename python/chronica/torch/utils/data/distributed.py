@@ -163,7 +163,7 @@ class DistributedSampler(Sampler[T_co]):
         self._num_yielded = 0
         self.coefficient = 1.
         self.intercept = 0.
-        self.tic = time.time()
+        self.tic = time.monotonic()
         self.reg = LinearRegression(positive=True)
 
         channel = grpc.insecure_channel("{}:{}".format(master_addr, master_port))
@@ -174,7 +174,7 @@ class DistributedSampler(Sampler[T_co]):
 
     def __iter__(self) -> Iterator[T_co]:
         if self.kind == DYNAMIC and 0 < self._num_yielded:
-            toc = time.time()
+            toc = time.monotonic()
             self.times = np.append(self.times, toc - self.tic)
             # recalculate performance indicators.
             self.reg.fit(self.sums.reshape(-1, 1), self.times)
@@ -194,12 +194,12 @@ class DistributedSampler(Sampler[T_co]):
         if self.kind == DYNAMIC:
             if self._num_yielded % self.batch_size == 0:
                 if 0 < self._num_yielded:
-                    toc = time.time()
+                    toc = time.monotonic()
                     self.times = np.append(self.times, toc - self.tic)
                 self.sums = np.append(self.sums, self.sizes[index])
             else:
                 self.sums[-1] += self.sizes[index]
-            self.tic = time.time()
+            self.tic = time.monotonic()
 
         self._num_yielded += 1
         return self.map[index]
