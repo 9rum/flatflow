@@ -278,7 +278,7 @@ func (s *DynamicScheduler) Schedule(step int) [][]int64 {
 		if s.coefficients[rank] == 0. {
 			index, size = s.dataset.Rand(rank)
 		} else {
-			index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+			index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-s.intercepts[rank])/s.coefficients[rank])))
 		}
 		indices[rank] = append(indices[rank], index)
 		bins[rank] = s.coefficients[rank]*float64(size) + s.intercepts[rank]
@@ -292,10 +292,10 @@ func (s *DynamicScheduler) Schedule(step int) [][]int64 {
 			if s.coefficients[rank] == 0. {
 				index, size = s.dataset.Rand(rank)
 			} else {
-				index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-bins[rank]-s.intercepts[rank])/s.coefficients[rank])))
+				index, size = s.dataset.Getitem(rank, int64(math.Round((binSize-bins[rank])/s.coefficients[rank])))
 			}
 			indices[rank] = append(indices[rank], index)
-			bins[rank] += s.coefficients[rank]*float64(size) + s.intercepts[rank]
+			bins[rank] += s.coefficients[rank] * float64(size)
 			if binSize < bins[rank] {
 				binSize = bins[rank]
 			}
