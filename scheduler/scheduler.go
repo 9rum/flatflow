@@ -33,7 +33,9 @@ const (
 	GUIDED
 )
 
-// Scheduler represents the data scheduler.
+// Scheduler represents the data scheduler.  In addition to the scheduling
+// algorithm, one should implement callbacks called OnEpochEnd and OnTrainEnd,
+// which are called at the end of each epoch and training, respectively.
 type Scheduler interface {
 	// Schedule selects data samples for the next mini-batch.
 	Schedule(step int) [][]int64

@@ -40,7 +40,10 @@ import (
 // 85. Thus we store the index mapping as a package variable.
 var mapping []int
 
-// Dataset represents the given data set.
+// Dataset represents the given data set.  In addition to Getitem and Rand to
+// retrieve data samples, one should implement callbacks called OnEpochEnd and
+// OnTrainEnd, which are called at the end of each epoch and training,
+// respectively.
 type Dataset interface {
 	// Getitem retrieves a data sample with the given arguments.  This must provide
 	// an index identifying the scheduled data sample and its size.
