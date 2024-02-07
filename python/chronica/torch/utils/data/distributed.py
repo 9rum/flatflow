@@ -145,15 +145,15 @@ class DistributedSampler(Sampler[T_co]):
                 base = len(list(filter(lambda rank: rank < last, groups))) * self.num_samples
                 perm = torch.randperm(len(self.map[base:]), generator=g).add(base).tolist()
                 if len(self.map[base:]) < padding_size:
-                    self.map += self.map[base:] * (padding_size // len(self.map[base:])) + perm[:padding_size % len(self.map[base:])]
+                    self.map.extend(self.map[base:] * (padding_size // len(self.map[base:])) + perm[:padding_size % len(self.map[base:])])
                 else:
-                    self.map += perm[:padding_size]
+                    self.map.extend(perm[:padding_size])
             else:
                 perm = torch.randperm(len(self.map), generator=g).tolist()
                 if len(self.map) < padding_size:
-                    self.map += self.map * (padding_size // len(self.map)) + perm[:padding_size % len(self.map)]
+                    self.map.extend(self.map * (padding_size // len(self.map)) + perm[:padding_size % len(self.map)])
                 else:
-                    self.map += perm[:padding_size]
+                    self.map.extend(perm[:padding_size])
         assert len(self.map) == total_size
 
         self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
