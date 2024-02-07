@@ -131,7 +131,7 @@ class DistributedSampler(Sampler[T_co]):
         self.map = list(range(len(dataset)))  # type: ignore[arg-type]
         if drop_last:
             # remove tail of data to make it evenly divisible.
-            self.map = self.map[:total_size]
+            del self.map[total_size:]
         else:
             # add extra samples to make it evenly divisible.
             padding_size = total_size - len(self.map)
