@@ -108,6 +108,7 @@ class DistributedSampler(Sampler[T_co]):
             self.kind = GUIDED
         else:
             raise ValueError("Invalid schedule kind {}, kind should be one of static, dynamic or guided".format(kind))
+        self.dataset = dataset
         self.rank = rank
         self.epoch = 0
         self.batch_size = batch_size // num_replicas
@@ -123,12 +124,12 @@ class DistributedSampler(Sampler[T_co]):
 
         # If the dataset length is evenly divisible by # of replicas, then there
         # is no need to drop any data, since the dataset will be split equally.
-        self.num_samples = len(dataset) // num_replicas  # type: ignore[arg-type]
-        if not drop_last and len(dataset) % num_replicas != 0:  # type: ignore[arg-type]
+        self.num_samples = len(self.dataset) // num_replicas  # type: ignore[arg-type]
+        if not drop_last and len(self.dataset) % num_replicas != 0:  # type: ignore[arg-type]
             self.num_samples += 1
         total_size = self.num_samples * num_replicas
 
-        self.map = list(range(len(dataset)))  # type: ignore[arg-type]
+        self.map = list(range(len(self.dataset)))  # type: ignore[arg-type]
         if drop_last:
             # remove tail of data to make it evenly divisible.
             del self.map[total_size:]
@@ -156,7 +157,7 @@ class DistributedSampler(Sampler[T_co]):
                     self.map.extend(perm[:padding_size])
         assert len(self.map) == total_size
 
-        self.sizes = list(map(lambda index: sys.getsizeof(dataset, index), self.map))
+        sizes = list(map(lambda index: sys.getsizeof(self.dataset, index), self.map))
         self.indices = list()  # type: ignore[var-annotated]
         self.sums = np.array(list(), np.int_)
         self.times = np.array(list(), np.float_)
@@ -170,7 +171,7 @@ class DistributedSampler(Sampler[T_co]):
         # block until the communicator server is initialized.
         grpc.channel_ready_future(channel).result()
         self.stub = CommunicatorStub(channel)
-        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, seed=seed, sizes=self.sizes, groups=groups, partition=partition, kind=self.kind))
+        self.stub.Init(InitRequest(rank=self.rank, batch_size=batch_size, seed=seed, sizes=sizes, groups=groups, partition=partition, kind=self.kind))
 
     def __iter__(self) -> Iterator[T_co]:
         if self.kind == DYNAMIC and 0 < self._num_yielded:
@@ -189,20 +190,20 @@ class DistributedSampler(Sampler[T_co]):
     def __next__(self) -> T_co:
         if self.num_samples <= self._num_yielded:
             raise StopIteration
-        index = self.indices[self._num_yielded]
+        index = self.map[self.indices[self._num_yielded]]
 
         if self.kind == DYNAMIC:
             if self._num_yielded % self.batch_size == 0:
                 if 0 < self._num_yielded:
                     toc = time.monotonic()
                     self.times = np.append(self.times, toc - self.tic)
-                self.sums = np.append(self.sums, self.sizes[index])
+                self.sums = np.append(self.sums, sys.getsizeof(self.dataset, index))
             else:
-                self.sums[-1] += self.sizes[index]
+                self.sums[-1] += sys.getsizeof(self.dataset, index)
             self.tic = time.monotonic()
 
         self._num_yielded += 1
-        return self.map[index]
+        return index
 
     def __len__(self) -> int:
         return self.num_samples
