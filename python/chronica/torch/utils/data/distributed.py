@@ -1,4 +1,4 @@
-# Adapted from https://github.com/pytorch/pytorch/blob/v2.0.0/torch/utils/data/distributed.py
+# Adapted from https://github.com/pytorch/pytorch/blob/v2.2.0/torch/utils/data/distributed.py
 import os
 import shutil
 import subprocess
