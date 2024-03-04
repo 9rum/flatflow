@@ -1,0 +1,9 @@
+[submodule "thirdparty/abseil"]
+	path = thirdparty/abseil
+	url = https://github.com/abseil/abseil-cpp.git
+[submodule "thirdparty/flatbuffers"]
+	path = thirdparty/flatbuffers
+	url = https://github.com/google/flatbuffers.git
+[submodule "thirdparty/googletest"]
+	path = thirdparty/googletest
+	url = https://github.com/google/googletest.git
