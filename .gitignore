@@ -1,0 +1,37 @@
+# Adapted from https://github.com/github/gitignore/blob/f273474b975f0f2888750a854572562db6de318e/C++.gitignore
+
+# Prerequisites
+*.d
+
+# Object files
+*.lo
+*.o
+*.obj
+*.slo
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Libraries
+*.a
+*.dll
+*.dylib
+*.la
+*.lai
+*.lib
+*.so
+
+# Executables
+*.app
+*.exe
+*.out
+
+# Debug files
+*.dSYM/
+*.idb
+*.pdb
+*.su
+
+# CMake build directory
+build/
