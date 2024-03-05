@@ -23,4 +23,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
+find_package(OpenMP REQUIRED)
+
 add_subdirectory(thirdparty)
