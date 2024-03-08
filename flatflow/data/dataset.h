@@ -15,8 +15,10 @@
 #ifndef FLATFLOW_DATA_DATASET_H_
 #define FLATFLOW_DATA_DATASET_H_
 
+#include <algorithm>
 #include <functional>
 #include <limits>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -33,7 +35,8 @@ namespace data {
 /// scheduling, a `flatflow::data::Dataset<I, S>` constructs an inverted index
 /// in a form of `absl::btree_map<S, std::vector<I>>` and stores the scheduled
 /// data samples in another inverted index; the two inverted indices are
-/// swapped at the end of each training epoch to avoid data movement overhead.
+/// swapped at the end of each training epoch so that the data samples are
+/// restored without any data movement overhead.
 ///
 /// A `flatflow::data::Dataset<I, S>` exposes several callbacks which are
 /// invoked at the beginning and end of each batch, epoch and training; these
@@ -73,7 +76,7 @@ class Dataset {
     constexpr auto kIndexSlotSpace = static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
               auto counts          = absl::InlinedVector<value_type, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
-    // Unlike counts and slots, whose lengths are known at compile time (e.g.,
+    // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
     // partially unroll loops over sizes.
     #pragma omp unroll partial
@@ -106,6 +109,50 @@ class Dataset {
       }
     }
   }
+
+  /// \brief A callback to be called at the beginning of a training batch.
+  /// \param batch The index of batch within the current epoch.
+  [[noreturn]] inline void on_batch_begin(value_type batch) const noexcept {}
+
+  /// \brief A callback to be called at the end of a training batch.
+  /// \param batch The index of batch within the current epoch.
+  [[noreturn]] inline void on_batch_end(value_type batch) const noexcept {}
+
+  /// \brief A callback to be called at the beginning of an epoch.
+  /// \param epoch The index of epoch.
+  [[noreturn]] inline void on_epoch_begin(value_type epoch) {
+    // At the beginning of each epoch, a `flatflow::data::Dataset<I, S>`
+    // shuffles between data samples with the same size, which we call
+    // intra-batch shuffling. The details of intra-batch shuffling are as
+    // follows:
+    //   * First, access each index slot in the inverted index. This can be
+    //     parallelized since there is no data dependency between any couple of
+    //     index slots.
+    //   * Second, deterministically shuffle each index slot to ensure the
+    //     reproducibility of training. As PyTorch's distributed sampler does,
+    //     set the random seed to the sum of seed and epoch; a pseudorandom
+    //     number generator based on subtract-with-carry algorithm is adopted
+    //     to produce high-quality random numbers.
+    thread_local auto generator = std::ranlux48();
+
+    #pragma omp parallel for
+    for (auto &item : items) {
+      generator.seed(static_cast<uint_fast64_t>(seed + epoch));
+      std::shuffle(item.second.begin(), item.second.end(), generator);
+    }
+  }
+
+  /// \brief A callback to be called at the end of an epoch.
+  /// \param epoch The index of epoch.
+  [[noreturn]] inline void on_epoch_end(value_type epoch) {
+    items.swap(recyclebin);
+  }
+
+  /// \brief A callback to be called at the beginning of training.
+  [[noreturn]] inline void on_train_begin() const noexcept {}
+
+  /// \brief A callback to be called at the end of training.
+  [[noreturn]] inline void on_train_end() const noexcept {}
 
  protected:
   absl::btree_map<key_type, std::vector<value_type>, key_compare> items, recyclebin;
