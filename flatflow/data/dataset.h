@@ -24,6 +24,8 @@
 #include <vector>
 
 #include <absl/container/inlined_vector.h>
+#include <absl/log/log.h>
+#include <absl/strings/str_format.h>
 #include <flatbuffers/vector.h>
 #include <omp.h>
 
@@ -65,6 +67,8 @@ class Dataset {
   /// corresponding data sample.
   /// \param seed A random seed used for selective shuffling.
   inline explicit Dataset(const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed) : seed(seed) {
+    const auto now = omp_get_wtime();
+
     // The construction of inverted index goes as follows:
     //
     //   * First, count the number of values for each key to avoid copying of
@@ -112,6 +116,8 @@ class Dataset {
         items.emplace(static_cast<key_type>(size), std::move(slot));
       }
     }
+
+    LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
   }
 
   /// \brief A callback to be called at the beginning of a training batch.
@@ -125,6 +131,8 @@ class Dataset {
   /// \brief A callback to be called at the beginning of an epoch.
   /// \param epoch The index of epoch.
   [[noreturn]] inline void on_epoch_begin(value_type epoch) {
+    const auto now = omp_get_wtime();
+
     // At the beginning of each epoch, a `flatflow::data::Dataset<I, S>`
     // shuffles between data samples with the same size, which we call
     // intra-batch shuffling. The details of intra-batch shuffling are as
@@ -145,6 +153,8 @@ class Dataset {
       generator.seed(static_cast<uint_fast64_t>(seed + epoch));
       std::shuffle(item.second.begin(), item.second.end(), generator);
     }
+
+    LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
   }
 
   /// \brief A callback to be called at the end of an epoch.
