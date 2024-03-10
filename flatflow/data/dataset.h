@@ -18,14 +18,16 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <random>
 #include <utility>
 #include <vector>
 
-#include <absl/container/btree_map.h>
 #include <absl/container/inlined_vector.h>
 #include <flatbuffers/vector.h>
 #include <omp.h>
+
+#include "flatflow/data/internal/container/btree_map.h"
 
 namespace flatflow {
 namespace data {
@@ -33,7 +35,7 @@ namespace data {
 /// \brief A `flatflow::data::Dataset<I, S>` stores metadata about the index
 /// and size of data samples in a given data set. For fast execution of
 /// scheduling, a `flatflow::data::Dataset<I, S>` constructs an inverted index
-/// in a form of `absl::btree_map<S, std::vector<I>>` and stores the scheduled
+/// in a form of `btree_map<S, std::vector<I>>` and stores the scheduled
 /// data samples in another inverted index; the two inverted indices are
 /// swapped at the end of each training epoch so that the data samples are
 /// restored without any data movement overhead.
@@ -42,6 +44,7 @@ namespace data {
 /// invoked at the beginning and end of each batch, epoch and training; these
 /// are similar to the callback interface provided by Keras and PyTorch
 /// Lightning:
+///
 ///   * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
 ///   * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
 ///
@@ -63,6 +66,7 @@ class Dataset {
   /// \param seed A random seed used for selective shuffling.
   inline explicit Dataset(const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed) : seed(seed) {
     // The construction of inverted index goes as follows:
+    //
     //   * First, count the number of values for each key to avoid copying of
     //     underlying array within each vector.
     //   * Second, initialize and reserve index slots in an inlined vector
@@ -125,14 +129,15 @@ class Dataset {
     // shuffles between data samples with the same size, which we call
     // intra-batch shuffling. The details of intra-batch shuffling are as
     // follows:
+    //
     //   * First, access each index slot in the inverted index. This can be
     //     parallelized since there is no data dependency between any couple of
     //     index slots.
     //   * Second, deterministically shuffle each index slot to ensure the
     //     reproducibility of training. As PyTorch's distributed sampler does,
     //     set the random seed to the sum of seed and epoch; a pseudorandom
-    //     number generator based on subtract-with-carry algorithm is adopted
-    //     to produce high-quality random numbers.
+    //     number generator based on subtract-with-carry is adopted to produce
+    //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
     #pragma omp parallel for
@@ -145,7 +150,7 @@ class Dataset {
   /// \brief A callback to be called at the end of an epoch.
   /// \param epoch The index of epoch.
   [[noreturn]] inline void on_epoch_end(value_type epoch) {
-    items.swap(recyclebin);
+    internal::container::swap(items, recyclebin);
   }
 
   /// \brief A callback to be called at the beginning of training.
@@ -155,7 +160,10 @@ class Dataset {
   [[noreturn]] inline void on_train_end() const noexcept {}
 
  protected:
-  absl::btree_map<key_type, std::vector<value_type>, key_compare> items, recyclebin;
+  internal::container::btree_map<
+      key_type, std::vector<value_type>, key_compare,
+      std::allocator<std::pair<const key_type, std::vector<value_type>>>,
+      /*TargetNodeSize=*/512> items, recyclebin;
   value_type seed;
 };
 
