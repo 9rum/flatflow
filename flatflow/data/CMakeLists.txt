@@ -12,18 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# As of GoogleTest v1.14.0, CMake 3.13 is the minimum supported version.
-cmake_minimum_required(VERSION 3.13)
-
-project(flatflow LANGUAGES CXX)
-
-# C++14 is the minimum standard to use Abseil and GoogleTest.
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(CTest)
-
-find_package(OpenMP REQUIRED)
-
-add_subdirectory(thirdparty)
-add_subdirectory(flatflow)
+if(BUILD_TESTING)
+  add_executable(
+    dataset_test
+    dataset_test.cc)
+  target_include_directories(
+    dataset_test
+    PRIVATE ${CMAKE_SOURCE_DIR})
+  target_link_libraries(
+    dataset_test
+    PRIVATE absl::btree
+    PRIVATE absl::log
+    PRIVATE absl::str_format
+    PRIVATE flatbuffers
+    PRIVATE GTest::gtest_main
+    PRIVATE OpenMP::OpenMP_CXX)
+  gtest_add_tests(
+    TARGET dataset_test)
+endif()
