@@ -70,6 +70,8 @@ TEST(DatasetTest, Constructor) {
   }
   sizes.shrink_to_fit();
 
+  // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
+  // vector directly; use generated code from the FlatBuffers schema.
   auto builder = flatbuffers::FlatBufferBuilder64();
   auto sizes__ = builder.CreateVector64(sizes);
   auto offset  = CreateSizes(builder, sizes__);
