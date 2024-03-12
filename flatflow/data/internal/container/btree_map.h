@@ -486,6 +486,335 @@ template <typename K, typename V, typename C, typename A, int S>
   map.swap(other);
 }
 
+// btree_multimap<>
+//
+// A `btree_multimap<K, V>` is an ordered associative container of
+// keys and associated values designed to be a more efficient replacement for
+// `std::multimap` (in most cases). Unlike `btree_map`, a B-tree multimap
+// allows multiple elements with equivalent keys.
+//
+// Keys are sorted using an (optional) comparison function, which defaults to
+// `std::less<K>`.
+//
+// A `btree_multimap<K, V>` uses a default allocator of
+// `std::allocator<std::pair<const K, V>>` to allocate (and deallocate)
+// nodes, and construct and destruct values within those nodes. You may
+// instead specify a custom allocator `A` (which in turn requires specifying a
+// custom comparator `C`) as in `btree_multimap<K, V, C, A, S>`.
+template <typename Key, typename Value, typename Compare = std::less<Key>,
+          typename Alloc = std::allocator<std::pair<const Key, Value>>,
+          int TargetNodeSize = 256>
+class btree_multimap
+    : public absl::container_internal::btree_multimap_container<
+          absl::container_internal::btree<map_params<
+              Key, Value, Compare, Alloc, TargetNodeSize, /*IsMulti=*/true>>> {
+  using Base = typename btree_multimap::btree_multimap_container;
+
+ public:
+  // Constructors and assignment operators
+  //
+  // A `btree_multimap` supports the same overload set as `std::multimap`
+  // for construction and assignment:
+  //
+  // * Default constructor
+  //
+  //   btree_multimap<int, std::string> map1;
+  //
+  // * Initializer list constructor
+  //
+  //   btree_multimap<int, std::string> map2 = {{1, "huey"}, {2, "dewey"}, {3, "louie"}};
+  //
+  // * Copy constructor
+  //
+  //   btree_multimap<int, std::string> map3(map2);
+  //
+  // * Copy assignment operator
+  //
+  //   btree_multimap<int, std::string> map4;
+  //   map4 = map3;
+  //
+  // * Move constructor
+  //
+  //   // Move is guaranteed efficient
+  //   btree_multimap<int, std::string> map5(std::move(map4));
+  //
+  // * Move assignment operator
+  //
+  //   // May be efficient if allocators are compatible
+  //   btree_multimap<int, std::string> map6;
+  //   map6 = std::move(map5);
+  //
+  // * Range constructor
+  //
+  //   std::vector<std::pair<int, std::string>> v = {{1, "a"}, {2, "b"}};
+  //   btree_multimap<int, std::string> map7(v.begin(), v.end());
+  btree_multimap() {}
+  using Base::Base;
+
+  // btree_multimap::begin()
+  //
+  // Returns an iterator to the beginning of the `btree_multimap`.
+  using Base::begin;
+
+  // btree_multimap::cbegin()
+  //
+  // Returns a const iterator to the beginning of the `btree_multimap`.
+  using Base::cbegin;
+
+  // btree_multimap::end()
+  //
+  // Returns an iterator to the end of the `btree_multimap`.
+  using Base::end;
+
+  // btree_multimap::cend()
+  //
+  // Returns a const iterator to the end of the `btree_multimap`.
+  using Base::cend;
+
+  // btree_multimap::empty()
+  //
+  // Returns whether or not the `btree_multimap` is empty.
+  using Base::empty;
+
+  // btree_multimap::max_size()
+  //
+  // Returns the largest theoretical possible number of elements within a
+  // `btree_multimap` under current memory constraints. This value can be
+  // thought of as the largest value of `std::distance(begin(), end())` for a
+  // `btree_multimap<Key, T>`.
+  using Base::max_size;
+
+  // btree_multimap::size()
+  //
+  // Returns the number of elements currently within the `btree_multimap`.
+  using Base::size;
+
+  // btree_multimap::clear()
+  //
+  // Removes all elements from the `btree_multimap`. Invalidates any references,
+  // pointers, or iterators referring to contained elements.
+  using Base::clear;
+
+  // btree_multimap::erase()
+  //
+  // Erases elements within the `btree_multimap`. If an erase occurs, any
+  // references, pointers, or iterators are invalidated.
+  // Overloads are listed below.
+  //
+  // iterator erase(iterator position):
+  // iterator erase(const_iterator position):
+  //
+  //   Erases the element at `position` of the `btree_multimap`, returning
+  //   the iterator pointing to the element after the one that was erased
+  //   (or end() if none exists).
+  //
+  // iterator erase(const_iterator first, const_iterator last):
+  //
+  //   Erases the elements in the open interval [`first`, `last`), returning
+  //   the iterator pointing to the element after the interval that was erased
+  //   (or end() if none exists).
+  //
+  // template <typename K> size_type erase(const K &key):
+  //
+  //   Erases the elements matching the key, if any exist, returning the
+  //   number of elements erased.
+  using Base::erase;
+
+  // btree_multimap::insert()
+  //
+  // Inserts an element of the specified value into the `btree_multimap`,
+  // returning an iterator pointing to the newly inserted element.
+  // Any references, pointers, or iterators are invalidated.
+  // Overloads are listed below.
+  //
+  // iterator insert(const value_type &value):
+  //
+  //   Inserts a value into the `btree_multimap`, returning an iterator to the
+  //   inserted element.
+  //
+  // iterator insert(value_type &&value):
+  //
+  //   Inserts a moveable value into the `btree_multimap`, returning an iterator
+  //   to the inserted element.
+  //
+  // iterator insert(const_iterator hint, const value_type &value):
+  // iterator insert(const_iterator hint, value_type &&value):
+  //
+  //   Inserts a value, using the position of `hint` as a non-binding suggestion
+  //   for where to begin the insertion search. Returns an iterator to the
+  //   inserted element.
+  //
+  // void insert(InputIterator first, InputIterator last):
+  //
+  //   Inserts a range of values [`first`, `last`).
+  //
+  // void insert(std::initializer_list<init_type> ilist):
+  //
+  //   Inserts the elements within the initializer list `ilist`.
+  using Base::insert;
+
+  // btree_multimap::emplace()
+  //
+  // Inserts an element of the specified value by constructing it in-place
+  // within the `btree_multimap`. Any references, pointers, or iterators are
+  // invalidated.
+  using Base::emplace;
+
+  // btree_multimap::emplace_hint()
+  //
+  // Inserts an element of the specified value by constructing it in-place
+  // within the `btree_multimap`, using the position of `hint` as a non-binding
+  // suggestion for where to begin the insertion search.
+  //
+  // Any references, pointers, or iterators are invalidated.
+  using Base::emplace_hint;
+
+  // btree_multimap::extract()
+  //
+  // Extracts the indicated element, erasing it in the process, and returns it
+  // as a C++17-compatible node handle. Overloads are listed below.
+  //
+  // node_type extract(const_iterator position):
+  //
+  //   Extracts the element at the indicated position and returns a node handle
+  //   owning that extracted data.
+  //
+  // template <typename K> node_type extract(const K &k):
+  //
+  //   Extracts the element with the key matching the passed key value and
+  //   returns a node handle owning that extracted data. If the `btree_multimap`
+  //   does not contain an element with a matching key, this function returns an
+  //   empty node handle.
+  //
+  // NOTE: when compiled in an earlier version of C++ than C++17,
+  // `node_type::key()` returns a const reference to the key instead of a
+  // mutable reference. We cannot safely return a mutable reference without
+  // std::launder (which is not available before C++17).
+  //
+  // NOTE: In this context, `node_type` refers to the C++17 concept of a
+  // move-only type that owns and provides access to the elements in associative
+  // containers (https://en.cppreference.com/w/cpp/container/node_handle).
+  // It does NOT refer to the data layout of the underlying B-tree.
+  using Base::extract;
+
+  // btree_multimap::extract_and_get_next()
+  //
+  // Extracts the indicated element, erasing it in the process, and returns it
+  // as a C++17-compatible node handle along with an iterator to the next
+  // element.
+  //
+  // extract_and_get_next_return_type extract_and_get_next(const_iterator position):
+  //
+  //   Extracts the element at the indicated position, returns a struct
+  //   containing a member named `node`: a node handle owning that extracted
+  //   data and a member named `next`: an iterator pointing to the next element
+  //   in the B-tree.
+  using Base::extract_and_get_next;
+
+  // btree_multimap::merge()
+  //
+  // Extracts all elements from a given `source` btree_multimap into this
+  // `btree_multimap`.
+  using Base::merge;
+
+  // btree_multimap::swap(btree_multimap &other)
+  //
+  // Exchanges the contents of this `btree_multimap` with those of the `other`
+  // btree_multimap, avoiding invocation of any move, copy, or swap operations
+  // on individual elements.
+  //
+  // All iterators and references on the `btree_multimap` remain valid,
+  // excepting for the past-the-end iterator, which is invalidated.
+  using Base::swap;
+
+  // btree_multimap::contains()
+  //
+  // template <typename K> bool contains(const K &key) const:
+  //
+  // Determines whether an element comparing equal to the given `key` exists
+  // within the `btree_multimap`, returning `true` if so or `false` otherwise.
+  //
+  // Supports heterogeneous lookup, provided that the map has a compatible
+  // heterogeneous comparator.
+  using Base::contains;
+
+  // btree_multimap::count()
+  //
+  // template <typename K> size_type count(const K &key) const:
+  //
+  // Returns the number of elements comparing equal to the given `key` within
+  // the `btree_multimap`.
+  //
+  // Supports heterogeneous lookup, provided that the map has a compatible
+  // heterogeneous comparator.
+  using Base::count;
+
+  // btree_multimap::equal_range()
+  //
+  // Returns a half-open range [first, last), defined by a `std::pair` of two
+  // iterators, containing all elements with the passed key in the
+  // `btree_multimap`.
+  using Base::equal_range;
+
+  // btree_multimap::find()
+  //
+  // template <typename K> iterator find(const K &key):
+  // template <typename K> const_iterator find(const K &key) const:
+  //
+  // Finds an element with the passed `key` within the `btree_multimap`.
+  //
+  // Supports heterogeneous lookup, provided that the map has a compatible
+  // heterogeneous comparator.
+  using Base::find;
+
+  // btree_multimap::lower_bound()
+  //
+  // template <typename K> iterator lower_bound(const K &key):
+  // template <typename K> const_iterator lower_bound(const K &key) const:
+  //
+  // Finds the first element with a key that is not less than `key` within the
+  // `btree_multimap`.
+  //
+  // Supports heterogeneous lookup, provided that the map has a compatible
+  // heterogeneous comparator.
+  using Base::lower_bound;
+
+  // btree_multimap::upper_bound()
+  //
+  // template <typename K> iterator upper_bound(const K &key):
+  // template <typename K> const_iterator upper_bound(const K &key) const:
+  //
+  // Finds the first element with a key that is greater than `key` within the
+  // `btree_multimap`.
+  //
+  // Supports heterogeneous lookup, provided that the map has a compatible
+  // heterogeneous comparator.
+  using Base::upper_bound;
+
+  // btree_multimap::get_allocator()
+  //
+  // Returns the allocator function associated with this `btree_multimap`.
+  using Base::get_allocator;
+
+  // btree_multimap::key_comp();
+  //
+  // Returns the key comparator associated with this `btree_multimap`.
+  using Base::key_comp;
+
+  // btree_multimap::value_comp();
+  //
+  // Returns the value comparator associated with this `btree_multimap`.
+  using Base::value_comp;
+};
+
+// swap(btree_multimap<>, btree_multimap<>)
+//
+// Swaps the contents of two `btree_multimap` containers.
+template <typename K, typename V, typename C, typename A, int S>
+[[noreturn]] void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
+  map.swap(other);
+}
+
 // A parameters structure for holding the type parameters for a btree_map.
 // Compare and Alloc should be nothrow copy-constructible.
 template <typename Key, typename Data, typename Compare, typename Alloc,
