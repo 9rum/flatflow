@@ -122,15 +122,15 @@ class Dataset {
 
   /// \brief A callback to be called at the beginning of a training batch.
   /// \param batch The index of batch within the current epoch.
-  [[noreturn]] inline void on_batch_begin(value_type batch) const noexcept {}
+  inline void on_batch_begin(value_type batch) const noexcept {}
 
   /// \brief A callback to be called at the end of a training batch.
   /// \param batch The index of batch within the current epoch.
-  [[noreturn]] inline void on_batch_end(value_type batch) const noexcept {}
+  inline void on_batch_end(value_type batch) const noexcept {}
 
   /// \brief A callback to be called at the beginning of an epoch.
   /// \param epoch The index of epoch.
-  [[noreturn]] inline void on_epoch_begin(value_type epoch) {
+  inline void on_epoch_begin(value_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<I, S>`
@@ -159,15 +159,15 @@ class Dataset {
 
   /// \brief A callback to be called at the end of an epoch.
   /// \param epoch The index of epoch.
-  [[noreturn]] inline void on_epoch_end(value_type epoch) {
+  inline void on_epoch_end(value_type epoch) {
     internal::container::swap(items, recyclebin);
   }
 
   /// \brief A callback to be called at the beginning of training.
-  [[noreturn]] inline void on_train_begin() const noexcept {}
+  inline void on_train_begin() const noexcept {}
 
   /// \brief A callback to be called at the end of training.
-  [[noreturn]] inline void on_train_end() const noexcept {}
+  inline void on_train_end() const noexcept {}
 
  protected:
   internal::container::btree_map<
