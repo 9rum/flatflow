@@ -815,7 +815,7 @@ template <typename K, typename V, typename C, typename A, int S>
   map.swap(other);
 }
 
-// A parameters structure for holding the type parameters for a btree_map.
+// A parameters structure for holding the type parameters for a B-tree map.
 // Compare and Alloc should be nothrow copy-constructible.
 template <typename Key, typename Data, typename Compare, typename Alloc,
           int TargetNodeSize, bool IsMulti>
