@@ -22,6 +22,7 @@ if(BUILD_TESTING)
   target_link_libraries(
     dataset_test
     PRIVATE absl::btree
+    PRIVATE absl::inlined_vector
     PRIVATE absl::log
     PRIVATE absl::str_format
     PRIVATE flatbuffers
