@@ -28,7 +28,8 @@ namespace {
 
 class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
  public:
-  inline explicit DatasetTest(const flatbuffers::Vector64<uint16_t> *sizes, uint64_t seed)
+  inline explicit DatasetTest(const flatbuffers::Vector64<uint16_t> *sizes,
+                              uint64_t seed)
       : flatflow::data::Dataset<uint64_t, uint16_t>(sizes, seed) {}
 
   inline bool contains(uint16_t size) const noexcept {
@@ -47,9 +48,7 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
   }
 
-  inline bool empty() const noexcept {
-    return recyclebin.empty();
-  }
+  inline bool empty() const noexcept { return recyclebin.empty(); }
 };
 
 TEST(DatasetTest, Constructor) {
@@ -62,8 +61,8 @@ TEST(DatasetTest, Constructor) {
 
   auto sizes = std::vector<uint16_t>();
   for (const auto item : items) {
-    const auto size  = item.first;
-          auto count = item.second;
+    const auto size = item.first;
+    auto count = item.second;
     for (; 0 < count; --count) {
       sizes.push_back(size);
     }
@@ -74,14 +73,14 @@ TEST(DatasetTest, Constructor) {
   // vector directly; use generated code from the FlatBuffers schema.
   auto builder = flatbuffers::FlatBufferBuilder64();
   auto sizes__ = builder.CreateVector64(sizes);
-  auto offset  = CreateSizes(builder, sizes__);
+  auto offset = CreateSizes(builder, sizes__);
   builder.Finish(offset);
-  auto sizes_  = GetSizes(builder.GetBufferPointer());
+  auto sizes_ = GetSizes(builder.GetBufferPointer());
   auto dataset = DatasetTest(sizes_->sizes(), 0UL);
 
   for (const auto item : items) {
-    const auto size  = item.first;
-          auto count = item.second;
+    const auto size = item.first;
+    auto count = item.second;
     if (0 < count) {
       EXPECT_EQ(dataset.size(size), count);
       EXPECT_EQ(dataset.capacity(size), count);
