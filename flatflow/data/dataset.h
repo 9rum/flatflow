@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <random>
@@ -54,19 +55,25 @@ namespace data {
 /// \tparam Size The data type of the keys in the inverted index.
 /// \tparam Compare An (optional) comparison function to sort inverted index,
 /// which defaults to `std::less<Size>`.
-template <typename Index, typename Size, typename Compare = std::less<Size>>
+/// \tparam Subtract An (optional) subtraction function to retrieve
+/// a data sample from inverted index, which defaults to `std::minus<Size>`.
+template <typename Index, typename Size, typename Compare = std::less<Size>,
+          typename Subtract = std::minus<Size>>
 class Dataset {
  public:
-  using key_type    = Size;
-  using value_type  = Index;
+  using key_type = Size;
+  using value_type = Index;
   using key_compare = Compare;
+  using key_subtract = Subtract;
 
   /// \brief Constructor to build an inverted index from the relative sizes for
   /// each data sample delivered from the Python frontend.
   /// \param sizes A mapping from an index to the relative size of the
   /// corresponding data sample.
   /// \param seed A random seed used for selective shuffling.
-  inline explicit Dataset(const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed) : seed(seed) {
+  inline explicit Dataset(
+      const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
+      : seed(seed) {
     const auto now = omp_get_wtime();
 
     // The construction of inverted index goes as follows:
@@ -81,21 +88,28 @@ class Dataset {
     //   * Third, insert indices into the index slots.
     //   * Finally, construct an inverted index by inserting the index slots
     //     into a B-tree.
-    constexpr auto kIndexSlotSpace = static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
-              auto counts          = absl::InlinedVector<value_type, kIndexSlotSpace>(kIndexSlotSpace, 0);
+    constexpr auto kIndexSlotSpace =
+        static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
+    auto counts =
+        absl::InlinedVector<value_type, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
+    // clang-format off
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
     // partially unroll loops over sizes.
     #pragma omp unroll partial
+    // clang-format on
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       ++counts.at(size);
     }
 
-    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(kIndexSlotSpace);
+    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
+        kIndexSlotSpace);
 
+    // clang-format off
     #pragma omp parallel for
+    // clang-format on
     for (std::size_t size = 0; size < counts.size(); ++size) {
       const auto count = counts.at(size);
       if (0 < count) {
@@ -103,21 +117,94 @@ class Dataset {
       }
     }
 
+    // clang-format off
     #pragma omp unroll partial
+    // clang-format on
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       slots.at(size).emplace_back(index);
     }
 
+    // clang-format off
     #pragma omp unroll full
+    // clang-format on
     for (std::size_t size = 0; size < slots.size(); ++size) {
       const auto slot = slots.at(size);
       if (0 < slot.size()) {
-        items.emplace(static_cast<key_type>(size), std::move(slot));
+        items.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
     }
 
+    // clang-format off
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
+    // clang-format on
+  }
+
+  /// \brief Retrieves a data sample with the same, or at least nearest size to
+  /// the given size from inverted index.
+  /// \param size The size of the data sample to retrieve.
+  /// \return A pair of the index and size of the retrieved data sample.
+  inline std::pair<value_type, key_type> operator[](key_type size) {
+    // The retrieval process of a data sample is described below:
+    //
+    //   * First, find lower bound for the given size from inverted index.
+    //     To find the item with the nearest size, compare the size of the
+    //     found item with its precedence if necessary. Since the actual size
+    //     of the found item may be different from the given size, it returns
+    //     the index of the found item along with its size.
+    //   * Once the item has been found, select and remove an index from its
+    //     index slot. For efficient removal, it always choose the last index
+    //     in the index slot. Even though the choice of index within a given
+    //     index slot is deterministic, the training sequence is guaranteed to
+    //     be randomized since each index slot is shuffled at the beginning of
+    //     each training epoch. If the index has been removed, store the index
+    //     in another inverted index (i.e., the `recyclebin`) for efficient
+    //     restoration of inverted index at the end of training epoch. There
+    //     are four possible cases for this:
+    //
+    //       * If there is no equivalent size in recyclebin, create a new index
+    //         slot with the index and reserve its capacity as in the
+    //         constructor to avoid copying of the underlying array. Note that
+    //         it is the same to check whether the size and capacity of an
+    //         index slot in items are equal to each other as to search for the
+    //         equivalent size in recyclebin, since any index slots with the
+    //         same size in items and recyclebin are mutually exclusive.
+    //       * A special case occurs when the capacity of the index slot is one,
+    //         where its node handle can be extracted from items and moved to
+    //         recyclebin without allocating a new index slot.
+    //       * If the size already exists in recyclebin, then simply append the
+    //         index to the corresponding index slot.
+    //       * Finally, if the index slot in items becomes empty, delete it
+    //         from items.
+    auto item = items.lower_bound(size);
+    if (item != items.begin()) {
+      auto prev = std::prev(item);
+      if (item == items.end() ||
+          comp(sub(size, prev->first), sub(item->first, size))) {
+        item = prev;
+      }
+    }
+
+    const auto found = item->first;
+    const auto index = item->second.back();
+
+    if (item->second.capacity() == 1) {
+      recyclebin.insert(std::move(items.extract(item)));
+    } else if (item->second.size() == item->second.capacity()) {
+      item->second.pop_back();
+      auto slot = std::vector<value_type>();
+      slot.reserve(item->second.capacity());
+      slot.emplace_back(index);
+      recyclebin.try_emplace(found, std::move(slot));
+    } else {
+      item->second.pop_back();
+      if (item->second.empty()) {
+        items.erase(item);
+      }
+      recyclebin.at(found).emplace_back(index);
+    }
+
+    return std::make_pair(index, found);
   }
 
   /// \brief A callback to be called at the beginning of a training batch.
@@ -148,13 +235,17 @@ class Dataset {
     //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
+    // clang-format off
     #pragma omp parallel for
+    // clang-format on
     for (auto &item : items) {
       generator.seed(static_cast<uint_fast64_t>(seed + epoch));
       std::shuffle(item.second.begin(), item.second.end(), generator);
     }
 
+    // clang-format off
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
+    // clang-format on
   }
 
   /// \brief A callback to be called at the end of an epoch.
@@ -173,7 +264,10 @@ class Dataset {
   internal::container::btree_map<
       key_type, std::vector<value_type>, key_compare,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
-      /*TargetNodeSize=*/512> items, recyclebin;
+      /*TargetNodeSize=*/512>
+      items, recyclebin;
+  const key_compare comp = key_compare();
+  const key_subtract sub = key_subtract();
   value_type seed;
 };
 
