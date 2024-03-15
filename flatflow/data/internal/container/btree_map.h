@@ -78,6 +78,12 @@ struct map_params;
 // nodes, and construct and destruct values within those nodes. You may
 // instead specify a custom allocator `A` (which in turn requires specifying a
 // custom comparator `C`) as in `btree_map<K, V, C, A, S>`.
+//
+// Unlike `absl::btree_map` with a fixed `TargetNodeSize` of 256, this
+// `btree_map` takes `TargetNodeSize` as an (optional) template parameter
+// `S` in `btree_map<K, V, C, A, S>`; default is the same as Abseil.
+// This allows users to control the fanout of B-tree and improve the
+// performance of B-tree map compared to its Abseil counterpart.
 template <typename Key, typename Value, typename Compare = std::less<Key>,
           typename Alloc = std::allocator<std::pair<const Key, Value>>,
           int TargetNodeSize = 256>
@@ -501,6 +507,12 @@ inline void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other)
 // nodes, and construct and destruct values within those nodes. You may
 // instead specify a custom allocator `A` (which in turn requires specifying a
 // custom comparator `C`) as in `btree_multimap<K, V, C, A, S>`.
+//
+// Unlike `absl::btree_multimap` with a fixed `TargetNodeSize` of 256, this
+// `btree_multimap` takes `TargetNodeSize` as an (optional) template parameter
+// `S` in `btree_multimap<K, V, C, A, S>`; default is the same as Abseil.
+// This allows users to control the fanout of B-tree and improve the
+// performance of B-tree map compared to its Abseil counterpart.
 template <typename Key, typename Value, typename Compare = std::less<Key>,
           typename Alloc = std::allocator<std::pair<const Key, Value>>,
           int TargetNodeSize = 256>
@@ -821,14 +833,14 @@ template <typename Key, typename Data, typename Compare, typename Alloc,
           int TargetNodeSize, bool IsMulti>
 struct map_params : absl::container_internal::common_params<Key, Compare, Alloc, TargetNodeSize, IsMulti,
                                   /*IsMap=*/true, absl::container_internal::map_slot_policy<Key, Data>> {
-  using super_type  = typename map_params::common_params;
+  using super_type = typename map_params::common_params;
   using mapped_type = Data;
   // This type allows us to move keys when it is safe to do so. It is safe
   // for maps in which value_type and mutable_value_type are layout compatible.
   using slot_policy = typename super_type::slot_policy;
-  using slot_type   = typename super_type::slot_type;
-  using value_type  = typename super_type::value_type;
-  using init_type   = typename super_type::init_type;
+  using slot_type = typename super_type::slot_type;
+  using value_type = typename super_type::value_type;
+  using init_type = typename super_type::init_type;
 
   template <typename V>
   static auto key(const V &value ABSL_ATTRIBUTE_LIFETIME_BOUND)
