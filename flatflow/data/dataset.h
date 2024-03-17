@@ -93,12 +93,10 @@ class Dataset {
     auto counts =
         absl::InlinedVector<value_type, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
-    // clang-format off
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
     // partially unroll loops over sizes.
     #pragma omp unroll partial
-    // clang-format on
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       ++counts.at(size);
@@ -107,9 +105,7 @@ class Dataset {
     auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
         kIndexSlotSpace);
 
-    // clang-format off
     #pragma omp parallel for
-    // clang-format on
     for (std::size_t size = 0; size < counts.size(); ++size) {
       const auto count = counts.at(size);
       if (0 < count) {
@@ -117,17 +113,13 @@ class Dataset {
       }
     }
 
-    // clang-format off
     #pragma omp unroll partial
-    // clang-format on
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       slots.at(size).emplace_back(index);
     }
 
-    // clang-format off
     #pragma omp unroll full
-    // clang-format on
     for (std::size_t size = 0; size < slots.size(); ++size) {
       const auto slot = slots.at(size);
       if (0 < slot.size()) {
@@ -135,9 +127,7 @@ class Dataset {
       }
     }
 
-    // clang-format off
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
-    // clang-format on
   }
 
   /// \brief Retrieves a data sample with the same, or at least nearest size to
@@ -235,17 +225,13 @@ class Dataset {
     //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
-    // clang-format off
     #pragma omp parallel for
-    // clang-format on
     for (auto &item : items) {
       generator.seed(static_cast<uint_fast64_t>(seed + epoch));
       std::shuffle(item.second.begin(), item.second.end(), generator);
     }
 
-    // clang-format off
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
-    // clang-format on
   }
 
   /// \brief A callback to be called at the end of an epoch.
