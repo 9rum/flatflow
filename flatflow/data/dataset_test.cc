@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-
 #include <cstdlib>
 #include <ctime>
 #include <map>
 #include <vector>
 
+#include <absl/container/inlined_vector.h>
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
-#include <absl/container/inlined_vector.h>
 
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/dataset_test.h"
@@ -52,11 +50,9 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
 
   inline bool empty() const noexcept { return recyclebin.empty(); }
 
-  inline void intra_shuffle(auto epoch){
-    on_epoch_begin(epoch);
-  }
+  inline void intra_shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
 
-  inline std::vector<uint64_t> access_vector(uint16_t size) const noexcept{
+  inline std::vector<uint64_t> access_vector(uint16_t size) const noexcept {
     return items.at(size);
   }
 };
@@ -106,6 +102,7 @@ TEST(DatasetTest, IntraShuffle) {
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
   thread_local auto generator = std::ranlux48();
   auto items = std::map<uint16_t, std::size_t>();
+  uint16_t epoch = 1;
   for (uint16_t size = 1; size <= 1 << 12; ++size) {
     items.emplace(size, static_cast<std::size_t>(std::rand() % (1 << 15)));
   }
@@ -124,25 +121,31 @@ TEST(DatasetTest, IntraShuffle) {
   auto sizes__ = builder.CreateVector64(sizes);
   auto offset = CreateSizes(builder, sizes__);
   builder.Finish(offset);
+
   auto sizes_ = GetSizes(builder.GetBufferPointer());
   auto dataset = DatasetTest(sizes_->sizes(), 0UL);
 
-  for (const auto& item: items){
-    const auto& size = item.first;
+  // Expects all vectors are sorted.
+  for (const auto &item : items) {
+    const auto &size = item.first;
     EXPECT_TRUE(dataset.is_sorted(size));
   }
+
   // call on_epoch_begin for shuffle.
-  dataset.intra_shuffle(0); 
-  for (const auto& item: items){
-    const auto& size = item.first;
+  dataset.intra_shuffle(epoch);
+
+  // Expects all vectors are not sorted.
+  for (const auto &item : items) {
+    const auto &size = item.first;
     EXPECT_FALSE(dataset.is_sorted(size));
   }
-  constexpr auto kIndexSlotSpace =
-    static_cast<std::size_t>(1 << std::numeric_limits<uint16_t>::digits);
-  auto counts =
-    absl::InlinedVector<uint64_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
-  // clang-format off
+  constexpr auto kIndexSlotSpace =
+      static_cast<std::size_t>(1 << std::numeric_limits<uint16_t>::digits);
+  auto counts =
+      absl::InlinedVector<uint64_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
+
+// clang-format off
   #pragma omp unroll partial
   // clang-format on
   for (uint64_t index = 0; index < sizes.size(); ++index) {
@@ -153,7 +156,7 @@ TEST(DatasetTest, IntraShuffle) {
   auto slots = absl::InlinedVector<std::vector<uint64_t>, kIndexSlotSpace>(
       kIndexSlotSpace);
 
-  // clang-format off
+// clang-format off
   #pragma omp parallel for
   // clang-format on
   for (std::size_t size = 0; size < counts.size(); ++size) {
@@ -163,7 +166,7 @@ TEST(DatasetTest, IntraShuffle) {
     }
   }
 
-  // clang-format off
+// clang-format off
   #pragma omp unroll partial
   // clang-format on
   for (uint64_t index = 0; index < sizes.size(); ++index) {
@@ -171,20 +174,32 @@ TEST(DatasetTest, IntraShuffle) {
     slots.at(size).emplace_back(index);
   }
 
-  //clang-format off
-  #pragma omp parallel for
-  // clang-format on
-  for (auto &item : slots) {
-    generator.seed(static_cast<uint_fast64_t>(0UL + 0));
-    std::shuffle(item.begin(), item.end(), generator);
-  }
-
+  // Expects dataset and slots are not equal.
+  // Since, dataset is shuffled and slots are not.
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
     if (0 < count) {
-      const auto& dataset_vector = dataset.access_vector(size);
-      const auto& current_vector = slots.at(size);
-      EXPECT_TRUE(std::equal(dataset_vector.begin(),dataset_vector.end(),current_vector.begin()));
+      const auto &dataset_vector = dataset.access_vector(size);
+      const auto &current_vector = slots.at(size);
+      EXPECT_FALSE(std::equal(dataset_vector.begin(), dataset_vector.end(),
+                              current_vector.begin()));
+    }
+  }
+
+  for (auto &item : slots) {
+    generator.seed(static_cast<uint_fast64_t>(0UL + epoch));
+    std::shuffle(item.begin(), item.end(), generator);
+  }
+
+  // Expects dataset and slots are equal.
+  // Since, slots are shuffled.
+  for (std::size_t size = 0; size < counts.size(); ++size) {
+    const auto count = counts.at(size);
+    if (0 < count) {
+      const auto &dataset_vector = dataset.access_vector(size);
+      const auto &current_vector = slots.at(size);
+      EXPECT_TRUE(std::equal(dataset_vector.begin(), dataset_vector.end(),
+                             current_vector.begin()));
     }
   }
 }
