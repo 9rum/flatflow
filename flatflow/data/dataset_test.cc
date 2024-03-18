@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "flatflow/data/dataset.h"
+
 #include <cstdlib>
 #include <ctime>
 #include <map>
@@ -21,7 +23,6 @@
 #include <flatbuffers/flatbuffers.h>
 #include <gtest/gtest.h>
 
-#include "flatflow/data/dataset.h"
 #include "flatflow/data/dataset_test.h"
 
 namespace {
