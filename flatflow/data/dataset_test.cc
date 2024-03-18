@@ -99,6 +99,15 @@ TEST(DatasetTest, Constructor) {
 }
 
 TEST(DatasetTest, IntraShuffle) {
+  // Test case for IntraShuffle
+  //
+  // NOTE:
+  //
+  // * We first check if the dataset vectors are sorted.
+  // * After shuffling, we check if dataset vectors are not sorted.
+  // * Then using the same input vector, we shuffle the slots.
+  // * Last, we check if the slots and dataset vectors are equal. 
+
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
   thread_local auto generator = std::ranlux48();
   auto items = std::map<uint16_t, std::size_t>();
@@ -185,7 +194,9 @@ TEST(DatasetTest, IntraShuffle) {
                               current_vector.begin()));
     }
   }
-
+// clang-format off
+  #pragma omp parallel for
+  // clang-format on
   for (auto &item : slots) {
     generator.seed(static_cast<uint_fast64_t>(0UL + epoch));
     std::shuffle(item.begin(), item.end(), generator);
