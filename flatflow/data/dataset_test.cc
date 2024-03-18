@@ -50,9 +50,9 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
 
   inline bool empty() const noexcept { return recyclebin.empty(); }
 
-  inline void intra_shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
+  inline void on_epoch_begin(uint64_t epoch) { on_epoch_begin(epoch); }
 
-  inline std::vector<uint64_t> access_vector(uint16_t size) const noexcept {
+  inline std::vector<uint64_t> at(uint16_t size) const noexcept {
     return items.at(size);
   }
 };
@@ -141,7 +141,7 @@ TEST(DatasetTest, IntraShuffle) {
   }
 
   // call on_epoch_begin for shuffle.
-  dataset.intra_shuffle(epoch);
+  dataset.on_epoch_begin(epoch);
 
   // Expects all vectors are not sorted.
   for (const auto &item : items) {
@@ -188,7 +188,7 @@ TEST(DatasetTest, IntraShuffle) {
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
     if (0 < count) {
-      const auto &dataset_vector = dataset.access_vector(size);
+      const auto &dataset_vector = dataset.at(size);
       const auto &current_vector = slots.at(size);
       EXPECT_FALSE(std::equal(dataset_vector.begin(), dataset_vector.end(),
                               current_vector.begin()));
