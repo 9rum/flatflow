@@ -110,9 +110,9 @@ TEST(DatasetTest, IntraBatchShuffling) {
   // * Last, we check if the slots and dataset vectors are equal. 
 
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
-  thread_local auto generator = std::ranlux48();
   auto items = std::map<uint16_t, std::size_t>();
   uint16_t epoch = 0;
+
   for (uint16_t size = 1; size <= 1 << 12; ++size) {
     items.emplace(size, static_cast<std::size_t>(std::rand() % (1 << 15)));
   }
@@ -195,6 +195,9 @@ TEST(DatasetTest, IntraBatchShuffling) {
                               current_vector.begin()));
     }
   }
+
+  thread_local auto generator = std::ranlux48();
+
 // clang-format off
   #pragma omp parallel for
   // clang-format on
