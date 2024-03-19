@@ -99,8 +99,8 @@ TEST(DatasetTest, Constructor) {
   EXPECT_TRUE(dataset.empty());
 }
 
-TEST(DatasetTest, IntraShuffle) {
-  // Test case for IntraShuffle
+TEST(DatasetTest, IntraBatchShuffling) {
+  // Test case for IntraBatchShuffling
   //
   // NOTE:
   //
