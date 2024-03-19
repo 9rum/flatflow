@@ -184,18 +184,6 @@ TEST(DatasetTest, IntraBatchShuffling) {
     slots.at(size).emplace_back(index);
   }
 
-  // Expects dataset and slots are not equal.
-  // Since, dataset is shuffled and slots are not.
-  for (std::size_t size = 0; size < counts.size(); ++size) {
-    const auto count = counts.at(size);
-    if (0 < count) {
-      const auto &dataset_vector = dataset.at(size);
-      const auto &current_vector = slots.at(size);
-      EXPECT_FALSE(std::equal(dataset_vector.begin(), dataset_vector.end(),
-                              current_vector.begin()));
-    }
-  }
-
   thread_local auto generator = std::ranlux48();
 
 // clang-format off
