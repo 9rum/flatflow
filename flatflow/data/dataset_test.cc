@@ -51,9 +51,9 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
 
   inline bool empty() const noexcept { return recyclebin.empty(); }
 
-  inline void epoch_begin(uint64_t epoch) { on_epoch_begin(epoch); }
+  inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
  
-  inline const std::vector<uint64_t>& at(uint16_t size) const noexcept {
+  inline const std::vector<uint64_t> &at(uint16_t size) const noexcept {
     return items.at(size);
   }
 };
@@ -100,15 +100,6 @@ TEST(DatasetTest, Constructor) {
 }
 
 TEST(DatasetTest, IntraBatchShuffling) {
-  // Test case for Intra-BatchShuffling
-  //
-  // NOTE:
-  //
-  // * We first check if the dataset vectors are sorted.
-  // * After shuffling, we check if dataset vectors are not sorted.
-  // * Then using the same input vector, we shuffle the slots.
-  // * Last, we check if the slots and dataset vectors are equal. 
-
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
   auto items = std::map<uint16_t, std::size_t>();
   uint16_t epoch = 0;
@@ -136,7 +127,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   auto dataset = DatasetTest(sizes_->sizes(), 0UL);
 
   // call on_epoch_begin for shuffle.
-  dataset.epoch_begin(epoch);
+  dataset.shuffle(epoch);
 
   constexpr auto kIndexSlotSpace =
       static_cast<std::size_t>(1 << std::numeric_limits<uint16_t>::digits);
