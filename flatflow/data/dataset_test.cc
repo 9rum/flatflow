@@ -51,9 +51,9 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
 
   inline bool empty() const noexcept { return recyclebin.empty(); }
 
-  inline void on_epoch_begin(uint64_t epoch) { on_epoch_begin(epoch); }
-
-  inline std::vector<uint64_t> at(uint16_t size) const noexcept {
+  inline void epoch_begin(uint64_t epoch) { on_epoch_begin(epoch); }
+ 
+  inline const std::vector<uint64_t>& at(uint16_t size) const noexcept {
     return items.at(size);
   }
 };
@@ -100,7 +100,7 @@ TEST(DatasetTest, Constructor) {
 }
 
 TEST(DatasetTest, IntraBatchShuffling) {
-  // Test case for IntraBatchShuffling
+  // Test case for Intra-BatchShuffling
   //
   // NOTE:
   //
@@ -135,29 +135,15 @@ TEST(DatasetTest, IntraBatchShuffling) {
   auto sizes_ = GetSizes(builder.GetBufferPointer());
   auto dataset = DatasetTest(sizes_->sizes(), 0UL);
 
-  // Expects all vectors are sorted.
-  for (const auto &item : items) {
-    const auto &size = item.first;
-    EXPECT_TRUE(dataset.is_sorted(size));
-  }
-
   // call on_epoch_begin for shuffle.
-  dataset.on_epoch_begin(epoch);
-
-  // Expects all vectors are not sorted.
-  for (const auto &item : items) {
-    const auto &size = item.first;
-    EXPECT_FALSE(dataset.is_sorted(size));
-  }
+  dataset.epoch_begin(epoch);
 
   constexpr auto kIndexSlotSpace =
       static_cast<std::size_t>(1 << std::numeric_limits<uint16_t>::digits);
   auto counts =
       absl::InlinedVector<uint64_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
-// clang-format off
   #pragma omp unroll partial
-  // clang-format on
   for (uint64_t index = 0; index < sizes.size(); ++index) {
     const auto size = static_cast<std::size_t>(sizes[index]);
     ++counts.at(size);
@@ -166,9 +152,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   auto slots = absl::InlinedVector<std::vector<uint64_t>, kIndexSlotSpace>(
       kIndexSlotSpace);
 
-// clang-format off
   #pragma omp parallel for
-  // clang-format on
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
     if (0 < count) {
@@ -176,9 +160,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
     }
   }
 
-// clang-format off
   #pragma omp unroll partial
-  // clang-format on
   for (uint64_t index = 0; index < sizes.size(); ++index) {
     const auto size = static_cast<std::size_t>(sizes[index]);
     slots.at(size).emplace_back(index);
@@ -186,9 +168,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
 
   thread_local auto generator = std::ranlux48();
 
-// clang-format off
   #pragma omp parallel for
-  // clang-format on
   for (auto &item : slots) {
     generator.seed(static_cast<uint_fast64_t>(0UL + epoch));
     std::shuffle(item.begin(), item.end(), generator);
@@ -199,8 +179,9 @@ TEST(DatasetTest, IntraBatchShuffling) {
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
     if (0 < count) {
-      const auto &dataset_vector = dataset.access_vector(size);
+      const auto &dataset_vector = dataset.at(size);
       const auto &current_vector = slots.at(size);
+      EXPECT_FALSE(dataset.is_sorted(size));
       EXPECT_TRUE(std::equal(dataset_vector.begin(), dataset_vector.end(),
                              current_vector.begin()));
     }
