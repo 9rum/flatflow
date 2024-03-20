@@ -25,5 +25,5 @@ include(CTest)
 
 find_package(OpenMP REQUIRED)
 
-add_subdirectory(thirdparty)
+add_subdirectory(third_party)
 add_subdirectory(flatflow)

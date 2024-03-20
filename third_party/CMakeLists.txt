@@ -13,7 +13,7 @@
 # limitations under the License.
 
 set(ABSL_PROPAGATE_CXX_STD ON)
-add_subdirectory(abseil)
+add_subdirectory(abseil-cpp)
 
 set(FLATBUFFERS_BUILD_TESTS OFF)
 add_subdirectory(flatbuffers)
