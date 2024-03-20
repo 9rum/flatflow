@@ -196,7 +196,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
 TEST(DatasetTest, IndexRetriever){
   // Note:
   //
-  // Test dataset looks like below items.
+  // Test sample looks like below items.
   // std::unordered_map<int, std::vector<int>> items = {
   //       {10, {0, 1, 2}},
   //       {20, {3, 4}},
