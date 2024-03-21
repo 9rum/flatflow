@@ -31,6 +31,7 @@
 #include <omp.h>
 
 #include "flatflow/data/internal/container/btree_map.h"
+#include "flatflow/data/types.h"
 
 namespace flatflow {
 namespace data {
@@ -53,18 +54,11 @@ namespace data {
 ///
 /// \tparam Index The data type of the values in the inverted index.
 /// \tparam Size The data type of the keys in the inverted index.
-/// \tparam Compare An (optional) comparison function to sort inverted index,
-/// which defaults to `std::less<Size>`.
-/// \tparam Subtract An (optional) subtraction function to retrieve
-/// a data sample from inverted index, which defaults to `std::minus<Size>`.
-template <typename Index, typename Size, typename Compare = std::less<Size>,
-          typename Subtract = std::minus<Size>>
+template <Unsigned Index, Unsigned Size>
 class Dataset {
  public:
   using key_type = Size;
   using value_type = Index;
-  using key_compare = Compare;
-  using key_subtract = Subtract;
 
   /// \brief Constructor to build an inverted index from the relative sizes for
   /// each data sample delivered from the Python frontend.
@@ -169,8 +163,7 @@ class Dataset {
     auto item = items.lower_bound(size);
     if (item != items.begin()) {
       auto prev = std::prev(item);
-      if (item == items.end() ||
-          comp(sub(size, prev->first), sub(item->first, size))) {
+      if (item == items.end() || size - prev->first < item->first - size) {
         item = prev;
       }
     }
@@ -247,12 +240,10 @@ class Dataset {
 
  protected:
   internal::container::btree_map<
-      key_type, std::vector<value_type>, key_compare,
+      key_type, std::vector<value_type>, std::less<key_type>,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
       /*TargetNodeSize=*/512>
       items, recyclebin;
-  const key_compare comp = key_compare();
-  const key_subtract sub = key_subtract();
   value_type seed;
 };
 
