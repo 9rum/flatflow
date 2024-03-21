@@ -225,11 +225,10 @@ class Dataset {
     //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
-    #pragma omp parallel for
-    for (auto &item : items) {
+    std::for_each(items.begin(), items.end(), [&](auto &item) {
       generator.seed(static_cast<uint_fast64_t>(seed + epoch));
       std::shuffle(item.second.begin(), item.second.end(), generator);
-    }
+    });
 
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
   }

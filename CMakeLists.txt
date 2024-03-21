@@ -17,8 +17,7 @@ cmake_minimum_required(VERSION 3.13)
 
 project(flatflow LANGUAGES CXX)
 
-# C++14 is the minimum standard to use Abseil and GoogleTest.
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
