@@ -16,6 +16,7 @@
 #define FLATFLOW_DATA_DATASET_H_
 
 #include <algorithm>
+#include <execution>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -162,7 +163,7 @@ class Dataset {
     //         from items.
     auto item = items.lower_bound(size);
     if (item != items.begin()) {
-      auto prev = std::prev(item);
+      const auto prev = std::prev(item);
       if (item == items.end() || size - prev->first < item->first - size) {
         item = prev;
       }
@@ -218,10 +219,11 @@ class Dataset {
     //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
-    std::for_each(items.begin(), items.end(), [&](auto &item) {
-      generator.seed(static_cast<uint_fast64_t>(seed + epoch));
-      std::shuffle(item.second.begin(), item.second.end(), generator);
-    });
+    std::for_each(
+        std::execution::par, items.begin(), items.end(), [&](auto &item) {
+          generator.seed(static_cast<uint_fast64_t>(seed + epoch));
+          std::shuffle(item.second.begin(), item.second.end(), generator);
+        });
 
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
   }

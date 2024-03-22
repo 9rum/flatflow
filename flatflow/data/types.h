@@ -23,7 +23,7 @@ namespace data {
 // The concept `Unsigned<T>` is satisfied if and only if `T` is an unsigned
 // integral type and `std::same_as<T, bool>` is `false`. This is intended to be
 // a drop-in replacement for `std::is_unsigned` and `std::unsigned_integral`, as
-// they treat boolean types as an integer.
+// they treat boolean types as integers.
 template <typename T>
 concept Unsigned = std::unsigned_integral<T> && !std::same_as<T, bool>;
 
