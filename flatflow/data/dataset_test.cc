@@ -221,6 +221,8 @@ TEST(DatasetTest, IndexRetriever){
   // Test case 2 : When the size is not in the dataset.
   // Test case 3 : When only one index of the size is left.
   // 
+  // After retrieving all indexes from the items, check if the dataset is empty and the size of the recyclebin is correct.
+  // At the end, check if the recyclebin vectors are all in reverted order.
 
   std::vector<uint16_t> sizes = {10, 10, 10, 20, 20, 30, 30, 30, 30, 40};
   auto builder = flatbuffers::FlatBufferBuilder64();
