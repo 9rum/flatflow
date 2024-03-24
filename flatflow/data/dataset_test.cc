@@ -70,7 +70,7 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
  
-  inline const std::vector<uint64_t> &at(uint16_t size, bool checkItem=true) const noexcept {
+  inline std::vector<uint64_t> &at(uint16_t size, bool checkItem=true) noexcept{
     if (checkItem) {
       return items.at(size);
     }
@@ -344,14 +344,14 @@ TEST(DatasetTest, IndexRetriever){
   EXPECT_EQ(dataset.capacity(40, false), 1);
 
   // check if recyclebin vectors are all reverted.
-  // std::reverse(dataset.at(10, false).begin(), dataset.at(10, false).end());
-  // EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(), dataset.at(10, false).end()));
-  // std::reverse(dataset.at(20, false).begin(), dataset.at(20, false).end());
-  // EXPECT_TRUE(std::is_sorted(dataset.at(20, false).begin(), dataset.at(20, false).end()));
-  // std::reverse(dataset.at(30, false).begin(), dataset.at(30, false).end());
-  // EXPECT_TRUE(std::is_sorted(dataset.at(30, false).begin(), dataset.at(30, false).end()));
-  // std::reverse(dataset.at(40, false).begin(), dataset.at(40, false).end());
-  // EXPECT_TRUE(std::is_sorted(dataset.at(40, false).begin(), dataset.at(40, false).end()));
+  std::reverse(dataset.at(10, false).begin(), dataset.at(10, false).end());
+  EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(), dataset.at(10, false).end()));
+  std::reverse(dataset.at(20, false).begin(), dataset.at(20, false).end());
+  EXPECT_TRUE(std::is_sorted(dataset.at(20, false).begin(), dataset.at(20, false).end()));
+  std::reverse(dataset.at(30, false).begin(), dataset.at(30, false).end());
+  EXPECT_TRUE(std::is_sorted(dataset.at(30, false).begin(), dataset.at(30, false).end()));
+  std::reverse(dataset.at(40, false).begin(), dataset.at(40, false).end());
+  EXPECT_TRUE(std::is_sorted(dataset.at(40, false).begin(), dataset.at(40, false).end()));
 }
 
 }  // namespace
