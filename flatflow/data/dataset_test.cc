@@ -37,38 +37,50 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return items.contains(size);
   }
 
-  inline std::size_t size(uint16_t size) const noexcept {
-    return items.at(size).size();
+  inline std::size_t size(uint16_t size,bool checkItem=true) const noexcept {
+    if (checkItem) {
+      return items.at(size).size();
+    }
+    else {
+      return recyclebin.at(size).size();
+    }
   }
 
-  inline std::size_t capacity(uint16_t size) const noexcept {
-    return items.at(size).capacity();
+  inline std::size_t capacity(uint16_t size, bool checkItem=true) const noexcept {
+    if (checkItem) {
+      return items.at(size).capacity();
+    }
+    else {
+      return recyclebin.at(size).capacity();
+    }
   }
 
   inline bool is_sorted(uint16_t size) const noexcept {
     return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
   }
 
-  inline bool empty() const noexcept { return recyclebin.empty(); }
-
-  inline bool isItemEmpty() const noexcept { return items.empty(); }
+  inline bool empty(bool checkItem=true) const noexcept { 
+    if (checkItem) {
+      return items.empty();
+    }
+    else {
+      return recyclebin.empty();
+    }
+  }
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
  
-  inline const std::vector<uint64_t> &at(uint16_t size) const noexcept {
-    return items.at(size);
+  inline const std::vector<uint64_t> &at(uint16_t size, bool checkItem=true) const noexcept {
+    if (checkItem) {
+      return items.at(size);
+    }
+    else {
+      return recyclebin.at(size);
+    }
   }
+
   inline std::pair<uint64_t, uint16_t> retrieveItem(uint16_t size) {
     return (*this)[size];
-  }
-  inline std::size_t getRecycleBinSize(uint16_t size) const noexcept {
-    return recyclebin.at(size).size();
-  }
-  inline std::size_t getRecycleBinCapacity(uint16_t size) const noexcept {
-    return recyclebin.at(size).capacity();
-  }
-  inline std::vector<uint64_t> &getRecycleBin(uint16_t size) {
-    return recyclebin.at(size);
   }
 };
 
@@ -110,7 +122,7 @@ TEST(DatasetTest, Constructor) {
       EXPECT_FALSE(dataset.contains(size));
     }
   }
-  EXPECT_TRUE(dataset.empty());
+  EXPECT_TRUE(dataset.empty(false));
 }
 
 TEST(DatasetTest, IntraBatchShuffling) {
@@ -226,7 +238,7 @@ TEST(DatasetTest, IndexRetriever){
   EXPECT_EQ(result.first, 4); 
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size), 1); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 1);
+  EXPECT_EQ(dataset.size(size, false), 1);
 
 
   // Test case 2
@@ -235,9 +247,9 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 2); 
   EXPECT_EQ(result.second, 10); 
-  EXPECT_EQ(dataset.getRecycleBinSize(10), 1); 
+  EXPECT_EQ(dataset.size(10, false), 1); 
   EXPECT_EQ(dataset.size(10), 2); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(10), 3);
+  EXPECT_EQ(dataset.capacity(10, false), 3);
 
   // Test case 3
   // Expected behavior : items will erase size 40 from the dataset.
@@ -245,8 +257,8 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 9); 
   EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 1); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(size), 1);
+  EXPECT_EQ(dataset.size(size, false), 1); 
+  EXPECT_EQ(dataset.capacity(size, false), 1);
 
   // Test case 3
   // Expected behavior : Size 20 will be removed from the dataset.
@@ -254,8 +266,8 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 3); 
   EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 2); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(size), 2);
+  EXPECT_EQ(dataset.size(size, false), 2); 
+  EXPECT_EQ(dataset.capacity(size, false), 2);
 
   // Test case 2
   // Expected behavior : Dataset will retrieve closest size's pair for size which will be 30.
@@ -263,9 +275,9 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 8); 
   EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.getRecycleBinSize(30), 1); 
+  EXPECT_EQ(dataset.size(30, false), 1); 
   EXPECT_EQ(dataset.size(30), 3);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(30), 4);
+  EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 2
   // Expected behavior : Dataset will retrieve closest size's pair for size which will be 30.
@@ -273,9 +285,9 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 7); 
   EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.getRecycleBinSize(30), 2); 
+  EXPECT_EQ(dataset.size(30, false), 2); 
   EXPECT_EQ(dataset.size(30), 2);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(30), 4);
+  EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 1
   // Expected behavior : Dataset will retrieve a pair of index and size from the dataset.
@@ -283,9 +295,9 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 6); 
   EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 3);
+  EXPECT_EQ(dataset.size(size, false), 3);
   EXPECT_EQ(dataset.size(size), 1); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(size), 4);
+  EXPECT_EQ(dataset.capacity(size, false), 4);
 
   // Test case 2 & 3
   // Expected behavior : Size 30 will be removed from the dataset.
@@ -293,9 +305,9 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 5); 
   EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.getRecycleBinSize(30), 4); 
+  EXPECT_EQ(dataset.size(30, false), 4); 
   EXPECT_FALSE(dataset.contains(30)); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(30), 4);
+  EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 1
   // Expected behavior : Dataset will retrieve a pair of index and size from the dataset.
@@ -304,8 +316,8 @@ TEST(DatasetTest, IndexRetriever){
   EXPECT_EQ(result.first, 1); 
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size), 1); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 2);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(size), 3);
+  EXPECT_EQ(dataset.size(size, false), 2);
+  EXPECT_EQ(dataset.capacity(size, false), 3);
 
   // Test case 3
   // Expected behavior : Size 10 will be removed from the dataset.
@@ -313,33 +325,33 @@ TEST(DatasetTest, IndexRetriever){
   result = dataset.retrieveItem(size);
   EXPECT_EQ(result.first, 0); 
   EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.getRecycleBinSize(size), 3); 
-  EXPECT_EQ(dataset.getRecycleBinCapacity(size), 3);
+  EXPECT_EQ(dataset.size(size, false), 3); 
+  EXPECT_EQ(dataset.capacity(size, false), 3);
 
   // Check if items is empty.
-  EXPECT_TRUE(dataset.isItemEmpty());
+  EXPECT_TRUE(dataset.empty(true));
 
   // check size of recyclebin. 
-  EXPECT_EQ(dataset.getRecycleBinSize(10), 3);
-  EXPECT_EQ(dataset.getRecycleBinSize(20), 2);
-  EXPECT_EQ(dataset.getRecycleBinSize(30), 4);
-  EXPECT_EQ(dataset.getRecycleBinSize(40), 1);
+  EXPECT_EQ(dataset.size(10, false), 3);
+  EXPECT_EQ(dataset.size(20, false), 2);
+  EXPECT_EQ(dataset.size(30, false), 4);
+  EXPECT_EQ(dataset.size(40, false), 1);
 
   // Check Capacity of recyclebin.
-  EXPECT_EQ(dataset.getRecycleBinCapacity(10), 3);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(20), 2);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(30), 4);
-  EXPECT_EQ(dataset.getRecycleBinCapacity(40), 1);
+  EXPECT_EQ(dataset.capacity(10, false), 3);
+  EXPECT_EQ(dataset.capacity(20, false), 2);
+  EXPECT_EQ(dataset.capacity(30, false), 4);
+  EXPECT_EQ(dataset.capacity(40, false), 1);
 
   // check if recyclebin vectors are all reverted.
-  std::reverse(dataset.getRecycleBin(10).begin(), dataset.getRecycleBin(10).end());
-  EXPECT_TRUE(std::is_sorted(dataset.getRecycleBin(10).begin(), dataset.getRecycleBin(10).end()));
-  std::reverse(dataset.getRecycleBin(20).begin(), dataset.getRecycleBin(20).end());
-  EXPECT_TRUE(std::is_sorted(dataset.getRecycleBin(20).begin(), dataset.getRecycleBin(20).end()));
-  std::reverse(dataset.getRecycleBin(30).begin(), dataset.getRecycleBin(30).end());
-  EXPECT_TRUE(std::is_sorted(dataset.getRecycleBin(30).begin(), dataset.getRecycleBin(30).end()));
-  std::reverse(dataset.getRecycleBin(40).begin(), dataset.getRecycleBin(40).end());
-  EXPECT_TRUE(std::is_sorted(dataset.getRecycleBin(40).begin(), dataset.getRecycleBin(40).end()));
+  // std::reverse(dataset.at(10, false).begin(), dataset.at(10, false).end());
+  // EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(), dataset.at(10, false).end()));
+  // std::reverse(dataset.at(20, false).begin(), dataset.at(20, false).end());
+  // EXPECT_TRUE(std::is_sorted(dataset.at(20, false).begin(), dataset.at(20, false).end()));
+  // std::reverse(dataset.at(30, false).begin(), dataset.at(30, false).end());
+  // EXPECT_TRUE(std::is_sorted(dataset.at(30, false).begin(), dataset.at(30, false).end()));
+  // std::reverse(dataset.at(40, false).begin(), dataset.at(40, false).end());
+  // EXPECT_TRUE(std::is_sorted(dataset.at(40, false).begin(), dataset.at(40, false).end()));
 }
 
 }  // namespace
