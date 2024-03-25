@@ -37,20 +37,19 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return items.contains(size);
   }
 
-  inline std::size_t size(uint16_t size,bool checkItem=true) const noexcept {
+  inline std::size_t size(uint16_t size, bool checkItem = true) const noexcept {
     if (checkItem) {
       return items.at(size).size();
-    }
-    else {
+    } else {
       return recyclebin.at(size).size();
     }
   }
 
-  inline std::size_t capacity(uint16_t size, bool checkItem=true) const noexcept {
+  inline std::size_t capacity(uint16_t size,
+                              bool checkItem = true) const noexcept {
     if (checkItem) {
       return items.at(size).capacity();
-    }
-    else {
+    } else {
       return recyclebin.at(size).capacity();
     }
   }
@@ -59,22 +58,21 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
   }
 
-  inline bool empty(bool checkItem=true) const noexcept { 
+  inline bool empty(bool checkItem = true) const noexcept {
     if (checkItem) {
       return items.empty();
-    }
-    else {
+    } else {
       return recyclebin.empty();
     }
   }
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
- 
-  inline std::vector<uint64_t> &at(uint16_t size, bool checkItem=true) noexcept{
+
+  inline std::vector<uint64_t> &at(uint16_t size,
+                                   bool checkItem = true) noexcept {
     if (checkItem) {
       return items.at(size);
-    }
-    else {
+    } else {
       return recyclebin.at(size);
     }
   }
@@ -205,7 +203,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   }
 }
 
-TEST(DatasetTest, IndexRetriever){
+TEST(DatasetTest, IndexRetriever) {
   // Note:
   //
   // Test sample looks like below items.
@@ -220,9 +218,10 @@ TEST(DatasetTest, IndexRetriever){
   // Test case 1 : When the size is in the dataset.
   // Test case 2 : When the size is not in the dataset.
   // Test case 3 : When only one index of the size is left.
-  // 
-  // After retrieving all indexes from the items, check if the dataset is empty and the size of the recyclebin is correct.
-  // At the end, check if the recyclebin vectors are all in reverted order.
+  //
+  // After retrieving all indexes from the items, check if the dataset is empty
+  // and the size of the recyclebin is correct. At the end, check if the
+  // recyclebin vectors are all in reverted order.
 
   std::vector<uint16_t> sizes = {10, 10, 10, 20, 20, 30, 30, 30, 30, 40};
   auto builder = flatbuffers::FlatBufferBuilder64();
@@ -234,106 +233,111 @@ TEST(DatasetTest, IndexRetriever){
   auto dataset = DatasetTest(sizes_->sizes(), 0UL);
 
   // Test case 1
-  // Expected behavior : Dataset will retrieve a pair of index and size from the dataset.
+  // Expected behavior : Dataset will retrieve a pair of index and size from the
+  // dataset.
   uint16_t size = 20;
   auto result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 4); 
+  EXPECT_EQ(result.first, 4);
   EXPECT_EQ(result.second, size);
-  EXPECT_EQ(dataset.size(size), 1); 
+  EXPECT_EQ(dataset.size(size), 1);
   EXPECT_EQ(dataset.size(size, false), 1);
 
-
   // Test case 2
-  // Expected behaivor : Dataset will retrieve closest size's pair for size which will be 10.
+  // Expected behaivor : Dataset will retrieve closest size's pair for size
+  // which will be 10.
   size = 8;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 2); 
-  EXPECT_EQ(result.second, 10); 
-  EXPECT_EQ(dataset.size(10, false), 1); 
-  EXPECT_EQ(dataset.size(10), 2); 
+  EXPECT_EQ(result.first, 2);
+  EXPECT_EQ(result.second, 10);
+  EXPECT_EQ(dataset.size(10, false), 1);
+  EXPECT_EQ(dataset.size(10), 2);
   EXPECT_EQ(dataset.capacity(10, false), 3);
 
   // Test case 3
   // Expected behavior : items will erase size 40 from the dataset.
   size = 40;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 9); 
-  EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.size(size, false), 1); 
+  EXPECT_EQ(result.first, 9);
+  EXPECT_EQ(result.second, size);
+  EXPECT_EQ(dataset.size(size, false), 1);
   EXPECT_EQ(dataset.capacity(size, false), 1);
 
   // Test case 3
   // Expected behavior : Size 20 will be removed from the dataset.
-  size = 20; 
+  size = 20;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 3); 
-  EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.size(size, false), 2); 
+  EXPECT_EQ(result.first, 3);
+  EXPECT_EQ(result.second, size);
+  EXPECT_EQ(dataset.size(size, false), 2);
   EXPECT_EQ(dataset.capacity(size, false), 2);
 
   // Test case 2
-  // Expected behavior : Dataset will retrieve closest size's pair for size which will be 30.
+  // Expected behavior : Dataset will retrieve closest size's pair for size
+  // which will be 30.
   size = 28;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 8); 
-  EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.size(30, false), 1); 
+  EXPECT_EQ(result.first, 8);
+  EXPECT_EQ(result.second, 30);
+  EXPECT_EQ(dataset.size(30, false), 1);
   EXPECT_EQ(dataset.size(30), 3);
   EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 2
-  // Expected behavior : Dataset will retrieve closest size's pair for size which will be 30.
+  // Expected behavior : Dataset will retrieve closest size's pair for size
+  // which will be 30.
   size = 31;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 7); 
-  EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.size(30, false), 2); 
+  EXPECT_EQ(result.first, 7);
+  EXPECT_EQ(result.second, 30);
+  EXPECT_EQ(dataset.size(30, false), 2);
   EXPECT_EQ(dataset.size(30), 2);
   EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 1
-  // Expected behavior : Dataset will retrieve a pair of index and size from the dataset.
+  // Expected behavior : Dataset will retrieve a pair of index and size from the
+  // dataset.
   size = 30;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 6); 
-  EXPECT_EQ(result.second, size); 
+  EXPECT_EQ(result.first, 6);
+  EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size, false), 3);
-  EXPECT_EQ(dataset.size(size), 1); 
+  EXPECT_EQ(dataset.size(size), 1);
   EXPECT_EQ(dataset.capacity(size, false), 4);
 
   // Test case 2 & 3
   // Expected behavior : Size 30 will be removed from the dataset.
-  size = 34; 
+  size = 34;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 5); 
-  EXPECT_EQ(result.second, 30); 
-  EXPECT_EQ(dataset.size(30, false), 4); 
-  EXPECT_FALSE(dataset.contains(30)); 
+  EXPECT_EQ(result.first, 5);
+  EXPECT_EQ(result.second, 30);
+  EXPECT_EQ(dataset.size(30, false), 4);
+  EXPECT_FALSE(dataset.contains(30));
   EXPECT_EQ(dataset.capacity(30, false), 4);
 
   // Test case 1
-  // Expected behavior : Dataset will retrieve a pair of index and size from the dataset.
+  // Expected behavior : Dataset will retrieve a pair of index and size from the
+  // dataset.
   size = 10;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 1); 
+  EXPECT_EQ(result.first, 1);
   EXPECT_EQ(result.second, size);
-  EXPECT_EQ(dataset.size(size), 1); 
+  EXPECT_EQ(dataset.size(size), 1);
   EXPECT_EQ(dataset.size(size, false), 2);
   EXPECT_EQ(dataset.capacity(size, false), 3);
 
   // Test case 3
   // Expected behavior : Size 10 will be removed from the dataset.
-  size = 10; 
+  size = 10;
   result = dataset.retrieveItem(size);
-  EXPECT_EQ(result.first, 0); 
-  EXPECT_EQ(result.second, size); 
-  EXPECT_EQ(dataset.size(size, false), 3); 
+  EXPECT_EQ(result.first, 0);
+  EXPECT_EQ(result.second, size);
+  EXPECT_EQ(dataset.size(size, false), 3);
   EXPECT_EQ(dataset.capacity(size, false), 3);
 
   // Check if items is empty.
   EXPECT_TRUE(dataset.empty(true));
 
-  // check size of recyclebin. 
+  // check size of recyclebin.
   EXPECT_EQ(dataset.size(10, false), 3);
   EXPECT_EQ(dataset.size(20, false), 2);
   EXPECT_EQ(dataset.size(30, false), 4);
@@ -347,13 +351,17 @@ TEST(DatasetTest, IndexRetriever){
 
   // check if recyclebin vectors are all reverted.
   std::reverse(dataset.at(10, false).begin(), dataset.at(10, false).end());
-  EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(), dataset.at(10, false).end()));
+  EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(),
+                             dataset.at(10, false).end()));
   std::reverse(dataset.at(20, false).begin(), dataset.at(20, false).end());
-  EXPECT_TRUE(std::is_sorted(dataset.at(20, false).begin(), dataset.at(20, false).end()));
+  EXPECT_TRUE(std::is_sorted(dataset.at(20, false).begin(),
+                             dataset.at(20, false).end()));
   std::reverse(dataset.at(30, false).begin(), dataset.at(30, false).end());
-  EXPECT_TRUE(std::is_sorted(dataset.at(30, false).begin(), dataset.at(30, false).end()));
+  EXPECT_TRUE(std::is_sorted(dataset.at(30, false).begin(),
+                             dataset.at(30, false).end()));
   std::reverse(dataset.at(40, false).begin(), dataset.at(40, false).end());
-  EXPECT_TRUE(std::is_sorted(dataset.at(40, false).begin(), dataset.at(40, false).end()));
+  EXPECT_TRUE(std::is_sorted(dataset.at(40, false).begin(),
+                             dataset.at(40, false).end()));
 }
 
 }  // namespace
