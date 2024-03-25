@@ -78,7 +78,7 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
   }
 
   inline std::pair<uint64_t, uint16_t> retrieveItem(uint16_t size) {
-    return (*this)[size];
+    return find(size);
   }
 };
 
@@ -158,7 +158,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   auto counts =
       absl::InlinedVector<uint64_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
-  #pragma omp unroll partial
+#pragma omp unroll partial
   for (uint64_t index = 0; index < sizes.size(); ++index) {
     const auto size = static_cast<std::size_t>(sizes[index]);
     ++counts.at(size);
@@ -167,7 +167,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   auto slots = absl::InlinedVector<std::vector<uint64_t>, kIndexSlotSpace>(
       kIndexSlotSpace);
 
-  #pragma omp parallel for
+#pragma omp parallel for
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
     if (0 < count) {
@@ -175,7 +175,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
     }
   }
 
-  #pragma omp unroll partial
+#pragma omp unroll partial
   for (uint64_t index = 0; index < sizes.size(); ++index) {
     const auto size = static_cast<std::size_t>(sizes[index]);
     slots.at(size).emplace_back(index);
@@ -183,7 +183,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
 
   thread_local auto generator = std::ranlux48();
 
-  #pragma omp parallel for
+#pragma omp parallel for
   for (auto &item : slots) {
     generator.seed(static_cast<uint_fast64_t>(0UL + epoch));
     std::shuffle(item.begin(), item.end(), generator);
