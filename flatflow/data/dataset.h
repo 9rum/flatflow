@@ -16,6 +16,7 @@
 #define FLATFLOW_DATA_DATASET_H_
 
 #include <algorithm>
+#include <execution>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -31,6 +32,7 @@
 #include <omp.h>
 
 #include "flatflow/data/internal/container/btree_map.h"
+#include "flatflow/data/internal/types.h"
 
 namespace flatflow {
 namespace data {
@@ -53,18 +55,12 @@ namespace data {
 ///
 /// \tparam Index The data type of the values in the inverted index.
 /// \tparam Size The data type of the keys in the inverted index.
-/// \tparam Compare An (optional) comparison function to sort inverted index,
-/// which defaults to `std::less<Size>`.
-/// \tparam Subtract An (optional) subtraction function to retrieve
-/// a data sample from inverted index, which defaults to `std::minus<Size>`.
-template <typename Index, typename Size, typename Compare = std::less<Size>,
-          typename Subtract = std::minus<Size>>
+template <typename Index, typename Size>
+  requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
  public:
   using key_type = Size;
   using value_type = Index;
-  using key_compare = Compare;
-  using key_subtract = Subtract;
 
   /// \brief Constructor to build an inverted index from the relative sizes for
   /// each data sample delivered from the Python frontend.
@@ -91,7 +87,7 @@ class Dataset {
     constexpr auto kIndexSlotSpace =
         static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
     auto counts =
-        absl::InlinedVector<value_type, kIndexSlotSpace>(kIndexSlotSpace, 0);
+        absl::InlinedVector<std::size_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
 
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
@@ -109,7 +105,7 @@ class Dataset {
     for (std::size_t size = 0; size < counts.size(); ++size) {
       const auto count = counts.at(size);
       if (0 < count) {
-        slots.at(size).reserve(static_cast<std::size_t>(count));
+        slots.at(size).reserve(count);
       }
     }
 
@@ -125,6 +121,54 @@ class Dataset {
       if (0 < slot.size()) {
         items.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
+    }
+
+    LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
+  }
+
+  /// \brief A template specialization of constructor for key types over 16-bit.
+  /// \param sizes A mapping from an index to the relative size of the
+  /// corresponding data sample.
+  /// \param seed A random seed used for selective shuffling.
+  inline explicit Dataset(
+      const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
+    requires(std::numeric_limits<uint16_t>::digits <
+             std::numeric_limits<key_type>::digits)
+      : seed(seed) {
+    const auto now = omp_get_wtime();
+
+    // The construction of inverted index for key types over 16-bit works
+    // different than for others:
+    //
+    //   * First, count the number of values for each key to avoid copying of
+    //     underlying array, but do not store it in an inlined vector due to the
+    //     large range of keys; use a B-tree instead.
+    //   * Second, initialize and reserve index slots, and then insert them
+    //     immediately into a B-tree.
+    //   * Finally, construct an inverted index by storing indices in the index
+    //     slots in the B-tree. This may be slower than storing indices using
+    //     offset, but can be beneficial in that in can save a large amount of
+    //     memory space.
+    auto counts = internal::container::btree_map<
+        key_type, std::size_t, std::less<key_type>,
+        std::allocator<std::pair<const key_type, std::size_t>>,
+        /*TargetNodeSize=*/512>();
+
+    #pragma omp unroll partial
+    for (value_type index = 0; index < sizes->size(); ++index) {
+      const auto count = counts.try_emplace(sizes->Get(index), 0);
+      ++count.first->second;
+    }
+
+    for (const auto [size, count] : counts) {
+      auto slot = std::vector<value_type>();
+      slot.reserve(count);
+      items.try_emplace(size, std::move(slot));
+    }
+
+    #pragma omp unroll partial
+    for (value_type index = 0; index < sizes->size(); ++index) {
+      items.at(sizes->Get(index)).emplace_back(index);
     }
 
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
@@ -168,9 +212,8 @@ class Dataset {
     //         from items.
     auto item = items.lower_bound(size);
     if (item != items.begin()) {
-      auto prev = std::prev(item);
-      if (item == items.end() ||
-          comp(sub(size, prev->first), sub(item->first, size))) {
+      const auto prev = std::prev(item);
+      if (item == items.end() || size - prev->first < item->first - size) {
         item = prev;
       }
     }
@@ -225,11 +268,11 @@ class Dataset {
     //     high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
-    #pragma omp parallel for
-    for (auto &item : items) {
-      generator.seed(static_cast<uint_fast64_t>(seed + epoch));
-      std::shuffle(item.second.begin(), item.second.end(), generator);
-    }
+    std::for_each(
+        std::execution::par, items.begin(), items.end(), [&](auto &item) {
+          generator.seed(static_cast<uint_fast64_t>(seed + epoch));
+          std::shuffle(item.second.begin(), item.second.end(), generator);
+        });
 
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
   }
@@ -248,12 +291,10 @@ class Dataset {
 
  protected:
   internal::container::btree_map<
-      key_type, std::vector<value_type>, key_compare,
+      key_type, std::vector<value_type>, std::less<key_type>,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
       /*TargetNodeSize=*/512>
       items, recyclebin;
-  const key_compare comp = key_compare();
-  const key_subtract sub = key_subtract();
   value_type seed;
 };
 
