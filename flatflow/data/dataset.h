@@ -174,11 +174,19 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
   }
 
-  /// \brief Retrieves a data sample with the same, or at least nearest size to
-  /// the given size from inverted index.
-  /// \param size The size of the data sample to retrieve.
-  /// \return A pair of the index and size of the retrieved data sample.
+  /// \brief Returns a data sample with the nearest size to the given size from
+  /// inverted index. This is equivalent to call `find()`.
+  /// \param size The size of the data sample to search for.
+  /// \return A pair of the index and size of the found data sample.
   inline std::pair<value_type, key_type> operator[](key_type size) {
+    return find(size);
+  }
+
+  /// \brief Finds a data sample with the same, or at least nearest size to the
+  /// given size from inverted index.
+  /// \param size The size of the data sample to search for.
+  /// \return A pair of the index and size of the found data sample.
+  inline std::pair<value_type, key_type> find(key_type size) {
     // The retrieval process of a data sample is described below:
     //
     //   * First, find lower bound for the given size from inverted index.
@@ -290,12 +298,12 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
+  value_type seed;
   internal::container::btree_map<
       key_type, std::vector<value_type>, std::less<key_type>,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
       /*TargetNodeSize=*/512>
       items, recyclebin;
-  value_type seed;
 };
 
 }  // namespace data
