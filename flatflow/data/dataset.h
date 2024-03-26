@@ -50,8 +50,8 @@ namespace data {
 /// are similar to the callback interface provided by Keras and PyTorch
 /// Lightning:
 ///
-///   * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
-///   * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
+/// * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
+/// * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
 ///
 /// \tparam Index The data type of the values in the inverted index.
 /// \tparam Size The data type of the keys in the inverted index.
@@ -61,6 +61,18 @@ class Dataset {
  public:
   using key_type = Size;
   using value_type = Index;
+
+  // Constructors and assignment operators
+  //
+  // A `flatflow::data::Dataset<I, S>` allows only default and two explicit
+  // constructors. The following constructors and assignment operators cannot be
+  // used:
+  //
+  // * Copy constructor
+  // * Copy assignment operator
+  // * Move constructor
+  // * Move assignment operator
+  Dataset() {}
 
   /// \brief Constructor to build an inverted index from the relative sizes for
   /// each data sample delivered from the Python frontend.
@@ -74,16 +86,16 @@ class Dataset {
 
     // The construction of inverted index goes as follows:
     //
-    //   * First, count the number of values for each key to avoid copying of
-    //     underlying array within each vector.
-    //   * Second, initialize and reserve index slots in an inlined vector
-    //     using the count for each key, since B-trees are inherently hard to
-    //     be parallelized; such ahead-of-time construction of index slots
-    //     allows us to parallelize the reservation phase and access an index
-    //     slot in constant time.
-    //   * Third, insert indices into the index slots.
-    //   * Finally, construct an inverted index by inserting the index slots
-    //     into a B-tree.
+    // * First, count the number of values for each key to avoid copying of
+    //   underlying array within each vector.
+    // * Second, initialize and reserve index slots in an inlined vector using
+    //   the count for each key, since B-trees are inherently hard to be
+    //   parallelized; such ahead-of-time construction of index slots allows us
+    //   to parallelize the reservation phase and access an index slot in
+    //   constant time.
+    // * Third, insert indices into the index slots.
+    // * Finally, construct an inverted index by inserting the index slots into
+    //   a B-tree.
     constexpr auto kIndexSlotSpace =
         static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
     auto counts =
@@ -140,15 +152,15 @@ class Dataset {
     // The construction of inverted index for key types over 16-bit works
     // different than for others:
     //
-    //   * First, count the number of values for each key to avoid copying of
-    //     underlying array, but do not store it in an inlined vector due to the
-    //     large range of keys; use a B-tree instead.
-    //   * Second, initialize and reserve index slots, and then insert them
-    //     immediately into a B-tree.
-    //   * Finally, construct an inverted index by storing indices in the index
-    //     slots in the B-tree. This may be slower than storing indices using
-    //     offset, but can be beneficial in that in can save a large amount of
-    //     memory space.
+    // * First, count the number of values for each key to avoid copying of
+    //   underlying array, but do not store it in an inlined vector due to the
+    //   large range of keys; use a B-tree instead.
+    // * Second, initialize and reserve index slots, and then insert them
+    //   immediately into a B-tree.
+    // * Finally, construct an inverted index by storing indices in the index
+    //   slots in the B-tree. This may be slower than storing indices using
+    //   offset, but can be beneficial in that in can save a large amount of
+    //   memory space.
     auto counts = internal::container::btree_map<
         key_type, std::size_t, std::less<key_type>,
         std::allocator<std::pair<const key_type, std::size_t>>,
@@ -174,6 +186,14 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
   }
 
+  Dataset(const Dataset &other) = delete;
+
+  Dataset &operator=(const Dataset &other) = delete;
+
+  Dataset(const Dataset &&other) = delete;
+
+  Dataset &operator=(const Dataset &&other) = delete;
+
   /// \brief Returns a data sample with the nearest size to the given size from
   /// inverted index. This is equivalent to call `find()`.
   /// \param size The size of the data sample to search for.
@@ -189,35 +209,35 @@ class Dataset {
   inline std::pair<value_type, key_type> find(key_type size) {
     // The retrieval process of a data sample is described below:
     //
-    //   * First, find lower bound for the given size from inverted index.
-    //     To find the item with the nearest size, compare the size of the
-    //     found item with its precedence if necessary. Since the actual size
-    //     of the found item may be different from the given size, it returns
-    //     the index of the found item along with its size.
-    //   * Once the item has been found, select and remove an index from its
-    //     index slot. For efficient removal, it always choose the last index
-    //     in the index slot. Even though the choice of index within a given
-    //     index slot is deterministic, the training sequence is guaranteed to
-    //     be randomized since each index slot is shuffled at the beginning of
-    //     each training epoch. If the index has been removed, store the index
-    //     in another inverted index (i.e., the `recyclebin`) for efficient
-    //     restoration of inverted index at the end of training epoch. There
-    //     are four possible cases for this:
+    // * First, find lower bound for the given size from inverted index. To find
+    //   the item with the nearest size, compare the size of the found item with
+    //   its precedence if necessary. Since the actual size of the found item
+    //   may be different from the given size, it returns the index of the found
+    //   item along with its size.
+    // * Once the item has been found, select and remove an index from its index
+    //   slot. For efficient removal, it always choose the last index in the
+    //   index slot. Even though the choice of index within a given index slot
+    //   is deterministic, the training sequence is guaranteed to be randomized
+    //   since each index slot is shuffled at the beginning of each training
+    //   epoch. If the index has been removed, store the index in another
+    //   inverted index (i.e., the `recyclebin`) for efficient restoration of
+    //   inverted index at the end of training epoch. There are four possible
+    //   cases for this:
     //
-    //       * If there is no equivalent size in recyclebin, create a new index
-    //         slot with the index and reserve its capacity as in the
-    //         constructor to avoid copying of the underlying array. Note that
-    //         it is the same to check whether the size and capacity of an
-    //         index slot in items are equal to each other as to search for the
-    //         equivalent size in recyclebin, since any index slots with the
-    //         same size in items and recyclebin are mutually exclusive.
-    //       * A special case occurs when the capacity of the index slot is one,
-    //         where its node handle can be extracted from items and moved to
-    //         recyclebin without allocating a new index slot.
-    //       * If the size already exists in recyclebin, then simply append the
-    //         index to the corresponding index slot.
-    //       * Finally, if the index slot in items becomes empty, delete it
-    //         from items.
+    //   * If there is no equivalent size in recyclebin, create a new index slot
+    //     with the index and reserve its capacity as in the constructor to
+    //     avoid copying of the underlying array. Note that it is the same to
+    //     check whether the size and capacity of an index slot in items are
+    //     equal to each other as to search for the equivalent size in
+    //     recyclebin, since any index slots with the same size in items and
+    //     recyclebin are mutually exclusive.
+    //   * A special case occurs when the capacity of the index slot is one,
+    //     where its node handle can be extracted from items and moved to
+    //     recyclebin without allocating a new index slot.
+    //   * If the size already exists in recyclebin, then simply append the
+    //     index to the corresponding index slot.
+    //   * Finally, if the index slot in items becomes empty, delete it from
+    //     items.
     auto item = items.lower_bound(size);
     if (item != items.begin()) {
       const auto prev = std::prev(item);
@@ -266,14 +286,14 @@ class Dataset {
     // intra-batch shuffling. The details of intra-batch shuffling are as
     // follows:
     //
-    //   * First, access each index slot in the inverted index. This can be
-    //     parallelized since there is no data dependency between any couple of
-    //     index slots.
-    //   * Second, deterministically shuffle each index slot to ensure the
-    //     reproducibility of training. As PyTorch's distributed sampler does,
-    //     set the random seed to the sum of seed and epoch; a pseudorandom
-    //     number generator based on subtract-with-carry is adopted to produce
-    //     high-quality random numbers.
+    // * First, access each index slot in the inverted index. This can be
+    //   parallelized since there is no data dependency between any couple of
+    //   index slots.
+    // * Second, deterministically shuffle each index slot to ensure the
+    //   reproducibility of training. As PyTorch's distributed sampler does, set
+    //   the random seed to the sum of seed and epoch; a pseudorandom number
+    //   generator based on subtract-with-carry is adopted to produce
+    //   high-quality random numbers.
     thread_local auto generator = std::ranlux48();
 
     std::for_each(
