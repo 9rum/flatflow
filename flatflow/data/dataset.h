@@ -72,7 +72,7 @@ class Dataset {
   // * Copy assignment operator
   // * Move constructor
   // * Move assignment operator
-  Dataset() {}
+  inline Dataset() {}
 
   /// \brief Constructor to build an inverted index from the relative sizes for
   /// each data sample delivered from the Python frontend.
