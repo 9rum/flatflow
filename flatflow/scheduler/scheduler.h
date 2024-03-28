@@ -36,11 +36,11 @@ enum class Schedule : uint8_t {
 };
 
 /// \brief A common base class for all scheduler implementations. Each schedule
-/// kind has its own partial template specialization, and here static scheduling
-/// is implemented. Note that static scheduling is effective for models with
-/// linear complexity in the size of each data sample. Traditional convolutional
-/// neural networks (CNNs) and state space models (SSMs) in Mamba family that
-/// implement linear-time sequence modeling can benefit from static scheduling.
+/// kind has its own partial template specialization, and here static scheduler
+/// is implemented. Note that static scheduling is only effective for models
+/// with linear complexity in the size of each data sample: traditional
+/// convolutional neural networks (CNNs) and state space models (SSMs) in Mamba
+/// family that implement linear-time sequence modeling are of this kind.
 /// \tparam Index The data type of the values in data set.
 /// \tparam Size The data type of the keys in data set.
 /// \tparam Kind The schedule kind on how to distribute the given data.
@@ -52,7 +52,7 @@ class Scheduler {
   using key_type = Size;
   using value_type = Index;
 
-  /// \brief Constructor to prepare for scheduling.
+  /// \brief Constructor to prepare for static scheduling.
   /// \param sizes A mapping from an index to the relative size of the
   /// corresponding data sample.
   /// \param world_size Total number of workers participating in the job.
@@ -62,17 +62,17 @@ class Scheduler {
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
       : world_size(world_size), batch_size(batch_size), seed(seed) {
+    // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
+    // branch instructions.
+    last_batch = (sizes->size() - 1) / batch_size;
+
     // The last batch size must be calculated since the total number of data
     // samples may not be a multiple of batch size, while both are multiples of
     // world size.
     //
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
-    // branch instruction.
+    // branch instructions.
     last_batch_size = (sizes->size() - 1) % batch_size + 1;
-
-    // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
-    // any branch instruction.
-    steps = (sizes->size() - 1) / batch_size + 1;
 
     mean = 0.0;
     #pragma omp parallel for reduction(+ : mean)
@@ -80,12 +80,12 @@ class Scheduler {
       mean += static_cast<double>(sizes->Get(index)) / sizes->size();
     }
 
-    dataset = flatflow::data::Dataset(sizes, seed);
+    dataset = std::move(flatflow::data::Dataset(sizes, seed));
   }
 
  protected:
   double mean;
-  value_type world_size, batch_size, last_batch_size, step, steps, seed;
+  value_type world_size, batch_size, last_batch, last_batch_size, step, seed;
   flatflow::data::Dataset<value_type, key_type> dataset;
 };
 
