@@ -37,47 +37,29 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return items.contains(size);
   }
 
-  inline std::size_t size(uint16_t size, bool checkItem = true) const noexcept {
-    if (checkItem) {
-      return items.at(size).size();
-    } else {
-      return recyclebin.at(size).size();
-    }
+  inline std::size_t size(uint16_t size, bool item = true) const noexcept {
+    return item ? items.at(size).size() : recyclebin.at(size).size();
   }
 
-  inline std::size_t capacity(uint16_t size,
-                              bool checkItem = true) const noexcept {
-    if (checkItem) {
-      return items.at(size).capacity();
-    } else {
-      return recyclebin.at(size).capacity();
-    }
+  inline std::size_t capacity(uint16_t size, bool item = true) const noexcept {
+    return item ? items.at(size).capacity() : recyclebin.at(size).capacity();
   }
 
   inline bool is_sorted(uint16_t size) const noexcept {
     return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
   }
 
-  inline bool empty(bool checkItem = true) const noexcept {
-    if (checkItem) {
-      return items.empty();
-    } else {
-      return recyclebin.empty();
-    }
+  inline bool empty(bool item = true) const noexcept {
+    return item ? items.empty() : recyclebin.empty();
   }
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
 
-  inline std::vector<uint64_t> &at(uint16_t size,
-                                   bool checkItem = true) noexcept {
-    if (checkItem) {
-      return items.at(size);
-    } else {
-      return recyclebin.at(size);
-    }
+  inline std::vector<uint64_t> &at(uint16_t size, bool item = true) noexcept {
+    return item ? items.at(size) : recyclebin.at(size);
   }
 
-  inline std::pair<uint64_t, uint16_t> retrieveItem(uint16_t size) {
+  inline std::pair<uint64_t, uint16_t> retrieve(uint16_t size) {
     return find(size);
   }
 };
@@ -204,7 +186,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
 }
 
 TEST(DatasetTest, IndexRetriever) {
-  // Note:
+  // NOTE:
   //
   // Test sample looks like below items.
   // std::unordered_map<int, std::vector<int>> items = {
@@ -236,7 +218,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behavior : Dataset will retrieve a pair of index and size from the
   // dataset.
   uint16_t size = 20;
-  auto result = dataset.retrieveItem(size);
+  auto result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 4);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size), 1);
@@ -246,7 +228,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behaivor : Dataset will retrieve closest size's pair for size
   // which will be 10.
   size = 8;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 2);
   EXPECT_EQ(result.second, 10);
   EXPECT_EQ(dataset.size(10, false), 1);
@@ -256,7 +238,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Test case 3
   // Expected behavior : items will erase size 40 from the dataset.
   size = 40;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 9);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size, false), 1);
@@ -265,7 +247,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Test case 3
   // Expected behavior : Size 20 will be removed from the dataset.
   size = 20;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 3);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size, false), 2);
@@ -275,7 +257,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behavior : Dataset will retrieve closest size's pair for size
   // which will be 30.
   size = 28;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 8);
   EXPECT_EQ(result.second, 30);
   EXPECT_EQ(dataset.size(30, false), 1);
@@ -286,7 +268,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behavior : Dataset will retrieve closest size's pair for size
   // which will be 30.
   size = 31;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 7);
   EXPECT_EQ(result.second, 30);
   EXPECT_EQ(dataset.size(30, false), 2);
@@ -297,7 +279,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behavior : Dataset will retrieve a pair of index and size from the
   // dataset.
   size = 30;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 6);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size, false), 3);
@@ -307,7 +289,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Test case 2 & 3
   // Expected behavior : Size 30 will be removed from the dataset.
   size = 34;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 5);
   EXPECT_EQ(result.second, 30);
   EXPECT_EQ(dataset.size(30, false), 4);
@@ -318,7 +300,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Expected behavior : Dataset will retrieve a pair of index and size from the
   // dataset.
   size = 10;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 1);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size), 1);
@@ -328,7 +310,7 @@ TEST(DatasetTest, IndexRetriever) {
   // Test case 3
   // Expected behavior : Size 10 will be removed from the dataset.
   size = 10;
-  result = dataset.retrieveItem(size);
+  result = dataset.retrieve(size);
   EXPECT_EQ(result.first, 0);
   EXPECT_EQ(result.second, size);
   EXPECT_EQ(dataset.size(size, false), 3);
