@@ -64,14 +64,9 @@ class Dataset {
 
   // Constructors and assignment operators
   //
-  // A `flatflow::data::Dataset<I, S>` allows only default and two explicit
-  // constructors. The following constructors and assignment operators cannot be
-  // used:
-  //
-  // * Copy constructor
-  // * Copy assignment operator
-  // * Move constructor
-  // * Move assignment operator
+  // A `flatflow::data::Dataset<I, S>` does not allow multiple data sets to
+  // exist at the same time. That is, copy constructor and copy assignment
+  // operator cannot be used.
   inline Dataset() {}
 
   /// \brief Constructor to build an inverted index from the relative sizes for
@@ -190,9 +185,9 @@ class Dataset {
 
   Dataset &operator=(const Dataset &other) = delete;
 
-  Dataset(const Dataset &&other) = delete;
+  inline Dataset(Dataset &&other) = default;
 
-  Dataset &operator=(const Dataset &&other) = delete;
+  inline Dataset &operator=(Dataset &&other) = default;
 
   /// \brief Returns a data sample with the nearest size to the given size from
   /// inverted index. This is equivalent to call `find()`.
@@ -294,10 +289,9 @@ class Dataset {
     //   the random seed to the sum of seed and epoch; a pseudorandom number
     //   generator based on subtract-with-carry is adopted to produce
     //   high-quality random numbers.
-    thread_local auto generator = std::ranlux48();
-
     std::for_each(
         std::execution::par, items.begin(), items.end(), [&](auto &item) {
+          auto generator = std::ranlux48();
           generator.seed(static_cast<uint_fast64_t>(seed + epoch));
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
