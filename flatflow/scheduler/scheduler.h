@@ -15,6 +15,9 @@
 #ifndef FLATFLOW_SCHEDULER_SCHEDULER_H_
 #define FLATFLOW_SCHEDULER_SCHEDULER_H_
 
+#include <utility>
+#include <vector>
+
 #include <flatbuffers/vector.h>
 #include <omp.h>
 
@@ -81,6 +84,41 @@ class Scheduler {
     }
 
     dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
+  }
+
+  /// \brief Assigns the next mini-batch to each of the workers.
+  /// It adopts first-fit-decreasing (FFD), an approximately-optimal heuristic
+  /// for bin packing.
+  /// * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
+  /// * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
+  /// \return The next mini-batch.
+  inline std::vector<std::vector<value_type>> schedule() {
+    const auto local_batch_size = step_ == last_batch_
+                                      ? last_batch_size_ / world_size_
+                                      : batch_size_ / world_size_;
+    const auto bin_size =
+        static_cast<key_type>(std::round(mean_ * local_batch_size));
+
+    auto bins = std::vector<key_type>(static_cast<std::size_t>(world_size_), 0);
+    auto batches = std::vector<std::vector<value_type>>();
+    batches.reserve(static_cast<std::size_t>(world_size_));
+
+    // Pack the bins in a first-fit-decreasing fashion.
+    for (; batches.size() < batches.capacity();) {
+      auto batch = std::vector<value_type>();
+      batch.reserve(static_cast<std::size_t>(local_batch_size));
+      for (; batch.size() < batch.capacity();) {
+        const auto [index, size] =
+            dataset_.find(bin_size - bins.at(batches.size()));
+        batch.emplace_back(index);
+        bins.at(batches.size()) += size;
+      }
+      batches.emplace_back(std::move(batch));
+    }
+
+    ++step_;
+
+    return batches;
   }
 
  protected:
