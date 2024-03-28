@@ -61,10 +61,10 @@ class Scheduler {
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
-      : world_size(world_size), batch_size(batch_size), seed(seed) {
+      : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
     // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
     // branch instructions.
-    last_batch = (sizes->size() - 1) / batch_size;
+    last_batch_ = (sizes->size() - 1) / batch_size;
 
     // The last batch size must be calculated since the total number of data
     // samples may not be a multiple of batch size, while both are multiples of
@@ -72,21 +72,22 @@ class Scheduler {
     //
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
     // branch instructions.
-    last_batch_size = (sizes->size() - 1) % batch_size + 1;
+    last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
 
-    mean = 0.0;
-    #pragma omp parallel for reduction(+ : mean)
+    mean_ = 0.0;
+    #pragma omp parallel for reduction(+ : mean_)
     for (value_type index = 0; index < sizes->size(); ++index) {
-      mean += static_cast<double>(sizes->Get(index)) / sizes->size();
+      mean_ += static_cast<double>(sizes->Get(index)) / sizes->size();
     }
 
-    dataset = std::move(flatflow::data::Dataset(sizes, seed));
+    dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
   }
 
  protected:
-  double mean;
-  value_type world_size, batch_size, last_batch, last_batch_size, step, seed;
-  flatflow::data::Dataset<value_type, key_type> dataset;
+  double mean_;
+  value_type world_size_, batch_size_, last_batch_, last_batch_size_, step_,
+      seed_;
+  flatflow::data::Dataset<value_type, key_type> dataset_;
 };
 
 }  // namespace scheduler

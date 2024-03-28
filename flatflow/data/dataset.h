@@ -76,7 +76,7 @@ class Dataset {
   /// \param seed A random seed used for selective shuffling.
   inline explicit Dataset(
       const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
-      : seed(seed) {
+      : seed_(seed) {
     const auto now = omp_get_wtime();
 
     // The construction of inverted index goes as follows:
@@ -126,7 +126,7 @@ class Dataset {
     for (std::size_t size = 0; size < slots.size(); ++size) {
       const auto slot = slots.at(size);
       if (0 < slot.size()) {
-        items.try_emplace(static_cast<key_type>(size), std::move(slot));
+        items_.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
     }
 
@@ -141,7 +141,7 @@ class Dataset {
       const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
     requires(std::numeric_limits<uint16_t>::digits <
              std::numeric_limits<key_type>::digits)
-      : seed(seed) {
+      : seed_(seed) {
     const auto now = omp_get_wtime();
 
     // The construction of inverted index for key types over 16-bit works
@@ -170,12 +170,12 @@ class Dataset {
     for (const auto [size, count] : counts) {
       auto slot = std::vector<value_type>();
       slot.reserve(count);
-      items.try_emplace(size, std::move(slot));
+      items_.try_emplace(size, std::move(slot));
     }
 
     #pragma omp unroll partial
     for (value_type index = 0; index < sizes->size(); ++index) {
-      items.at(sizes->Get(index)).emplace_back(index);
+      items_.at(sizes->Get(index)).emplace_back(index);
     }
 
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
@@ -215,28 +215,28 @@ class Dataset {
     //   is deterministic, the training sequence is guaranteed to be randomized
     //   since each index slot is shuffled at the beginning of each training
     //   epoch. If the index has been removed, store the index in another
-    //   inverted index (i.e., the `recyclebin`) for efficient restoration of
+    //   inverted index (i.e., the `recycle bin`) for efficient restoration of
     //   inverted index at the end of training epoch. There are four possible
     //   cases for this:
     //
-    //   * If there is no equivalent size in recyclebin, create a new index slot
-    //     with the index and reserve its capacity as in the constructor to
+    //   * If there is no equivalent size in recycle bin, create a new index
+    //     slot with the index and reserve its capacity as in the constructor to
     //     avoid copying of the underlying array. Note that it is the same to
     //     check whether the size and capacity of an index slot in items are
-    //     equal to each other as to search for the equivalent size in
-    //     recyclebin, since any index slots with the same size in items and
-    //     recyclebin are mutually exclusive.
+    //     equal to each other as to search for the equivalent size in recycle
+    //     bin, since any index slots with the same size in items and recycle
+    //     bin are mutually exclusive.
     //   * A special case occurs when the capacity of the index slot is one,
     //     where its node handle can be extracted from items and moved to
-    //     recyclebin without allocating a new index slot.
-    //   * If the size already exists in recyclebin, then simply append the
+    //     recycle bin without allocating a new index slot.
+    //   * If the size already exists in recycle bin, then simply append the
     //     index to the corresponding index slot.
     //   * Finally, if the index slot in items becomes empty, delete it from
     //     items.
-    auto item = items.lower_bound(size);
-    if (item != items.begin()) {
+    auto item = items_.lower_bound(size);
+    if (item != items_.begin()) {
       const auto prev = std::prev(item);
-      if (item == items.end() || size - prev->first < item->first - size) {
+      if (item == items_.end() || size - prev->first < item->first - size) {
         item = prev;
       }
     }
@@ -245,19 +245,19 @@ class Dataset {
     const auto index = item->second.back();
 
     if (item->second.capacity() == 1) {
-      recyclebin.insert(std::move(items.extract(item)));
+      recycle_bin_.insert(std::move(items_.extract(item)));
     } else if (item->second.size() == item->second.capacity()) {
       item->second.pop_back();
       auto slot = std::vector<value_type>();
       slot.reserve(item->second.capacity());
       slot.emplace_back(index);
-      recyclebin.try_emplace(found, std::move(slot));
+      recycle_bin_.try_emplace(found, std::move(slot));
     } else {
       item->second.pop_back();
       if (item->second.empty()) {
-        items.erase(item);
+        items_.erase(item);
       }
-      recyclebin.at(found).emplace_back(index);
+      recycle_bin_.at(found).emplace_back(index);
     }
 
     return std::make_pair(index, found);
@@ -290,9 +290,9 @@ class Dataset {
     //   generator based on subtract-with-carry is adopted to produce
     //   high-quality random numbers.
     std::for_each(
-        std::execution::par, items.begin(), items.end(), [&](auto &item) {
+        std::execution::par, items_.begin(), items_.end(), [&](auto &item) {
           auto generator = std::ranlux48();
-          generator.seed(static_cast<uint_fast64_t>(seed + epoch));
+          generator.seed(static_cast<uint_fast64_t>(seed_ + epoch));
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
@@ -302,7 +302,7 @@ class Dataset {
   /// \brief A callback to be called at the end of an epoch.
   /// \param epoch The index of epoch.
   inline void on_epoch_end(value_type epoch) {
-    internal::container::swap(items, recyclebin);
+    internal::container::swap(items_, recycle_bin_);
   }
 
   /// \brief A callback to be called at the beginning of training.
@@ -312,12 +312,12 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
-  value_type seed;
+  value_type seed_;
   internal::container::btree_map<
       key_type, std::vector<value_type>, std::less<key_type>,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
       /*TargetNodeSize=*/512>
-      items, recyclebin;
+      items_, recycle_bin_;
 };
 
 }  // namespace data
