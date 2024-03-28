@@ -37,26 +37,26 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
     return items.contains(size);
   }
 
-  inline std::size_t size(uint16_t size, bool items = true) const noexcept {
-    return items ? items.at(size).size() : recyclebin.at(size).size();
+  inline std::size_t size(uint16_t size, bool item = true) const noexcept {
+    return item ? items.at(size).size() : recyclebin.at(size).size();
   }
 
-  inline std::size_t capacity(uint16_t size, bool items = true) const noexcept {
-    return items ? items.at(size).capacity() : recyclebin.at(size).capacity();
+  inline std::size_t capacity(uint16_t size, bool item = true) const noexcept {
+    return item ? items.at(size).capacity() : recyclebin.at(size).capacity();
   }
 
   inline bool is_sorted(uint16_t size) const noexcept {
     return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
   }
 
-  inline bool empty(bool items = true) const noexcept {
-    return items ? items.empty() : recyclebin.empty();
+  inline bool empty(bool item = true) const noexcept {
+    return item ? items.empty() : recyclebin.empty();
   }
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
 
-  inline std::vector<uint64_t> &at(uint16_t size, bool items = true) noexcept {
-    return items ? items.at(size) : recyclebin.at(size);
+  inline std::vector<uint64_t> &at(uint16_t size, bool item = true) noexcept {
+    return item ? items.at(size) : recyclebin.at(size);
   }
 
   inline std::pair<uint64_t, uint16_t> retrieve(uint16_t size) {
