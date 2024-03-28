@@ -175,7 +175,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   // Since, slots are shuffled.
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
-    if (0 < count) {
+    if (1 < count) {
       const auto &dataset_vector = dataset.at(size);
       const auto &current_vector = slots.at(size);
       EXPECT_FALSE(dataset.is_sorted(size));
