@@ -27,7 +27,10 @@ if(BUILD_TESTING)
     PRIVATE absl::str_format
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX)
+    PRIVATE OpenMP::OpenMP_CXX
+    PRIVATE grpc++
+    PRIVATE ${_PROTOBUF_LIBPROTOBUF}
+    )
   gtest_add_tests(
     TARGET dataset_test)
 endif()
