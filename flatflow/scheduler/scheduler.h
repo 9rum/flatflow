@@ -86,14 +86,13 @@ class Scheduler {
     dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
   }
 
-  /// \brief Assigns the next mini-batch to each of the workers.
-  /// It adopts first-fit-decreasing (FFD), an approximately-optimal heuristic
-  /// for bin packing.
+  /// \brief Assigns the next mini-batch to each of the workers. It adopts
+  /// first-fit-decreasing (FFD), a near-optimal heuristic for bin packing.
   /// * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
   /// * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
   /// \return The next mini-batch.
   inline std::vector<std::vector<value_type>> schedule() {
-    const auto local_batch_size = step_ == last_batch_
+    const auto local_batch_size = step_++ == last_batch_
                                       ? last_batch_size_ / world_size_
                                       : batch_size_ / world_size_;
     const auto bin_size =
@@ -104,6 +103,22 @@ class Scheduler {
     batches.reserve(static_cast<std::size_t>(world_size_));
 
     // Pack the bins in a first-fit-decreasing fashion.
+    //
+    // NOTE:
+    //
+    // Assigning each worker an equal number of data samples with the same sum
+    // of sizes per batch is an online variation of multiway number partitioning
+    // with number constraints, so called balanced multiway number partitioning.
+    // As this problem is NP-hard, there are several approximation algorithms
+    // such as largest differencing method (LDM or Karmarkar–Karp algorithm).
+    // For now, we model this problem as bin packing and use FFD, an
+    // approximately-optimal heuristic for bin packing (its approximation ratio
+    // is 11/9). This can be changed in the future.
+    //
+    // * Partition problem: https://en.wikipedia.org/wiki/Partition_problem
+    // * Balanced number partitioning: https://en.wikipedia.org/wiki/Balanced_number_partitioning
+    // * Largest differencing method: https://en.wikipedia.org/wiki/Largest_differencing_method
+    // * Python implementation for Karmarkar–Karp algorithm: https://github.com/erelsgl/prtpy/blob/3ab0facffebc758c49bb3d06bd94a5f140a99863/prtpy/partitioning/karmarkar_karp.py
     for (; batches.size() < batches.capacity();) {
       auto batch = std::vector<value_type>();
       batch.reserve(static_cast<std::size_t>(local_batch_size));
@@ -116,10 +131,45 @@ class Scheduler {
       batches.emplace_back(std::move(batch));
     }
 
-    ++step_;
-
     return batches;
   }
+
+  /// \brief A callback to be called at the beginning of a training batch.
+  /// \param batch The index of batch within the current epoch.
+  inline void on_batch_begin(value_type batch) const noexcept {
+    dataset_.on_batch_begin(batch);
+  }
+
+  /// \brief A callback to be called at the end of a training batch.
+  /// \param batch The index of batch within the current epoch.
+  inline void on_batch_end(value_type batch) const noexcept {
+    dataset_.on_batch_end(batch);
+  }
+
+  /// \brief A callback to be called at the beginning of an epoch.
+  /// \param epoch The index of epoch.
+  /// \param rank Rank of the worker.
+  inline void on_epoch_begin(value_type epoch, value_type rank) {
+    if (rank == 0) {
+      step_ = 0;
+      dataset_.on_epoch_begin(epoch);
+    }
+  }
+
+  /// \brief A callback to be called at the end of an epoch.
+  /// \param epoch The index of epoch.
+  /// \param rank Rank of the worker.
+  inline void on_epoch_end(value_type epoch, value_type rank) {
+    if (rank == 0) {
+      dataset_.on_epoch_end(epoch);
+    }
+  }
+
+  /// \brief A callback to be called at the beginning of training.
+  inline void on_train_begin() const noexcept { dataset_.on_train_begin(); }
+
+  /// \brief A callback to be called at the end of training.
+  inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
   double mean_;
