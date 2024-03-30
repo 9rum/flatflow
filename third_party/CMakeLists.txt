@@ -18,7 +18,7 @@ set(ABSL_ENABLE_INSTALL ON)
 option(gRPC_BUILD_TESTS OFF)
 set(gRPC_INSTALL ON)
 option(RE2_BUILD_TESTING OFF)
-option(zlib_BUILD_TESTS OFF)
+
 
 add_subdirectory(abseil-cpp)
 add_subdirectory(grpc)
