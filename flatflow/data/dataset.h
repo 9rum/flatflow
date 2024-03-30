@@ -265,11 +265,12 @@ class Dataset {
 
   /// \brief A callback to be called at the beginning of a training batch.
   /// \param batch The index of batch within the current epoch.
-  inline void on_batch_begin(value_type batch) const noexcept {}
+  inline void on_batch_begin([[maybe_unused]] value_type batch) const noexcept {
+  }
 
   /// \brief A callback to be called at the end of a training batch.
   /// \param batch The index of batch within the current epoch.
-  inline void on_batch_end(value_type batch) const noexcept {}
+  inline void on_batch_end([[maybe_unused]] value_type batch) const noexcept {}
 
   /// \brief A callback to be called at the beginning of an epoch.
   /// \param epoch The index of epoch.
@@ -301,7 +302,7 @@ class Dataset {
 
   /// \brief A callback to be called at the end of an epoch.
   /// \param epoch The index of epoch.
-  inline void on_epoch_end(value_type epoch) {
+  inline void on_epoch_end([[maybe_unused]] value_type epoch) {
     internal::container::swap(items_, recycle_bin_);
   }
 
