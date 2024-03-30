@@ -15,6 +15,8 @@
 #ifndef FLATFLOW_DATA_DATASET_H_
 #define FLATFLOW_DATA_DATASET_H_
 
+#include <omp.h>
+
 #include <algorithm>
 #include <execution>
 #include <functional>
@@ -25,11 +27,10 @@
 #include <utility>
 #include <vector>
 
-#include <absl/container/inlined_vector.h>
-#include <absl/log/log.h>
-#include <absl/strings/str_format.h>
-#include <flatbuffers/vector.h>
-#include <omp.h>
+#include "absl/container/inlined_vector.h"
+#include "absl/log/log.h"
+#include "absl/strings/str_format.h"
+#include "flatbuffers/vector.h"
 
 #include "flatflow/data/internal/container/btree_map.h"
 #include "flatflow/data/internal/types.h"

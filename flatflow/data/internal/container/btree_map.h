@@ -51,9 +51,9 @@
 #ifndef FLATFLOW_DATA_INTERNAL_CONTAINER_BTREE_MAP_H_
 #define FLATFLOW_DATA_INTERNAL_CONTAINER_BTREE_MAP_H_
 
-#include <absl/base/attributes.h>
-#include <absl/container/internal/btree.h>            // IWYU pragma: export
-#include <absl/container/internal/btree_container.h>  // IWYU pragma: export
+#include "absl/base/attributes.h"
+#include "absl/container/internal/btree.h"            // IWYU pragma: export
+#include "absl/container/internal/btree_container.h"  // IWYU pragma: export
 
 namespace flatflow {
 namespace data {

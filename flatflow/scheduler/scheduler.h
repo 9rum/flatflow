@@ -15,14 +15,15 @@
 #ifndef FLATFLOW_SCHEDULER_SCHEDULER_H_
 #define FLATFLOW_SCHEDULER_SCHEDULER_H_
 
+#include <omp.h>
+
 #include <algorithm>
 #include <execution>
 #include <random>
 #include <utility>
 #include <vector>
 
-#include <flatbuffers/vector.h>
-#include <omp.h>
+#include "flatbuffers/vector.h"
 
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/internal/types.h"

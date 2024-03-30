@@ -19,9 +19,9 @@
 #include <map>
 #include <vector>
 
-#include <absl/container/inlined_vector.h>
-#include <flatbuffers/flatbuffers.h>
-#include <gtest/gtest.h>
+#include "absl/container/inlined_vector.h"
+#include "flatbuffers/flatbuffers.h"
+#include "gtest/gtest.h"
 
 #include "flatflow/data/dataset_test.h"
 
