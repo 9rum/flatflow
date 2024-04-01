@@ -19,9 +19,9 @@
 #include <map>
 #include <vector>
 
-#include <absl/container/inlined_vector.h>
-#include <flatbuffers/flatbuffers.h>
-#include <gtest/gtest.h>
+#include "absl/container/inlined_vector.h"
+#include "flatbuffers/flatbuffers.h"
+#include "gtest/gtest.h"
 
 #include "flatflow/data/dataset_test.h"
 
@@ -34,29 +34,30 @@ class DatasetTest final : private flatflow::data::Dataset<uint64_t, uint16_t> {
       : flatflow::data::Dataset<uint64_t, uint16_t>(sizes, seed) {}
 
   inline bool contains(uint16_t size) const noexcept {
-    return items.contains(size);
+    return items_.contains(size);
   }
 
-  inline std::size_t size(uint16_t size, bool item = true) const noexcept {
-    return item ? items.at(size).size() : recyclebin.at(size).size();
+  inline std::size_t size(uint16_t size, bool items = true) const noexcept {
+    return items ? items_.at(size).size() : recycle_bin_.at(size).size();
   }
 
-  inline std::size_t capacity(uint16_t size, bool item = true) const noexcept {
-    return item ? items.at(size).capacity() : recyclebin.at(size).capacity();
+  inline std::size_t capacity(uint16_t size, bool items = true) const noexcept {
+    return items ? items_.at(size).capacity()
+                 : recycle_bin_.at(size).capacity();
   }
 
   inline bool is_sorted(uint16_t size) const noexcept {
-    return std::is_sorted(items.at(size).cbegin(), items.at(size).cend());
+    return std::is_sorted(items_.at(size).cbegin(), items_.at(size).cend());
   }
 
-  inline bool empty(bool item = true) const noexcept {
-    return item ? items.empty() : recyclebin.empty();
+  inline bool empty(bool items = true) const noexcept {
+    return items ? items_.empty() : recycle_bin_.empty();
   }
 
   inline void shuffle(uint64_t epoch) { on_epoch_begin(epoch); }
 
-  inline std::vector<uint64_t> &at(uint16_t size, bool item = true) noexcept {
-    return item ? items.at(size) : recyclebin.at(size);
+  inline std::vector<uint64_t> &at(uint16_t size, bool items = true) noexcept {
+    return items ? items_.at(size) : recycle_bin_.at(size);
   }
 
   inline std::pair<uint64_t, uint16_t> retrieve(uint16_t size) {
@@ -175,7 +176,7 @@ TEST(DatasetTest, IntraBatchShuffling) {
   // Since, slots are shuffled.
   for (std::size_t size = 0; size < counts.size(); ++size) {
     const auto count = counts.at(size);
-    if (0 < count) {
+    if (1 < count) {
       const auto &dataset_vector = dataset.at(size);
       const auto &current_vector = slots.at(size);
       EXPECT_FALSE(dataset.is_sorted(size));
@@ -202,8 +203,8 @@ TEST(DatasetTest, IndexRetriever) {
   // Test case 3 : When only one index of the size is left.
   //
   // After retrieving all indexes from the items, check if the dataset is empty
-  // and the size of the recyclebin is correct. At the end, check if the
-  // recyclebin vectors are all in reverted order.
+  // and the size of the recycle bin is correct. At the end, check if the
+  // recycle bin vectors are all in reverted order.
 
   std::vector<uint16_t> sizes = {10, 10, 10, 20, 20, 30, 30, 30, 30, 40};
   auto builder = flatbuffers::FlatBufferBuilder64();
@@ -319,19 +320,19 @@ TEST(DatasetTest, IndexRetriever) {
   // Check if items is empty.
   EXPECT_TRUE(dataset.empty(true));
 
-  // check size of recyclebin.
+  // Check size of recycle bin.
   EXPECT_EQ(dataset.size(10, false), 3);
   EXPECT_EQ(dataset.size(20, false), 2);
   EXPECT_EQ(dataset.size(30, false), 4);
   EXPECT_EQ(dataset.size(40, false), 1);
 
-  // Check Capacity of recyclebin.
+  // Check Capacity of recycle bin.
   EXPECT_EQ(dataset.capacity(10, false), 3);
   EXPECT_EQ(dataset.capacity(20, false), 2);
   EXPECT_EQ(dataset.capacity(30, false), 4);
   EXPECT_EQ(dataset.capacity(40, false), 1);
 
-  // check if recyclebin vectors are all reverted.
+  // Check if recycle bin vectors are all reverted.
   std::reverse(dataset.at(10, false).begin(), dataset.at(10, false).end());
   EXPECT_TRUE(std::is_sorted(dataset.at(10, false).begin(),
                              dataset.at(10, false).end()));
