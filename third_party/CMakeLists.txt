@@ -16,21 +16,10 @@ set(ABSL_PROPAGATE_CXX_STD ON)
 set(HAVE_OFF64_T OFF)
 set(ABSL_ENABLE_INSTALL ON)
 option(gRPC_BUILD_TESTS OFF)
-set(gRPC_INSTALL ON)
 option(RE2_BUILD_TESTING OFF)
 
-
 add_subdirectory(abseil-cpp)
-add_subdirectory(grpc)
-
-set(_PROTOBUF_PROTOC $<TARGET_FILE:protobuf::protoc>)
-set(_REFLECTION grpc++_reflection)
-set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:grpc_cpp_plugin>)
-set(_GRPC_GRPCPP grpc++)
-set(_PROTOBUF_LIBPROTOBUF libprotobuf)
-
-include_directories(${gRPC_DIR}/include)
-set(gRPC_DIR "./third_party/grpc/cmake/build")
+add_subdirectory(grpc EXCLUDE_FROM_ALL)
 
 set(FLATBUFFERS_BUILD_TESTS OFF)
 add_subdirectory(flatbuffers)
