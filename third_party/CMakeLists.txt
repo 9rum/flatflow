@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set(ABSL_ENABLE_INSTALL ON)
 set(ABSL_PROPAGATE_CXX_STD ON)
 add_subdirectory(abseil-cpp)
 
@@ -19,10 +20,9 @@ set(FLATBUFFERS_BUILD_TESTS OFF)
 add_subdirectory(flatbuffers)
 
 set(HAVE_OFF64_T OFF)
-set(ABSL_ENABLE_INSTALL ON)
-set(gRPC_BUILD_TESTS OFF)
-set(RE2_BUILD_TESTING OFF)
-add_subdirectory(grpc EXCLUDE_FROM_ALL)
+option(gRPC_BUILD_TESTS OFF)
+option(RE2_BUILD_TESTING OFF)
+add_subdirectory(grpc)
 
 if(BUILD_TESTING)
   include(GoogleTest)
