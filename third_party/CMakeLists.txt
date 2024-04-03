@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(ABSL_ENABLE_INSTALL ON)
 set(ABSL_PROPAGATE_CXX_STD ON)
 add_subdirectory(abseil-cpp)
 
 set(FLATBUFFERS_BUILD_TESTS OFF)
 add_subdirectory(flatbuffers)
 
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 set(HAVE_OFF64_T OFF)
-option(gRPC_BUILD_TESTS OFF)
-option(RE2_BUILD_TESTING OFF)
+set(gRPC_BUILD_TESTS OFF)
+set(RE2_BUILD_TESTING OFF)
+set(protobuf_INSTALL OFF)
+set(utf8_range_ENABLE_INSTALL OFF)
 add_subdirectory(grpc)
 
 if(BUILD_TESTING)
