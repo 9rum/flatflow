@@ -25,25 +25,6 @@
 
 namespace {
     class SchedulerTest final : private flatflow::Scheduler {
-      public:
-        SchedulerTest() = default;
-        ~SchedulerTest() = default;
-
-        void Test() {
-            std::srand(std::time(nullptr));
-            std::map<int, int> task_map;
-            for (int i = 0; i < 100; i++) {
-                task_map[i] = std::rand() % 100;
-            }
-            std::vector<int> task_list;
-            for (const auto& task : task_map) {
-                task_list.push_back(task.first);
-            }
-            std::vector<int> result = Schedule(task_list);
-            for (int i = 0; i < 100; i++) {
-                EXPECT_EQ(task_map[result[i]], task_map[result[i]]);
-            }
-        }
     };
     TEST(SchedulerTest, StaticSheduler){
 
