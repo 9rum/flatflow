@@ -20,6 +20,8 @@ add_subdirectory(flatbuffers)
 
 if(BUILD_TESTING)
   include(GoogleTest)
+  set(BUILD_GMOCK OFF)
+  set(INSTALL_GTEST OFF)
   add_subdirectory(googletest)
 endif()
 
