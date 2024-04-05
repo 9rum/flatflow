@@ -51,7 +51,7 @@ enum class Schedule : uint8_t {
 /// \tparam Index The data type of the values in data set.
 /// \tparam Size The data type of the keys in data set.
 /// \tparam Kind The schedule kind on how to distribute the given data.
-template <typename Index, typename Size, Schedule Kind = Schedule::kStatic>
+template <typename Index, typename Size, Schedule Kind>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size>)
 class Scheduler {
@@ -69,6 +69,11 @@ class Scheduler {
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
       : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
+    // Both the total number of data samples and batch size must be a multiple
+    // of world size.
+    assert(sizes->size() % world_size == 0);
+    assert(batch_size % world_size == 0);
+
     // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
     // branch instructions.
     last_batch_ = (sizes->size() - 1) / batch_size;

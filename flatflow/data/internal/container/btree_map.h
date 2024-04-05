@@ -17,8 +17,8 @@
 // This header file defines B-tree maps: sorted associative containers mapping
 // keys to values.
 //
-//   * `btree_map<>`
-//   * `btree_multimap<>`
+// * `btree_map<>`
+// * `btree_multimap<>`
 //
 // These B-tree types are similar to the corresponding types in the STL
 // (`std::map` and `std::multimap`) and generally conform to the STL interfaces
@@ -307,14 +307,14 @@ class btree_map
   //
   // Overloads are listed below.
   //
-  //   std::pair<iterator, bool> try_emplace(const key_type &k, Args&&... args):
-  //   std::pair<iterator, bool> try_emplace(key_type &&k, Args&&... args):
+  //   std::pair<iterator, bool> try_emplace(const key_type &k, Args &&...args):
+  //   std::pair<iterator, bool> try_emplace(key_type &&k, Args &&...args):
   //
   // Inserts (via copy or move) the element of the specified key into the
   // `btree_map`.
   //
-  //   iterator try_emplace(const_iterator hint, const key_type &k, Args&&... args):
-  //   iterator try_emplace(const_iterator hint, key_type &&k, Args&&... args):
+  //   iterator try_emplace(const_iterator hint, const key_type &k, Args &&...args):
+  //   iterator try_emplace(const_iterator hint, key_type &&k, Args &&...args):
   //
   // Inserts (via copy or move) the element of the specified key into the
   // `btree_map` using the position of `hint` as a non-binding suggestion
