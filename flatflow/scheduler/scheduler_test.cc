@@ -20,8 +20,8 @@
 #include <vector>
 
 #include "absl/log/log.h"
-#include <absl/strings/str_join.h> // Add
-#include <absl/strings/str_format.h> // Add
+#include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
@@ -32,30 +32,16 @@ class SchedulerTest final
     : private flatflow::scheduler::Scheduler<uint64_t, uint16_t> {
  public:
   inline SchedulerTest(const flatbuffers::Vector64<uint16_t> *sizes,
-                                uint64_t world_size, uint64_t batch_size, uint64_t seed)
-      : flatflow::scheduler::Scheduler<uint64_t, uint16_t>(
-            sizes, world_size, batch_size, seed) {}
-  inline auto on_schedule(uint64_t interval){
-    return schedule(interval);
-  }
-  inline void batch_begin(uint64_t batch){
-    on_batch_begin(batch);
-  }
-  inline void batch_end(uint64_t batch){
-    on_batch_end(batch);
-  }
-  inline void epoch_end(uint64_t epoch){
-    on_epoch_end(epoch,0);
-  }
-  inline void epoch_begin(uint64_t epoch){
-    on_epoch_begin(epoch,0);
-  }
-  inline void train_begin(){
-    on_train_begin();
-  }
-  inline void train_end(){
-    on_train_end();
-  }
+                       uint64_t world_size, uint64_t batch_size, uint64_t seed)
+      : flatflow::scheduler::Scheduler<uint64_t, uint16_t>(sizes, world_size,
+                                                           batch_size, seed) {}
+  inline auto on_schedule(uint64_t interval) { return schedule(interval); }
+  inline void batch_begin(uint64_t batch) { on_batch_begin(batch); }
+  inline void batch_end(uint64_t batch) { on_batch_end(batch); }
+  inline void epoch_end(uint64_t epoch) { on_epoch_end(epoch, 0); }
+  inline void epoch_begin(uint64_t epoch) { on_epoch_begin(epoch, 0); }
+  inline void train_begin() { on_train_begin(); }
+  inline void train_end() { on_train_end(); }
 };
 
 TEST(SchedulerTest, StaticScheduler) {
@@ -80,7 +66,6 @@ TEST(SchedulerTest, StaticScheduler) {
     }
   }
   sizes.shrink_to_fit();
-  LOG(INFO) << "sizes111: " << sizes.size() << " items\n";
   // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
   // vector directly; use generated code from the FlatBuffers schema.
   auto builder = flatbuffers::FlatBufferBuilder64();
@@ -92,19 +77,17 @@ TEST(SchedulerTest, StaticScheduler) {
   auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
   scheduler.train_begin();
   for (auto epoch = 0; epoch < 10; ++epoch) {
-
     for (auto step = 0; step < datasetsize / batch_size; ++step) {
       scheduler.epoch_begin(epoch);
-      const auto& indices = scheduler.on_schedule(step);
+      const auto &indices = scheduler.on_schedule(step);
 
       std::vector<uint64_t> sums;
-      for (auto& indice : indices) {
-          // LOG(INFO) << "indices " << indice.size() << ": ";
-          auto value = 0;
-          for (const auto index : indice) {
-              value += sizes_->sizes()->Get(index);
-          }
-          sums.push_back(value);
+      for (auto &indice : indices) {
+        auto value = 0;
+        for (const auto index : indice) {
+          value += sizes_->sizes()->Get(index);
+        }
+        sums.push_back(value);
       }
 
       std::string vector_str = absl::StrJoin(sums, ", ");
@@ -137,7 +120,6 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
     }
   }
   sizes.shrink_to_fit();
-  LOG(INFO) << "sizes: " << sizes.size() << " items\n";
   // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
   // vector directly; use generated code from the FlatBuffers schema.
   auto builder = flatbuffers::FlatBufferBuilder64();
@@ -149,19 +131,17 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
   scheduler.train_begin();
   for (auto epoch = 0; epoch < 10; ++epoch) {
-
     for (auto step = 0; step < datasetsize / batch_size + 1; ++step) {
       scheduler.epoch_begin(epoch);
-      const auto& indices = scheduler.on_schedule(step);
+      const auto &indices = scheduler.on_schedule(step);
 
       std::vector<uint64_t> sums;
-      for (auto& indice : indices) {
-          // LOG(INFO) << "indices " << indice.size() << ": ";
-          auto value = 0;
-          for (const auto index : indice) {
-              value += sizes_->sizes()->Get(index);
-          }
-          sums.push_back(value);
+      for (auto &indice : indices) {
+        auto value = 0;
+        for (const auto index : indice) {
+          value += sizes_->sizes()->Get(index);
+        }
+        sums.push_back(value);
       }
 
       std::string vector_str = absl::StrJoin(sums, ", ");
