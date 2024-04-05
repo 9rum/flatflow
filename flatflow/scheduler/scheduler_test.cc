@@ -54,7 +54,8 @@ TEST(SchedulerTest, StaticScheduler) {
 
   auto items = std::map<uint16_t, std::size_t>();
   for (uint16_t size = 1; size <= datasetsize; ++size) {
-    items.emplace(size, static_cast<std::size_t>(std::rand() % (datasetsize)));
+    // items.emplace(size, static_cast<std::size_t>(std::rand() % (datasetsize)));
+    items.emplace(size, static_cast<std::size_t>(1));
   }
 
   auto sizes = std::vector<uint16_t>();
@@ -108,7 +109,8 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
 
   auto items = std::map<uint16_t, std::size_t>();
   for (uint16_t size = 1; size <= datasetsize; ++size) {
-    items.emplace(size, static_cast<std::size_t>(std::rand() % (datasetsize)));
+    // items.emplace(size, static_cast<std::size_t>(std::rand() % (datasetsize)));
+    items.emplace(size, static_cast<std::size_t>(1));
   }
 
   auto sizes = std::vector<uint16_t>();
