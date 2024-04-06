@@ -38,24 +38,22 @@
 namespace flatflow {
 namespace data {
 
-/// \brief A `flatflow::data::Dataset<I, S>` stores metadata about the index
-/// and size of data samples in a given data set. For fast execution of
-/// scheduling, a `flatflow::data::Dataset<I, S>` constructs an inverted index
-/// in a form of `btree_map<S, std::vector<I>>` and stores the scheduled
-/// data samples in another inverted index; the two inverted indices are
-/// swapped at the end of each training epoch so that the data samples are
-/// restored without any data movement overhead.
-///
-/// A `flatflow::data::Dataset<I, S>` exposes several callbacks which are
-/// invoked at the beginning and end of each batch, epoch and training; these
-/// are similar to the callback interface provided by Keras and PyTorch
-/// Lightning:
-///
-/// * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
-/// * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
-///
-/// \tparam Index The data type of the values in the inverted index.
-/// \tparam Size The data type of the keys in the inverted index.
+// flatflow::data::Dataset<>
+//
+// A `flatflow::data::Dataset<I, S>` stores metadata about the index and size of
+// data samples in a given data set. For fast execution of scheduling, a
+// `flatflow::data::Dataset<I, S>` constructs an inverted index in a form of
+// `btree_map<S, std::vector<I>>` and stores the scheduled data samples in
+// another inverted index; the two inverted indices are swapped at the end of
+// each training epoch so that the data samples are restored without any data
+// movement overhead.
+//
+// This exposes several callbacks which are invoked at the beginning and end of
+// each batch, epoch, and training; these are similar to the callback interface
+// provided by Keras and PyTorch Lightning:
+//
+// * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
+// * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
 template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
@@ -70,11 +68,8 @@ class Dataset {
   // operator cannot be used.
   inline Dataset() {}
 
-  /// \brief Constructor to build an inverted index from the relative sizes for
-  /// each data sample delivered from the Python frontend.
-  /// \param sizes A mapping from an index to the relative size of the
-  /// corresponding data sample.
-  /// \param seed A random seed used for selective shuffling.
+  // Constructor to build an inverted index from the relative sizes for each
+  // data sample delivered from the Python frontend.
   inline explicit Dataset(
       const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
       : seed_(seed) {
@@ -134,10 +129,7 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
   }
 
-  /// \brief A template specialization of constructor for key types over 16-bit.
-  /// \param sizes A mapping from an index to the relative size of the
-  /// corresponding data sample.
-  /// \param seed A random seed used for selective shuffling.
+  // A template specialization of constructor for key types over 16-bit.
   inline explicit Dataset(
       const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
     requires(std::numeric_limits<uint16_t>::digits <
@@ -190,18 +182,18 @@ class Dataset {
 
   inline Dataset &operator=(Dataset &&other) = default;
 
-  /// \brief Returns a data sample with the nearest size to the given size from
-  /// inverted index. This is equivalent to call `find()`.
-  /// \param size The size of the data sample to search for.
-  /// \return A pair of the index and size of the found data sample.
+  // Dataset::operator[]()
+  //
+  // Returns a data sample with the nearest size to the given size from inverted
+  // index. This is equivalent to call `find()`.
   inline std::pair<value_type, key_type> operator[](key_type size) {
     return find(size);
   }
 
-  /// \brief Finds a data sample with the same, or at least nearest size to the
-  /// given size from inverted index.
-  /// \param size The size of the data sample to search for.
-  /// \return A pair of the index and size of the found data sample.
+  // Dataset::find()
+  //
+  // Finds a data sample with the same, or at least nearest size to the given
+  // size from inverted index.
   inline std::pair<value_type, key_type> find(key_type size) {
     // The retrieval process of a data sample is described below:
     //
@@ -264,17 +256,20 @@ class Dataset {
     return std::make_pair(index, found);
   }
 
-  /// \brief A callback to be called at the beginning of a training batch.
-  /// \param batch The index of batch within the current epoch.
+  // Dataset::on_batch_begin()
+  //
+  // A callback to be called at the beginning of a training batch.
   inline void on_batch_begin([[maybe_unused]] value_type batch) const noexcept {
   }
 
-  /// \brief A callback to be called at the end of a training batch.
-  /// \param batch The index of batch within the current epoch.
+  // Dataset::on_batch_end()
+  //
+  // A callback to be called at the end of a training batch.
   inline void on_batch_end([[maybe_unused]] value_type batch) const noexcept {}
 
-  /// \brief A callback to be called at the beginning of an epoch.
-  /// \param epoch The index of epoch.
+  // Dataset::on_epoch_begin()
+  //
+  // A callback to be called at the beginning of an epoch.
   inline void on_epoch_begin(value_type epoch) {
     const auto now = omp_get_wtime();
 
@@ -301,16 +296,21 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
   }
 
-  /// \brief A callback to be called at the end of an epoch.
-  /// \param epoch The index of epoch.
+  // Dataset::on_epoch_end()
+  //
+  // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] value_type epoch) {
     internal::container::swap(items_, recycle_bin_);
   }
 
-  /// \brief A callback to be called at the beginning of training.
+  // Dataset::on_train_begin()
+  //
+  // A callback to be called at the beginning of training.
   inline void on_train_begin() const noexcept {}
 
-  /// \brief A callback to be called at the end of training.
+  // Dataset::on_train_end()
+  //
+  // A callback to be called at the end of training.
   inline void on_train_end() const noexcept {}
 
  protected:

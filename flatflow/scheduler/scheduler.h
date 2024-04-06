@@ -31,26 +31,27 @@
 namespace flatflow {
 namespace scheduler {
 
-/// \brief A `flatflow::scheduler::Schedule` is a scheduling policy on how to
-/// distribute the given data. In addition to static scheduling that reduces
-/// workload imbalance, it supports dynamic scheduling that adaptively adjusts
-/// the workload on each worker. Guided scheduling, on the other hand, provides
-/// profile-guided optimization for Transformer-based models.
+// flatflow::scheduler::Schedule
+//
+// A `flatflow::scheduler::Schedule` is a scheduling policy on how to distribute
+// the given data. In addition to static scheduling that reduces workload
+// imbalance, it supports dynamic scheduling that adaptively adjusts the
+// workload on each worker. Guided scheduling, on the other hand, provides
+// profile-guided optimization for Transformer-based models.
 enum class Schedule : uint8_t {
   kStatic,
   kDynamic,
   kGuided,
 };
 
-/// \brief A common base class for all scheduler implementations. Each schedule
-/// kind has its own partial template specialization, and here static scheduler
-/// is implemented. Note that static scheduling is only effective for models
-/// with linear complexity in the size of each data sample: traditional
-/// convolutional neural networks (CNNs) and state space models (SSMs) in Mamba
-/// family that implement linear-time sequence modeling are of this kind.
-/// \tparam Index The data type of the values in data set.
-/// \tparam Size The data type of the keys in data set.
-/// \tparam Kind The schedule kind on how to distribute the given data.
+// flatflow::scheduler::Scheduler<>
+//
+// A common base class for all scheduler implementations. Each schedule kind has
+// its own partial template specialization, and here, a static scheduler is
+// implemented. Note that static scheduling is only effective for models with
+// linear complexity in the size of each data sample: traditional convolutional
+// neural networks (CNNs) and state space models (SSMs) in the Mamba family that
+// implement linear-time sequence modeling are of this kind.
 template <typename Index, typename Size, Schedule Kind>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size>)
@@ -59,12 +60,7 @@ class Scheduler {
   using key_type = Size;
   using value_type = Index;
 
-  /// \brief Constructor to prepare for static scheduling.
-  /// \param sizes A mapping from an index to the relative size of the
-  /// corresponding data sample.
-  /// \param world_size Total number of workers participating in the job.
-  /// \param batch_size How many samples to train per batch.
-  /// \param seed A random seed used for selective shuffling.
+  // Constructor to prepare for static scheduling.
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
@@ -95,11 +91,11 @@ class Scheduler {
     dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
   }
 
-  /// \brief Schedules and shuffles batches for the next training epoch to each
-  /// of the workers.
-  /// \param interval The scheduling interval, which is ignored in this schedule
-  /// kind as static scheduling occurs at the granularity of epoch.
-  /// \return Schedule for the next training epoch.
+  // Scheduler::schedule()
+  //
+  // Schedules and shuffles batches for the next training epoch to each of the
+  // workers. This schedule kind discards the scheduling interval, as static
+  // scheduling occurs at the granularity of epoch.
   inline auto schedule([[maybe_unused]] value_type interval)
       -> std::vector<std::vector<value_type>> {
     const auto now = omp_get_wtime();
@@ -127,21 +123,23 @@ class Scheduler {
     return indices;
   }
 
-  /// \brief A callback to be called at the beginning of a training batch.
-  /// \param batch The index of batch within the current epoch.
+  // Scheduler::on_batch_begin()
+  //
+  // A callback to be called at the beginning of a training batch.
   inline void on_batch_begin(value_type batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
-  /// \brief A callback to be called at the end of a training batch.
-  /// \param batch The index of batch within the current epoch.
+  // Scheduler::on_batch_end()
+  //
+  // A callback to be called at the end of a training batch.
   inline void on_batch_end(value_type batch) const noexcept {
     dataset_.on_batch_end(batch);
   }
 
-  /// \brief A callback to be called at the beginning of an epoch.
-  /// \param epoch The index of epoch.
-  /// \param rank Rank of the worker.
+  // Scheduler::on_epoch_begin()
+  //
+  // A callback to be called at the beginning of an epoch.
   inline void on_epoch_begin(value_type epoch, value_type rank) {
     if (rank == 0) {
       step_ = 0;
@@ -150,27 +148,32 @@ class Scheduler {
     }
   }
 
-  /// \brief A callback to be called at the end of an epoch.
-  /// \param epoch The index of epoch.
-  /// \param rank Rank of the worker.
+  // Scheduler::on_epoch_end()
+  //
+  // A callback to be called at the end of an epoch.
   inline void on_epoch_end(value_type epoch, value_type rank) {
     if (rank == 0) {
       dataset_.on_epoch_end(epoch);
     }
   }
 
-  /// \brief A callback to be called at the beginning of training.
+  // Scheduler::on_train_begin()
+  //
+  // A callback to be called at the beginning of training.
   inline void on_train_begin() const noexcept { dataset_.on_train_begin(); }
 
-  /// \brief A callback to be called at the end of training.
+  // Scheduler::on_train_end()
+  //
+  // A callback to be called at the end of training.
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  /// \brief Assigns the next batch to each of the workers. It adopts
-  /// first-fit-decreasing (FFD), a near-optimal heuristic for bin packing.
-  /// * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
-  /// * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
-  /// \return The next batch.
+  // Scheduler::schedule()
+  //
+  // Assigns the next batch to each of the workers. It adopts
+  // first-fit-decreasing (FFD), a near-optimal heuristic for bin packing.
+  // * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
+  // * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
   inline std::vector<std::vector<value_type>> schedule() {
     const auto local_batch_size = step_++ == last_batch_
                                       ? last_batch_size_ / world_size_
@@ -214,10 +217,10 @@ class Scheduler {
     return batches;
   }
 
-  /// \brief Converts the given three-dimensional tensor to a corresponding
-  /// two-dimensional tensor, or a matrix.
-  /// \param tensor A three-dimensional tensor to convert.
-  /// \return The corresponding matrix.
+  // Scheduler::reshape()
+  //
+  // Converts the given three-dimensional tensor to a corresponding
+  // two-dimensional tensor or a matrix.
   inline std::vector<std::vector<value_type>> reshape(
       const std::vector<std::vector<std::vector<value_type>>> &tensor) const {
     auto matrix = std::vector<std::vector<value_type>>();
