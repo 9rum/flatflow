@@ -66,7 +66,7 @@ class Dataset {
   // A `flatflow::data::Dataset<I, S>` does not allow multiple data sets to
   // exist at the same time. That is, copy constructor and copy assignment
   // operator cannot be used.
-  inline Dataset() {}
+  inline explicit Dataset() {}
 
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
@@ -178,7 +178,7 @@ class Dataset {
 
   Dataset &operator=(const Dataset &other) = delete;
 
-  inline Dataset(Dataset &&other) = default;
+  inline explicit Dataset(Dataset &&other) = default;
 
   inline Dataset &operator=(Dataset &&other) = default;
 
