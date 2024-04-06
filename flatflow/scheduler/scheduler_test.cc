@@ -102,7 +102,7 @@ TEST(SchedulerTest, StaticScheduler) {
 TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-  auto datasetsize = 1 << 10 + 1 << 3;
+  auto datasetsize = (1 << 10) + (1 << 3);
   const auto world_size = 1 << 2;
   auto batch_size = 1 << 5;
   auto seed = 0UL;
@@ -133,7 +133,7 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
   scheduler.train_begin();
   for (auto epoch = 0; epoch < 10; ++epoch) {
-    for (auto step = 0; step < datasetsize / batch_size + 1; ++step) {
+    for (auto step = 0; step < (datasetsize / batch_size) + 1; ++step) {
       scheduler.epoch_begin(epoch);
       const auto &indices = scheduler.on_schedule(step);
 
