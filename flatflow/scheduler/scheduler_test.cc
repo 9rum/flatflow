@@ -48,10 +48,10 @@ class SchedulerTest final
 TEST(SchedulerTest, StaticScheduler) {
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-  auto dataset_size = 1 << 10;
+  const auto dataset_size = 1 << 10;
   const auto world_size = 1 << 2;
-  auto batch_size = 1 << 5;
-  auto seed = 0UL;
+  const auto batch_size = 1 << 5;
+  const auto seed = 0UL;
 
   auto items = std::map<uint16_t, std::size_t>();
   for (uint16_t size = 1; size <= dataset_size; ++size) {
