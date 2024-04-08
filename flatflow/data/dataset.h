@@ -78,7 +78,7 @@ class Dataset {
     // The construction of inverted index goes as follows:
     //
     // * First, count the number of values for each key to avoid copying of
-    //   underlying array within each vector.
+    //   underlying array within each index slot.
     // * Second, initialize and reserve index slots in an inlined vector using
     //   the count for each key, since B-trees are inherently hard to be
     //   parallelized; such ahead-of-time construction of index slots allows us
@@ -124,51 +124,6 @@ class Dataset {
       if (0 < slot.size()) {
         items_.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
-    }
-
-    LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
-  }
-
-  // A template specialization of constructor for key types over 16-bit.
-  inline explicit Dataset(
-      const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
-    requires(std::numeric_limits<uint16_t>::digits <
-             std::numeric_limits<key_type>::digits)
-      : seed_(seed) {
-    const auto now = omp_get_wtime();
-
-    // The construction of inverted index for key types over 16-bit works
-    // different than for others:
-    //
-    // * First, count the number of values for each key to avoid copying of
-    //   underlying array, but do not store it in an inlined vector due to the
-    //   large range of keys; use a B-tree instead.
-    // * Second, initialize and reserve index slots, and then insert them
-    //   immediately into a B-tree.
-    // * Finally, construct an inverted index by storing indices in the index
-    //   slots in the B-tree. This may be slower than storing indices using
-    //   offset, but can be beneficial in that in can save a large amount of
-    //   memory space.
-    auto counts = internal::container::btree_map<
-        key_type, std::size_t, std::less<key_type>,
-        std::allocator<std::pair<const key_type, std::size_t>>,
-        /*TargetNodeSize=*/512>();
-
-    #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
-      const auto count = counts.try_emplace(sizes->Get(index), 0);
-      ++count.first->second;
-    }
-
-    for (const auto [size, count] : counts) {
-      auto slot = std::vector<value_type>();
-      slot.reserve(count);
-      items_.try_emplace(size, std::move(slot));
-    }
-
-    #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
-      items_.at(sizes->Get(index)).emplace_back(index);
     }
 
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
