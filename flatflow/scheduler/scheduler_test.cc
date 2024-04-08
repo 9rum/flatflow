@@ -28,6 +28,7 @@
 #include "flatflow/data/dataset_test.h"
 
 namespace {
+
 class SchedulerTest final
     : private flatflow::scheduler::Scheduler<uint64_t, uint16_t> {
  public:
@@ -47,13 +48,13 @@ class SchedulerTest final
 TEST(SchedulerTest, StaticScheduler) {
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-  auto datasetsize = 1 << 10;
+  auto dataset_size = 1 << 10;
   const auto world_size = 1 << 2;
   auto batch_size = 1 << 5;
   auto seed = 0UL;
 
   auto items = std::map<uint16_t, std::size_t>();
-  for (uint16_t size = 1; size <= datasetsize; ++size) {
+  for (uint16_t size = 1; size <= dataset_size; ++size) {
     items.emplace(size, static_cast<std::size_t>(1));
   }
 
@@ -77,7 +78,7 @@ TEST(SchedulerTest, StaticScheduler) {
   auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
   scheduler.train_begin();
   for (auto epoch = 0; epoch < 10; ++epoch) {
-    for (auto step = 0; step < datasetsize / batch_size; ++step) {
+    for (auto step = 0; step < dataset_size / batch_size; ++step) {
       scheduler.epoch_begin(epoch);
       const auto &indices = scheduler.on_schedule(step);
 
@@ -101,13 +102,13 @@ TEST(SchedulerTest, StaticScheduler) {
 TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
-  const auto datasetsize = (1 << 10) + (1 << 3);
+  const auto dataset_size = (1 << 10) + (1 << 3);
   const auto world_size = 1 << 2;
   const auto batch_size = 1 << 5;
   const auto seed = 0UL;
 
   auto items = std::map<uint16_t, std::size_t>();
-  for (uint16_t size = 1; size <= datasetsize; ++size) {
+  for (uint16_t size = 1; size <= dataset_size; ++size) {
     items.emplace(size, static_cast<std::size_t>(1));
   }
 
@@ -131,7 +132,7 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
   scheduler.train_begin();
   for (auto epoch = 0; epoch < 10; ++epoch) {
-    for (auto step = 0; step < (datasetsize / batch_size) + 1; ++step) {
+    for (auto step = 0; step < (dataset_size / batch_size) + 1; ++step) {
       scheduler.epoch_begin(epoch);
       const auto &indices = scheduler.on_schedule(step);
 
@@ -151,4 +152,5 @@ TEST(SchedulerTest, StaticSchedulerWithRemainder) {
   }
   scheduler.train_end();
 }
+
 }  // namespace
