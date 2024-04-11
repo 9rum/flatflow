@@ -98,6 +98,7 @@ class DatasetTest : public testing::Test {
     auto data__ = builder.CreateVector64(data);
     auto offset = CreateSizes(builder, data__);
     builder.Finish(offset);
+
     auto sizes = GetSizes(builder.GetBufferPointer());
     dataset_ = std::move(Dataset(sizes->data(), 0));
   }

@@ -129,13 +129,13 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
   }
 
-  Dataset(const Dataset &other) = delete;
+  Dataset(const Dataset &) = delete;
 
-  Dataset &operator=(const Dataset &other) = delete;
+  Dataset &operator=(const Dataset &) = delete;
 
-  inline explicit Dataset(Dataset &&other) = default;
+  inline explicit Dataset(Dataset &&) = default;
 
-  inline Dataset &operator=(Dataset &&other) = default;
+  inline Dataset &operator=(Dataset &&) = default;
 
   // Dataset::operator[]()
   //

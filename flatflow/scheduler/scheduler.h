@@ -23,6 +23,9 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
 #include "flatflow/data/dataset.h"
@@ -60,15 +63,25 @@ class Scheduler {
   using key_type = Size;
   using value_type = Index;
 
+  // Constructors and assignment operators
+  //
+  // A `flatflow::scheduler::Scheduler<>` does not allow multiple schedulers to
+  // exist at the same time. That is, copy constructor and copy assignment
+  // operator cannot be used; the default constructor is also not available
+  // since a scheduler is initialized using `std::variant` and `std::monostate`
+  // to select one of several schedule kinds at runtime without dynamic dispatch
+  // overhead.
+  Scheduler() = delete;
+
   // Constructor to prepare for static scheduling.
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
       : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
-    // Both the total number of data samples and batch size must be a multiple
-    // of world size.
-    assert(sizes->size() % world_size == 0);
-    assert(batch_size % world_size == 0);
+    CHECK(sizes->size() % world_size == 0)
+        << "Total number of data samples must be a multiple of world size";
+    CHECK(batch_size % world_size == 0)
+        << "Batch size must be a multiple of world size";
 
     // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
     // branch instructions.
@@ -90,6 +103,14 @@ class Scheduler {
 
     dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
   }
+
+  Scheduler(const Scheduler &) = delete;
+
+  Scheduler &operator=(const Scheduler &) = delete;
+
+  inline explicit Scheduler(Scheduler &&) = default;
+
+  Scheduler &operator=(Scheduler &&) = default;
 
   // Scheduler::schedule()
   //
