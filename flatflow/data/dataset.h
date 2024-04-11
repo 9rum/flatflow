@@ -45,7 +45,7 @@ namespace data {
 // `flatflow::data::Dataset<I, S>` constructs an inverted index in a form of
 // `btree_map<S, std::vector<I>>` and stores the scheduled data samples in
 // another inverted index; the two inverted indices are swapped at the end of
-// each training epoch so that the data samples are restored without any data
+// each training epoch so that the data samples are recovered without any data
 // movement overhead.
 //
 // This exposes several callbacks which are invoked at the beginning and end of
@@ -163,7 +163,7 @@ class Dataset {
     //   is deterministic, the training sequence is guaranteed to be randomized
     //   since each index slot is shuffled at the beginning of each training
     //   epoch. If the index has been removed, store the index in another
-    //   inverted index (i.e., the `recycle bin`) for efficient restoration of
+    //   inverted index (i.e., the `recycle bin`) for efficient recovery of
     //   inverted index at the end of training epoch. There are four possible
     //   cases for this:
     //
@@ -193,19 +193,19 @@ class Dataset {
     const auto index = item->second.back();
 
     if (item->second.capacity() == 1) {
-      recycle_bin_.insert(std::move(items_.extract(item)));
+      recyclebin_.insert(std::move(items_.extract(item)));
     } else if (item->second.size() == item->second.capacity()) {
       item->second.pop_back();
       auto slot = std::vector<value_type>();
       slot.reserve(item->second.capacity());
       slot.emplace_back(index);
-      recycle_bin_.try_emplace(found, std::move(slot));
+      recyclebin_.try_emplace(found, std::move(slot));
     } else {
       item->second.pop_back();
       if (item->second.empty()) {
         items_.erase(item);
       }
-      recycle_bin_.at(found).emplace_back(index);
+      recyclebin_.at(found).emplace_back(index);
     }
 
     return std::make_pair(index, found);
@@ -255,7 +255,7 @@ class Dataset {
   //
   // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] value_type epoch) {
-    internal::container::swap(items_, recycle_bin_);
+    internal::container::swap(items_, recyclebin_);
   }
 
   // Dataset::on_train_begin()
@@ -274,7 +274,7 @@ class Dataset {
       key_type, std::vector<value_type>, std::less<key_type>,
       std::allocator<std::pair<const key_type, std::vector<value_type>>>,
       /*TargetNodeSize=*/512>
-      items_, recycle_bin_;
+      items_, recyclebin_;
 };
 
 }  // namespace data

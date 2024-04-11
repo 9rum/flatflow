@@ -15,7 +15,7 @@
 attribute "vector64";
 
 table Sizes {
-  sizes: [ushort] (vector64);
+  data: [ushort] (vector64);
 }
 
 root_type Sizes;
