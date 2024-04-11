@@ -71,9 +71,6 @@ class Scheduler {
   // since a scheduler is initialized using `std::variant` and `std::monostate`
   // to select one of several schedule kinds at runtime without dynamic dispatch
   // overhead.
-  Scheduler() = delete;
-
-  // Constructor to prepare for static scheduling.
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       value_type world_size, value_type batch_size, value_type seed)
@@ -104,13 +101,15 @@ class Scheduler {
     dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
   }
 
+  Scheduler() = delete;
+
   Scheduler(const Scheduler &) = delete;
 
   Scheduler &operator=(const Scheduler &) = delete;
 
   inline explicit Scheduler(Scheduler &&) = default;
 
-  Scheduler &operator=(Scheduler &&) = default;
+  inline Scheduler &operator=(Scheduler &&) = default;
 
   // Scheduler::schedule()
   //
