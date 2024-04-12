@@ -75,11 +75,11 @@ class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
 class DatasetTest : public testing::Test {
  protected:
   void SetUp() override {
-    absl::InitializeLog();
-    absl::SetStderrThreshold(absl::LogSeverity::kInfo);
-
     constexpr auto kMaxSize = static_cast<uint16_t>(1 << 12);
     constexpr auto kMaxCount = static_cast<std::size_t>(1 << 15);
+
+    absl::InitializeLog();
+    absl::SetStderrThreshold(absl::LogSeverity::kInfo);
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
