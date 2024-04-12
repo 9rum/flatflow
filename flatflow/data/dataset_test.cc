@@ -106,7 +106,7 @@ class DatasetTest : public testing::Test {
     builder.Finish(offset);
 
     auto sizes = GetSizes(builder.GetBufferPointer());
-    dataset_ = std::move(Dataset(sizes->data(), 0));
+    dataset_ = Dataset(sizes->data(), 0);
   }
 
   std::map<uint16_t, std::size_t> counts_;
