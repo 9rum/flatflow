@@ -68,8 +68,8 @@ class Dataset {
   // declaration, as well as copy and move constructors and assignment
   // operators.
   //
-  // Note that even if copy/move constructor or assignment operator is called,
-  // a data set is actually direct-initialized by copy elision.
+  // Note that even if a copy/move constructor or assignment operator is called,
+  // the data set is actually direct-initialized by copy elision.
   // See https://en.cppreference.com/w/cpp/language/copy_elision.
   inline explicit Dataset() {}
 
@@ -100,6 +100,13 @@ class Dataset {
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
     // partially unroll loops over sizes.
+    //
+    // CAVEATS
+    //
+    // As of GCC 11.4.0, the unroll construct of OpenMP is ignored with an
+    // unknown pragma warning on compilation, regardless of whether it is
+    // partial or full. That is, the below loops will not actually be unrolled
+    // and we have to define our own portable loop unrolling macros.
     #pragma omp unroll partial
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
