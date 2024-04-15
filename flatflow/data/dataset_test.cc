@@ -24,6 +24,7 @@
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
+#include "absl/log/internal/globals.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
@@ -78,8 +79,10 @@ class DatasetTest : public testing::Test {
     constexpr auto kMaxSize = static_cast<uint16_t>(1 << 12);
     constexpr auto kMaxCount = static_cast<std::size_t>(1 << 15);
 
-    absl::InitializeLog();
-    absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+    if (!absl::log_internal::IsInitialized()) {
+      absl::InitializeLog();
+      absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+    }
 
     std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
