@@ -25,6 +25,7 @@ if(BUILD_TESTING)
     PRIVATE absl::check
     PRIVATE absl::inlined_vector
     PRIVATE absl::log
+    PRIVATE absl::log_initialize
     PRIVATE absl::str_format
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main

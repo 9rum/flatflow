@@ -14,143 +14,214 @@
 
 #include "flatflow/scheduler/scheduler.h"
 
-#include <cstdlib>
-#include <ctime>
-#include <map>
+#include <algorithm>
+#include <iterator>
+#include <numeric>
+#include <random>
+#include <variant>
 #include <vector>
 
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/initialize.h"
+#include "absl/log/internal/globals.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
-#include "flatflow/data/dataset_test.h"
+#include "flatflow/scheduler/scheduler_test.h"
 
 namespace {
 
-class SchedulerTest final
-    : private flatflow::scheduler::Scheduler<uint64_t, uint16_t> {
- public:
-  inline SchedulerTest(const flatbuffers::Vector64<uint16_t> *sizes,
-                       uint64_t world_size, uint64_t batch_size, uint64_t seed)
-      : flatflow::scheduler::Scheduler<uint64_t, uint16_t>(sizes, world_size,
-                                                           batch_size, seed) {}
-  inline auto on_schedule(uint64_t interval) { return schedule(interval); }
-  inline void batch_begin(uint64_t batch) { on_batch_begin(batch); }
-  inline void batch_end(uint64_t batch) { on_batch_end(batch); }
-  inline void epoch_end(uint64_t epoch) { on_epoch_end(epoch, 0); }
-  inline void epoch_begin(uint64_t epoch) { on_epoch_begin(epoch, 0); }
-  inline void train_begin() { on_train_begin(); }
-  inline void train_end() { on_train_end(); }
+class SchedulerTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    if (!absl::log_internal::IsInitialized()) {
+      absl::InitializeLog();
+      absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+    }
+
+    auto data = std::vector<uint16_t>(kDatasetSize);
+    std::iota(data.begin(), data.end(), 1);
+
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    auto generator = std::ranlux48();
+    generator.seed(static_cast<uint_fast64_t>(std::rand()));
+    std::shuffle(data.begin(), data.end(), generator);
+
+    auto builder = flatbuffers::FlatBufferBuilder64();
+    auto data__ = builder.CreateVector64(data);
+    auto offset = CreateSizes(builder, data__);
+    builder.Finish(offset);
+
+    auto sizes = GetSizes(builder.GetBufferPointer());
+    sizes_ = sizes->data();
+  }
+
+  void print(const std::vector<std::vector<uint64_t>> &indices) {
+    for (uint64_t step = 0; step < (kDatasetSize - 1) / kBatchSize + 1;
+         ++step) {
+      auto sums = std::vector<uint16_t>(kWorldSize, 0);
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        std::for_each(
+            std::next(indices.at(rank).cbegin(),
+                      step * kBatchSize / kWorldSize),
+            std::next(indices.at(rank).cbegin(),
+                      (step + 1) * kBatchSize / kWorldSize),
+            [&](const auto &index) { sums.at(rank) += sizes_->Get(index); });
+      }
+      LOG(INFO) << absl::StrFormat("Step: %u got: [%s]", step,
+                                   absl::StrJoin(sums, " "));
+    }
+  }
+
+  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 10);
+  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
+  static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
+  const flatbuffers::Vector64<uint16_t> *sizes_;
+  std::variant<std::monostate,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kDynamic>,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kGuided>>
+      scheduler_;
 };
 
-TEST(SchedulerTest, StaticScheduler) {
-  std::srand(static_cast<unsigned int>(std::time(nullptr)));
+TEST_F(SchedulerTest, StaticScheduler) {
+  scheduler_ =
+      flatflow::scheduler::Scheduler<uint64_t, uint16_t,
+                                     flatflow::scheduler::Schedule::kStatic>(
+          sizes_, kWorldSize, kBatchSize, 0);
 
-  const auto dataset_size = 1 << 10;
-  const auto world_size = 1 << 2;
-  const auto batch_size = 1 << 5;
-  const auto seed = 0UL;
+  std::get<flatflow::scheduler::Scheduler<
+      uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(scheduler_)
+      .on_train_begin();
 
-  auto items = std::map<uint16_t, std::size_t>();
-  for (uint16_t size = 1; size <= dataset_size; ++size) {
-    items.emplace(size, static_cast<std::size_t>(1));
-  }
+  for (uint64_t epoch = 0; epoch < kMaxEpoch; ++epoch) {
+    LOG(INFO) << absl::StrFormat("Epoch: %u", epoch);
+    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+      std::get<flatflow::scheduler::Scheduler<
+          uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+          scheduler_)
+          .on_epoch_begin(epoch, rank);
+    }
 
-  auto sizes = std::vector<uint16_t>();
-  for (const auto item : items) {
-    const auto size = item.first;
-    auto count = item.second;
-    for (; 0 < count; --count) {
-      sizes.push_back(size);
+    print(std::get<flatflow::scheduler::Scheduler<
+              uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+              scheduler_)
+              .schedule((kDatasetSize - 1) / kBatchSize + 1));
+
+    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+      std::get<flatflow::scheduler::Scheduler<
+          uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+          scheduler_)
+          .on_epoch_end(epoch, rank);
     }
   }
-  sizes.shrink_to_fit();
-  // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
-  // vector directly; use generated code from the FlatBuffers schema.
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto sizes__ = builder.CreateVector64(sizes);
-  auto offset = CreateSizes(builder, sizes__);
-  builder.Finish(offset);
-  auto sizes_ = GetSizes(builder.GetBufferPointer());
 
-  auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
-  scheduler.train_begin();
-  for (auto epoch = 0; epoch < 10; ++epoch) {
-    for (auto step = 0; step < dataset_size / batch_size; ++step) {
-      scheduler.epoch_begin(epoch);
-      const auto &indices = scheduler.on_schedule(step);
-
-      std::vector<uint64_t> sums;
-      for (auto &indice : indices) {
-        auto value = 0;
-        for (const auto index : indice) {
-          value += sizes_->sizes()->Get(index);
-        }
-        sums.push_back(value);
-      }
-
-      std::string vector_str = absl::StrJoin(sums, ", ");
-      LOG(INFO) << " step : " << step << "\t got : [" << vector_str << "]\n";
-      scheduler.epoch_end(epoch);
-    }
-  }
-  scheduler.train_end();
+  std::get<flatflow::scheduler::Scheduler<
+      uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(scheduler_)
+      .on_train_end();
 }
 
-TEST(SchedulerTest, StaticSchedulerWithRemainder) {
-  std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
-  const auto dataset_size = (1 << 10) + (1 << 3);
-  const auto world_size = 1 << 2;
-  const auto batch_size = 1 << 5;
-  const auto seed = 0UL;
-
-  auto items = std::map<uint16_t, std::size_t>();
-  for (uint16_t size = 1; size <= dataset_size; ++size) {
-    items.emplace(size, static_cast<std::size_t>(1));
-  }
-
-  auto sizes = std::vector<uint16_t>();
-  for (const auto item : items) {
-    const auto size = item.first;
-    auto count = item.second;
-    for (; 0 < count; --count) {
-      sizes.push_back(size);
+class SchedulerWithRemainderTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    if (!absl::log_internal::IsInitialized()) {
+      absl::InitializeLog();
+      absl::SetStderrThreshold(absl::LogSeverity::kInfo);
     }
+
+    auto data = std::vector<uint16_t>(kDatasetSize);
+    std::iota(data.begin(), data.end(), 1);
+
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    auto generator = std::ranlux48();
+    generator.seed(static_cast<uint_fast64_t>(std::rand()));
+    std::shuffle(data.begin(), data.end(), generator);
+
+    auto builder = flatbuffers::FlatBufferBuilder64();
+    auto data__ = builder.CreateVector64(data);
+    auto offset = CreateSizes(builder, data__);
+    builder.Finish(offset);
+
+    auto sizes = GetSizes(builder.GetBufferPointer());
+    sizes_ = sizes->data();
   }
-  sizes.shrink_to_fit();
-  // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
-  // vector directly; use generated code from the FlatBuffers schema.
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto sizes__ = builder.CreateVector64(sizes);
-  auto offset = CreateSizes(builder, sizes__);
-  builder.Finish(offset);
-  auto sizes_ = GetSizes(builder.GetBufferPointer());
 
-  auto scheduler = SchedulerTest(sizes_->sizes(), world_size, batch_size, seed);
-  scheduler.train_begin();
-  for (auto epoch = 0; epoch < 10; ++epoch) {
-    for (auto step = 0; step < (dataset_size / batch_size) + 1; ++step) {
-      scheduler.epoch_begin(epoch);
-      const auto &indices = scheduler.on_schedule(step);
-
-      std::vector<uint64_t> sums;
-      for (auto &indice : indices) {
-        auto value = 0;
-        for (const auto index : indice) {
-          value += sizes_->sizes()->Get(index);
-        }
-        sums.push_back(value);
+  void print(const std::vector<std::vector<uint64_t>> &indices) {
+    for (uint64_t step = 0; step < (kDatasetSize - 1) / kBatchSize + 1;
+         ++step) {
+      auto sums = std::vector<uint16_t>(kWorldSize, 0);
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        std::for_each(
+            std::next(indices.at(rank).cbegin(),
+                      step * kBatchSize / kWorldSize),
+            std::next(indices.at(rank).cbegin(),
+                      (step + 1) * kBatchSize / kWorldSize),
+            [&](const auto &index) { sums.at(rank) += sizes_->Get(index); });
       }
-
-      std::string vector_str = absl::StrJoin(sums, ", ");
-      LOG(INFO) << " step : " << step << "\t got : [" << vector_str << "]\n";
-      scheduler.epoch_end(epoch);
+      LOG(INFO) << absl::StrFormat("Step: %u got: [%s]", step,
+                                   absl::StrJoin(sums, " "));
     }
   }
-  scheduler.train_end();
+
+  static constexpr auto kDatasetSize =
+      static_cast<std::size_t>((1 << 10) + (1 << 3));
+  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
+  static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
+  const flatbuffers::Vector64<uint16_t> *sizes_;
+  std::variant<std::monostate,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kDynamic>,
+               flatflow::scheduler::Scheduler<
+                   uint64_t, uint16_t, flatflow::scheduler::Schedule::kGuided>>
+      scheduler_;
+};
+
+TEST_F(SchedulerWithRemainderTest, StaticScheduler) {
+  scheduler_ =
+      flatflow::scheduler::Scheduler<uint64_t, uint16_t,
+                                     flatflow::scheduler::Schedule::kStatic>(
+          sizes_, kWorldSize, kBatchSize, 0);
+
+  std::get<flatflow::scheduler::Scheduler<
+      uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(scheduler_)
+      .on_train_begin();
+
+  for (uint64_t epoch = 0; epoch < kMaxEpoch; ++epoch) {
+    LOG(INFO) << absl::StrFormat("Epoch: %u", epoch);
+    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+      std::get<flatflow::scheduler::Scheduler<
+          uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+          scheduler_)
+          .on_epoch_begin(epoch, rank);
+    }
+
+    print(std::get<flatflow::scheduler::Scheduler<
+              uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+              scheduler_)
+              .schedule((kDatasetSize - 1) / kBatchSize + 1));
+
+    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+      std::get<flatflow::scheduler::Scheduler<
+          uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(
+          scheduler_)
+          .on_epoch_end(epoch, rank);
+    }
+  }
+
+  std::get<flatflow::scheduler::Scheduler<
+      uint64_t, uint16_t, flatflow::scheduler::Schedule::kStatic>>(scheduler_)
+      .on_train_end();
 }
 
 }  // namespace
