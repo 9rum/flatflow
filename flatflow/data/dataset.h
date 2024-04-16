@@ -76,7 +76,8 @@ class Dataset {
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
   inline explicit Dataset(
-      const flatbuffers::Vector<key_type, value_type> *sizes, value_type seed)
+      const flatbuffers::Vector<key_type, value_type> *sizes,
+      const value_type &seed)
       : seed_(seed) {
     const auto now = omp_get_wtime();
 
@@ -104,9 +105,9 @@ class Dataset {
     // CAVEATS
     //
     // As of GCC 11.4.0, the unroll construct of OpenMP is ignored with an
-    // unknown pragma warning on compilation, regardless of whether it is
-    // partial or full. That is, the below loops will not actually be unrolled
-    // and we have to define our own portable loop unrolling macros.
+    // unknown pragma warning on compilation, regardless of whether its clause
+    // is full or partial. That is, we have to define our own portable loop
+    // unrolling macros.
     #pragma omp unroll partial
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
@@ -138,7 +139,7 @@ class Dataset {
       }
     }
 
-    LOG(INFO) << absl::StrFormat("Construction of inverted index took %f seconds", omp_get_wtime() - now);
+    LOG(INFO) << absl::StrFormat("Construction of inverted index took %fs", omp_get_wtime() - now);
   }
 
   inline explicit Dataset(const Dataset &other) = default;
@@ -153,7 +154,7 @@ class Dataset {
   //
   // Returns a data sample with the nearest size to the given size from inverted
   // index. This is equivalent to call `find()`.
-  inline std::pair<value_type, key_type> operator[](key_type size) {
+  inline std::pair<value_type, key_type> operator[](const key_type &size) {
     return find(size);
   }
 
@@ -161,7 +162,7 @@ class Dataset {
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline std::pair<value_type, key_type> find(key_type size) {
+  inline std::pair<value_type, key_type> find(const key_type &size) {
     // The retrieval process of a data sample is described below:
     //
     // * First, find lower bound for the given size from inverted index. To find
@@ -226,18 +227,19 @@ class Dataset {
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin([[maybe_unused]] value_type batch) const noexcept {
-  }
+  inline void on_batch_begin(
+      [[maybe_unused]] const value_type &batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end([[maybe_unused]] value_type batch) const noexcept {}
+  inline void on_batch_end(
+      [[maybe_unused]] const value_type &batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(value_type epoch) {
+  inline void on_epoch_begin(const value_type &epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<I, S>`
@@ -260,13 +262,13 @@ class Dataset {
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
-    LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %f seconds", epoch, omp_get_wtime() - now);
+    LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %fs", epoch, omp_get_wtime() - now);
   }
 
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] value_type epoch) {
+  inline void on_epoch_end([[maybe_unused]] const value_type &epoch) {
     internal::container::swap(items_, recyclebin_);
   }
 

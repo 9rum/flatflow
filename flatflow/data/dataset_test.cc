@@ -38,37 +38,40 @@ class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
   inline explicit Dataset() : flatflow::data::Dataset<uint64_t, uint16_t>() {}
 
   inline explicit Dataset(const flatbuffers::Vector64<uint16_t> *sizes,
-                          uint64_t seed)
+                          const uint64_t &seed)
       : flatflow::data::Dataset<uint64_t, uint16_t>(sizes, seed) {}
 
-  inline bool empty(bool items = true) const {
+  inline bool empty(const bool &items = true) const {
     return items ? items_.empty() : recyclebin_.empty();
   }
 
-  inline std::size_t size(uint16_t size, bool items = true) const {
+  inline std::size_t size(const uint16_t &size,
+                          const bool &items = true) const {
     return items ? items_.at(size).size() : recyclebin_.at(size).size();
   }
 
-  inline std::size_t capacity(uint16_t size, bool items = true) const {
+  inline std::size_t capacity(const uint16_t &size,
+                              const bool &items = true) const {
     return items ? items_.at(size).capacity() : recyclebin_.at(size).capacity();
   }
 
-  inline bool contains(uint16_t size, bool items = true) const {
+  inline bool contains(const uint16_t &size, const bool &items = true) const {
     return items ? items_.contains(size) : recyclebin_.contains(size);
   }
 
-  inline bool is_sorted(uint16_t size, bool items = true) const {
+  inline bool is_sorted(const uint16_t &size, const bool &items = true) const {
     return items ? std::is_sorted(items_.at(size).cbegin(),
                                   items_.at(size).cend())
                  : std::is_sorted(recyclebin_.at(size).crbegin(),
                                   recyclebin_.at(size).crend());
   }
 
-  inline void copy(uint16_t size, std::vector<uint64_t> &slot) const {
+  inline void copy(const uint16_t &size, std::vector<uint64_t> &slot) const {
     std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
   }
 
-  inline bool equal(uint16_t size, const std::vector<uint64_t> &slot) const {
+  inline bool equal(const uint16_t &size,
+                    const std::vector<uint64_t> &slot) const {
     return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
   }
 };
