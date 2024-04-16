@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <execution>
+#include <limits>
+#include <numeric>
 #include <random>
 #include <utility>
 #include <vector>
@@ -65,15 +67,16 @@ class Scheduler {
 
   // Constructors and assignment operators
   //
-  // A `flatflow::scheduler::Scheduler<>` does not allow multiple schedulers to
-  // exist at the same time. That is, copy constructor and copy assignment
-  // operator cannot be used; the default constructor is also not available
+  // In addition to a constructor to initialize a data set,
+  // a `flatflow::scheduler::Scheduler<>` supports copy and move constructors
+  // and assignment operators; but the default constructor is not available
   // since a scheduler is initialized using `std::variant` and `std::monostate`
   // to select one of several schedule kinds at runtime without dynamic dispatch
   // overhead.
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
-      value_type world_size, value_type batch_size, value_type seed)
+      const value_type &world_size, const value_type &batch_size,
+      const value_type &seed)
       : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
     CHECK(sizes->size() % world_size == 0)
         << "Total number of data samples must be a multiple of world size";
@@ -92,31 +95,51 @@ class Scheduler {
     // branch instructions.
     last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
 
-    mean_ = 0.0;
-    #pragma omp parallel for reduction(+ : mean_)
-    for (value_type index = 0; index < sizes->size(); ++index) {
-      mean_ += static_cast<double>(sizes->Get(index)) / sizes->size();
-    }
+    // Since the sum of sizes can be up to 1 << 80, one must compute the partial
+    // means and then reduce them to get the average of sizes while minimizing
+    // the precison loss.
+    constexpr auto block_size =
+        9007199254740991 / std::numeric_limits<key_type>::max();
 
-    dataset_ = std::move(flatflow::data::Dataset(sizes, seed));
+    auto means = std::vector<double>((sizes->size() - 1) / block_size + 1);
+
+    for (value_type block_idx = 0; block_idx < means.size(); ++block_idx) {
+      auto sum = static_cast<uint_fast64_t>(0);
+
+      #pragma omp parallel for reduction(+ : sum)
+      for (value_type index = block_idx * block_size;
+           index < std::min((block_idx + 1) * block_size, sizes->size());
+           ++index) {
+        sum += static_cast<uint_fast64_t>(sizes->Get(index));
+      }
+      // Since the sum of each block is ensured to be less than 1 << 53, it is
+      // safe to cast it to double without precision loss.
+      means.at(static_cast<std::size_t>(block_idx)) =
+          static_cast<double>(sum) / sizes->size();
+    }
+    mean_ = std::accumulate(means.cbegin(), means.cend(), 0.0);
+
+    // The below copy assignment is actually not copied but direct-initialized
+    // by copy elision.
+    dataset_ = flatflow::data::Dataset(sizes, seed);
   }
 
   Scheduler() = delete;
 
-  Scheduler(const Scheduler &) = delete;
+  inline Scheduler(const Scheduler &other) = default;
 
-  Scheduler &operator=(const Scheduler &) = delete;
+  inline Scheduler &operator=(const Scheduler &other) = default;
 
-  inline explicit Scheduler(Scheduler &&) = default;
+  inline explicit Scheduler(Scheduler &&other) = default;
 
-  inline Scheduler &operator=(Scheduler &&) = default;
+  inline Scheduler &operator=(Scheduler &&other) = default;
 
   // Scheduler::schedule()
   //
   // Schedules and shuffles batches for the next training epoch to each of the
   // workers. This schedule kind discards the scheduling interval, as static
   // scheduling occurs at the granularity of epoch.
-  inline auto schedule([[maybe_unused]] value_type interval)
+  inline auto schedule([[maybe_unused]] const value_type &interval)
       -> std::vector<std::vector<value_type>> {
     const auto now = omp_get_wtime();
 
@@ -127,7 +150,7 @@ class Scheduler {
       batches.emplace_back(schedule());
     }
 
-    // After scheduling, a `flatflow::scheduler::Scheduler` shuffles between
+    // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
     // batches, which we call inter-batch shuffling. This enables shuffling not
     // only between data samples with the same size but also between scheduled
     // batches. It uses the same pseudorandom number generator and random seed
@@ -136,31 +159,29 @@ class Scheduler {
     generator.seed(static_cast<uint_fast64_t>(seed_ + epoch_));
     std::shuffle(batches.begin(), batches.end(), generator);
 
-    const auto indices = reshape(batches);
+    LOG(INFO) << absl::StrFormat("Scheduling %u steps took %fs", last_batch_ + 1, omp_get_wtime() - now);
 
-    LOG(INFO) << absl::StrFormat("Scheduling %u steps took %f seconds", last_batch_ + 1, omp_get_wtime() - now);
-
-    return indices;
+    return reshape(batches);
   }
 
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(value_type batch) const noexcept {
+  inline void on_batch_begin(const value_type &batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(value_type batch) const noexcept {
+  inline void on_batch_end(const value_type &batch) const noexcept {
     dataset_.on_batch_end(batch);
   }
 
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(value_type epoch, value_type rank) {
+  inline void on_epoch_begin(const value_type &epoch, const value_type &rank) {
     if (rank == 0) {
       step_ = 0;
       epoch_ = epoch;
@@ -171,7 +192,7 @@ class Scheduler {
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end(value_type epoch, value_type rank) {
+  inline void on_epoch_end(const value_type &epoch, const value_type &rank) {
     if (rank == 0) {
       dataset_.on_epoch_end(epoch);
     }
