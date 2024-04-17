@@ -32,6 +32,7 @@
 
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/internal/types.h"
+#include "flatflow/scheduler/internal/algorithm/reshape.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -78,10 +79,10 @@ class Scheduler {
       const value_type &world_size, const value_type &batch_size,
       const value_type &seed)
       : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
-    CHECK(sizes->size() % world_size == 0)
-        << "Total number of data samples must be a multiple of world size";
-    CHECK(batch_size % world_size == 0)
-        << "Batch size must be a multiple of world size";
+    CHECK(batch_size != 0);
+    CHECK(batch_size % world_size == 0);
+    CHECK(sizes->size() != 0);
+    CHECK(sizes->size() % world_size == 0);
 
     // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
     // branch instructions.
@@ -130,7 +131,7 @@ class Scheduler {
 
   inline Scheduler &operator=(const Scheduler &other) = default;
 
-  inline explicit Scheduler(Scheduler &&other) = default;
+  inline Scheduler(Scheduler &&other) = default;
 
   inline Scheduler &operator=(Scheduler &&other) = default;
 
@@ -147,7 +148,7 @@ class Scheduler {
     batches.reserve(static_cast<std::size_t>(last_batch_ + 1));
 
     for (; batches.size() < batches.capacity();) {
-      batches.emplace_back(schedule());
+      batches.emplace_back(std::move(schedule()));
     }
 
     // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
@@ -161,7 +162,7 @@ class Scheduler {
 
     LOG(INFO) << absl::StrFormat("Scheduling %u steps took %fs", last_batch_ + 1, omp_get_wtime() - now);
 
-    return reshape(batches);
+    return internal::algorithm::reshape(batches);
   }
 
   // Scheduler::on_batch_begin()
@@ -256,34 +257,6 @@ class Scheduler {
     }
 
     return batches;
-  }
-
-  // Scheduler::reshape()
-  //
-  // Converts the given three-dimensional tensor to a corresponding
-  // two-dimensional tensor or a matrix.
-  inline std::vector<std::vector<value_type>> reshape(
-      const std::vector<std::vector<std::vector<value_type>>> &tensor) const {
-    auto matrix = std::vector<std::vector<value_type>>();
-    matrix.reserve(static_cast<std::size_t>(world_size_));
-
-    for (; matrix.size() < matrix.capacity();) {
-      const auto row = std::vector<value_type>(static_cast<std::size_t>(
-          (batch_size_ * last_batch_ + last_batch_size_) / world_size_));
-      matrix.emplace_back(std::move(row));
-    }
-
-    #pragma omp parallel for
-    for (std::size_t rank = 0; rank < matrix.size(); ++rank) {
-      auto dest = matrix.at(rank).begin();
-      std::for_each(std::execution::seq, tensor.cbegin(), tensor.cend(),
-                    [&](const auto &batch) {
-                      dest = std::copy(batch.at(rank).cbegin(),
-                                       batch.at(rank).cend(), dest);
-                    });
-    }
-
-    return matrix;
   }
 
   double mean_;

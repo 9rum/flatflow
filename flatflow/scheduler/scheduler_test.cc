@@ -69,10 +69,11 @@ class SchedulerTest : public testing::Test {
             std::next(indices.at(rank).cbegin(),
                       step * kBatchSize / kWorldSize),
             std::next(indices.at(rank).cbegin(),
-                      (step + 1) * kBatchSize / kWorldSize),
+                      std::min((step + 1) * kBatchSize / kWorldSize,
+                               static_cast<uint64_t>(indices.at(rank).size()))),
             [&](const auto &index) { sums.at(rank) += sizes_->Get(index); });
       }
-      LOG(INFO) << absl::StrFormat("Step: %u got: [%s]", step,
+      LOG(INFO) << absl::StrFormat("Step: %2u got: [%s]", step,
                                    absl::StrJoin(sums, " "));
     }
   }
@@ -163,10 +164,11 @@ class SchedulerWithRemainderTest : public testing::Test {
             std::next(indices.at(rank).cbegin(),
                       step * kBatchSize / kWorldSize),
             std::next(indices.at(rank).cbegin(),
-                      (step + 1) * kBatchSize / kWorldSize),
+                      std::min((step + 1) * kBatchSize / kWorldSize,
+                               static_cast<uint64_t>(indices.at(rank).size()))),
             [&](const auto &index) { sums.at(rank) += sizes_->Get(index); });
       }
-      LOG(INFO) << absl::StrFormat("Step: %u got: [%s]", step,
+      LOG(INFO) << absl::StrFormat("Step: %2u got: [%s]", step,
                                    absl::StrJoin(sums, " "));
     }
   }
