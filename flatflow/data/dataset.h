@@ -75,6 +75,14 @@ class Dataset {
 
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
+  //
+  // CAVEATS
+  //
+  // This constructor is optimized for key types under 32 bits. It stores index
+  // slots in a temporary inlined vector using offsets and constructs the
+  // inverted index at once, which is fast but memory-intensive. For key types
+  // over 16 bits, this may bring too much memory pressure and the constructor
+  // needs to be specialized.
   inline explicit Dataset(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       const value_type &seed)
