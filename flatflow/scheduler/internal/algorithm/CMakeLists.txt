@@ -22,8 +22,7 @@ if(BUILD_TESTING)
   target_link_libraries(
     algorithm_test
     PRIVATE absl::check
-    PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX)
+    PRIVATE GTest::gtest_main)
   gtest_add_tests(
     TARGET algorithm_test)
 endif()
