@@ -50,6 +50,8 @@ inline auto reshape(const std::vector<std::vector<std::vector<T>>> &tensor)
     matrix.emplace_back(std::move(std::vector<T>(row_size)));
   }
 
+  // TODO: Flatten the below nested loops and parallelize it in a bulk
+  // synchronous parallel manner.
   #pragma omp parallel for
   for (std::size_t rank = 0; rank < world_size; ++rank) {
     auto dest = matrix.at(rank).begin();

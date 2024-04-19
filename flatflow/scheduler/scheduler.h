@@ -68,12 +68,12 @@ class Scheduler {
 
   // Constructors and assignment operators
   //
-  // In addition to a constructor to initialize a data set,
+  // In addition to the below constructor to set up scheduling,
   // a `flatflow::scheduler::Scheduler<>` supports copy and move constructors
-  // and assignment operators; but the default constructor is not available
-  // since a scheduler is initialized using `std::variant` and `std::monostate`
-  // to select one of several schedule kinds at runtime without dynamic dispatch
-  // overhead.
+  // and assignment operators; the default constructor, on the other hand, is
+  // not available since the scheduler is initialized using `std::variant` and
+  // `std::monostate` to select one of several schedule kinds at runtime without
+  // dynamic dispatch overhead.
   inline explicit Scheduler(
       const flatbuffers::Vector<key_type, value_type> *sizes,
       const value_type &world_size, const value_type &batch_size,
@@ -96,14 +96,17 @@ class Scheduler {
     // branch instructions.
     last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
 
-    // Since the sum of sizes can be up to 1 << 80, one must compute the partial
-    // means and then reduce them to get the average of sizes while minimizing
-    // the precison loss.
+    const auto now = omp_get_wtime();
+
+    // Since the sum of sizes can exceed double precision range, one has to
+    // compute the partial means and then reduce them to minimize precison loss.
     constexpr auto block_size =
         9007199254740991 / std::numeric_limits<key_type>::max();
 
     auto means = std::vector<double>((sizes->size() - 1) / block_size + 1);
 
+    // TODO: Flatten the below nested loops and parallelize it in a bulk
+    // synchronous parallel manner.
     for (value_type block_idx = 0; block_idx < means.size(); ++block_idx) {
       auto sum = static_cast<uint_fast64_t>(0);
 
@@ -119,6 +122,8 @@ class Scheduler {
           static_cast<double>(sum) / sizes->size();
     }
     mean_ = std::accumulate(means.cbegin(), means.cend(), 0.0);
+
+    LOG(INFO) << absl::StrFormat("Block averaging took %fs", omp_get_wtime() - now);
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -245,13 +250,15 @@ class Scheduler {
     // * Largest differencing method: https://en.wikipedia.org/wiki/Largest_differencing_method
     // * Python implementation for Karmarkar–Karp algorithm: https://github.com/erelsgl/prtpy/blob/3ab0facffebc758c49bb3d06bd94a5f140a99863/prtpy/partitioning/karmarkar_karp.py
     for (; batches.size() < batches.capacity();) {
+      const auto rank = batches.size();
+
       auto batch = std::vector<value_type>();
       batch.reserve(static_cast<std::size_t>(local_batch_size));
+
       for (; batch.size() < batch.capacity();) {
-        const auto [index, size] =
-            dataset_.find(bin_size - bins.at(batches.size()));
+        const auto [index, size] = dataset_.find(bin_size - bins.at(rank));
         batch.emplace_back(index);
-        bins.at(batches.size()) += size;
+        bins.at(rank) += size;
       }
       batches.emplace_back(std::move(batch));
     }
