@@ -141,7 +141,7 @@ class Dataset {
 
     #pragma omp unroll full
     for (std::size_t size = 0; size < slots.size(); ++size) {
-      const auto slot = slots.at(size);
+      auto &slot = slots.at(size);
       if (0 < slot.size()) {
         items_.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
