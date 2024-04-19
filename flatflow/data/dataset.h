@@ -270,7 +270,7 @@ class Dataset {
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
-    LOG(INFO) << absl::StrFormat("Epoch: %d intra-batch shuffling took %fs", epoch, omp_get_wtime() - now);
+    LOG(INFO) << absl::StrFormat("Epoch: %u intra-batch shuffling took %fs", epoch, omp_get_wtime() - now);
   }
 
   // Dataset::on_epoch_end()
