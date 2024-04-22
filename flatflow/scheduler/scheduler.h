@@ -101,30 +101,35 @@ class Scheduler {
     // Since the sum of sizes can exceed double precision range, one has to
     // compute the partial means and then reduce them to minimize precison loss.
     constexpr auto block_size =
-        9007199254740991 / std::numeric_limits<key_type>::max();
+        static_cast<value_type>(/*(1 << 53) - 1=*/9007199254740991) /
+        static_cast<value_type>(std::numeric_limits<key_type>::max());
 
-    auto means = std::vector<double>((sizes->size() - 1) / block_size + 1);
+    auto means = std::vector<double>(
+        static_cast<std::size_t>((sizes->size() - 1) / block_size + 1));
 
-    // TODO: Flatten the below nested loops and parallelize it in a bulk
-    // synchronous parallel manner.
-    for (value_type block_idx = 0; block_idx < means.size(); ++block_idx) {
+    // TODO: Parallelize the outer loop as well.
+    for (std::size_t block_idx = 0; block_idx < means.size(); ++block_idx) {
       auto sum = static_cast<uint_fast64_t>(0);
 
       #pragma omp parallel for reduction(+ : sum)
-      for (value_type index = block_idx * block_size;
-           index < std::min((block_idx + 1) * block_size, sizes->size());
+      for (value_type index = static_cast<value_type>(block_idx) * block_size;
+           index < std::min(static_cast<value_type>(block_idx + 1) * block_size,
+                            sizes->size());
            ++index) {
         sum += static_cast<uint_fast64_t>(sizes->Get(index));
       }
-      // Since the sum of each block is ensured to be less than 1 << 53, it is
-      // safe to cast it to double without precision loss.
-      means.at(static_cast<std::size_t>(block_idx)) =
-          static_cast<double>(sum) / sizes->size();
+      // Since the sum of each block is guaranteed to be less than 1 << 53, it
+      // is safe to cast it without precision loss.
+      means.at(block_idx) =
+          static_cast<double>(static_cast<long double>(sum) /
+                              static_cast<long double>(sizes->size()));
     }
-    mean_ = std::accumulate(means.cbegin(), means.cend(), 0.0);
+    mean_ = std::reduce(std::execution::par, means.cbegin(), means.cend());
 
     LOG(INFO) << absl::StrFormat("Block averaging took %fs", omp_get_wtime() - now);
 
+    // TODO: Initialize data set and scheduler concurrently.
+    //
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
     dataset_ = flatflow::data::Dataset(sizes, seed);
@@ -225,10 +230,11 @@ class Scheduler {
     const auto local_batch_size = step_++ == last_batch_
                                       ? last_batch_size_ / world_size_
                                       : batch_size_ / world_size_;
-    const auto bin_size =
-        static_cast<key_type>(std::round(mean_ * local_batch_size));
+    const auto bin_size = static_cast<uint_fast64_t>(
+        std::llround(mean_ * static_cast<double>(local_batch_size)));
 
-    auto bins = std::vector<key_type>(static_cast<std::size_t>(world_size_), 0);
+    auto bins =
+        std::vector<uint_fast64_t>(static_cast<std::size_t>(world_size_), 0);
     auto batches = std::vector<std::vector<value_type>>();
     batches.reserve(static_cast<std::size_t>(world_size_));
 
@@ -256,9 +262,16 @@ class Scheduler {
       batch.reserve(static_cast<std::size_t>(local_batch_size));
 
       for (; batch.size() < batch.capacity();) {
-        const auto [index, size] = dataset_.find(bin_size - bins.at(rank));
+        const auto underflow_safe_key =
+            bin_size < bins.at(rank) ? 0 : bin_size - bins.at(rank);
+        const auto safe_key =
+            static_cast<uint_fast64_t>(std::numeric_limits<key_type>::max()) <
+                    underflow_safe_key
+                ? std::numeric_limits<key_type>::max()
+                : static_cast<key_type>(underflow_safe_key);
+        const auto [index, size] = dataset_.find(safe_key);
         batch.emplace_back(index);
-        bins.at(rank) += size;
+        bins.at(rank) += static_cast<uint_fast64_t>(size);
       }
       batches.emplace_back(std::move(batch));
     }
