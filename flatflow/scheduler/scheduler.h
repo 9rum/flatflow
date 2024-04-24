@@ -100,28 +100,34 @@ class Scheduler {
 
     // Since the sum of sizes can exceed double precision range, one has to
     // compute the partial means and then reduce them to minimize precison loss.
-    constexpr auto block_size =
+    constexpr auto stride =
         static_cast<value_type>(/*1 << 53=*/0x20000000000000) /
         static_cast<value_type>(std::numeric_limits<key_type>::max());
 
     auto means = std::vector<long double>(
-        static_cast<std::size_t>((sizes->size() - 1) / block_size + 1));
+        static_cast<std::size_t>((sizes->size() - 1) / stride + 1));
 
-    // TODO: Parallelize the loops below.
-    for (std::size_t block_idx = 0; block_idx < means.size(); ++block_idx) {
+    // CAVEATS
+    //
+    // The `omp_set_nested()` routine has been deprecated.
+    // The nested loops below may or may not be fully parallelized.
+    omp_set_nested(1);
+
+    #pragma omp parallel for
+    for (value_type index = 0; index < sizes->size(); index += stride) {
       auto sum = static_cast<uint_fast64_t>(0);
 
-      for (value_type index = static_cast<value_type>(block_idx) * block_size;
-           index < std::min(static_cast<value_type>(block_idx + 1) * block_size,
-                            sizes->size());
-           ++index) {
-        sum += static_cast<uint_fast64_t>(sizes->Get(index));
+      #pragma omp parallel for reduction(+ : sum)
+      for (value_type offset = index;
+           offset < std::min(index + stride, sizes->size()); ++offset) {
+        sum += static_cast<uint_fast64_t>(sizes->Get(offset));
       }
       // Since the sum of each block is guaranteed to be less than 1 << 53,
       // it is safe to cast it to long double without precision loss even if
       // long double is not implemented.
-      means.at(block_idx) = static_cast<long double>(sum) /
-                            static_cast<long double>(sizes->size());
+      means.at(static_cast<std::size_t>(index / stride)) =
+          static_cast<long double>(sum) /
+          static_cast<long double>(sizes->size());
     }
     mean_ = static_cast<double>(
         std::reduce(std::execution::par, means.cbegin(), means.cend()));
