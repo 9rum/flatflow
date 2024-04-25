@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <execution>
+#include <functional>
 #include <limits>
 #include <numeric>
 #include <random>
@@ -104,38 +105,29 @@ class Scheduler {
         static_cast<value_type>(/*1 << 53=*/0x20000000000000) /
         static_cast<value_type>(std::numeric_limits<key_type>::max());
 
-    auto means = std::vector<long double>(
-        static_cast<std::size_t>((sizes->size() - 1) / stride + 1));
+    auto sums = std::vector<double>(
+        static_cast<std::size_t>((sizes->size() - 1) / stride + 1), 0.0);
 
-    // CAVEATS
-    //
-    // The `omp_set_nested()` routine has been deprecated.
-    // The nested loops below may or may not be fully parallelized.
-    omp_set_nested(1);
-
-    #pragma omp parallel for
-    for (value_type index = 0; index < sizes->size(); index += stride) {
-      auto sum = static_cast<uint_fast64_t>(0);
-
-      #pragma omp parallel for reduction(+ : sum)
-      for (value_type offset = index;
-           offset < std::min(index + stride, sizes->size()); ++offset) {
-        sum += static_cast<uint_fast64_t>(sizes->Get(offset));
-      }
+    #pragma omp declare reduction(axpy : std::vector<double> : std::transform( \
+            omp_in.cbegin(), omp_in.cend(), omp_out.cbegin(), omp_out.begin(), \
+                std::plus<double>())) initializer(omp_priv = omp_orig)
+    #pragma omp parallel for reduction(axpy : sums)
+    for (value_type index = 0; index < sizes->size(); ++index) {
       // Since the sum of each block is guaranteed to be less than 1 << 53,
-      // it is safe to cast it to long double without precision loss even if
-      // long double is not implemented.
-      means.at(static_cast<std::size_t>(index / stride)) =
-          static_cast<long double>(sum) /
-          static_cast<long double>(sizes->size());
+      // it is safe to cast it to double without precision loss.
+      sums.at(static_cast<std::size_t>(index / stride)) +=
+          static_cast<double>(sizes->Get(index));
     }
-    mean_ = static_cast<double>(
-        std::reduce(std::execution::par, means.cbegin(), means.cend()));
+
+    mean_ = static_cast<double>(std::transform_reduce(
+        sums.cbegin(), sums.cend(), static_cast<long double>(0.0),
+        std::plus<long double>(), [&](const auto &sum) {
+          return static_cast<long double>(sum) /
+                 static_cast<long double>(sizes->size());
+        }));
 
     LOG(INFO) << absl::StrFormat("Block averaging took %fs", omp_get_wtime() - now);
 
-    // TODO: Initialize data set and scheduler concurrently.
-    //
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
     dataset_ = flatflow::data::Dataset(sizes, seed);
@@ -143,6 +135,10 @@ class Scheduler {
 
   Scheduler() = delete;
 
+  // Unlike `flatflow::data::Dataset<>`, the copy and move constructors of
+  // `flatflow::scheduler::Scheduler<>` are not specified as `explicit` since
+  // an implicit conversion from `flatflow::scheduler::Scheduler<>` to
+  // `std::variant` is required.
   inline Scheduler(const Scheduler &other) = default;
 
   inline Scheduler &operator=(const Scheduler &other) = default;

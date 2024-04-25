@@ -64,7 +64,7 @@ class Dataset {
   // Constructors and assignment operators
   //
   // In addition to a constructor to build an inverted index,
-  // a `flatflow::data::Dataset<I, S>` supports a default constructor for
+  // a `flatflow::data::Dataset<>` supports a default constructor for
   // declaration, as well as copy and move constructors and assignment
   // operators.
   //
@@ -250,10 +250,9 @@ class Dataset {
   inline void on_epoch_begin(const value_type &epoch) {
     const auto now = omp_get_wtime();
 
-    // At the beginning of each epoch, a `flatflow::data::Dataset<I, S>`
+    // At the beginning of each epoch, a `flatflow::data::Dataset<>`
     // shuffles between data samples with the same size, which we call
-    // intra-batch shuffling. The details of intra-batch shuffling are as
-    // follows:
+    // intra-batch shuffling. The details are as follows:
     //
     // * First, access each index slot in the inverted index. This can be
     //   parallelized since there is no data dependency between any couple of
