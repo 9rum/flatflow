@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <execution>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <random>
@@ -101,30 +102,30 @@ class Scheduler {
 
     // Since the sum of sizes can exceed double precision range, one has to
     // compute the partial means and then reduce them to minimize precison loss.
-    constexpr auto stride =
+    constexpr auto kBlockSize =
         static_cast<value_type>(/*1 << 53=*/0x20000000000000) /
         static_cast<value_type>(std::numeric_limits<key_type>::max());
 
     auto sums = std::vector<double>(
-        static_cast<std::size_t>((sizes->size() - 1) / stride + 1), 0.0);
+        static_cast<std::size_t>((sizes->size() - 1) / kBlockSize + 1), 0.0);
 
     #pragma omp declare reduction(axpy : std::vector<double> : std::transform( \
             omp_in.cbegin(), omp_in.cend(), omp_out.cbegin(), omp_out.begin(), \
                 std::plus<double>())) initializer(omp_priv = omp_orig)
     #pragma omp parallel for reduction(axpy : sums)
     for (value_type index = 0; index < sizes->size(); ++index) {
-      // Since the sum of each block is guaranteed to be less than 1 << 53,
+      // As the sum of each block is guaranteed to be less than 1 << 53,
       // it is safe to cast it to double without precision loss.
-      sums.at(static_cast<std::size_t>(index / stride)) +=
+      sums.at(static_cast<std::size_t>(index / kBlockSize)) +=
           static_cast<double>(sizes->Get(index));
     }
 
-    mean_ = static_cast<double>(std::transform_reduce(
-        sums.cbegin(), sums.cend(), static_cast<long double>(0.0),
-        std::plus<long double>(), [&](const auto &sum) {
-          return static_cast<long double>(sum) /
-                 static_cast<long double>(sizes->size());
-        }));
+    mean_ = static_cast<double>(
+        std::transform_reduce(sums.cbegin(), sums.cend(), 0.0L,
+                              std::plus<long double>(), [&](const auto &sum) {
+                                return static_cast<long double>(sum) /
+                                       static_cast<long double>(sizes->size());
+                              }));
 
     LOG(INFO) << absl::StrFormat("Block averaging took %fs", omp_get_wtime() - now);
 
@@ -159,18 +160,26 @@ class Scheduler {
     auto batches = std::vector<std::vector<std::vector<value_type>>>();
     batches.reserve(static_cast<std::size_t>(last_batch_ + 1));
 
-    for (; batches.size() < batches.capacity();) {
-      batches.emplace_back(std::move(schedule()));
+    for (value_type step = 0; step <= last_batch_; ++step) {
+      batches.emplace_back(std::move(_schedule(step)));
     }
 
     // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
     // batches, which we call inter-batch shuffling. This enables shuffling not
     // only between data samples with the same size but also between scheduled
     // batches. It uses the same pseudorandom number generator and random seed
-    // as `flatflow::data::Dataset` for deterministic shuffling.
+    // as `flatflow::data::Dataset<>` for deterministic shuffling.
     auto generator = std::ranlux48();
     generator.seed(static_cast<uint_fast64_t>(seed_ + epoch_));
-    std::shuffle(batches.begin(), batches.end(), generator);
+
+    // When the batch size and last batch size are different from each other
+    // (i.e., when remainder exists), the last batch should not be included in
+    // shuffling range.
+    auto end = batches.end();
+    if (batch_size_ != last_batch_size_) {
+      std::advance(end, -1);
+    }
+    std::shuffle(batches.begin(), end, generator);
 
     LOG(INFO) << absl::StrFormat("Scheduling %u steps took %fs", last_batch_ + 1, omp_get_wtime() - now);
 
@@ -196,7 +205,6 @@ class Scheduler {
   // A callback to be called at the beginning of an epoch.
   inline void on_epoch_begin(const value_type &epoch, const value_type &rank) {
     if (rank == 0) {
-      step_ = 0;
       epoch_ = epoch;
       dataset_.on_epoch_begin(epoch);
     }
@@ -222,23 +230,24 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  // Scheduler::schedule()
+  // Scheduler::_schedule()
   //
   // Assigns the next batch to each of the workers. It adopts
   // first-fit-decreasing (FFD), a near-optimal heuristic for bin packing.
   // * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
   // * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
-  inline std::vector<std::vector<value_type>> schedule() {
-    const auto local_batch_size = step_++ == last_batch_
-                                      ? last_batch_size_ / world_size_
-                                      : batch_size_ / world_size_;
-    const auto bin_size = static_cast<uint_fast64_t>(
-        std::llround(mean_ * static_cast<double>(local_batch_size)));
+  inline auto _schedule(const value_type &step)
+      -> std::vector<std::vector<value_type>> {
+    const auto batch_size = step < last_batch_ ? batch_size_ : last_batch_size_;
+    const auto micro_batch_size = batch_size / world_size_;
 
+    const auto bin_size =
+        std::llround(mean_ * static_cast<double>(micro_batch_size));
     auto bins =
-        std::vector<uint_fast64_t>(static_cast<std::size_t>(world_size_), 0);
-    auto batches = std::vector<std::vector<value_type>>();
-    batches.reserve(static_cast<std::size_t>(world_size_));
+        std::vector<long long>(static_cast<std::size_t>(world_size_), 0LL);
+
+    auto batch = std::vector<std::vector<value_type>>();
+    batch.reserve(static_cast<std::size_t>(world_size_));
 
     // Pack the bins in a first-fit-decreasing fashion.
     //
@@ -257,33 +266,26 @@ class Scheduler {
     // * Balanced number partitioning: https://en.wikipedia.org/wiki/Balanced_number_partitioning
     // * Largest differencing method: https://en.wikipedia.org/wiki/Largest_differencing_method
     // * Python implementation for Karmarkar–Karp algorithm: https://github.com/erelsgl/prtpy/blob/3ab0facffebc758c49bb3d06bd94a5f140a99863/prtpy/partitioning/karmarkar_karp.py
-    for (; batches.size() < batches.capacity();) {
-      const auto rank = batches.size();
+    for (value_type rank = 0; rank < world_size_; ++rank) {
+      auto micro_batch = std::vector<value_type>();
+      micro_batch.reserve(static_cast<std::size_t>(micro_batch_size));
 
-      auto batch = std::vector<value_type>();
-      batch.reserve(static_cast<std::size_t>(local_batch_size));
-
-      for (; batch.size() < batch.capacity();) {
-        const auto underflow_safe_key =
-            bin_size < bins.at(rank) ? 0 : bin_size - bins.at(rank);
-        const auto safe_key =
-            static_cast<uint_fast64_t>(std::numeric_limits<key_type>::max()) <
-                    underflow_safe_key
-                ? std::numeric_limits<key_type>::max()
-                : static_cast<key_type>(underflow_safe_key);
-        const auto [index, size] = dataset_.find(safe_key);
-        batch.emplace_back(index);
-        bins.at(rank) += static_cast<uint_fast64_t>(size);
+      for (; micro_batch.size() < micro_batch.capacity();) {
+        const auto [index, size] = dataset_.find(static_cast<key_type>(std::min(
+            std::max(bin_size - bins.at(static_cast<std::size_t>(rank)), 0LL),
+            static_cast<long long>(std::numeric_limits<key_type>::max()))));
+        micro_batch.emplace_back(index);
+        bins.at(static_cast<std::size_t>(rank)) += static_cast<long long>(size);
       }
-      batches.emplace_back(std::move(batch));
+      batch.emplace_back(std::move(micro_batch));
     }
 
-    return batches;
+    return batch;
   }
 
   double mean_;
-  value_type world_size_, batch_size_, last_batch_, last_batch_size_, step_,
-      epoch_, seed_;
+  value_type world_size_, batch_size_, last_batch_, last_batch_size_, epoch_,
+      seed_;
   flatflow::data::Dataset<value_type, key_type> dataset_;
 };
 
