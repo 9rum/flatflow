@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FLATFLOW_DATA_INTERNAL_TYPES_H_
-#define FLATFLOW_DATA_INTERNAL_TYPES_H_
+#ifndef FLATFLOW_BASE_TYPES_H_
+#define FLATFLOW_BASE_TYPES_H_
 
 #include <concepts>
 
 namespace flatflow {
-namespace data {
-namespace internal {
+namespace base {
 
 // The concept `Unsigned<T>` is satisfied if and only if `T` is an unsigned
 // integral type and `std::same_as<T, bool>` is `false`. This is intended to be
@@ -28,8 +27,7 @@ namespace internal {
 template <typename T>
 concept Unsigned = std::unsigned_integral<T> && !std::same_as<T, bool>;
 
-}  // namespace internal
-}  // namespace data
+}  // namespace base
 }  // namespace flatflow
 
-#endif  // FLATFLOW_DATA_INTERNAL_TYPES_H_
+#endif  // FLATFLOW_BASE_TYPES_H_

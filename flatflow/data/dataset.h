@@ -32,8 +32,8 @@
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
+#include "flatflow/base/types.h"
 #include "flatflow/data/internal/container/btree_map.h"
-#include "flatflow/data/internal/types.h"
 
 namespace flatflow {
 namespace data {
@@ -55,7 +55,7 @@ namespace data {
 // * Keras callbacks: https://keras.io/guides/writing_your_own_callbacks/
 // * PyTorch Lightning callbacks: https://lightning.ai/docs/pytorch/stable/extensions/callbacks.html
 template <typename Index, typename Size>
-  requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
+  requires(flatflow::base::Unsigned<Index> && flatflow::base::Unsigned<Size>)
 class Dataset {
  public:
   using key_type = Size;

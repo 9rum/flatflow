@@ -32,9 +32,14 @@
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
+#include "flatflow/base/config.h"
+#include "flatflow/base/types.h"
 #include "flatflow/data/dataset.h"
-#include "flatflow/data/internal/types.h"
 #include "flatflow/scheduler/internal/algorithm/reshape.h"
+
+#ifdef FLATFLOW_BLAS_FOUND
+#include <cblas.h>
+#endif  // FLATFLOW_BLAS_FOUND
 
 namespace flatflow {
 namespace scheduler {
@@ -61,8 +66,7 @@ enum class Schedule : uint8_t {
 // neural networks (CNNs) and state space models (SSMs) in the Mamba family that
 // implement linear-time sequence modeling are of this kind.
 template <typename Index, typename Size, Schedule Kind>
-  requires(flatflow::data::internal::Unsigned<Index> &&
-           flatflow::data::internal::Unsigned<Size>)
+  requires(flatflow::base::Unsigned<Index> && flatflow::base::Unsigned<Size>)
 class Scheduler {
  public:
   using key_type = Size;
@@ -109,9 +113,16 @@ class Scheduler {
     auto sums = std::vector<double>(
         static_cast<std::size_t>((sizes->size() - 1) / kBlockSize + 1), 0.0);
 
+    #ifdef FLATFLOW_BLAS_FOUND
+    #pragma omp declare reduction(axpy : std::vector<double> : cblas_daxpy( \
+            static_cast<int>(omp_in.size()), 1.0, omp_in.data(), 1,         \
+                omp_out.data(), 1)) initializer(omp_priv = omp_orig)
+    #else
     #pragma omp declare reduction(axpy : std::vector<double> : std::transform( \
             omp_in.cbegin(), omp_in.cend(), omp_out.cbegin(), omp_out.begin(), \
                 std::plus<double>())) initializer(omp_priv = omp_orig)
+    #endif  // FLATFLOW_BLAS_FOUND
+
     #pragma omp parallel for reduction(axpy : sums)
     for (value_type index = 0; index < sizes->size(); ++index) {
       // As the sum of each block is guaranteed to be less than 1 << 53,
