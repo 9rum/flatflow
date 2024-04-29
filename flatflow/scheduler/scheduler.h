@@ -85,10 +85,10 @@ class Scheduler {
       const value_type &world_size, const value_type &batch_size,
       const value_type &seed)
       : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
-    CHECK(batch_size != 0);
-    CHECK(batch_size % world_size == 0);
-    CHECK(sizes->size() != 0);
-    CHECK(sizes->size() % world_size == 0);
+    CHECK_NE(batch_size, 0);
+    CHECK_EQ(batch_size % world_size, 0);
+    CHECK_NE(sizes->size(), 0);
+    CHECK_EQ(sizes->size() % world_size, 0);
 
     // (x - 1) / y is always equal to x % y == 0 ? x / y - 1 : x / y without any
     // branch instructions.
