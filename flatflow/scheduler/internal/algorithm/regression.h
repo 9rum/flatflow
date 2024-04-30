@@ -1,17 +1,3 @@
-// Copyright 2024 The FlatFlow Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_REGRESSION_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_REGRESSION_H_
 
@@ -60,7 +46,7 @@ class PassiveAggressiveRegressor {
   // Regressor. This method is implementation of partialfit method in order to
   // use in online learning.
   inline void fit(const std::vector<double> &X, const std::vector<double> &y) {
-    CHECK_EQ(X.size(),y.size());
+    CHECK_EQ(X.size(), y.size());
     for (std::size_t iter = 0; iter < kMaxIter_; ++iter) {
       for (std::size_t dataIdx = 0; dataIdx < X.size(); ++dataIdx) {
         const auto prediction = predict(X[dataIdx]);
