@@ -1,3 +1,8 @@
+// Adapted from https://github.com/scikit-learn/scikit-learn/blob/1.4.2/sklearn/linear_model/_sgd_fast.pyx.tp
+// Copyright (c) 2007-2024 The scikit-learn developers. All rights reserved.
+// This source code is licensed under the BSD-style license found in the
+// LICENSE file in the root directory of this source tree.
+
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_REGRESSION_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_REGRESSION_H_
 
@@ -28,7 +33,6 @@ namespace algorithm {
 //
 // References:
 // https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PassiveAggressiveRegressor.html#sklearn.linear_model.PassiveAggressiveRegressor
-// https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/linear_model/_sgd_fast.pyx.tp
 template <std::size_t degree>
 class PassiveAggressiveRegressor {
  public:

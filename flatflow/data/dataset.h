@@ -57,10 +57,10 @@ namespace data {
 template <typename Index, typename Size>
   requires(flatflow::base::Unsigned<Index> && flatflow::base::Unsigned<Size>)
 class Dataset {
- public:
   using key_type = Size;
   using value_type = Index;
 
+ public:
   // Constructors and assignment operators
   //
   // In addition to a constructor to build an inverted index,

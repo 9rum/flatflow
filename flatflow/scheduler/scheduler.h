@@ -68,10 +68,10 @@ enum class Schedule : uint8_t {
 template <typename Index, typename Size, Schedule Kind>
   requires(flatflow::base::Unsigned<Index> && flatflow::base::Unsigned<Size>)
 class Scheduler {
- public:
   using key_type = Size;
   using value_type = Index;
 
+ public:
   // Constructors and assignment operators
   //
   // In addition to the below constructor to set up scheduling,
@@ -295,6 +295,71 @@ class Scheduler {
   }
 
   double mean_;
+  value_type world_size_, batch_size_, last_batch_, last_batch_size_, epoch_,
+      seed_;
+  flatflow::data::Dataset<value_type, key_type> dataset_;
+};
+
+// flatflow::scheduler::Scheduler<kDynamic>
+//
+// A partial template specialization of `flatflow::scheduler::Scheduler<>`
+// for dynamic scheduling. A dynamic scheduler adaptively adjusts workloads
+// for models trained on a heterogeneous cluster consisting of workers with
+// different compute capabilities. Note that, like static scheduling, dynamic
+// scheduling is only effective for models with linear complexity in the size
+// of each data sample.
+template <typename Index, typename Size>
+  requires(flatflow::base::Unsigned<Index> && flatflow::base::Unsigned<Size>)
+class Scheduler<Index, Size, Schedule::kDynamic> {
+  using key_type = Size;
+  using value_type = Index;
+
+ public:
+  // Constructors and assignment operators
+  //
+  // A `flatflow::scheduler::Scheduler<kDynamic>` supports the same overload set
+  // as `flatflow::scheduler::Scheduler<>` for construction and assignment.
+  inline explicit Scheduler(
+      const flatbuffers::Vector<key_type, value_type> *sizes,
+      const value_type &world_size, const value_type &batch_size,
+      const value_type &seed)
+      : world_size_(world_size), batch_size_(batch_size), seed_(seed) {
+    CHECK_NE(batch_size, 0);
+    CHECK_EQ(batch_size % world_size, 0);
+    CHECK_NE(sizes->size(), 0);
+    CHECK_EQ(sizes->size() % world_size, 0);
+
+    last_batch_ = (sizes->size() - 1) / batch_size;
+    last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
+
+    // Since the performance of each worker is unknown at the beginning of
+    // training, it is initially assumed that the runtime is completely
+    // proportional to the size of each data sample.
+    coefficients =
+        std::vector<double>(static_cast<std::size_t>(world_size), 1.0);
+    intercepts = std::vector<double>(static_cast<std::size_t>(world_size), 0.0);
+
+    workloads =
+        std::vector<std::vector<double>>(static_cast<std::size_t>(world_size));
+    runtimes =
+        std::vector<std::vector<double>>(static_cast<std::size_t>(world_size));
+
+    dataset_ = flatflow::data::Dataset(sizes, seed);
+  }
+
+  Scheduler() = delete;
+
+  inline Scheduler(const Scheduler &other) = default;
+
+  inline Scheduler &operator=(const Scheduler &other) = default;
+
+  inline Scheduler(Scheduler &&other) = default;
+
+  inline Scheduler &operator=(Scheduler &&other) = default;
+
+ protected:
+  std::vector<double> coefficients, intercepts;
+  std::vector<std::vector<double>> workloads, runtimes;
   value_type world_size_, batch_size_, last_batch_, last_batch_size_, epoch_,
       seed_;
   flatflow::data::Dataset<value_type, key_type> dataset_;
