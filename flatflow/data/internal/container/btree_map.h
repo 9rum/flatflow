@@ -488,7 +488,7 @@ class btree_map
 //
 // Swaps the contents of two `btree_map` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
@@ -823,7 +823,7 @@ class btree_multimap
 //
 // Swaps the contents of two `btree_multimap` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
+ABSL_ATTRIBUTE_ALWAYS_INLINE inline void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
