@@ -20,7 +20,6 @@ if(BUILD_TESTING)
     scheduler_test.cc)
   target_include_directories(
     scheduler_test
-    PRIVATE ${CMAKE_BINARY_DIR}
     PRIVATE ${CMAKE_SOURCE_DIR})
   target_link_libraries(
     scheduler_test
@@ -30,14 +29,10 @@ if(BUILD_TESTING)
     PRIVATE absl::log
     PRIVATE absl::log_initialize
     PRIVATE absl::str_format
+    PRIVATE BLAS::BLAS
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main
     PRIVATE OpenMP::OpenMP_CXX)
-  if(BLAS_FOUND)
-    target_link_libraries(
-      scheduler_test
-      PRIVATE BLAS::BLAS)
-  endif()
   gtest_add_tests(
     TARGET scheduler_test)
 endif()
