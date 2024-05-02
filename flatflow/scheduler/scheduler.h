@@ -35,6 +35,7 @@
 
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/internal/types.h"
+#include "flatflow/scheduler/internal/algorithm/regression.h"
 #include "flatflow/scheduler/internal/algorithm/reshape.h"
 
 namespace flatflow {
@@ -155,15 +156,14 @@ class Scheduler {
   // Schedules and shuffles batches for the next training epoch to each of the
   // workers. This schedule kind discards the scheduling interval, as static
   // scheduling occurs at the granularity of epoch.
-  inline auto schedule([[maybe_unused]] const value_type &interval)
-      -> std::vector<std::vector<value_type>> {
+  inline std::vector<std::vector<value_type>> schedule() {
     const auto now = omp_get_wtime();
 
     auto batches = std::vector<std::vector<std::vector<value_type>>>();
     batches.reserve(static_cast<std::size_t>(last_batch_ + 1));
 
     for (value_type step = 0; step <= last_batch_; ++step) {
-      batches.emplace_back(std::move(_schedule(step)));
+      batches.emplace_back(std::move(schedule(step)));
     }
 
     // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
@@ -232,14 +232,13 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  // Scheduler::_schedule()
+  // Scheduler::schedule()
   //
   // Assigns the next batch to each of the workers. It adopts
   // first-fit-decreasing (FFD), a near-optimal heuristic for bin packing.
   // * FFD paper: https://dspace.mit.edu/bitstream/handle/1721.1/57819/17595570-MIT.pdf
   // * Python implementation: https://github.com/erelsgl/prtpy/blob/ebe54010513ea725f7a3221e4aa0258afa15d6fb/prtpy/packing/first_fit.py
-  inline auto _schedule(const value_type &step)
-      -> std::vector<std::vector<value_type>> {
+  inline std::vector<std::vector<value_type>> schedule(const value_type &step) {
     const auto batch_size = step < last_batch_ ? batch_size_ : last_batch_size_;
     const auto micro_batch_size = batch_size / world_size_;
 
@@ -323,18 +322,36 @@ class Scheduler<Index, Size, Schedule::kDynamic> {
 
     last_batch_ = (sizes->size() - 1) / batch_size;
     last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
+    interval_ = 1;
 
-    // Since the performance of each worker is unknown at the beginning of
-    // training, it is initially assumed that the runtime is completely
+    // Since the performance of each worker is unknown at the beginning
+    // of training, it is initially assumed that the runtime is ideally
     // proportional to the size of each data sample.
-    coefficients =
+    coefficients_ =
         std::vector<double>(static_cast<std::size_t>(world_size), 1.0);
-    intercepts = std::vector<double>(static_cast<std::size_t>(world_size), 0.0);
+    intercepts_ =
+        std::vector<double>(static_cast<std::size_t>(world_size), 0.0);
 
-    workloads =
-        std::vector<std::vector<double>>(static_cast<std::size_t>(world_size));
-    runtimes =
-        std::vector<std::vector<double>>(static_cast<std::size_t>(world_size));
+    workloads_ = std::vector<std::vector<double>>();
+    workloads_.reserve(static_cast<std::size_t>(world_size));
+    runtimes_ = std::vector<std::vector<double>>();
+    runtimes_.reserve(static_cast<std::size_t>(world_size));
+    regressors_ =
+        std::vector<internal::algorithm::PassiveAggressiveRegressor<1>>();
+    regressors_.reserve(static_cast<std::size_t>(world_size));
+
+    for (value_type rank = 0; rank < world_size; ++rank) {
+      auto workloads = std::vector<double>();
+      workloads.reserve(static_cast<std::size_t>(kIntervalIncrementThreshold));
+      workloads_.emplace_back(std::move(workloads));
+
+      auto runtimes = std::vector<double>();
+      runtimes.reserve(static_cast<std::size_t>(kIntervalIncrementThreshold));
+      runtimes_.emplace_back(std::move(runtimes));
+
+      regressors_.emplace_back(
+          internal::algorithm::PassiveAggressiveRegressor<1>(1.0e-4));
+    }
 
     dataset_ = flatflow::data::Dataset(sizes, seed);
   }
@@ -350,10 +367,14 @@ class Scheduler<Index, Size, Schedule::kDynamic> {
   inline Scheduler &operator=(Scheduler &&other) = default;
 
  protected:
-  std::vector<double> coefficients, intercepts;
-  std::vector<std::vector<double>> workloads, runtimes;
+  static constexpr auto kIntervalIncrementThreshold =
+      static_cast<value_type>(16);
+
+  std::vector<double> coefficients_, intercepts_;
+  std::vector<std::vector<double>> workloads_, runtimes_;
+  std::vector<internal::algorithm::PassiveAggressiveRegressor<1>> regressors_;
   value_type world_size_, batch_size_, last_batch_, last_batch_size_, epoch_,
-      seed_;
+      seed_, interval_;
   flatflow::data::Dataset<value_type, key_type> dataset_;
 };
 

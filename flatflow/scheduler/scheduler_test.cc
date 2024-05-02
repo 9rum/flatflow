@@ -56,7 +56,9 @@ class SchedulerTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices) {
-    for (uint64_t step = 0; step < kInterval; ++step) {
+    for (uint64_t step = 0;
+         step < static_cast<uint64_t>(kDatasetSize - 1) / kBatchSize + 1;
+         ++step) {
       auto sums = std::vector<uint16_t>(kWorldSize, 0);
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
         std::for_each(
@@ -80,8 +82,6 @@ class SchedulerTest : public testing::Test {
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
   static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
   static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
-  static constexpr auto kInterval =
-      static_cast<uint64_t>((kDatasetSize - 1) / kBatchSize + 1);
 
   std::vector<uint16_t> data;
   std::variant<
@@ -111,7 +111,7 @@ TEST_F(SchedulerTest, StaticScheduler) {
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_epoch_begin(epoch, rank);
     }
-    print(scheduler.schedule(kInterval));
+    print(scheduler.schedule());
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_epoch_end(epoch, rank);
     }
@@ -139,7 +139,8 @@ class SchedulerWithRemainderTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices) {
-    for (uint64_t step = 0; step < (kDatasetSize - 1) / kBatchSize + 1;
+    for (uint64_t step = 0;
+         step < static_cast<uint64_t>(kDatasetSize - 1) / kBatchSize + 1;
          ++step) {
       auto sums = std::vector<uint16_t>(kWorldSize, 0);
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
@@ -165,8 +166,6 @@ class SchedulerWithRemainderTest : public testing::Test {
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
   static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
   static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
-  static constexpr auto kInterval =
-      static_cast<uint64_t>((kDatasetSize - 1) / kBatchSize + 1);
 
   std::vector<uint16_t> data;
   std::variant<
@@ -196,7 +195,7 @@ TEST_F(SchedulerWithRemainderTest, StaticScheduler) {
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_epoch_begin(epoch, rank);
     }
-    print(scheduler.schedule(kInterval));
+    print(scheduler.schedule());
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_epoch_end(epoch, rank);
     }
