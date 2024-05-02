@@ -22,12 +22,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
-find_package(BLAS)
+find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
-
-set(FLATFLOW_BLAS_FOUND ${BLAS_FOUND})
-
-configure_file(flatflow/base/config.h.in flatflow/base/config.h)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)
