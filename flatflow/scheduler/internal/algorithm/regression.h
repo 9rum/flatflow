@@ -91,6 +91,59 @@ class PassiveAggressiveRegressor {
   static constexpr auto kC_ = 1.0;
 };
 
+template <>
+class PassiveAggressiveRegressor<2> {
+ public:
+  inline explicit PassiveAggressiveRegressor(const double &epsilon)
+      : epsilon_(epsilon) {
+    coef_ = {0.0, 1.0, 1.0};
+    power_ = {0.0, 0.0, 0.0};
+  }
+  inline void fit(const std::vector<double> &X, const double &y) {
+    std::vector<double> PolyX(0.0, 3);
+    for (std::size_t i = 0; i < X.size(); ++i) {
+      PolyX[1] += X[i];
+      PolyX[2] += X[i] * X[i];
+    }
+    PolyX[0] = 1.0;
+
+    for (std::size_t iter = 0; iter < kMaxIter_; ++iter) {
+      const auto prediction = predict(PolyX);
+      const auto loss = std::max(0.0, std::abs(y - prediction) - epsilon_);
+
+      for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
+        power_[coefIdx] = std::pow(PolyX[coefIdx], 2.0);
+      }
+
+      const auto xqnorm = std::accumulate(power_.begin(), power_.end(), 0.0);
+      const auto update =
+          (std::min(kC_, loss / xqnorm)) * ((y > prediction) ? 1 : -1);
+
+      for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
+        coef_[coefIdx] += update * std::pow(PolyX[coefIdx], coefIdx);
+      }
+    }
+  }
+
+  // PassiveAggressiveRegressor::predict()
+  //
+  // Predicts value based on given scalar x and current model coef_.
+  inline double predict(const std::vector<double> &x) const {
+    auto prediction = 0.0;
+    for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
+      prediction += coef_[coefIdx] * x[coefIdx];
+    }
+    return prediction;
+  }
+
+ protected:
+  double epsilon_;
+  std::array<double, 3> coef_;
+  std::array<double, 3> power_;
+  static constexpr auto kMaxIter_ = 1000;
+  static constexpr auto kC_ = 1.0;
+};
+
 }  // namespace algorithm
 }  // namespace internal
 }  // namespace scheduler
