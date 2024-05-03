@@ -19,12 +19,9 @@
 #include <omp.h>
 
 #include <algorithm>
-#include <execution>
 #include <functional>
-#include <iterator>
 #include <limits>
 #include <numeric>
-#include <random>
 #include <utility>
 #include <vector>
 
@@ -37,6 +34,7 @@
 #include "flatflow/data/internal/types.h"
 #include "flatflow/scheduler/internal/algorithm/regression.h"
 #include "flatflow/scheduler/internal/algorithm/reshape.h"
+#include "flatflow/scheduler/internal/algorithm/shuffle.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -166,25 +164,9 @@ class Scheduler {
       batches.emplace_back(std::move(schedule(step)));
     }
 
-    // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
-    // batches, which we call inter-batch shuffling. This enables shuffling not
-    // only between data samples with the same size but also between scheduled
-    // batches. It uses the same pseudorandom number generator and random seed
-    // as `flatflow::data::Dataset<>` for deterministic shuffling.
-    auto generator = std::ranlux48();
-    generator.seed(static_cast<uint_fast64_t>(seed_ + epoch_));
-
-    // When the batch size and last batch size are different from each other
-    // (i.e., when remainder exists), the last batch should not be included in
-    // shuffling range.
-    auto end = batches.end();
-    if (batch_size_ != last_batch_size_) {
-      std::advance(end, -1);
-    }
-    std::shuffle(batches.begin(), end, generator);
-
     LOG(INFO) << absl::StrFormat("Scheduling %u steps took %fs", last_batch_ + 1, omp_get_wtime() - now);
 
+    internal::algorithm::shuffle(batches, seed_ + epoch_);
     return internal::algorithm::reshape(batches);
   }
 
