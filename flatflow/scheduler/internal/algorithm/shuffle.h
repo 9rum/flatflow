@@ -38,25 +38,25 @@ namespace algorithm {
 // as `flatflow::data::Dataset<>` for deterministic shuffling.
 template <typename T>
 ABSL_ATTRIBUTE_ALWAYS_INLINE inline void shuffle(
-    std::vector<std::vector<std::vector<T>>> &ABSL_RANDOM_INTERNAL_RESTRICT batches,
+    std::vector<std::vector<std::vector<T>>> &ABSL_RANDOM_INTERNAL_RESTRICT tensor,
     const T &ABSL_RANDOM_INTERNAL_RESTRICT seed) {
-  const auto interval = batches.size();
+  const auto interval = tensor.size();
   CHECK_GT(interval, 0);
 
-  const auto world_size = batches.at(0).size();
+  const auto world_size = tensor.at(0).size();
   CHECK_GT(world_size, 0);
 
   // When the batch size and last batch size are different from each other
   // (i.e., when remainder exists), the last batch should be excluded from
   // the shuffling range.
-  auto end = batches.end();
-  if (batches.at(0).at(0).size() != batches.at(interval - 1).at(0).size()) {
+  auto end = tensor.end();
+  if (tensor.at(0).at(0).size() != tensor.at(interval - 1).at(0).size()) {
     std::advance(end, -1);
   }
 
   auto generator = std::ranlux48();
   generator.seed(static_cast<uint_fast64_t>(seed));
-  std::shuffle(batches.begin(), end, generator);
+  std::shuffle(tensor.begin(), end, generator);
 }
 
 }  // namespace algorithm
