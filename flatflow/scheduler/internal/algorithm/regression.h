@@ -68,17 +68,20 @@ class PassiveAggressiveRegressor {
                               ((runtimes[idx] > prediction) ? 1 : -1);
 
           intercept += update;
-          coef_[0] += update * std::pow(workloads[idx], 1);
+          coef_[0] += update * workloads[idx];
         }
       }
     }
     return isConverged;
   }
-  double intercept = 0.0;
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts value based on given scalar x and current model coef_.
-  inline const double predict(const double &x) const { return coef_[1] * x; }
+  inline const double predict(const double &workload) const {
+    return coef_[0] * workload;
+  }
+
+  double intercept = 0.0;
 
  protected:
   double epsilon_;
@@ -116,7 +119,7 @@ class PassiveAggressiveRegressor<2> {
                   const std::vector<double> &runtimes) {
     CHECK_EQ(workloads.size(), runtimes.size());
     bool isConverged = true;
-    std::vector<std::vector<double>> PolyX(workloads.size());
+    std::vector<std::vector<double>> workload(workloads.size());
     for (std::size_t widx = 0; widx < workloads.size(); widx++) {
       std::vector<double> X(2, 0.0);
       for (std::size_t idx = 0; idx < workloads[idx].size(); idx++) {
@@ -124,18 +127,18 @@ class PassiveAggressiveRegressor<2> {
         X[1] += workloads[widx][idx] * workloads[widx][idx];
       }
       // X[1] = std::pow(X[1], 2.0);
-      PolyX[widx] = X;
+      workload[widx] = X;
     }
     for (std::size_t iter = 0; iter < kMaxIter_; iter++) {
       for (std::size_t widx = 0; widx < workloads.size(); widx++) {
-        const auto prediction = predict(PolyX[widx]);
+        const auto prediction = predict(workload[widx]);
         const auto loss =
             std::max(0.0, std::abs(runtimes[widx] - prediction) - epsilon_);
         if (loss != 0.0) {
           isConverged = isConverged && false;
-          power_[0] = std::pow(PolyX[widx][0], 1);
-          power_[1] = std::pow(PolyX[widx][0], 2.0);
-          power_[2] = std::pow(PolyX[widx][1], 2.0);
+          power_[0] = std::pow(workload[widx][0], 1);
+          power_[1] = std::pow(workload[widx][0], 2.0);
+          power_[2] = std::pow(workload[widx][1], 2.0);
 
           const auto xqnorm =
               std::accumulate(power_.begin(), power_.end(), 0.0);
@@ -143,8 +146,8 @@ class PassiveAggressiveRegressor<2> {
                               ((runtimes[widx] > prediction) ? 1 : -1);
 
           intercept_ += update;
-          coef_[0] += update * PolyX[widx][0];
-          coef_[1] += update * PolyX[widx][1];
+          coef_[0] += update * workload[widx][0];
+          coef_[1] += update * workload[widx][1];
         }
       }
     }
@@ -153,8 +156,8 @@ class PassiveAggressiveRegressor<2> {
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts value based on given scalar x and current model coef_.
-  inline const double predict(const std::vector<double> &x) const {
-    return coef_[0] * x[0] + coef_[1] * x[1];
+  inline const double predict(const std::vector<double> &workloads) const {
+    return coef_[0] * workloads[0] + coef_[1] * workloads[1];
   }
 
  protected:
