@@ -37,7 +37,7 @@ namespace algorithm {
 // batches. It uses the same pseudorandom number generator and random seed
 // as `flatflow::data::Dataset<>` for deterministic shuffling.
 template <typename T>
-ABSL_ATTRIBUTE_ALWAYS_INLINE inline void shuffle(
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void shuffle(
     std::vector<std::vector<std::vector<T>>> &ABSL_RANDOM_INTERNAL_RESTRICT tensor,
     const T &ABSL_RANDOM_INTERNAL_RESTRICT seed) {
   const auto interval = tensor.size();
