@@ -26,6 +26,7 @@ if(BUILD_TESTING)
     PRIVATE absl::log
     PRIVATE absl::log_initialize
     PRIVATE absl::str_format
+    PRIVATE BLAS::BLAS
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main
     PRIVATE OpenMP::OpenMP_CXX)

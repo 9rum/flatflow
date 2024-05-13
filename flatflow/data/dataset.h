@@ -15,6 +15,7 @@
 #ifndef FLATFLOW_DATA_DATASET_H_
 #define FLATFLOW_DATA_DATASET_H_
 
+#include <cblas.h>
 #include <omp.h>
 
 #include <algorithm>
@@ -103,8 +104,28 @@ class Dataset {
     //   a B-tree.
     constexpr auto kIndexSlotSpace =
         static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
-    auto counts =
-        absl::InlinedVector<std::size_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
+    auto counts = std::vector<double>(kIndexSlotSpace, 0.0);
+
+    #pragma omp declare reduction(vadd : std::vector<double> : cblas_daxpy( \
+            static_cast<int>(omp_in.size()), 1.0, omp_in.data(), 1,         \
+                omp_out.data(), 1)) initializer(omp_priv = omp_orig)
+
+    #pragma omp parallel for reduction(vadd : counts)
+    for (value_type index = 0; index < sizes->size(); ++index) {
+      const auto size = static_cast<std::size_t>(sizes->Get(index));
+      ++counts.at(size);
+    }
+
+    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
+        kIndexSlotSpace);
+
+    #pragma omp parallel for
+    for (std::size_t size = 0; size < counts.size(); ++size) {
+      const auto count = static_cast<std::size_t>(counts.at(size));
+      if (0 < count) {
+        slots.at(size).reserve(count);
+      }
+    }
 
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
@@ -116,23 +137,6 @@ class Dataset {
     // unknown pragma warning on compilation, regardless of whether its clause
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
-    #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
-      const auto size = static_cast<std::size_t>(sizes->Get(index));
-      ++counts.at(size);
-    }
-
-    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
-        kIndexSlotSpace);
-
-    #pragma omp parallel for
-    for (std::size_t size = 0; size < counts.size(); ++size) {
-      const auto count = counts.at(size);
-      if (0 < count) {
-        slots.at(size).reserve(count);
-      }
-    }
-
     #pragma omp unroll partial
     for (value_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
