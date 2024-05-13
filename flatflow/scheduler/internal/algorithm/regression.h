@@ -76,7 +76,7 @@ class PassiveAggressiveRegressor {
   }
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts value based on given scalar x and current model coef_.
+  // Predicts value based on given scalar worload and current model coef_.
   inline const double predict(const double &workload) const {
     return coef_[0] * workload;
   }
@@ -126,7 +126,6 @@ class PassiveAggressiveRegressor<2> {
         X[0] += workloads[widx][idx];
         X[1] += workloads[widx][idx] * workloads[widx][idx];
       }
-      // X[1] = std::pow(X[1], 2.0);
       workload[widx] = X;
     }
     for (std::size_t iter = 0; iter < kMaxIter_; iter++) {
@@ -155,7 +154,7 @@ class PassiveAggressiveRegressor<2> {
   }
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts value based on given scalar x and current model coef_.
+  // Predicts value based on given scalar workloads and current model coef_.
   inline const double predict(const std::vector<double> &workloads) const {
     return coef_[0] * workloads[0] + coef_[1] * workloads[1];
   }
