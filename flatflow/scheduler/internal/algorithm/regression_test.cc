@@ -66,11 +66,11 @@ class RegressionTest : public testing::Test {
 
   std::vector<double> generateCoefficients(std::size_t degree) {
     std::vector<double> coeffs;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis(300.0, 400.0);
+    std::random_device randomDevice;
+    std::mt19937 randomGenerator(randomDevice());
+    std::uniform_real_distribution<double> uniformDist(kMinCoef, kMaxCoef);
     for (std::size_t coefIdx = 0; coefIdx <= degree; ++coefIdx) {
-      coeffs.push_back(dis(gen));
+      coeffs.push_back(uniformDist(randomGenerator));
     }
     return coeffs;
   }
@@ -97,6 +97,8 @@ class RegressionTest : public testing::Test {
   static constexpr auto kNode = 4;
   static constexpr auto kMinRange = 100.0;
   static constexpr auto kMaxRange = 200.0;
+  static constexpr auto kMinCoef = 300.0;
+  static constexpr auto kMaxCoef = 400.0;
   static constexpr std::size_t kDatasetSize = 100;
   std::vector<double> runtimes_;
 };
@@ -105,11 +107,11 @@ TEST_F(RegressionTest, LinearRegression) {
   std::vector<double> workloads;
   Regressor<kLinear> regressor(kEpsilon);
   const auto coefficients = generateCoefficients(kLinear);
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<double> dis(kMinRange, kMaxRange);
+  std::random_device randomDevice;
+  std::mt19937 randomGenerator(randomDevice());
+  std::uniform_real_distribution<double> uniformDist(kMinRange, kMaxRange);
   for (std::size_t i = 0; i < kDatasetSize; i++) {
-    const auto x = dis(gen);
+    const auto x = uniformDist(randomGenerator);
     workloads.push_back(x);
     double predict = generateLinear(x, coefficients);
     runtimes_.push_back(predict);
@@ -122,12 +124,12 @@ TEST_F(RegressionTest, PolynomialRegression) {
   std::vector<std::vector<double>> workloads;
   Regressor<kQuadratic> regressor(kEpsilon);
   const auto coefficients = generateCoefficients(kQuadratic);
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_real_distribution<double> dis(kMinRange, kMaxRange);
+  std::random_device randomDevice;
+  std::mt19937 randomGenerator(randomDevice());
+  std::uniform_real_distribution<double> uniformDist(kMinRange, kMaxRange);
   for (std::size_t i = 0; i < kDatasetSize; i++) {
     std::vector<double> partition;
-    const auto x = randomPartition(dis(gen), kNode);
+    const auto x = randomPartition(uniformDist(randomGenerator), kNode);
     for (std::size_t nodeIndex = 0; nodeIndex < kNode; nodeIndex++) {
       partition.push_back(x[nodeIndex]);
     }
