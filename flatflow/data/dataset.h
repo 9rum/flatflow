@@ -59,7 +59,8 @@ template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
   using key_type = Size;
-  using value_type = Index;
+  using mapped_type = Index;
+  using value_type = std::pair<const Size, Index>;
 
  public:
   // Constructors and assignment operators
@@ -85,8 +86,8 @@ class Dataset {
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
   inline explicit Dataset(
-      const flatbuffers::Vector<key_type, value_type> *sizes,
-      const value_type &seed)
+      const flatbuffers::Vector<key_type, mapped_type> *sizes,
+      const mapped_type &seed)
       : seed_(seed) {
     const auto now = omp_get_wtime();
 
@@ -111,12 +112,12 @@ class Dataset {
                 omp_out.data(), 1)) initializer(omp_priv = omp_orig)
 
     #pragma omp parallel for reduction(vadd : counts)
-    for (value_type index = 0; index < sizes->size(); ++index) {
+    for (mapped_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       ++counts.at(size);
     }
 
-    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
+    auto slots = absl::InlinedVector<std::vector<mapped_type>, kIndexSlotSpace>(
         kIndexSlotSpace);
 
     #pragma omp parallel for
@@ -138,7 +139,7 @@ class Dataset {
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
     #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
+    for (mapped_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       slots.at(size).emplace_back(index);
     }
@@ -166,15 +167,13 @@ class Dataset {
   //
   // Returns a data sample with the nearest size to the given size from inverted
   // index. This is equivalent to call `find()`.
-  inline std::pair<value_type, key_type> operator[](const key_type &size) {
-    return find(size);
-  }
+  inline value_type operator[](const key_type &size) { return find(size); }
 
   // Dataset::find()
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline std::pair<value_type, key_type> find(const key_type &size) {
+  inline value_type find(const key_type &size) {
     // The retrieval process of a data sample is described below:
     //
     // * First, find lower bound for the given size from inverted index. To find
@@ -221,7 +220,7 @@ class Dataset {
       recyclebin_.insert(std::move(items_.extract(item)));
     } else if (item->second.size() == item->second.capacity()) {
       item->second.pop_back();
-      auto slot = std::vector<value_type>();
+      auto slot = std::vector<mapped_type>();
       slot.reserve(item->second.capacity());
       slot.emplace_back(index);
       recyclebin_.try_emplace(found, std::move(slot));
@@ -233,25 +232,25 @@ class Dataset {
       recyclebin_.at(found).emplace_back(index);
     }
 
-    return std::make_pair(index, found);
+    return std::make_pair(found, index);
   }
 
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
   inline void on_batch_begin(
-      [[maybe_unused]] const value_type &batch) const noexcept {}
+      [[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
   inline void on_batch_end(
-      [[maybe_unused]] const value_type &batch) const noexcept {}
+      [[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const value_type &epoch) {
+  inline void on_epoch_begin(const mapped_type &epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<>`
@@ -279,7 +278,7 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] const value_type &epoch) {
+  inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
     internal::container::swap(items_, recyclebin_);
   }
 
@@ -294,10 +293,10 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
-  value_type seed_;
+  mapped_type seed_;
   internal::container::btree_map<
-      key_type, std::vector<value_type>, std::less<key_type>,
-      std::allocator<std::pair<const key_type, std::vector<value_type>>>,
+      key_type, std::vector<mapped_type>, std::less<key_type>,
+      std::allocator<std::pair<const key_type, std::vector<mapped_type>>>,
       /*TargetNodeSize=*/512>
       items_, recyclebin_;
 };

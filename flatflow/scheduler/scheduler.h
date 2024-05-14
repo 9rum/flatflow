@@ -45,7 +45,7 @@ template <typename Index, typename Size, std::size_t Order, bool Heterogeneous>
            flatflow::data::internal::Unsigned<Size>)
 class Scheduler {
   using key_type = Size;
-  using value_type = Index;
+  using mapped_type = Index;
 
  public:
   // Constructors and assignment operators
@@ -57,14 +57,12 @@ class Scheduler {
   // `std::monostate` to select one of several scheduling policies at runtime
   // without dynamic dispatch overhead.
   //
-  // NOTE:
-  //
-  // Unlike `flatflow::data::Dataset<>`, the constructors of scheduler
-  // are not specified as `explicit` since an implicit conversion from
-  // `flatflow::scheduler::Scheduler<>` to `std::variant` is required.
-  inline Scheduler(const flatbuffers::Vector<key_type, value_type> *sizes,
-                   const value_type &world_size, const value_type &batch_size,
-                   const value_type &micro_batch_size, const value_type &seed)
+  // Note that unlike `flatflow::data::Dataset<>`, the constructors of scheduler
+  // are not specified as `explicit` since an implicit conversion from scheduler
+  // to `std::variant` is required.
+  inline Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+                   const mapped_type &world_size, const mapped_type &batch_size,
+                   const mapped_type &micro_batch_size, const mapped_type &seed)
       : world_size_(world_size),
         batch_size_(batch_size),
         micro_batch_size_(micro_batch_size),
@@ -116,7 +114,7 @@ class Scheduler {
   //
   // Note that this scheduler discards the scheduling interval since the
   // scheduling occurs at the granularity of epoch.
-  inline std::vector<std::vector<value_type>> schedule() {
+  inline std::vector<std::vector<mapped_type>> schedule() {
     const auto now = omp_get_wtime();
 
     LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
@@ -125,7 +123,7 @@ class Scheduler {
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(const value_type &batch) const noexcept {
+  inline void on_batch_begin(const mapped_type &batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
@@ -133,8 +131,8 @@ class Scheduler {
   //
   // A callback to be called at the end of a training batch.
   inline void on_batch_end(
-      const value_type &batch, [[maybe_unused]] const value_type &rank,
-      [[maybe_unused]] const flatbuffers::Vector<double, value_type> *profiles)
+      const mapped_type &batch, [[maybe_unused]] const mapped_type &rank,
+      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *profiles)
       const noexcept {
     dataset_.on_batch_end(batch);
   }
@@ -142,7 +140,7 @@ class Scheduler {
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const value_type &epoch) {
+  inline void on_epoch_begin(const mapped_type &epoch) {
     epoch_ = epoch;
     dataset_.on_epoch_begin(epoch);
   }
@@ -150,7 +148,7 @@ class Scheduler {
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end(const value_type &epoch) {
+  inline void on_epoch_end(const mapped_type &epoch) {
     dataset_.on_epoch_end(epoch);
   }
 
@@ -165,9 +163,9 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  value_type batch_size_, epoch_, last_batch_size_, last_micro_batch_size_,
+  mapped_type batch_size_, epoch_, last_batch_size_, last_micro_batch_size_,
       micro_batch_size_, num_batches_, num_micro_batches_, seed_, world_size_;
-  flatflow::data::Dataset<value_type, key_type> dataset_;
+  flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
 
 }  // namespace scheduler

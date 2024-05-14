@@ -176,7 +176,7 @@ TEST_F(DatasetTest, Find) {
 
   for (auto [size, count] : counts_) {
     for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.find(size).second, size);
+      EXPECT_EQ(dataset_.find(size).first, size);
     }
   }
 
@@ -198,7 +198,7 @@ TEST_F(DatasetTest, Find) {
   dataset_.on_epoch_begin(epoch);
   for (auto [size, count] : counts_) {
     for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.find(size).second, size);
+      EXPECT_EQ(dataset_.find(size).first, size);
     }
   }
 
