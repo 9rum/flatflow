@@ -107,14 +107,13 @@ class Scheduler {
 
   inline Scheduler &operator=(Scheduler &&other) = default;
 
-  // Scheduler::schedule()
+  // Scheduler::Schedule()
   //
-  // Schedules and shuffles batches for the next training epoch to each of the
-  // workers.
+  // Makes schedules for the next training epoch and then shuffles them.
   //
-  // Note that this scheduler discards the scheduling interval since the
+  // Note that this scheduler discards the scheduling interval since its
   // scheduling occurs at the granularity of epoch.
-  inline std::vector<std::vector<mapped_type>> schedule() {
+  inline std::vector<std::vector<mapped_type>> Schedule() {
     const auto now = omp_get_wtime();
 
     LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);

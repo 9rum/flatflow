@@ -166,14 +166,14 @@ class Dataset {
   // Dataset::operator[]()
   //
   // Returns a data sample with the nearest size to the given size from inverted
-  // index. This is equivalent to call `find()`.
-  inline value_type operator[](const key_type &size) { return find(size); }
+  // index. This is equivalent to call `at()`.
+  inline value_type operator[](const key_type &size) { return at(size); }
 
-  // Dataset::find()
+  // Dataset::at()
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline value_type find(const key_type &size) {
+  inline value_type at(const key_type &size) {
     // The retrieval process of a data sample is described below:
     //
     // * First, find lower bound for the given size from inverted index. To find

@@ -171,12 +171,12 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
 // This test checks whether the retrieval process of data sample finds one with
 // the nearest size to the requested value. It also verifies that the retrieved
 // data samples are properly recovered in the recycle bin.
-TEST_F(DatasetTest, Find) {
+TEST_F(DatasetTest, At) {
   const auto epoch = static_cast<uint64_t>(std::rand());
 
   for (auto [size, count] : counts_) {
     for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.find(size).first, size);
+      EXPECT_EQ(dataset_.at(size).first, size);
     }
   }
 
@@ -198,7 +198,7 @@ TEST_F(DatasetTest, Find) {
   dataset_.on_epoch_begin(epoch);
   for (auto [size, count] : counts_) {
     for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.find(size).first, size);
+      EXPECT_EQ(dataset_.at(size).first, size);
     }
   }
 
