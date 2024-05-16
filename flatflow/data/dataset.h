@@ -28,8 +28,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/log/check.h"
 #include "absl/log/log.h"
+#include "absl/random/internal/platform.h"
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
@@ -61,6 +64,7 @@ class Dataset {
   using key_type = Size;
   using mapped_type = Index;
   using value_type = std::pair<const Size, Index>;
+  using size_type = std::size_t;
 
  public:
   // Constructors and assignment operators
@@ -89,6 +93,8 @@ class Dataset {
       const flatbuffers::Vector<key_type, mapped_type> *sizes,
       const mapped_type &seed)
       : seed_(seed) {
+    CHECK_NE(sizes, nullptr);
+
     const auto now = omp_get_wtime();
 
     // The construction of inverted index goes as follows:
@@ -152,6 +158,9 @@ class Dataset {
       }
     }
 
+    max_size_ = static_cast<size_type>(sizes->size());
+    size_ = static_cast<size_type>(sizes->size());
+
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %fs", omp_get_wtime() - now);
   }
 
@@ -174,6 +183,8 @@ class Dataset {
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
   inline value_type at(const key_type &size) {
+    CHECK_NE(size_, 0);
+
     // The retrieval process of a data sample is described below:
     //
     // * First, find lower bound for the given size from inverted index. To find
@@ -232,8 +243,27 @@ class Dataset {
       recyclebin_.at(found).emplace_back(index);
     }
 
+    --size_;
+
     return std::make_pair(found, index);
   }
+
+  // Dataset::LastN()
+  //
+  // Takes the last `n` data samples from the inverted index with bounds
+  // checking. This ensures that the retrieved data samples are sorted in
+  // decreasing order of size.
+  inline std::vector<value_type> LastN(std::size_t n);
+
+  // Dataset::size()
+  //
+  // Returns the number of data samples in the inverted index.
+  inline size_type size() const noexcept { return size_; }
+
+  // Dataset::max_size()
+  //
+  // Returns the maximum possible number of data samples in the inverted index.
+  inline size_type max_size() const noexcept { return max_size_; }
 
   // Dataset::on_batch_begin()
   //
@@ -280,6 +310,7 @@ class Dataset {
   // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
     internal::container::swap(items_, recyclebin_);
+    size_ = max_size_ - size_;
   }
 
   // Dataset::on_train_begin()
@@ -293,6 +324,7 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
+  size_type max_size_, size_;
   mapped_type seed_;
   internal::container::btree_map<
       key_type, std::vector<mapped_type>, std::less<key_type>,

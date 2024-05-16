@@ -41,10 +41,10 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void shuffle(
     std::vector<std::vector<std::vector<T>>> &ABSL_RANDOM_INTERNAL_RESTRICT tensor,
     const T &ABSL_RANDOM_INTERNAL_RESTRICT seed) {
   const auto interval = tensor.size();
-  CHECK_GT(interval, 0);
+  CHECK_NE(interval, 0);
 
   const auto world_size = tensor.at(0).size();
-  CHECK_GT(world_size, 0);
+  CHECK_NE(world_size, 0);
 
   // When the batch size and last batch size are different from each other
   // (i.e., when remainder exists), the last batch should be excluded from
