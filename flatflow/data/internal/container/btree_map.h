@@ -155,6 +155,27 @@ class btree_map
   // Returns a const iterator to the end of the `btree_map`.
   using Base::cend;
 
+  // btree_map::rbegin()
+  //
+  // Returns a reverse iterator to the beginning of the reversed `btree_map`.
+  using Base::rbegin;
+
+  // btree_map::crbegin()
+  //
+  // Returns a const reverse iterator to the beginning of the reversed
+  // `btree_map`.
+  using Base::crbegin;
+
+  // btree_map::rend()
+  //
+  // Returns a reverse iterator to the end of the reversed `btree_map`.
+  using Base::rend;
+
+  // btree_map::crend()
+  //
+  // Returns a const reverse iterator to the end of the reversed `btree_map`.
+  using Base::crend;
+
   // btree_map::empty()
   //
   // Returns whether or not the `btree_map` is empty.
@@ -585,6 +606,29 @@ class btree_multimap
   //
   // Returns a const iterator to the end of the `btree_multimap`.
   using Base::cend;
+
+  // btree_multimap::rbegin()
+  //
+  // Returns a reverse iterator to the beginning of the reversed
+  // `btree_multimap`.
+  using Base::rbegin;
+
+  // btree_multimap::crbegin()
+  //
+  // Returns a const reverse iterator to the beginning of the reversed
+  // `btree_multimap`.
+  using Base::crbegin;
+
+  // btree_multimap::rend()
+  //
+  // Returns a reverse iterator to the end of the reversed `btree_multimap`.
+  using Base::rend;
+
+  // btree_multimap::crend()
+  //
+  // Returns a const reverse iterator to the end of the reversed
+  // `btree_multimap`.
+  using Base::crend;
 
   // btree_multimap::empty()
   //

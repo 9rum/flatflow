@@ -253,7 +253,7 @@ class Dataset {
   // Takes the last `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
   // decreasing order of size.
-  inline std::vector<value_type> LastN(std::size_t n);
+  inline std::vector<value_type> LastN(size_type n);
 
   // Dataset::size()
   //
@@ -309,8 +309,11 @@ class Dataset {
   //
   // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
+    // At the end of an epoch, the inverted index must be empty.
+    CHECK_EQ(size_, 0);
+
     internal::container::swap(items_, recyclebin_);
-    size_ = max_size_ - size_;
+    size_ = max_size_;
   }
 
   // Dataset::on_train_begin()
