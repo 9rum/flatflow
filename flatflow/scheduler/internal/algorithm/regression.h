@@ -51,14 +51,14 @@ class PassiveAggressiveRegressor {
   inline bool fit(const std::vector<double> &workloads,
                   const std::vector<double> &runtimes) {
     CHECK_EQ(workloads.size(), runtimes.size());
-    bool earlyStop = true;
-    for (std::size_t iter = 0; iter < kMaxIter_; ++iter) {
+    bool early_stop = true;
+    for (std::size_t iter = 0; iter < max_iter_; ++iter) {
       for (std::size_t idx = 0; idx < workloads.size(); ++idx) {
         const auto prediction = predict(workloads[idx]);
         const auto loss =
             std::max(0.0, std::abs(runtimes[idx] - prediction) - epsilon_);
         if (loss != 0.0) {
-          earlyStop = earlyStop && false;
+          early_stop = false;
           power_[0] = std::pow(workloads[idx], std::pow(2.0, 0));
           power_[1] = std::pow(workloads[idx], std::pow(2.0, 1));
 
@@ -72,7 +72,7 @@ class PassiveAggressiveRegressor {
         }
       }
     }
-    return earlyStop;
+    return early_stop;
   }
   // PassiveAggressiveRegressor::predict()
   //
@@ -88,7 +88,7 @@ class PassiveAggressiveRegressor {
   std::vector<double> coef_;
   std::vector<double> power_;
   static constexpr auto C_ = 1.0;
-  static constexpr auto kMaxIter_ = 1000;
+  static constexpr auto max_iter_ = 1000;
 };
 
 // PassiveAggressiveRegressor<2>
@@ -118,7 +118,7 @@ class PassiveAggressiveRegressor<2> {
   inline bool fit(const std::vector<std::vector<double>> &workloads,
                   const std::vector<double> &runtimes) {
     CHECK_EQ(workloads.size(), runtimes.size());
-    bool earlyStop = true;
+    bool early_stop = true;
     std::vector<std::vector<double>> workload(workloads.size());
     for (std::size_t widx = 0; widx < workloads.size(); widx++) {
       std::vector<double> X(2, 0.0);
@@ -128,13 +128,13 @@ class PassiveAggressiveRegressor<2> {
       }
       workload[widx] = X;
     }
-    for (std::size_t iter = 0; iter < kMaxIter_; iter++) {
+    for (std::size_t iter = 0; iter < max_iter_; iter++) {
       for (std::size_t widx = 0; widx < workloads.size(); widx++) {
         const auto prediction = predict(workload[widx]);
         const auto loss =
             std::max(0.0, std::abs(runtimes[widx] - prediction) - epsilon_);
         if (loss != 0.0) {
-          earlyStop = earlyStop && false;
+          early_stop = false;
           power_[0] = std::pow(workload[widx][0], 1);
           power_[1] = std::pow(workload[widx][0], 2.0);
           power_[2] = std::pow(workload[widx][1], 2.0);
@@ -150,7 +150,7 @@ class PassiveAggressiveRegressor<2> {
         }
       }
     }
-    return earlyStop;
+    return early_stop;
   }
   // PassiveAggressiveRegressor::predict()
   //
@@ -165,7 +165,7 @@ class PassiveAggressiveRegressor<2> {
   std::vector<double> coef_;
   std::vector<double> power_;
   static constexpr auto C_ = 1.0;
-  static constexpr auto kMaxIter_ = 1000;
+  static constexpr auto max_iter_ = 1000;
 };
 
 }  // namespace algorithm
