@@ -20,12 +20,12 @@
 #include "gtest/gtest.h"
 
 namespace {
-template <std::size_t degree>
+template <std::size_t Order>
 class Regressor : public flatflow::scheduler::internal::algorithm::
-                      PassiveAggressiveRegressor<degree> {
+                      PassiveAggressiveRegressor<Order> {
  public:
   using flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<
-      degree>::PassiveAggressiveRegressor;
+      Order>::PassiveAggressiveRegressor;
 
   void checkCoefficients(const std::vector<double> &coefficients,
                          double threshold) {
@@ -43,7 +43,7 @@ class RegressionTest : public testing::Test {
  protected:
   void SetUp() override { runtimes_.reserve(kDatasetSize); }
 
-  double generateLinear(const double &x, const std::vector<double> &coef) {
+  double generateLinear(double x, const std::vector<double> &coef) {
     double sum = coef[0];
     for (std::size_t i = 0; i < coef.size(); i++) {
       sum += coef[i] * std::pow(x, i);
@@ -75,7 +75,7 @@ class RegressionTest : public testing::Test {
     return coeffs;
   }
 
-  std::vector<double> randomPartition(const int &x, const int &node) {
+  std::vector<double> randomPartition(int x, int node) {
     if (node == 0) {
       return {};
     }

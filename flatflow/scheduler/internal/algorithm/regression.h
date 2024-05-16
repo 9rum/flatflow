@@ -33,13 +33,13 @@ namespace algorithm {
 //
 // References:
 // https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PassiveAggressiveRegressor.html#sklearn.linear_model.PassiveAggressiveRegressor
-template <std::size_t degree>
+template <std::size_t Order>
 class PassiveAggressiveRegressor {
  public:
-  inline explicit PassiveAggressiveRegressor(const double &epsilon)
+  inline explicit PassiveAggressiveRegressor(double epsilon)
       : epsilon_(epsilon) {
-    coef_ = std::vector<double>(degree, 1.0);
-    power_ = std::vector<double>(degree + 1, 0.0);
+    coef_ = std::vector<double>(Order, 1.0);
+    power_ = std::vector<double>(Order + 1, 0.0);
   }
 
   // PassiveAggressiveRegressor::fit()
@@ -51,14 +51,14 @@ class PassiveAggressiveRegressor {
   inline bool fit(const std::vector<double> &workloads,
                   const std::vector<double> &runtimes) {
     CHECK_EQ(workloads.size(), runtimes.size());
-    bool isConverged = true;
+    bool earlyStop = true;
     for (std::size_t iter = 0; iter < kMaxIter_; ++iter) {
       for (std::size_t idx = 0; idx < workloads.size(); ++idx) {
         const auto prediction = predict(workloads[idx]);
         const auto loss =
             std::max(0.0, std::abs(runtimes[idx] - prediction) - epsilon_);
         if (loss != 0.0) {
-          isConverged = isConverged && false;
+          earlyStop = earlyStop && false;
           power_[0] = std::pow(workloads[idx], std::pow(2.0, 0));
           power_[1] = std::pow(workloads[idx], std::pow(2.0, 1));
 
@@ -72,12 +72,12 @@ class PassiveAggressiveRegressor {
         }
       }
     }
-    return isConverged;
+    return earlyStop;
   }
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts value based on given scalar worload and current model coef_.
-  inline const double predict(const double &workload) const {
+  inline const double predict(double workload) const {
     return coef_[0] * workload;
   }
 
@@ -104,7 +104,7 @@ class PassiveAggressiveRegressor {
 template <>
 class PassiveAggressiveRegressor<2> {
  public:
-  inline explicit PassiveAggressiveRegressor(const double &epsilon)
+  inline explicit PassiveAggressiveRegressor(double epsilon)
       : epsilon_(epsilon) {
     coef_ = {1.0, 1.0};
     power_ = {1.0, 0.0, 0.0};
@@ -118,7 +118,7 @@ class PassiveAggressiveRegressor<2> {
   inline bool fit(const std::vector<std::vector<double>> &workloads,
                   const std::vector<double> &runtimes) {
     CHECK_EQ(workloads.size(), runtimes.size());
-    bool isConverged = true;
+    bool earlyStop = true;
     std::vector<std::vector<double>> workload(workloads.size());
     for (std::size_t widx = 0; widx < workloads.size(); widx++) {
       std::vector<double> X(2, 0.0);
@@ -134,7 +134,7 @@ class PassiveAggressiveRegressor<2> {
         const auto loss =
             std::max(0.0, std::abs(runtimes[widx] - prediction) - epsilon_);
         if (loss != 0.0) {
-          isConverged = isConverged && false;
+          earlyStop = earlyStop && false;
           power_[0] = std::pow(workload[widx][0], 1);
           power_[1] = std::pow(workload[widx][0], 2.0);
           power_[2] = std::pow(workload[widx][1], 2.0);
@@ -150,7 +150,7 @@ class PassiveAggressiveRegressor<2> {
         }
       }
     }
-    return isConverged;
+    return earlyStop;
   }
   // PassiveAggressiveRegressor::predict()
   //
