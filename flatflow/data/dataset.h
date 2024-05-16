@@ -15,6 +15,7 @@
 #ifndef FLATFLOW_DATA_DATASET_H_
 #define FLATFLOW_DATA_DATASET_H_
 
+#include <cblas.h>
 #include <omp.h>
 
 #include <algorithm>
@@ -27,8 +28,11 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
+#include "absl/log/check.h"
 #include "absl/log/log.h"
+#include "absl/random/internal/platform.h"
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
@@ -58,7 +62,9 @@ template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
   using key_type = Size;
-  using value_type = Index;
+  using mapped_type = Index;
+  using value_type = std::pair<const Size, Index>;
+  using size_type = std::size_t;
 
  public:
   // Constructors and assignment operators
@@ -84,9 +90,11 @@ class Dataset {
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
   inline explicit Dataset(
-      const flatbuffers::Vector<key_type, value_type> *sizes,
-      const value_type &seed)
+      const flatbuffers::Vector<key_type, mapped_type> *sizes,
+      const mapped_type &seed)
       : seed_(seed) {
+    CHECK_NE(sizes, nullptr);
+
     const auto now = omp_get_wtime();
 
     // The construction of inverted index goes as follows:
@@ -103,8 +111,28 @@ class Dataset {
     //   a B-tree.
     constexpr auto kIndexSlotSpace =
         static_cast<std::size_t>(1 << std::numeric_limits<key_type>::digits);
-    auto counts =
-        absl::InlinedVector<std::size_t, kIndexSlotSpace>(kIndexSlotSpace, 0);
+    auto counts = std::vector<double>(kIndexSlotSpace, 0.0);
+
+    #pragma omp declare reduction(vadd : std::vector<double> : cblas_daxpy( \
+            static_cast<int>(omp_in.size()), 1.0, omp_in.data(), 1,         \
+                omp_out.data(), 1)) initializer(omp_priv = omp_orig)
+
+    #pragma omp parallel for reduction(vadd : counts)
+    for (mapped_type index = 0; index < sizes->size(); ++index) {
+      const auto size = static_cast<std::size_t>(sizes->Get(index));
+      ++counts.at(size);
+    }
+
+    auto slots = absl::InlinedVector<std::vector<mapped_type>, kIndexSlotSpace>(
+        kIndexSlotSpace);
+
+    #pragma omp parallel for
+    for (std::size_t size = 0; size < counts.size(); ++size) {
+      const auto count = static_cast<std::size_t>(counts.at(size));
+      if (0 < count) {
+        slots.at(size).reserve(count);
+      }
+    }
 
     // Unlike counts and slots whose lengths are known at compile time (e.g.,
     // 65536 for 16-bit key type), the length of sizes is unpredictable so we
@@ -117,24 +145,7 @@ class Dataset {
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
     #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
-      const auto size = static_cast<std::size_t>(sizes->Get(index));
-      ++counts.at(size);
-    }
-
-    auto slots = absl::InlinedVector<std::vector<value_type>, kIndexSlotSpace>(
-        kIndexSlotSpace);
-
-    #pragma omp parallel for
-    for (std::size_t size = 0; size < counts.size(); ++size) {
-      const auto count = counts.at(size);
-      if (0 < count) {
-        slots.at(size).reserve(count);
-      }
-    }
-
-    #pragma omp unroll partial
-    for (value_type index = 0; index < sizes->size(); ++index) {
+    for (mapped_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       slots.at(size).emplace_back(index);
     }
@@ -146,6 +157,9 @@ class Dataset {
         items_.try_emplace(static_cast<key_type>(size), std::move(slot));
       }
     }
+
+    max_size_ = static_cast<size_type>(sizes->size());
+    size_ = static_cast<size_type>(sizes->size());
 
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %fs", omp_get_wtime() - now);
   }
@@ -161,16 +175,16 @@ class Dataset {
   // Dataset::operator[]()
   //
   // Returns a data sample with the nearest size to the given size from inverted
-  // index. This is equivalent to call `find()`.
-  inline std::pair<value_type, key_type> operator[](const key_type &size) {
-    return find(size);
-  }
+  // index. This is equivalent to call `at()`.
+  inline value_type operator[](const key_type &size) { return at(size); }
 
-  // Dataset::find()
+  // Dataset::at()
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline std::pair<value_type, key_type> find(const key_type &size) {
+  inline value_type at(const key_type &size) {
+    CHECK_NE(size_, 0);
+
     // The retrieval process of a data sample is described below:
     //
     // * First, find lower bound for the given size from inverted index. To find
@@ -217,7 +231,7 @@ class Dataset {
       recyclebin_.insert(std::move(items_.extract(item)));
     } else if (item->second.size() == item->second.capacity()) {
       item->second.pop_back();
-      auto slot = std::vector<value_type>();
+      auto slot = std::vector<mapped_type>();
       slot.reserve(item->second.capacity());
       slot.emplace_back(index);
       recyclebin_.try_emplace(found, std::move(slot));
@@ -229,25 +243,44 @@ class Dataset {
       recyclebin_.at(found).emplace_back(index);
     }
 
-    return std::make_pair(index, found);
+    --size_;
+
+    return std::make_pair(found, index);
   }
+
+  // Dataset::LastN()
+  //
+  // Takes the last `n` data samples from the inverted index with bounds
+  // checking. This ensures that the retrieved data samples are sorted in
+  // decreasing order of size.
+  inline std::vector<value_type> LastN(size_type n);
+
+  // Dataset::size()
+  //
+  // Returns the number of data samples in the inverted index.
+  inline size_type size() const noexcept { return size_; }
+
+  // Dataset::max_size()
+  //
+  // Returns the maximum possible number of data samples in the inverted index.
+  inline size_type max_size() const noexcept { return max_size_; }
 
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
   inline void on_batch_begin(
-      [[maybe_unused]] const value_type &batch) const noexcept {}
+      [[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
   inline void on_batch_end(
-      [[maybe_unused]] const value_type &batch) const noexcept {}
+      [[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const value_type &epoch) {
+  inline void on_epoch_begin(const mapped_type &epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<>`
@@ -275,8 +308,12 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] const value_type &epoch) {
+  inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
+    // At the end of an epoch, the inverted index must be empty.
+    CHECK_EQ(size_, 0);
+
     internal::container::swap(items_, recyclebin_);
+    size_ = max_size_;
   }
 
   // Dataset::on_train_begin()
@@ -290,10 +327,11 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
-  value_type seed_;
+  size_type max_size_, size_;
+  mapped_type seed_;
   internal::container::btree_map<
-      key_type, std::vector<value_type>, std::less<key_type>,
-      std::allocator<std::pair<const key_type, std::vector<value_type>>>,
+      key_type, std::vector<mapped_type>, std::less<key_type>,
+      std::allocator<std::pair<const key_type, std::vector<mapped_type>>>,
       /*TargetNodeSize=*/512>
       items_, recyclebin_;
 };

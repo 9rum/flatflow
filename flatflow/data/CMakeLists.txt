@@ -22,10 +22,12 @@ if(BUILD_TESTING)
   target_link_libraries(
     dataset_test
     PRIVATE absl::btree
+    PRIVATE absl::check
     PRIVATE absl::inlined_vector
     PRIVATE absl::log
     PRIVATE absl::log_initialize
     PRIVATE absl::str_format
+    PRIVATE BLAS::BLAS
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main
     PRIVATE OpenMP::OpenMP_CXX)

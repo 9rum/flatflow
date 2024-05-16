@@ -16,7 +16,8 @@ if(BUILD_TESTING)
   add_executable(
     algorithm_test
     regression_test.cc
-    reshape_test.cc)
+    reshape_test.cc
+    shuffle_test.cc)
   target_include_directories(
     algorithm_test
     PRIVATE ${CMAKE_SOURCE_DIR})

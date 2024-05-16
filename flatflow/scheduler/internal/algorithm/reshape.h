@@ -35,10 +35,10 @@ template <typename T>
 inline auto reshape(const std::vector<std::vector<std::vector<T>>> &tensor)
     -> std::vector<std::vector<T>> {
   const auto interval = tensor.size();
-  CHECK_GT(interval, 0);
+  CHECK_NE(interval, 0);
 
   const auto world_size = tensor.at(0).size();
-  CHECK_GT(world_size, 0);
+  CHECK_NE(world_size, 0);
 
   auto matrix = std::vector<std::vector<T>>();
   matrix.reserve(world_size);
