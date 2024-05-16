@@ -53,22 +53,24 @@ class PassiveAggressiveRegressor {
     CHECK_EQ(workloads.size(), runtimes.size());
     bool early_stop = true;
     for (std::size_t iter = 0; iter < max_iter_; ++iter) {
-      for (std::size_t idx = 0; idx < workloads.size(); ++idx) {
-        const auto prediction = predict(workloads[idx]);
+      for (std::size_t index = 0; index < workloads.size(); ++index) {
+        const auto &workloard = workloads[index];
+        const auto &runtime = runtimes[index];
+        const auto prediction = predict(workloard);
         const auto loss =
-            std::max(0.0, std::abs(runtimes[idx] - prediction) - epsilon_);
+            std::max(0.0, std::abs(runtime - prediction) - epsilon_);
         if (loss != 0.0) {
           early_stop = false;
-          power_[0] = std::pow(workloads[idx], std::pow(2.0, 0));
-          power_[1] = std::pow(workloads[idx], std::pow(2.0, 1));
+          power_[0] = std::pow(workloard, 1);
+          power_[1] = std::pow(workloard, 2.0);
 
           const auto xqnorm =
               std::accumulate(power_.begin(), power_.end(), 0.0);
-          const auto update = (std::min(C_, loss / xqnorm)) *
-                              ((runtimes[idx] > prediction) ? 1 : -1);
+          const auto update =
+              (std::min(C_, loss / xqnorm)) * ((runtime > prediction) ? 1 : -1);
 
           intercept += update;
-          coef_[0] += update * workloads[idx];
+          coef_[0] += update * workloard;
         }
       }
     }
@@ -120,33 +122,35 @@ class PassiveAggressiveRegressor<2> {
     CHECK_EQ(workloads.size(), runtimes.size());
     bool early_stop = true;
     std::vector<std::vector<double>> workload(workloads.size());
-    for (std::size_t widx = 0; widx < workloads.size(); widx++) {
-      std::vector<double> X(2, 0.0);
-      for (std::size_t idx = 0; idx < workloads[idx].size(); idx++) {
-        X[0] += workloads[widx][idx];
-        X[1] += workloads[widx][idx] * workloads[widx][idx];
-      }
-      workload[widx] = X;
-    }
-    for (std::size_t iter = 0; iter < max_iter_; iter++) {
-      for (std::size_t widx = 0; widx < workloads.size(); widx++) {
-        const auto prediction = predict(workload[widx]);
+    std::transform(workloads.cbegin(), workloads.cend(), workload.begin(),
+                   [](const auto &work) {
+                     double linear =
+                         std::accumulate(work.cbegin(), work.cend(), 0.0);
+                     double dot = std::inner_product(work.cbegin(), work.cend(),
+                                                     work.cbegin(), 0.0);
+                     return std::vector<double>{linear, dot};
+                   });
+    for (std::size_t iter = 0; iter < max_iter_; ++iter) {
+      for (std::size_t index = 0; index < workloads.size(); ++index) {
+        const auto &workloard = workload[index];
+        const auto &runtime = runtimes[index];
+        const auto prediction = predict(workloard);
         const auto loss =
-            std::max(0.0, std::abs(runtimes[widx] - prediction) - epsilon_);
+            std::max(0.0, std::abs(runtime - prediction) - epsilon_);
         if (loss != 0.0) {
           early_stop = false;
-          power_[0] = std::pow(workload[widx][0], 1);
-          power_[1] = std::pow(workload[widx][0], 2.0);
-          power_[2] = std::pow(workload[widx][1], 2.0);
+          power_[0] = std::pow(workloard[0], 1);
+          power_[1] = std::pow(workloard[0], 2.0);
+          power_[2] = std::pow(workloard[1], 2.0);
 
           const auto xqnorm =
               std::accumulate(power_.begin(), power_.end(), 0.0);
-          const auto update = (std::min(C_, loss / xqnorm)) *
-                              ((runtimes[widx] > prediction) ? 1 : -1);
+          const auto update =
+              (std::min(C_, loss / xqnorm)) * ((runtime > prediction) ? 1 : -1);
 
           intercept_ += update;
-          coef_[0] += update * workload[widx][0];
-          coef_[1] += update * workload[widx][1];
+          coef_[0] += update * workloard[0];
+          coef_[1] += update * workloard[1];
         }
       }
     }

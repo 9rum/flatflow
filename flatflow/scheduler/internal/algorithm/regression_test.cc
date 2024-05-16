@@ -65,9 +65,9 @@ class RegressionTest : public testing::Test {
     std::vector<double> coeffs;
     std::random_device random_device;
     std::mt19937 random_generator(random_device());
-    std::uniform_real_distribution<double> uniformDist(kMinCoef, kMaxCoef);
+    std::uniform_real_distribution<double> uniform_dist(kMinCoef, kMaxCoef);
     for (std::size_t coefIdx = 0; coefIdx <= degree; ++coefIdx) {
-      coeffs.push_back(uniformDist(random_generator));
+      coeffs.push_back(uniform_dist(random_generator));
     }
     return coeffs;
   }
@@ -78,10 +78,10 @@ class RegressionTest : public testing::Test {
     }
     std::vector<double> result;
     result.reserve(node);
-    const auto avg = static_cast<double>(x) / node;
+    const auto average = static_cast<double>(x) / node;
     const auto remainder = x % node;
     for (std::size_t index = 0; index < node; ++index) {
-      result.push_back(avg);
+      result.push_back(average);
     }
     result.back() += remainder;
     return result;
@@ -105,10 +105,10 @@ TEST_F(RegressionTest, LinearRegression) {
   Regressor<kLinear> regressor(kEpsilon);
   const auto coeff = generate_coefficients(kLinear);
   std::random_device random_device;
-  std::mt19937 randomGenerator(random_device());
-  std::uniform_real_distribution<double> uniformDist(kMinRange, kMaxRange);
+  std::mt19937 random_generator(random_device());
+  std::uniform_real_distribution<double> uniform_dist(kMinRange, kMaxRange);
   for (std::size_t i = 0; i < kDatasetSize; i++) {
-    const auto x = uniformDist(randomGenerator);
+    const auto x = uniform_dist(random_generator);
     workloads.push_back(x);
     double predict = generate_linear(x, coeff);
     runtimes_.push_back(predict);
