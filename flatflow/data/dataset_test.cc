@@ -38,40 +38,41 @@ class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
   inline explicit Dataset() : flatflow::data::Dataset<uint64_t, uint16_t>() {}
 
   inline explicit Dataset(const flatbuffers::Vector64<uint16_t> *sizes,
-                          const uint64_t &seed)
+                          uint64_t seed)
       : flatflow::data::Dataset<uint64_t, uint16_t>(sizes, seed) {}
 
-  inline bool empty(const bool &items = true) const {
+  inline bool empty(bool items = true) const {
     return items ? items_.empty() : recyclebin_.empty();
   }
 
-  inline std::size_t size(const uint16_t &size,
-                          const bool &items = true) const {
+  inline std::size_t size() const noexcept { return size_; }
+
+  inline std::size_t size(uint16_t size, bool items = true) const {
     return items ? items_.at(size).size() : recyclebin_.at(size).size();
   }
 
-  inline std::size_t capacity(const uint16_t &size,
-                              const bool &items = true) const {
+  inline std::size_t capacity(uint16_t size, bool items = true) const {
     return items ? items_.at(size).capacity() : recyclebin_.at(size).capacity();
   }
 
-  inline bool contains(const uint16_t &size, const bool &items = true) const {
+  inline bool contains(uint16_t size, bool items = true) const {
     return items ? items_.contains(size) : recyclebin_.contains(size);
   }
 
-  inline bool is_sorted(const uint16_t &size, const bool &items = true) const {
+  inline bool is_sorted(uint16_t size, bool items = true) const {
     return items ? std::is_sorted(items_.at(size).cbegin(),
                                   items_.at(size).cend())
                  : std::is_sorted(recyclebin_.at(size).crbegin(),
                                   recyclebin_.at(size).crend());
   }
 
-  inline void copy(const uint16_t &size, std::vector<uint64_t> &slot) const {
+  inline std::vector<uint64_t> copy(uint16_t size) const {
+    auto slot = std::vector<uint64_t>(items_.at(size).size());
     std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
+    return slot;
   }
 
-  inline bool equal(const uint16_t &size,
-                    const std::vector<uint64_t> &slot) const {
+  inline bool equal(uint16_t size, const std::vector<uint64_t> &slot) const {
     return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
   }
 };
@@ -138,6 +139,8 @@ TEST_F(DatasetTest, Constructor) {
       EXPECT_FALSE(dataset_.contains(size));
     }
   }
+
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
 }
 
 // This test checks whether intra-batch shuffling occurs deterministically for
@@ -148,9 +151,7 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
   auto slots = std::map<uint16_t, std::vector<uint64_t>>();
   for (const auto [size, count] : counts_) {
     if (0 < count) {
-      auto slot = std::vector<uint64_t>(count);
-      dataset_.copy(size, slot);
-      slots.try_emplace(size, std::move(slot));
+      slots.try_emplace(size, std::move(dataset_.copy(size)));
     }
   }
 
@@ -203,6 +204,29 @@ TEST_F(DatasetTest, At) {
   }
 
   EXPECT_TRUE(dataset_.empty());
+}
+
+// This test checks whether the bulk loading retrieves data samples as intended.
+TEST_F(DatasetTest, LastN) {
+  auto items = dataset_.LastN(dataset_.size());
+  EXPECT_TRUE(std::is_sorted(items.crbegin(), items.crend(),
+                             [](const auto &pair, const auto &other) {
+                               return pair.first < other.first;
+                             }));
+  EXPECT_EQ(dataset_.size(), 0);
+
+  const auto epoch = static_cast<uint64_t>(std::rand());
+
+  dataset_.on_epoch_end(epoch);
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+  dataset_.on_epoch_begin(epoch);
+
+  items = dataset_.LastN(dataset_.size());
+  EXPECT_TRUE(std::is_sorted(items.crbegin(), items.crend(),
+                             [](const auto &pair, const auto &other) {
+                               return pair.first < other.first;
+                             }));
+  EXPECT_EQ(dataset_.size(), 0);
 }
 
 }  // namespace

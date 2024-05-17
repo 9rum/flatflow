@@ -61,12 +61,17 @@ namespace data {
 template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
+  using container_type = internal::container::btree_map<
+      Size, std::vector<Index>, std::less<Size>,
+      std::allocator<std::pair<const Size, std::vector<Index>>>,
+      /*TargetNodeSize=*/512>;
+
+ public:
   using key_type = Size;
   using mapped_type = Index;
   using value_type = std::pair<const Size, Index>;
   using size_type = std::size_t;
 
- public:
   // Constructors and assignment operators
   //
   // In addition to a constructor to build an inverted index,
@@ -190,8 +195,8 @@ class Dataset {
     // * First, find lower bound for the given size from inverted index. To find
     //   the item with the nearest size, compare the size of the found item with
     //   its precedence if necessary. Since the actual size of the found item
-    //   may be different from the given size, it returns the index of the found
-    //   item along with its size.
+    //   may be different from the given size, the index of the found item is
+    //   returned along with its size.
     // * Once the item has been found, select and remove an index from its index
     //   slot. For efficient removal, it always choose the last index in the
     //   index slot. Even though the choice of index within a given index slot
@@ -199,23 +204,7 @@ class Dataset {
     //   since each index slot is shuffled at the beginning of each training
     //   epoch. If the index has been removed, store the index in another
     //   inverted index (i.e., the `recycle bin`) for efficient recovery of
-    //   inverted index at the end of training epoch. There are four possible
-    //   cases for this:
-    //
-    //   * If there is no equivalent size in recycle bin, create a new index
-    //     slot with the index and reserve its capacity as in the constructor to
-    //     avoid copying of the underlying array. Note that it is the same to
-    //     check whether the size and capacity of an index slot in items are
-    //     equal to each other as to search for the equivalent size in recycle
-    //     bin, since any index slots with the same size in items and recycle
-    //     bin are mutually exclusive.
-    //   * A special case occurs when the capacity of the index slot is one,
-    //     where its node handle can be extracted from items and moved to
-    //     recycle bin without allocating a new index slot.
-    //   * If the size already exists in recycle bin, then simply append the
-    //     index to the corresponding index slot.
-    //   * Finally, if the index slot in items becomes empty, delete it from
-    //     items.
+    //   inverted index at the end of training epoch.
     auto item = items_.lower_bound(size);
     if (item != items_.begin()) {
       const auto prev = std::prev(item);
@@ -224,28 +213,7 @@ class Dataset {
       }
     }
 
-    const auto found = item->first;
-    const auto index = item->second.back();
-
-    if (item->second.capacity() == 1) {
-      recyclebin_.insert(std::move(items_.extract(item)));
-    } else if (item->second.size() == item->second.capacity()) {
-      item->second.pop_back();
-      auto slot = std::vector<mapped_type>();
-      slot.reserve(item->second.capacity());
-      slot.emplace_back(index);
-      recyclebin_.try_emplace(found, std::move(slot));
-    } else {
-      item->second.pop_back();
-      if (item->second.empty()) {
-        items_.erase(item);
-      }
-      recyclebin_.at(found).emplace_back(index);
-    }
-
-    --size_;
-
-    return std::make_pair(found, index);
+    return Last(item);
   }
 
   // Dataset::LastN()
@@ -253,7 +221,22 @@ class Dataset {
   // Takes the last `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
   // decreasing order of size.
-  inline std::vector<value_type> LastN(size_type n);
+  inline std::vector<value_type> LastN(size_type n) {
+    CHECK_LE(n, size_);
+
+    auto items = std::vector<value_type>();
+    items.reserve(n);
+
+    for (; 0 < n;) {
+      auto item = items_.rbegin();
+      auto count = std::min(n, item->second.size());
+      for (; 0 < count; --count, --n) {
+        items.emplace_back(Last(item));
+      }
+    }
+
+    return items;
+  }
 
   // Dataset::size()
   //
@@ -327,13 +310,59 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
-  size_type max_size_, size_;
+  // Dataset::Last()
+  //
+  // Takes the last data sample from item at `position`.
+  inline value_type Last(container_type::iterator position) {
+    // Take the last index from item and restore it to recycle bin. There are
+    // four possible cases for this:
+    //
+    // * If there is no equivalent size in recycle bin, create a new index slot
+    //   with the index and reserve its capacity as in the constructor to avoid
+    //   copying of the underlying array. Note that it is the same to check
+    //   whether the size and capacity of an index slot in items are equal to
+    //   each other as to search for the equivalent size in recycle bin, since
+    //   any index slots with the same size in items and recycle bin are
+    //   mutually exclusive.
+    // * A special case occurs when the capacity of the index slot is one, where
+    //   its node handle can be extracted from items and moved to recycle bin
+    //   without allocating a new index slot.
+    // * If the size already exists in recycle bin, then simply append the index
+    //   to the corresponding index slot.
+    // * Finally, if the index slot becomes empty, delete it from items.
+    const auto size = position->first;
+    const auto index = position->second.back();
+
+    if (position->second.capacity() == 1) {
+      recyclebin_.insert(std::move(items_.extract(position)));
+    } else if (position->second.size() == position->second.capacity()) {
+      position->second.pop_back();
+      auto slot = std::vector<mapped_type>();
+      slot.reserve(position->second.capacity());
+      slot.emplace_back(index);
+      recyclebin_.try_emplace(size, std::move(slot));
+    } else {
+      position->second.pop_back();
+      if (position->second.empty()) {
+        items_.erase(position);
+      }
+      recyclebin_.at(size).emplace_back(index);
+    }
+
+    --size_;
+
+    return std::make_pair(size, index);
+  }
+
+  inline value_type Last(container_type::reverse_iterator position) {
+    return Last(std::next(position).base());
+  }
+
+  size_type max_size_;
+  size_type size_;
   mapped_type seed_;
-  internal::container::btree_map<
-      key_type, std::vector<mapped_type>, std::less<key_type>,
-      std::allocator<std::pair<const key_type, std::vector<mapped_type>>>,
-      /*TargetNodeSize=*/512>
-      items_, recyclebin_;
+  container_type items_;
+  container_type recyclebin_;
 };
 
 }  // namespace data

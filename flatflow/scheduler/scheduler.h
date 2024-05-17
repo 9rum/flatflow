@@ -44,10 +44,10 @@ template <typename Index, typename Size, std::size_t Order, bool Heterogeneous>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size>)
 class Scheduler {
+ public:
   using key_type = Size;
   using mapped_type = Index;
 
- public:
   // Constructors and assignment operators
   //
   // In addition to the below constructor to set up scheduling,
@@ -111,8 +111,9 @@ class Scheduler {
   //
   // Makes schedules for the next training epoch and then shuffles them.
   //
-  // Note that this scheduler discards the scheduling interval since its
-  // scheduling occurs at the granularity of epoch.
+  // Note that this scheduler discards the scheduling interval; scheduling
+  // for models with linear complexity on identical machines occurs at the
+  // granularity of epoch.
   inline std::vector<std::vector<mapped_type>> Schedule() {
     const auto now = omp_get_wtime();
 
@@ -162,8 +163,15 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  mapped_type batch_size_, epoch_, last_batch_size_, last_micro_batch_size_,
-      micro_batch_size_, num_batches_, num_micro_batches_, seed_, world_size_;
+  mapped_type batch_size_;
+  mapped_type epoch_;
+  mapped_type last_batch_size_;
+  mapped_type last_micro_batch_size_;
+  mapped_type micro_batch_size_;
+  mapped_type num_batches_;
+  mapped_type num_micro_batches_;
+  mapped_type seed_;
+  mapped_type world_size_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
 
