@@ -207,9 +207,9 @@ TEST_F(DatasetTest, At) {
 }
 
 // This test checks whether the bulk loading retrieves data samples as intended.
-TEST_F(DatasetTest, LastN) {
-  auto items = dataset_.LastN(dataset_.size());
-  EXPECT_TRUE(std::is_sorted(items.crbegin(), items.crend(),
+TEST_F(DatasetTest, Take) {
+  auto items = dataset_.take(dataset_.size());
+  EXPECT_TRUE(std::is_sorted(items.cbegin(), items.cend(),
                              [](const auto &pair, const auto &other) {
                                return pair.first < other.first;
                              }));
@@ -221,8 +221,8 @@ TEST_F(DatasetTest, LastN) {
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
   dataset_.on_epoch_begin(epoch);
 
-  items = dataset_.LastN(dataset_.size());
-  EXPECT_TRUE(std::is_sorted(items.crbegin(), items.crend(),
+  items = dataset_.take(dataset_.size());
+  EXPECT_TRUE(std::is_sorted(items.cbegin(), items.cend(),
                              [](const auto &pair, const auto &other) {
                                return pair.first < other.first;
                              }));

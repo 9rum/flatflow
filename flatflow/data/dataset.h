@@ -213,25 +213,31 @@ class Dataset {
       }
     }
 
-    return Last(item);
+    return take(item);
   }
 
-  // Dataset::LastN()
+  // Dataset::take()
   //
-  // Takes the last `n` data samples from the inverted index with bounds
+  // Takes the first `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
-  // decreasing order of size.
-  inline std::vector<value_type> LastN(size_type n) {
+  // order of size.
+  inline std::vector<value_type> take(size_type n) {
     CHECK_LE(n, size_);
 
     auto items = std::vector<value_type>();
     items.reserve(n);
 
-    for (; 0 < n;) {
-      auto item = items_.rbegin();
-      auto count = std::min(n, item->second.size());
-      for (; 0 < count; --count, --n) {
-        items.emplace_back(Last(item));
+    for (auto item = items_.begin(); 0 < n; item = items_.begin()) {
+      if (n < item->second.size()) {
+        for (; 0 < n; --n) {
+          items.emplace_back(take(item));
+        }
+      } else {
+        for (; 1 < item->second.size(); --n) {
+          items.emplace_back(take(item));
+        }
+        items.emplace_back(take(item));
+        --n;
       }
     }
 
@@ -310,10 +316,10 @@ class Dataset {
   inline void on_train_end() const noexcept {}
 
  protected:
-  // Dataset::Last()
+  // Dataset::take()
   //
-  // Takes the last data sample from item at `position`.
-  inline value_type Last(container_type::iterator position) {
+  // Takes a data sample from item at `position`.
+  inline value_type take(container_type::iterator position) {
     // Take the last index from item and restore it to recycle bin. There are
     // four possible cases for this:
     //
@@ -354,8 +360,8 @@ class Dataset {
     return std::make_pair(size, index);
   }
 
-  inline value_type Last(container_type::reverse_iterator position) {
-    return Last(std::next(position).base());
+  inline value_type take(container_type::reverse_iterator position) {
+    return take(std::next(position).base());
   }
 
   size_type max_size_;
