@@ -61,12 +61,11 @@ namespace data {
 template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
+ public:
   using container_type = internal::container::btree_map<
       Size, std::vector<Index>, std::less<Size>,
       std::allocator<std::pair<const Size, std::vector<Index>>>,
       /*TargetNodeSize=*/512>;
-
- public:
   using key_type = Size;
   using mapped_type = Index;
   using value_type = std::pair<const Size, Index>;
