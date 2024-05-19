@@ -167,8 +167,8 @@ ABSL_ATTRIBUTE_NOINLINE auto KarmarkarKarp(
   // solution, and so on. This process is called differencing the solutions.
   // The combined solution replaces the two solutions in the sequence, and we
   // iterate this differencing operation until only one solution in the sequence
-  // remains, which is the balanced solution returned by BLDM.
-  for (; 1 < solutions.size();) {
+  // remains, which is the balanced solution obtained by BLDM.
+  while (1 < solutions.size()) {
     auto solution = solutions.top();
     solutions.pop();
 
