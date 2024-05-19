@@ -18,10 +18,10 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <concepts>
 #include <iterator>
 #include <queue>
 #include <span>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -48,7 +48,7 @@ namespace {
 template <typename Index, typename Size, typename UnaryOp>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size> &&
-           std::is_invocable_v<UnaryOp, Size>)
+           std::invocable<UnaryOp, Size>)
 struct Subset {
   using key_type = Size;
   using mapped_type = Index;
@@ -85,7 +85,7 @@ struct Subset {
 template <typename Index, typename Size, typename UnaryOp>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size> &&
-           std::is_invocable_v<UnaryOp, Size>)
+           std::invocable<UnaryOp, Size>)
 struct Solution {
   using key_type = Size;
   using mapped_type = Index;
@@ -133,12 +133,13 @@ struct Solution {
 template <typename Index, typename Size, typename UnaryOp>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size> &&
-           std::is_invocable_v<UnaryOp, Size>)
+           std::invocable<UnaryOp, Size>)
 ABSL_ATTRIBUTE_NOINLINE auto KarmarkarKarp(
     const std::vector<std::pair<const Size, Index>> &ABSL_RANDOM_INTERNAL_RESTRICT items,
     const Index &ABSL_RANDOM_INTERNAL_RESTRICT micro_batch_size,
     const Index &ABSL_RANDOM_INTERNAL_RESTRICT num_micro_batches, UnaryOp op)
-    -> std::vector<std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>> {
+    -> std::vector<
+        std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>> {
   CHECK_NE(micro_batch_size, 0);
   CHECK_NE(num_micro_batches, 0);
   CHECK_EQ(items.size() % micro_batch_size, 0);
