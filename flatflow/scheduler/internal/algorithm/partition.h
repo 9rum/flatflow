@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <execution>
 #include <iterator>
 #include <queue>
 #include <span>
@@ -113,7 +114,7 @@ struct Solution {
       subsets.at(index).Join(other.subsets.at(subsets.size() - index - 1));
     }
 
-    std::sort(subsets.begin(), subsets.end());
+    std::sort(std::execution::par, subsets.begin(), subsets.end());
     difference = subsets.at(subsets.size() - 1).sum - subsets.at(0).sum;
   }
 
@@ -136,14 +137,13 @@ template <typename Index, typename Size, typename UnaryOp>
            std::invocable<UnaryOp, Size>)
 ABSL_ATTRIBUTE_NOINLINE auto KarmarkarKarp(
     const std::vector<std::pair<const Size, Index>> &ABSL_RANDOM_INTERNAL_RESTRICT items,
-    const Index &ABSL_RANDOM_INTERNAL_RESTRICT micro_batch_size,
     const Index &ABSL_RANDOM_INTERNAL_RESTRICT num_micro_batches, UnaryOp op)
     -> std::vector<
         std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>> {
-  CHECK_NE(micro_batch_size, 0);
   CHECK_NE(num_micro_batches, 0);
-  CHECK_EQ(items.size() % micro_batch_size, 0);
-  CHECK_EQ(items.size() % num_micro_batches, 0);
+
+  const auto stride = static_cast<std::size_t>(num_micro_batches);
+  CHECK_EQ(items.size() % stride, 0);
 
   const auto now = omp_get_wtime();
 
@@ -151,11 +151,8 @@ ABSL_ATTRIBUTE_NOINLINE auto KarmarkarKarp(
   // partial solution is obtained from the `m` smallest remaining items.
   auto solutions = std::priority_queue<Solution<Index, Size, UnaryOp>>();
 
-  for (std::size_t index = 0; index < items.size();
-       index += static_cast<std::size_t>(num_micro_batches)) {
-    solutions.emplace(std::span(items).subspan(
-                          index, static_cast<std::size_t>(num_micro_batches)),
-                      op);
+  for (std::size_t index = 0; index < items.size(); index += stride) {
+    solutions.emplace(std::span(items).subspan(index, stride), op);
   }
 
   // Next, the algorithm selects two partial solutions from the sequence, for
