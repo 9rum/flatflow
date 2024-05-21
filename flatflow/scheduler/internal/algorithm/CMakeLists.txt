@@ -25,6 +25,9 @@ if(BUILD_TESTING)
   target_link_libraries(
     algorithm_test
     PRIVATE absl::check
+    PRIVATE absl::log
+    PRIVATE absl::log_initialize
+    PRIVATE absl::str_format
     PRIVATE GTest::gtest_main
     PRIVATE OpenMP::OpenMP_CXX
     PRIVATE TBB::tbb)
