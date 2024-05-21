@@ -24,6 +24,7 @@ include(CTest)
 
 find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(TBB REQUIRED)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)

@@ -15,6 +15,7 @@
 if(BUILD_TESTING)
   add_executable(
     algorithm_test
+    partition_test.cc
     regression_test.cc
     reshape_test.cc
     shuffle_test.cc)
@@ -25,7 +26,8 @@ if(BUILD_TESTING)
     algorithm_test
     PRIVATE absl::check
     PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX)
+    PRIVATE OpenMP::OpenMP_CXX
+    PRIVATE TBB::tbb)
   gtest_add_tests(
     TARGET algorithm_test)
 endif()

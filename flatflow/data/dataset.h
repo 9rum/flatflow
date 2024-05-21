@@ -68,7 +68,7 @@ class Dataset {
       /*TargetNodeSize=*/512>;
   using key_type = Size;
   using mapped_type = Index;
-  using value_type = std::pair<const Size, Index>;
+  using value_type = std::pair<Size, Index>;
   using size_type = std::size_t;
 
   // Constructors and assignment operators

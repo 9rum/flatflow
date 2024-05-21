@@ -14,12 +14,47 @@
 
 #include "flatflow/scheduler/internal/algorithm/partition.h"
 
+#include <algorithm>
+#include <random>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 namespace {
 
-TEST(PartitionTest, KarmarkarKarp) {
-  //
+TEST(PartitionTest, KarmarkarKarpWithUniformIntegerDistribution) {
+  constexpr auto kMinSize = static_cast<uint16_t>(1);
+  constexpr auto kMaxSize = static_cast<uint16_t>(1 << 12);
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
+  constexpr auto kNumMicroBatches = static_cast<uint64_t>(1 << 8);
+
+  auto distribution = std::uniform_int_distribution(kMinSize, kMaxSize);
+  auto generator = std::default_random_engine();
+
+  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
+  items.reserve(kMicroBatchSize * static_cast<std::size_t>(kNumMicroBatches));
+
+  for (std::size_t index = 0; index < items.capacity(); ++index) {
+    items.emplace_back(distribution(generator), index);
+  }
+  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.first < rhs.first;
+  });
+
+  const auto micro_batches =
+      flatflow::scheduler::internal::algorithm::KarmarkarKarp(
+          items, kNumMicroBatches,
+          [](const auto &size) { return static_cast<uint32_t>(size); });
+  EXPECT_EQ(micro_batches.size(), static_cast<std::size_t>(kNumMicroBatches));
+
+  std::cout << "makespans: ";
+  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
+                [&](const auto &micro_batch) {
+                  EXPECT_EQ(micro_batch.second.size(), kMicroBatchSize);
+                  std::cout << micro_batch.first << ' ';
+                });
+  std::cout << '\n';
 }
 
 }  // namespace
