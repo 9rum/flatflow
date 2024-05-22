@@ -30,25 +30,33 @@
 
 namespace {
 
-TEST(PartitionTest, KarmarkarKarpWithUniformIntegerDistribution) {
-  constexpr auto kMinSize = static_cast<uint16_t>(1);
-  constexpr auto kMaxSize = static_cast<uint16_t>(1 << 12);
-  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
-  constexpr auto kNumMicroBatches = static_cast<uint64_t>(1 << 8);
-
-  if (!absl::log_internal::IsInitialized()) {
-    absl::InitializeLog();
-    absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+class PartitionTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    if (!absl::log_internal::IsInitialized()) {
+      absl::InitializeLog();
+      absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+    }
   }
 
-  auto distribution = std::uniform_int_distribution(kMinSize, kMaxSize);
+  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
+  static constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
+};
+
+TEST_F(PartitionTest, KarmarkarKarpWithGaltonIntegerDistribution) {
+  auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
   auto items = std::vector<std::pair<uint16_t, uint64_t>>();
-  items.reserve(kMicroBatchSize * static_cast<std::size_t>(kNumMicroBatches));
+  items.reserve(kMicroBatchSize * kNumMicroBatches);
 
-  for (std::size_t index = 0; index < items.capacity(); ++index) {
-    items.emplace_back(distribution(generator), index);
+  while (items.size() < items.capacity()) {
+    const auto size = distribution(generator);
+    if (0.5 <= size && size < 8192.5) {
+      const auto makespan = static_cast<uint16_t>(std::lround(size));
+      const auto index = static_cast<uint64_t>(items.size());
+      items.emplace_back(makespan, index);
+    }
   }
   std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
     return lhs.first < rhs.first;
@@ -56,13 +64,49 @@ TEST(PartitionTest, KarmarkarKarpWithUniformIntegerDistribution) {
 
   const auto micro_batches =
       flatflow::scheduler::internal::algorithm::KarmarkarKarp(
-          items, kNumMicroBatches,
+          items, static_cast<uint64_t>(kNumMicroBatches),
           [](const auto &size) { return static_cast<uint32_t>(size); });
-  EXPECT_EQ(micro_batches.size(), static_cast<std::size_t>(kNumMicroBatches));
 
   auto makespans = std::vector<uint32_t>();
-  makespans.reserve(micro_batches.size());
+  makespans.reserve(kNumMicroBatches);
 
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
+  for (const auto &[makespan, micro_batch] : micro_batches) {
+    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
+    makespans.emplace_back(makespan);
+  }
+
+  LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
+}
+
+TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
+  auto distribution = std::lognormal_distribution(5.252, 0.293);
+  auto generator = std::default_random_engine();
+
+  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
+  items.reserve(kMicroBatchSize * kNumMicroBatches);
+
+  while (items.size() < items.capacity()) {
+    const auto size = distribution(generator);
+    if (0.5 <= size && size < 8192.5) {
+      const auto makespan = static_cast<uint16_t>(std::lround(size));
+      const auto index = static_cast<uint64_t>(items.size());
+      items.emplace_back(makespan, index);
+    }
+  }
+  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.first < rhs.first;
+  });
+
+  const auto micro_batches =
+      flatflow::scheduler::internal::algorithm::KarmarkarKarp(
+          items, static_cast<uint64_t>(kNumMicroBatches),
+          [](const auto &size) { return static_cast<double>(size); });
+
+  auto makespans = std::vector<double>();
+  makespans.reserve(kNumMicroBatches);
+
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
   for (const auto &[makespan, micro_batch] : micro_batches) {
     EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
     makespans.emplace_back(makespan);
