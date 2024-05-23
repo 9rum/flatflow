@@ -20,95 +20,122 @@
 #include "gtest/gtest.h"
 
 namespace {
-
-template <std::size_t degree>
-class Regression : public flatflow::scheduler::internal::algorithm::
-                       PassiveAggressiveRegressor<degree> {
+template <std::size_t Order>
+class Regressor : public flatflow::scheduler::internal::algorithm::
+                      PassiveAggressiveRegressor<Order> {
  public:
-  Regression(const double epsilon)
-      : flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<
-            degree>(epsilon) {}
-  void fit(const std::vector<double> &X, const std::vector<double> &y) {
-    flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<
-        degree>::fit(X, y);
-  }
+  using flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<
+      Order>::PassiveAggressiveRegressor;
 
-  inline std::vector<double> &getCoef() { return this->coef_; }
+  void check_coefficients(const std::vector<double> &coeff, double threshold) {
+    const auto &model = this->coef_;
+    const auto predict = model[model.size() - 1];
+    const auto label = coeff[coeff.size() - 1];
+    const auto result = std::abs(predict - label) / label;
+    EXPECT_LE(std::floor((result * 100) + .5) / 100, threshold);
+  }
 };
 
 class RegressionTest : public testing::Test {
  protected:
-  void SetUp() override {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis(100.0, 120.0);
-    for (std::size_t idx = 0; idx < kDatasetSize; ++idx) {
-      X[idx] = dis(gen);
-    }
-  }
+  void SetUp() override { runtimes_.reserve(kDatasetSize); }
 
-  double generateDummy(double x, std::vector<double> coef) {
-    double sum = 0;
-    for (std::size_t coefIdx = 0; coefIdx < coef.size(); ++coefIdx) {
-      sum += coef[coefIdx] * std::pow(x, coefIdx);
+  double generate_linear(double x, const std::vector<double> &coef) {
+    double sum = coef[0];
+    for (std::size_t i = 0; i < coef.size(); i++) {
+      sum += coef[i] * std::pow(x, i);
     }
     return sum;
   }
 
-  std::vector<double> generateCoefficients(std::size_t degree) {
+  double generate_quadratic(const std::vector<double> &x,
+                            const std::vector<double> &coef) {
+    double sum = coef[0];
+    for (std::size_t i = 1; i < coef.size(); i++) {
+      double temp = 0.0;
+      for (const auto &xi : x) {
+        temp += std::pow(xi, i);
+      }
+      sum += coef[i] * temp;
+    }
+    return sum;
+  }
+
+  std::vector<double> generate_coefficients(std::size_t degree) {
     std::vector<double> coeffs;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_real_distribution<double> dis(300.0, 400.0);
+    std::random_device random_device;
+    std::mt19937 random_generator(random_device());
+    std::uniform_real_distribution<double> uniform_dist(kMinCoef, kMaxCoef);
     for (std::size_t coefIdx = 0; coefIdx <= degree; ++coefIdx) {
-      coeffs.push_back(dis(gen));
+      coeffs.push_back(uniform_dist(random_generator));
     }
     return coeffs;
   }
 
-  void checkThreshold(const std::vector<double> &modelCofficients,
-                      const std::vector<double> &labelCofficients) {
-    const auto idx = modelCofficients.size() - 1;
-    EXPECT_TRUE(std::abs(modelCofficients[idx] - labelCofficients[idx]) /
-                    labelCofficients[idx] <
-                kThreshold);
+  std::vector<double> random_partition(int x, int node) {
+    if (node == 0) {
+      return {};
+    }
+    std::vector<double> result;
+    result.reserve(node);
+    const auto average = static_cast<double>(x) / node;
+    const auto remainder = x % node;
+    for (std::size_t index = 0; index < node; ++index) {
+      result.push_back(average);
+    }
+    result.back() += remainder;
+    return result;
   }
 
-  static constexpr auto kDatasetSize = static_cast<std::size_t>((1 << 10));
-  static constexpr auto kEpsilon = 1e-4;
-  static constexpr auto kThreshold = 0.01;
-  std::vector<double> X = std::vector<double>(kDatasetSize, 0);
-  std::vector<double> y = std::vector<double>(kDatasetSize, 0);
+  static constexpr auto kLinear = static_cast<std::size_t>(1);
+  static constexpr auto kQuadratic = static_cast<std::size_t>(2);
+  static constexpr auto kEpsilon = static_cast<double>(0.0001);
+  static constexpr auto kThreshold = static_cast<double>(0.01);
+  static constexpr auto kNode = static_cast<int>(4);
+  static constexpr auto kMinRange = static_cast<int>(100);
+  static constexpr auto kMaxRange = static_cast<int>(200);
+  static constexpr auto kMinCoef = static_cast<int>(300);
+  static constexpr auto kMaxCoef = static_cast<int>(400);
+  static constexpr std::size_t kDatasetSize = static_cast<std::size_t>(100);
+  std::vector<double> runtimes_;
 };
 
 TEST_F(RegressionTest, LinearRegression) {
-  constexpr int degree(1);
-
-  Regression<degree> regressor(kEpsilon);
-
-  std::vector<double> coefficients = generateCoefficients(degree);
-
-  for (std::size_t idx = 0; idx < kDatasetSize; ++idx) {
-    y[idx] = generateDummy(X[idx], coefficients);
+  std::vector<double> workloads;
+  Regressor<kLinear> regressor(kEpsilon);
+  const auto coeff = generate_coefficients(kLinear);
+  std::random_device random_device;
+  std::mt19937 random_generator(random_device());
+  std::uniform_real_distribution<double> uniform_dist(kMinRange, kMaxRange);
+  for (std::size_t i = 0; i < kDatasetSize; i++) {
+    const auto x = uniform_dist(random_generator);
+    workloads.push_back(x);
+    double predict = generate_linear(x, coeff);
+    runtimes_.push_back(predict);
   }
-  regressor.fit(X, y);
-  const auto &modelCofficients = regressor.getCoef();
-  checkThreshold(modelCofficients, coefficients);
+  regressor.fit(workloads, runtimes_);
+  regressor.check_coefficients(coeff, kThreshold);
 }
 
 TEST_F(RegressionTest, PolynomialRegression) {
-  constexpr int degree(2);
-
-  Regression<degree> regressor(kEpsilon);
-
-  std::vector<double> coefficients = generateCoefficients(degree);
-
-  for (std::size_t idx = 0; idx < kDatasetSize; ++idx) {
-    y[idx] = generateDummy(X[idx], coefficients);
+  std::vector<std::vector<double>> workloads;
+  Regressor<kQuadratic> regressor(kEpsilon);
+  const auto coeff = generate_coefficients(kQuadratic);
+  std::random_device random_device;
+  std::mt19937 random_generator(random_device());
+  std::uniform_real_distribution<double> uniform_dist(kMinRange, kMaxRange);
+  for (std::size_t i = 0; i < kDatasetSize; i++) {
+    std::vector<double> partition;
+    const auto x = random_partition(uniform_dist(random_generator), kNode);
+    for (std::size_t index = 0; index < kNode; index++) {
+      partition.push_back(x[index]);
+    }
+    workloads.push_back(partition);
+    double predict = generate_quadratic(partition, coeff);
+    runtimes_.push_back(predict);
   }
-  regressor.fit(X, y);
-  const auto &modelCofficients = regressor.getCoef();
-  checkThreshold(modelCofficients, coefficients);
+  regressor.fit(workloads, runtimes_);
+  regressor.check_coefficients(coeff, kThreshold);
 }
 
 }  // namespace

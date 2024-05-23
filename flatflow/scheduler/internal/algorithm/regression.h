@@ -33,62 +33,143 @@ namespace algorithm {
 //
 // References:
 // https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.PassiveAggressiveRegressor.html#sklearn.linear_model.PassiveAggressiveRegressor
-template <std::size_t degree>
+template <std::size_t Order>
 class PassiveAggressiveRegressor {
  public:
-  inline explicit PassiveAggressiveRegressor(const double &epsilon)
+  inline explicit PassiveAggressiveRegressor(double epsilon)
       : epsilon_(epsilon) {
-    coef_ = std::vector<double>(degree + 1, 1.0);
-    power_ = std::vector<double>(degree + 1, 0.0);
-    coef_[0] = 0.0;
+    coef_ = std::vector<double>(Order, 1.0);
+    power_ = std::vector<double>(Order + 1, 0.0);
   }
 
   // PassiveAggressiveRegressor::fit()
   //
-  // Fits the model to the given vector data X and y.
+  // Fits the model to the given vector workloads and runtimes.
   // This implementation is based on Epsilon-Insensitive Passive Aggressive
-  // Regressor. This method is implementation of partialfit method in order to
-  // use in online learning.
-  inline void fit(const std::vector<double> &X, const std::vector<double> &y) {
-    CHECK_EQ(X.size(), y.size());
-    for (std::size_t iter = 0; iter < kMaxIter_; ++iter) {
-      for (std::size_t dataIdx = 0; dataIdx < X.size(); ++dataIdx) {
-        const auto prediction = predict(X[dataIdx]);
+  // Regressor. Unlike Polynomial regressor, current fit is used in
+  // heterogeneous environment.
+  inline bool fit(const std::vector<double> &workloads,
+                  const std::vector<double> &runtimes) {
+    CHECK_EQ(workloads.size(), runtimes.size());
+    bool early_stop = true;
+    for (std::size_t iter = 0; iter < max_iter_; ++iter) {
+      for (std::size_t index = 0; index < workloads.size(); ++index) {
+        const auto &workloard = workloads[index];
+        const auto &runtime = runtimes[index];
+        const auto prediction = predict(workloard);
         const auto loss =
-            std::max(0.0, std::abs(y[dataIdx] - prediction) - epsilon_);
+            std::max(0.0, std::abs(runtime - prediction) - epsilon_);
+        if (loss != 0.0) {
+          early_stop = false;
+          power_[0] = std::pow(workloard, 1);
+          power_[1] = std::pow(workloard, 2.0);
 
-        for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
-          power_[coefIdx] = std::pow(X[dataIdx], std::pow(2.0, coefIdx));
-        }
+          const auto xqnorm =
+              std::accumulate(power_.begin(), power_.end(), 0.0);
+          const auto update =
+              (std::min(C_, loss / xqnorm)) * ((runtime > prediction) ? 1 : -1);
 
-        const auto xqnorm = std::accumulate(power_.begin(), power_.end(), 0.0);
-        const auto update = (std::min(kC_, loss / xqnorm)) *
-                            ((y[dataIdx] > prediction) ? 1 : -1);
-
-        for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
-          coef_[coefIdx] += update * std::pow(X[dataIdx], coefIdx);
+          intercept += update;
+          coef_[0] += update * workloard;
         }
       }
     }
+    return early_stop;
   }
-
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts value based on given scalar x and current model coef_.
-  inline double predict(const double &x) const {
-    auto prediction = 0.0;
-    for (std::size_t coefIdx = 0; coefIdx < coef_.size(); ++coefIdx) {
-      prediction += coef_[coefIdx] * std::pow(x, coefIdx);
-    }
-    return prediction;
+  // Predicts value based on given scalar worload and current model coef_.
+  inline const double predict(double workload) const {
+    return coef_[0] * workload;
   }
+
+  double intercept = 0.0;
 
  protected:
   double epsilon_;
   std::vector<double> coef_;
   std::vector<double> power_;
-  static constexpr auto kMaxIter_ = 1000;
-  static constexpr auto kC_ = 1.0;
+  static constexpr auto C_ = 1.0;
+  static constexpr auto max_iter_ = static_cast<std::size_t>(1000);
+};
+
+// PassiveAggressiveRegressor<2>
+//
+// An explicit template specialization of
+// `flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor` for
+// online learning.
+//
+// Initialization is based quadratic polynomial regression.
+// This Regressor is currently supporting basic PassiveAggressiveRegressor.
+// Unlike Linear regressor, this regressor is effective for models with
+// quadratic complexity.
+template <>
+class PassiveAggressiveRegressor<2> {
+ public:
+  inline explicit PassiveAggressiveRegressor(double epsilon)
+      : epsilon_(epsilon) {
+    coef_ = {1.0, 1.0};
+    power_ = {1.0, 0.0, 0.0};
+  }
+  // PassiveAggressiveRegressor<2>::fit()
+  //
+  // Fits the model to the given vector workloads and runtimes.
+  // This implementation is based on Epsilon-Insensitive Passive Aggressive
+  // Regressor. Template specialization enables regressor to fit under
+  // homogeneous environment.
+  inline bool fit(const std::vector<std::vector<double>> &workloads,
+                  const std::vector<double> &runtimes) {
+    CHECK_EQ(workloads.size(), runtimes.size());
+    bool early_stop = true;
+    std::vector<std::vector<double>> workload(workloads.size());
+    std::transform(workloads.cbegin(), workloads.cend(), workload.begin(),
+                   [](const auto &work) {
+                     double linear =
+                         std::accumulate(work.cbegin(), work.cend(), 0.0);
+                     double dot = std::inner_product(work.cbegin(), work.cend(),
+                                                     work.cbegin(), 0.0);
+                     return std::vector<double>{linear, dot};
+                   });
+    for (std::size_t iter = 0; iter < max_iter_; ++iter) {
+      for (std::size_t index = 0; index < workloads.size(); ++index) {
+        const auto &workloard = workload[index];
+        const auto &runtime = runtimes[index];
+        const auto prediction = predict(workloard);
+        const auto loss =
+            std::max(0.0, std::abs(runtime - prediction) - epsilon_);
+        if (loss != 0.0) {
+          early_stop = false;
+          power_[0] = std::pow(workloard[0], 1);
+          power_[1] = std::pow(workloard[0], 2.0);
+          power_[2] = std::pow(workloard[1], 2.0);
+
+          const auto xqnorm =
+              std::accumulate(power_.begin(), power_.end(), 0.0);
+          const auto update =
+              (std::min(C_, loss / xqnorm)) * ((runtime > prediction) ? 1 : -1);
+
+          intercept_ += update;
+          coef_[0] += update * workloard[0];
+          coef_[1] += update * workloard[1];
+        }
+      }
+    }
+    return early_stop;
+  }
+  // PassiveAggressiveRegressor::predict()
+  //
+  // Predicts value based on given scalar workloads and current model coef_.
+  inline const double predict(const std::vector<double> &workloads) const {
+    return coef_[0] * workloads[0] + coef_[1] * workloads[1];
+  }
+
+ protected:
+  double epsilon_;
+  double intercept_;
+  std::vector<double> coef_;
+  std::vector<double> power_;
+  static constexpr auto C_ = 1.0;
+  static constexpr auto max_iter_ = static_cast<std::size_t>(1000);
 };
 
 }  // namespace algorithm
