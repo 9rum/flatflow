@@ -96,7 +96,7 @@ class RegressionTest : public testing::Test {
   static constexpr auto kMaxRange = static_cast<int>(200);
   static constexpr auto kMinCoef = static_cast<int>(300);
   static constexpr auto kMaxCoef = static_cast<int>(400);
-  static constexpr std::size_t kDatasetSize = 100;
+  static constexpr std::size_t kDatasetSize = static_cast<std::size_t>(100);
   std::vector<double> runtimes_;
 };
 

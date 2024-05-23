@@ -90,7 +90,7 @@ class PassiveAggressiveRegressor {
   std::vector<double> coef_;
   std::vector<double> power_;
   static constexpr auto C_ = 1.0;
-  static constexpr auto max_iter_ = 1000;
+  static constexpr auto max_iter_ = static_cast<std::size_t>(1000);
 };
 
 // PassiveAggressiveRegressor<2>
@@ -169,7 +169,7 @@ class PassiveAggressiveRegressor<2> {
   std::vector<double> coef_;
   std::vector<double> power_;
   static constexpr auto C_ = 1.0;
-  static constexpr auto max_iter_ = 1000;
+  static constexpr auto max_iter_ = static_cast<std::size_t>(1000);
 };
 
 }  // namespace algorithm
