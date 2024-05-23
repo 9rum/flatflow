@@ -20,6 +20,7 @@ attribute "vector64";
 
 table InitRequest {
   batch_size:       ulong;
+  hidden_size:      ulong;
   micro_batch_size: ulong;
   order:            ulong;
   rank:             ulong;
