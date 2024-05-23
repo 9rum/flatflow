@@ -28,7 +28,7 @@
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
-#include "flatflow/data/dataset_test.h"
+#include "flatflow/data/dataset_test_generated.h"
 
 namespace {
 
