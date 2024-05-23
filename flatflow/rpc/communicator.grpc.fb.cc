@@ -2,8 +2,8 @@
 // If you make any local change, they will be lost.
 // source: communicator
 
-#include "communicator_generated.h"
-#include "communicator.grpc.fb.h"
+#include "flatflow/rpc/communicator_generated.h"
+#include "flatflow/rpc/communicator.grpc.fb.h"
 
 #include <grpcpp/impl/codegen/async_stream.h>
 #include <grpcpp/impl/codegen/async_unary_call.h>
