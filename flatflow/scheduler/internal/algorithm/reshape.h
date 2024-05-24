@@ -37,14 +37,14 @@ inline auto reshape(const std::vector<std::vector<std::vector<T>>> &tensor)
   const auto interval = tensor.size();
   CHECK_NE(interval, 0);
 
-  const auto world_size = tensor.at(0).size();
+  const auto world_size = tensor[0].size();
   CHECK_NE(world_size, 0);
 
   auto matrix = std::vector<std::vector<T>>();
   matrix.reserve(world_size);
 
-  const auto row_size = tensor.at(0).at(0).size() * (interval - 1) +
-                        tensor.at(interval - 1).at(0).size();
+  const auto row_size =
+      tensor[0][0].size() * (interval - 1) + tensor[interval - 1][0].size();
 
   for (; matrix.size() < matrix.capacity();) {
     matrix.emplace_back(std::move(std::vector<T>(row_size)));
@@ -53,11 +53,11 @@ inline auto reshape(const std::vector<std::vector<std::vector<T>>> &tensor)
   // TODO: Unroll the below nested loops into a single loop.
   #pragma omp parallel for
   for (std::size_t rank = 0; rank < world_size; ++rank) {
-    auto dest = matrix.at(rank).begin();
+    auto dest = matrix[rank].begin();
     std::for_each(std::execution::seq, tensor.cbegin(), tensor.cend(),
                   [&](const auto &batch) {
-                    dest = std::copy(batch.at(rank).cbegin(),
-                                     batch.at(rank).cend(), dest);
+                    dest = std::copy(batch[rank].cbegin(), batch[rank].cend(),
+                                     dest);
                   });
   }
 

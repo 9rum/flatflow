@@ -43,9 +43,9 @@ TEST(ShuffleTest, RegularTensor) {
   EXPECT_EQ(tensor.size(), kInterval);
 
   for (std::size_t step = 0; step < kInterval; ++step) {
-    EXPECT_EQ(tensor.at(step).size(), kWorldSize);
+    EXPECT_EQ(tensor[step].size(), kWorldSize);
     for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      EXPECT_EQ(tensor.at(step).at(rank).size(), kMicroBatchSize);
+      EXPECT_EQ(tensor[step][rank].size(), kMicroBatchSize);
     }
   }
 }
@@ -80,15 +80,15 @@ TEST(ShuffleTest, IrregularTensor) {
   EXPECT_EQ(tensor.size(), kInterval);
 
   for (std::size_t step = 0; step < kInterval - 1; ++step) {
-    EXPECT_EQ(tensor.at(step).size(), kWorldSize);
+    EXPECT_EQ(tensor[step].size(), kWorldSize);
     for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      EXPECT_EQ(tensor.at(step).at(rank).size(), kMicroBatchSize);
+      EXPECT_EQ(tensor[step][rank].size(), kMicroBatchSize);
     }
   }
 
-  EXPECT_EQ(tensor.at(kInterval - 1).size(), kWorldSize);
+  EXPECT_EQ(tensor[kInterval - 1].size(), kWorldSize);
   for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-    EXPECT_EQ(tensor.at(kInterval - 1).at(rank).size(), kLastMicroBatchSize);
+    EXPECT_EQ(tensor[kInterval - 1][rank].size(), kLastMicroBatchSize);
   }
 }
 

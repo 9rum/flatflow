@@ -58,6 +58,16 @@ struct Subset {
     indices = std::vector<mapped_type>(1, item.second);
   }
 
+  Subset() = delete;
+
+  inline Subset(const Subset &other) = default;
+
+  inline Subset &operator=(const Subset &other) = default;
+
+  inline Subset(Subset &&other) = default;
+
+  inline Subset &operator=(Subset &&other) = default;
+
   inline ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator<(
       const Subset &ABSL_RANDOM_INTERNAL_RESTRICT other) const noexcept {
     return sum < other.sum;
@@ -94,8 +104,18 @@ struct Solution {
     for (const auto &item : items) {
       subsets.emplace_back(item, op);
     }
-    difference = subsets.at(subsets.size() - 1).sum - subsets.at(0).sum;
+    difference = subsets[subsets.size() - 1].sum - subsets[0].sum;
   }
+
+  Solution() = delete;
+
+  inline Solution(const Solution &other) = default;
+
+  inline Solution &operator=(const Solution &other) = default;
+
+  inline Solution(Solution &&other) = default;
+
+  inline Solution &operator=(Solution &&other) = default;
 
   inline ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator<(
       const Solution &ABSL_RANDOM_INTERNAL_RESTRICT other) const noexcept {
@@ -106,11 +126,11 @@ struct Solution {
       const Solution &ABSL_RANDOM_INTERNAL_RESTRICT other) {
     #pragma omp parallel for
     for (std::size_t index = 0; index < subsets.size(); ++index) {
-      subsets.at(index).Join(other.subsets.at(subsets.size() - index - 1));
+      subsets[index].Join(other.subsets[subsets.size() - index - 1]);
     }
 
     std::sort(std::execution::par, subsets.begin(), subsets.end());
-    difference = subsets.at(subsets.size() - 1).sum - subsets.at(0).sum;
+    difference = subsets[subsets.size() - 1].sum - subsets[0].sum;
   }
 
   result_type difference;

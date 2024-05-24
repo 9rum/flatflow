@@ -34,12 +34,10 @@ namespace {
 
 // A read-only data set used only for testing purpose.
 class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
- public:
-  inline explicit Dataset() : flatflow::data::Dataset<uint64_t, uint16_t>() {}
+  using super_type = flatflow::data::Dataset<uint64_t, uint16_t>;
 
-  inline explicit Dataset(const flatbuffers::Vector64<uint16_t> *sizes,
-                          uint64_t seed)
-      : flatflow::data::Dataset<uint64_t, uint16_t>(sizes, seed) {}
+ public:
+  using super_type::super_type;
 
   inline bool empty(bool items = true) const {
     return items ? items_.empty() : recyclebin_.empty();

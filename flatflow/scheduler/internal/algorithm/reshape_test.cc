@@ -68,13 +68,13 @@ TEST(ReshapeTest, RegularTensor) {
       flatflow::scheduler::internal::algorithm::reshape(tensor);
 
   EXPECT_EQ(matrix.size(), reshaped.size());
-  EXPECT_EQ(matrix.at(0).size(), reshaped.at(0).size());
-  EXPECT_EQ(matrix.at(1).size(), reshaped.at(1).size());
+  EXPECT_EQ(matrix[0].size(), reshaped[0].size());
+  EXPECT_EQ(matrix[1].size(), reshaped[1].size());
 
-  EXPECT_TRUE(std::equal(matrix.at(0).cbegin(), matrix.at(0).cend(),
-                         reshaped.at(0).cbegin()));
-  EXPECT_TRUE(std::equal(matrix.at(1).cbegin(), matrix.at(1).cend(),
-                         reshaped.at(1).cbegin()));
+  EXPECT_TRUE(
+      std::equal(matrix[0].cbegin(), matrix[0].cend(), reshaped[0].cbegin()));
+  EXPECT_TRUE(
+      std::equal(matrix[1].cbegin(), matrix[1].cend(), reshaped[1].cbegin()));
 }
 
 TEST(ReshapeTest, IrregularTensor) {
@@ -124,13 +124,13 @@ TEST(ReshapeTest, IrregularTensor) {
       flatflow::scheduler::internal::algorithm::reshape(tensor);
 
   EXPECT_EQ(matrix.size(), reshaped.size());
-  EXPECT_EQ(matrix.at(0).size(), reshaped.at(0).size());
-  EXPECT_EQ(matrix.at(1).size(), reshaped.at(1).size());
+  EXPECT_EQ(matrix[0].size(), reshaped[0].size());
+  EXPECT_EQ(matrix[1].size(), reshaped[1].size());
 
-  EXPECT_TRUE(std::equal(matrix.at(0).cbegin(), matrix.at(0).cend(),
-                         reshaped.at(0).cbegin()));
-  EXPECT_TRUE(std::equal(matrix.at(1).cbegin(), matrix.at(1).cend(),
-                         reshaped.at(1).cbegin()));
+  EXPECT_TRUE(
+      std::equal(matrix[0].cbegin(), matrix[0].cend(), reshaped[0].cbegin()));
+  EXPECT_TRUE(
+      std::equal(matrix[1].cbegin(), matrix[1].cend(), reshaped[1].cbegin()));
 }
 
 }  // namespace

@@ -124,7 +124,7 @@ class Dataset {
     #pragma omp parallel for reduction(vadd : counts)
     for (mapped_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
-      ++counts.at(size);
+      ++counts[size];
     }
 
     auto slots = absl::InlinedVector<std::vector<mapped_type>, kIndexSlotSpace>(
@@ -132,9 +132,9 @@ class Dataset {
 
     #pragma omp parallel for
     for (std::size_t size = 0; size < counts.size(); ++size) {
-      const auto count = static_cast<std::size_t>(counts.at(size));
+      const auto count = static_cast<std::size_t>(counts[size]);
       if (0 < count) {
-        slots.at(size).reserve(count);
+        slots[size].reserve(count);
       }
     }
 
@@ -151,12 +151,12 @@ class Dataset {
     #pragma omp unroll partial
     for (mapped_type index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
-      slots.at(size).emplace_back(index);
+      slots[size].emplace_back(index);
     }
 
     #pragma omp unroll full
     for (std::size_t size = 0; size < slots.size(); ++size) {
-      auto &slot = slots.at(size);
+      auto &slot = slots[size];
       if (0 < slot.size()) {
         items_.try_emplace(static_cast<key_type>(size), std::move(slot));
       }

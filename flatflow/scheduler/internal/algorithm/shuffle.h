@@ -43,14 +43,14 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void shuffle(
   const auto interval = tensor.size();
   CHECK_NE(interval, 0);
 
-  const auto world_size = tensor.at(0).size();
+  const auto world_size = tensor[0].size();
   CHECK_NE(world_size, 0);
 
   // When the batch size and last batch size are different from each other
   // (i.e., when remainder exists), the last batch should be excluded from
   // the shuffling range.
   auto end = tensor.end();
-  if (tensor.at(0).at(0).size() != tensor.at(interval - 1).at(0).size()) {
+  if (tensor[0][0].size() != tensor[interval - 1][0].size()) {
     std::advance(end, -1);
   }
 
