@@ -167,7 +167,7 @@ struct BroadcastRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EPOCH = 4,
     VT_RANK = 6,
-    VT_PROFILES = 8
+    VT_MAKESPANS = 8
   };
   uint64_t epoch() const {
     return GetField<uint64_t>(VT_EPOCH, 0);
@@ -175,15 +175,15 @@ struct BroadcastRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t rank() const {
     return GetField<uint64_t>(VT_RANK, 0);
   }
-  const ::flatbuffers::Vector64<double> *profiles() const {
-    return GetPointer64<const ::flatbuffers::Vector64<double> *>(VT_PROFILES);
+  const ::flatbuffers::Vector64<double> *makespans() const {
+    return GetPointer64<const ::flatbuffers::Vector64<double> *>(VT_MAKESPANS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_EPOCH, 8) &&
            VerifyField<uint64_t>(verifier, VT_RANK, 8) &&
-           VerifyOffset64(verifier, VT_PROFILES) &&
-           verifier.VerifyVector(profiles()) &&
+           VerifyOffset64(verifier, VT_MAKESPANS) &&
+           verifier.VerifyVector(makespans()) &&
            verifier.EndTable();
   }
 };
@@ -198,8 +198,8 @@ struct BroadcastRequestBuilder {
   void add_rank(uint64_t rank) {
     fbb_.AddElement<uint64_t>(BroadcastRequest::VT_RANK, rank, 0);
   }
-  void add_profiles(::flatbuffers::Offset64<::flatbuffers::Vector64<double>> profiles) {
-    fbb_.AddOffset(BroadcastRequest::VT_PROFILES, profiles);
+  void add_makespans(::flatbuffers::Offset64<::flatbuffers::Vector64<double>> makespans) {
+    fbb_.AddOffset(BroadcastRequest::VT_MAKESPANS, makespans);
   }
   explicit BroadcastRequestBuilder(::flatbuffers::FlatBufferBuilder64 &_fbb)
         : fbb_(_fbb) {
@@ -216,9 +216,9 @@ inline ::flatbuffers::Offset<BroadcastRequest> CreateBroadcastRequest(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
     uint64_t epoch = 0,
     uint64_t rank = 0,
-    ::flatbuffers::Offset64<::flatbuffers::Vector64<double>> profiles = 0) {
+    ::flatbuffers::Offset64<::flatbuffers::Vector64<double>> makespans = 0) {
   BroadcastRequestBuilder builder_(_fbb);
-  builder_.add_profiles(profiles);
+  builder_.add_makespans(makespans);
   builder_.add_rank(rank);
   builder_.add_epoch(epoch);
   return builder_.Finish();
@@ -228,13 +228,13 @@ inline ::flatbuffers::Offset<BroadcastRequest> CreateBroadcastRequestDirect(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
     uint64_t epoch = 0,
     uint64_t rank = 0,
-    const std::vector<double> *profiles = nullptr) {
-  auto profiles__ = profiles ? _fbb.CreateVector64(*profiles) : 0;
+    const std::vector<double> *makespans = nullptr) {
+  auto makespans__ = makespans ? _fbb.CreateVector64(*makespans) : 0;
   return flatflow::rpc::CreateBroadcastRequest(
       _fbb,
       epoch,
       rank,
-      profiles__);
+      makespans__);
 }
 
 struct BroadcastResponse FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

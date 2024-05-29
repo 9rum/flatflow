@@ -34,9 +34,11 @@ namespace algorithm {
 // number of features; this regressor can be used only for linear models.
 // A separate template specialization exists for quadratic models, and each
 // template specialization is optimized for the given order.
-template <std::size_t Order>
+template <int Order>
 class PassiveAggressiveRegressor {
  public:
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor() {}
+
   // `epsilon` denotes the threshold for prediction loss, which defaults to 0.1.
   // If the difference between the current prediction and the correct label is
   // below this threshold, the model is not updated.
@@ -46,6 +48,18 @@ class PassiveAggressiveRegressor {
     coef_ = 1.0;
     intercept_ = 0.0;
   }
+
+  inline explicit PassiveAggressiveRegressor(
+      const PassiveAggressiveRegressor &other) = default;
+
+  inline PassiveAggressiveRegressor &operator=(
+      const PassiveAggressiveRegressor &other) = default;
+
+  inline explicit PassiveAggressiveRegressor(
+      PassiveAggressiveRegressor &&other) = default;
+
+  inline PassiveAggressiveRegressor &operator=(
+      PassiveAggressiveRegressor &&other) = default;
 
   // PassiveAggressiveRegressor::fit()
   //
@@ -117,6 +131,8 @@ class PassiveAggressiveRegressor {
 template <>
 class PassiveAggressiveRegressor<2> {
  public:
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor() {}
+
   // Unlike its linear counterpart, this regressor requires `hidden_size`
   // to initialize the coefficients since the complexity of Transformers is
   // `O(n^2 d + n d^2)`, where `n` and `d` denote the sequence length and
@@ -128,6 +144,18 @@ class PassiveAggressiveRegressor<2> {
     coef_ = std::to_array({1.0, hidden_size});
     intercept_ = 0.0;
   }
+
+  inline explicit PassiveAggressiveRegressor(
+      const PassiveAggressiveRegressor &other) = default;
+
+  inline PassiveAggressiveRegressor &operator=(
+      const PassiveAggressiveRegressor &other) = default;
+
+  inline explicit PassiveAggressiveRegressor(
+      PassiveAggressiveRegressor &&other) = default;
+
+  inline PassiveAggressiveRegressor &operator=(
+      PassiveAggressiveRegressor &&other) = default;
 
   // PassiveAggressiveRegressor::fit()
   //

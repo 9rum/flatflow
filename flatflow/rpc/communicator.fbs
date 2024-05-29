@@ -30,9 +30,9 @@ table InitRequest {
 }
 
 table BroadcastRequest {
-  epoch:    ulong;
-  rank:     ulong;
-  profiles: [double] (vector64);
+  epoch:     ulong;
+  rank:      ulong;
+  makespans: [double] (vector64);
 }
 
 table BroadcastResponse {
