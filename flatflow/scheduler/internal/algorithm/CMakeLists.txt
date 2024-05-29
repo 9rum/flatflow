@@ -16,7 +16,7 @@ if(BUILD_TESTING)
   add_executable(
     algorithm_test
     partition_test.cc
-    regression_test.cc
+    passive_aggressive_test.cc
     reshape_test.cc
     shuffle_test.cc)
   target_include_directories(
