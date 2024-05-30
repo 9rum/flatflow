@@ -81,7 +81,7 @@ class Dataset {
   // Note that even if a copy/move constructor or assignment operator is called,
   // the data set is actually direct-initialized by copy elision.
   // See https://en.cppreference.com/w/cpp/language/copy_elision.
-  inline explicit Dataset() {}
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit Dataset() {}
 
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
@@ -93,9 +93,9 @@ class Dataset {
   // inverted index at once, which is fast but memory-intensive. For key types
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
-  inline explicit Dataset(
-      const flatbuffers::Vector<key_type, mapped_type> *sizes,
-      const mapped_type &seed)
+  ABSL_ATTRIBUTE_NOINLINE explicit Dataset(
+      const flatbuffers::Vector<key_type, mapped_type> *ABSL_RANDOM_INTERNAL_RESTRICT sizes,
+      const mapped_type &ABSL_RANDOM_INTERNAL_RESTRICT seed)
       : seed_(seed) {
     CHECK_NE(sizes, nullptr);
 
@@ -180,13 +180,17 @@ class Dataset {
   //
   // Returns a data sample with the nearest size to the given size from inverted
   // index. This is equivalent to call `at()`.
-  inline value_type operator[](const key_type &size) { return at(size); }
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE value_type
+  operator[](const key_type &ABSL_RANDOM_INTERNAL_RESTRICT size) {
+    return at(size);
+  }
 
   // Dataset::at()
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline value_type at(const key_type &size) {
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE value_type
+  at(const key_type &ABSL_RANDOM_INTERNAL_RESTRICT size) {
     CHECK_NE(size_, 0);
 
     // The retrieval process of a data sample is described below:
@@ -220,7 +224,7 @@ class Dataset {
   // Takes the first `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
   // order of size.
-  inline std::vector<value_type> take(size_type n) {
+  ABSL_ATTRIBUTE_NOINLINE std::vector<value_type> take(size_type n) {
     CHECK_LE(n, size_);
 
     auto items = std::vector<value_type>();
@@ -246,29 +250,34 @@ class Dataset {
   // Dataset::size()
   //
   // Returns the number of data samples in the inverted index.
-  inline size_type size() const noexcept { return size_; }
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE size_type size() const noexcept {
+    return size_;
+  }
 
   // Dataset::max_size()
   //
   // Returns the maximum possible number of data samples in the inverted index.
-  inline size_type max_size() const noexcept { return max_size_; }
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE size_type max_size() const noexcept {
+    return max_size_;
+  }
 
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(
-      [[maybe_unused]] const mapped_type &batch) const noexcept {}
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_batch_begin(
+      [[maybe_unused]] const mapped_type &ABSL_RANDOM_INTERNAL_RESTRICT batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(
-      [[maybe_unused]] const mapped_type &batch) const noexcept {}
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_batch_end(
+      [[maybe_unused]] const mapped_type &ABSL_RANDOM_INTERNAL_RESTRICT batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const mapped_type &epoch) {
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_epoch_begin(
+      const mapped_type &ABSL_RANDOM_INTERNAL_RESTRICT epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<>`
@@ -278,15 +287,15 @@ class Dataset {
     // * First, access each index slot in the inverted index. This can be
     //   parallelized since there is no data dependency between any couple of
     //   index slots.
-    // * Second, deterministically shuffle each index slot to ensure the
-    //   reproducibility of training. As PyTorch's distributed sampler does, set
-    //   the random seed to the sum of seed and epoch; a pseudorandom number
-    //   generator based on subtract-with-carry is adopted to produce
-    //   high-quality random numbers.
+    // * Second, deterministically shuffle each index slot to ensure
+    //   reproducibility of training. As PyTorch's distributed sampler does,
+    //   set the random seed to the sum of seed and epoch. A pseudo-random
+    //   number generator based on 32-bit Mersenne Twister algorithm is adopted,
+    //   just like in PyTorch.
     std::for_each(
         std::execution::par, items_.begin(), items_.end(), [&](auto &item) {
-          auto generator = std::ranlux48();
-          generator.seed(static_cast<uint_fast64_t>(seed_ + epoch));
+          auto generator = std::mt19937();
+          generator.seed(static_cast<uint_fast32_t>(seed_ + epoch));
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
@@ -296,7 +305,8 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_epoch_end(
+      [[maybe_unused]] const mapped_type &ABSL_RANDOM_INTERNAL_RESTRICT epoch) {
     // At the end of an epoch, the inverted index must be empty.
     CHECK_EQ(size_, 0);
 
@@ -307,18 +317,18 @@ class Dataset {
   // Dataset::on_train_begin()
   //
   // A callback to be called at the beginning of training.
-  inline void on_train_begin() const noexcept {}
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_train_begin() const noexcept {}
 
   // Dataset::on_train_end()
   //
   // A callback to be called at the end of training.
-  inline void on_train_end() const noexcept {}
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void on_train_end() const noexcept {}
 
  protected:
   // Dataset::take()
   //
   // Takes a data sample from item at `position`.
-  inline value_type take(container_type::iterator position) {
+  ABSL_ATTRIBUTE_NOINLINE value_type take(container_type::iterator position) {
     // Take the last index from item and restore it to recycle bin. There are
     // four possible cases for this:
     //
@@ -359,7 +369,8 @@ class Dataset {
     return std::make_pair(size, index);
   }
 
-  inline value_type take(container_type::reverse_iterator position) {
+  inline ABSL_ATTRIBUTE_ALWAYS_INLINE value_type
+  take(container_type::reverse_iterator position) {
     return take(std::next(position).base());
   }
 
