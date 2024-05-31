@@ -54,7 +54,6 @@
 #include "absl/base/attributes.h"
 #include "absl/container/internal/btree.h"            // IWYU pragma: export
 #include "absl/container/internal/btree_container.h"  // IWYU pragma: export
-#include "absl/random/internal/platform.h"
 
 namespace flatflow {
 namespace data {
@@ -132,7 +131,7 @@ class btree_map
   //
   //   std::vector<std::pair<int, std::string>> v = {{1, "a"}, {2, "b"}};
   //   btree_map<int, std::string> map7(v.begin(), v.end());
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE btree_map() {}
+  btree_map() {}
   using Base::Base;
 
   // btree_map::begin()
@@ -510,9 +509,7 @@ class btree_map
 //
 // Swaps the contents of two `btree_map` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void swap(
-    btree_map<K, V, C, A, S> &ABSL_RANDOM_INTERNAL_RESTRICT map,
-    btree_map<K, V, C, A, S> &ABSL_RANDOM_INTERNAL_RESTRICT other) {
+inline void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
@@ -584,7 +581,7 @@ class btree_multimap
   //
   //   std::vector<std::pair<int, std::string>> v = {{1, "a"}, {2, "b"}};
   //   btree_multimap<int, std::string> map7(v.begin(), v.end());
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE btree_multimap() {}
+  btree_multimap() {}
   using Base::Base;
 
   // btree_multimap::begin()
@@ -870,9 +867,7 @@ class btree_multimap
 //
 // Swaps the contents of two `btree_multimap` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void swap(
-    btree_multimap<K, V, C, A, S> &ABSL_RANDOM_INTERNAL_RESTRICT map,
-    btree_multimap<K, V, C, A, S> &ABSL_RANDOM_INTERNAL_RESTRICT other) {
+inline void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
@@ -892,24 +887,18 @@ struct map_params : absl::container_internal::common_params<Key, Compare, Alloc,
   using init_type = typename super_type::init_type;
 
   template <typename V>
-  static inline ABSL_ATTRIBUTE_ALWAYS_INLINE auto key(const V &value ABSL_ATTRIBUTE_LIFETIME_BOUND)
+  static inline auto key(const V &value ABSL_ATTRIBUTE_LIFETIME_BOUND)
       -> decltype((value.first)) {
     return value.first;
   }
-  static inline ABSL_ATTRIBUTE_ALWAYS_INLINE const Key &key(const slot_type *s) {
-    return slot_policy::key(s);
-  }
-  static inline ABSL_ATTRIBUTE_ALWAYS_INLINE const Key &key(slot_type *s) {
-    return slot_policy::key(s);
-  }
+  static inline const Key &key(const slot_type *s) { return slot_policy::key(s); }
+  static inline const Key &key(slot_type *s) { return slot_policy::key(s); }
   // For use in node handle.
-  static inline ABSL_ATTRIBUTE_ALWAYS_INLINE auto mutable_key(slot_type *s)
+  static inline auto mutable_key(slot_type *s)
       -> decltype(slot_policy::mutable_key(s)) {
     return slot_policy::mutable_key(s);
   }
-  static inline ABSL_ATTRIBUTE_ALWAYS_INLINE mapped_type &value(value_type *value) {
-    return value->second;
-  }
+  static inline mapped_type &value(value_type *value) { return value->second; }
 };
 
 }  // namespace container
