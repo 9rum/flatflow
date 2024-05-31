@@ -24,9 +24,7 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/log/check.h"
-#include "absl/random/internal/platform.h"
 
 #include "flatflow/data/internal/types.h"
 
@@ -51,30 +49,27 @@ struct Subset {
   using mapped_type = Index;
   using result_type = std::invoke_result_t<UnaryOp, Size>;
 
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit Subset(
-      const std::pair<key_type, mapped_type> &ABSL_RANDOM_INTERNAL_RESTRICT item,
-      UnaryOp op) {
+  inline explicit Subset(const std::pair<key_type, mapped_type> &item,
+                         UnaryOp op) {
     sum = op(item.first);
     indices = std::vector<mapped_type>(1, item.second);
   }
 
   Subset() = delete;
 
-  inline Subset(const Subset &other) = default;
+  Subset(const Subset &other) = default;
 
-  inline Subset &operator=(const Subset &other) = default;
+  Subset &operator=(const Subset &other) = default;
 
-  inline Subset(Subset &&other) = default;
+  Subset(Subset &&other) = default;
 
-  inline Subset &operator=(Subset &&other) = default;
+  Subset &operator=(Subset &&other) = default;
 
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator<(
-      const Subset &ABSL_RANDOM_INTERNAL_RESTRICT other) const noexcept {
+  inline bool operator<(const Subset &other) const noexcept {
     return sum < other.sum;
   }
 
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE void Join(
-      const Subset &ABSL_RANDOM_INTERNAL_RESTRICT other) {
+  inline void Join(const Subset &other) {
     sum += other.sum;
     indices.reserve(indices.size() + other.indices.size());
     indices.insert(indices.end(),
@@ -98,8 +93,8 @@ struct Solution {
   using mapped_type = Index;
   using result_type = std::invoke_result_t<UnaryOp, Size>;
 
-  ABSL_ATTRIBUTE_NOINLINE explicit Solution(
-      std::span<const std::pair<key_type, mapped_type>> items, UnaryOp op) {
+  explicit Solution(std::span<const std::pair<key_type, mapped_type>> items,
+                    UnaryOp op) {
     subsets.reserve(items.size());
     for (const auto &item : items) {
       subsets.emplace_back(item, op);
@@ -109,21 +104,19 @@ struct Solution {
 
   Solution() = delete;
 
-  inline Solution(const Solution &other) = default;
+  Solution(const Solution &other) = default;
 
-  inline Solution &operator=(const Solution &other) = default;
+  Solution &operator=(const Solution &other) = default;
 
-  inline Solution(Solution &&other) = default;
+  Solution(Solution &&other) = default;
 
-  inline Solution &operator=(Solution &&other) = default;
+  Solution &operator=(Solution &&other) = default;
 
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE bool operator<(
-      const Solution &ABSL_RANDOM_INTERNAL_RESTRICT other) const noexcept {
+  inline bool operator<(const Solution &other) const noexcept {
     return difference < other.difference;
   }
 
-  ABSL_ATTRIBUTE_NOINLINE void Combine(
-      const Solution &ABSL_RANDOM_INTERNAL_RESTRICT other) {
+  void Combine(const Solution &other) {
     #pragma omp parallel for
     for (std::size_t index = 0; index < subsets.size(); ++index) {
       subsets[index].Join(other.subsets[subsets.size() - index - 1]);
@@ -150,11 +143,9 @@ template <typename Index, typename Size, typename UnaryOp>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size> &&
            std::invocable<UnaryOp, Size>)
-ABSL_ATTRIBUTE_NOINLINE auto KarmarkarKarp(
-    const std::vector<std::pair<Size, Index>> &ABSL_RANDOM_INTERNAL_RESTRICT items,
-    const Index &ABSL_RANDOM_INTERNAL_RESTRICT num_micro_batches, UnaryOp op)
-    -> std::vector<
-        std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>> {
+std::vector<std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>>
+KarmarkarKarp(const std::vector<std::pair<Size, Index>> &items,
+              const Index &num_micro_batches, UnaryOp op) {
   CHECK_NE(num_micro_batches, 0);
 
   const auto stride = static_cast<std::size_t>(num_micro_batches);

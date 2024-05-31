@@ -11,9 +11,7 @@
 #include <numeric>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/log/check.h"
-#include "absl/random/internal/platform.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -37,38 +35,34 @@ namespace algorithm {
 template <int Order>
 class PassiveAggressiveRegressor {
  public:
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor() {}
+  explicit PassiveAggressiveRegressor() {}
 
   // `epsilon` denotes the threshold for prediction loss, which defaults to 0.1.
   // If the difference between the current prediction and the correct label is
   // below this threshold, the model is not updated.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor(
-      double epsilon = 0.1, double C = 1.0, std::size_t max_iter = 1000)
+  inline explicit PassiveAggressiveRegressor(double epsilon = 0.1,
+                                             double C = 1.0,
+                                             std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_ = 1.0;
     intercept_ = 0.0;
   }
 
-  inline explicit PassiveAggressiveRegressor(
-      const PassiveAggressiveRegressor &other) = default;
+  explicit PassiveAggressiveRegressor(const PassiveAggressiveRegressor &other) = default;
 
-  inline PassiveAggressiveRegressor &operator=(
-      const PassiveAggressiveRegressor &other) = default;
+  PassiveAggressiveRegressor &operator=(const PassiveAggressiveRegressor &other) = default;
 
-  inline explicit PassiveAggressiveRegressor(
-      PassiveAggressiveRegressor &&other) = default;
+  explicit PassiveAggressiveRegressor(PassiveAggressiveRegressor &&other) = default;
 
-  inline PassiveAggressiveRegressor &operator=(
-      PassiveAggressiveRegressor &&other) = default;
+  PassiveAggressiveRegressor &operator=(PassiveAggressiveRegressor &&other) = default;
 
   // PassiveAggressiveRegressor::fit()
   //
   // Fits the model with passive-aggressive algorithm.
   // This uses epsilon-insensitive loss, which is equivalent to PA-I
   // in the reference paper.
-  ABSL_ATTRIBUTE_NOINLINE bool fit(
-      const std::vector<double> &ABSL_RANDOM_INTERNAL_RESTRICT workloads,
-      const std::vector<double> &ABSL_RANDOM_INTERNAL_RESTRICT makespans) {
+  bool fit(const std::vector<double> &workloads,
+           const std::vector<double> &makespans) {
     CHECK_EQ(workloads.size(), makespans.size());
 
     auto converged = true;
@@ -104,17 +98,14 @@ class PassiveAggressiveRegressor {
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts makespan for the given workload.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE double predict(
-      double workload) const noexcept {
+  inline double predict(double workload) const noexcept {
     return coef_ * workload;
   }
 
   // PassiveAggressiveRegressor::intercept()
   //
   // Returns the current model intercept.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE double intercept() const noexcept {
-    return intercept_;
-  }
+  inline double intercept() const noexcept { return intercept_; }
 
  protected:
   std::size_t max_iter_;
@@ -131,31 +122,28 @@ class PassiveAggressiveRegressor {
 template <>
 class PassiveAggressiveRegressor<2> {
  public:
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor() {}
+  explicit PassiveAggressiveRegressor() {}
 
   // Unlike its linear counterpart, this regressor requires `hidden_size`
   // to initialize the coefficients since the complexity of Transformers is
   // `O(n^2 d + n d^2)`, where `n` and `d` denote the sequence length and
   // hidden size, respectively.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE explicit PassiveAggressiveRegressor(
-      double hidden_size, double epsilon = 0.1, double C = 1.0,
-      std::size_t max_iter = 1000)
+  inline explicit PassiveAggressiveRegressor(double hidden_size,
+                                             double epsilon = 0.1,
+                                             double C = 1.0,
+                                             std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_ = std::to_array({1.0, hidden_size});
     intercept_ = 0.0;
   }
 
-  inline explicit PassiveAggressiveRegressor(
-      const PassiveAggressiveRegressor &other) = default;
+  explicit PassiveAggressiveRegressor(const PassiveAggressiveRegressor &other) = default;
 
-  inline PassiveAggressiveRegressor &operator=(
-      const PassiveAggressiveRegressor &other) = default;
+  PassiveAggressiveRegressor &operator=(const PassiveAggressiveRegressor &other) = default;
 
-  inline explicit PassiveAggressiveRegressor(
-      PassiveAggressiveRegressor &&other) = default;
+  explicit PassiveAggressiveRegressor(PassiveAggressiveRegressor &&other) = default;
 
-  inline PassiveAggressiveRegressor &operator=(
-      PassiveAggressiveRegressor &&other) = default;
+  PassiveAggressiveRegressor &operator=(PassiveAggressiveRegressor &&other) = default;
 
   // PassiveAggressiveRegressor::fit()
   //
@@ -163,9 +151,8 @@ class PassiveAggressiveRegressor<2> {
   // this regressor takes one or more workloads for each makespan since multiple
   // workloads are mapped to a single makespan in the profile. For this reason,
   // a dot product-based regression is used instead of the canonical regression.
-  ABSL_ATTRIBUTE_NOINLINE bool fit(
-      const std::vector<std::vector<double>> &ABSL_RANDOM_INTERNAL_RESTRICT workloads,
-      const std::vector<double> &ABSL_RANDOM_INTERNAL_RESTRICT makespans) {
+  bool fit(const std::vector<std::vector<double>> &workloads,
+           const std::vector<double> &makespans) {
     CHECK_EQ(workloads.size(), makespans.size());
 
     auto converged = true;
@@ -208,17 +195,14 @@ class PassiveAggressiveRegressor<2> {
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts makespan for the given workload.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE double predict(
-      double workload) const noexcept {
+  inline double predict(double workload) const noexcept {
     return workload * (coef_[0] * workload + coef_[1]);
   }
 
   // PassiveAggressiveRegressor::intercept()
   //
   // Returns the current model intercept.
-  inline ABSL_ATTRIBUTE_ALWAYS_INLINE double intercept() const noexcept {
-    return intercept_;
-  }
+  inline double intercept() const noexcept { return intercept_; }
 
  protected:
   std::size_t max_iter_;
