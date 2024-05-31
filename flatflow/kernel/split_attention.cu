@@ -8,12 +8,15 @@ namespace kernel {
 
 // flatflow::kernel::ceil_div
 //
-//
+// utility function to calculate grid size with given thread block size
 template <class T>
 __host__ __device__ T ceil_div(T dividend, T divisor) {
   return (dividend + divisor - 1) / divisor;
 }
 
+// flatflow::kernel::cuda_check
+//
+// utility function to check CUDA errors
 void cuda_check(cudaError_t error, const char *file, int line) {
   if (error != cudaSuccess) {
     printf("[CUDA ERROR] at file %s:%d:\n%s\n", file, line,
@@ -22,6 +25,9 @@ void cuda_check(cudaError_t error, const char *file, int line) {
   }
 };
 
+// flatflow::kernel::cublas_check
+//
+// utility function to check cuBLAS status errors
 void cublas_check(cublasStatus_t status, const char *file, int line) {
   if (status != CUBLAS_STATUS_SUCCESS) {
     printf("[cuBLAS ERROR]: %d %s %d\n", status, file, line);
@@ -33,6 +39,11 @@ void cublas_check(cublasStatus_t status, const char *file, int line) {
 #define cublasCheck(status) \
   { cublas_check((status), __FILE__, __LINE__); }
 
+// flatflow::kernel::permute_kernel
+//
+// Current permute function is implemented to adhere huggingface qkv shape
+// query, key, value shape needs to be (batch, num_heads, sequence_length, dim)
+// pre_split_input is concatenation of these three. (batch, sequence_length, 3 ,num_heads , dim)
 __global__ void permute_kernel(float *query, float *key, float *value,
                                const float *pre_split_input, const int batch,
                                const int sequence_length, const int num_heads,
@@ -56,6 +67,10 @@ __global__ void permute_kernel(float *query, float *key, float *value,
   }
 }
 
+//flatflow::kernel::unpermute_kernel
+//
+// Current unpermute function is implemented to adhere huggingface qkv shape after attention
+// output_ has shape (batch, num_heads, sequence_length, dim) but we need to unpermute it to (batch, sequence_length, num_heads, dim)
 __global__ void unpermute_kernel(float *input_, float *output_, const int batch,
                                  const int sequence_length, const int num_heads,
                                  const int dim) {
