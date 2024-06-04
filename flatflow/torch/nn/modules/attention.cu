@@ -279,8 +279,6 @@ std::vector<torch::Tensor> split_attention(
   }
 
   for (int i = 0; i < split_tensors.size(); ++i) {
-    // attention_forward(d_out, d_vaccum, d_qkvr, d_preatt, d_att, d_inp, B, T,
-    // C, NH, block_size);
     attention_thread.push_back(
         std::thread(attention_forward, handles[i], outputs[i].data_ptr<float>(),
                     post_attentions[i], pre_split_inputs[i], pre_attentions[i],
