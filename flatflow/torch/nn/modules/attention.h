@@ -4,7 +4,9 @@
 #include <stdlib.h>
 
 namespace flatflow {
-namespace kernel {
+namespace torch {
+namespace nn {
+namespace modules {
 
 // flatflow::kernel::cuda_check
 //
@@ -31,5 +33,10 @@ void cublas_check(cublasStatus_t status, const char *file, int line) {
 #define cublasCheck(status) \
   { cublas_check((status), __FILE__, __LINE__); }
 
-}  // namespace kernel
+std::vector<torch::Tensor> split_attention(
+    torch::Tensor &QKV, const std::vector<int> &split_indices);
+
+}  // namespace modules
+}  // namespace nn
+}  // namespace torch
 }  // namespace flatflow
