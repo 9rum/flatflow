@@ -11,7 +11,7 @@ namespace modules {
 // utility function to check CUDA errors
 inline void cuda_check(cudaError_t error, const char *file, int line) {
   if (error != cudaSuccess) {
-    std::cout << "CUDA error at " << file << ":" << line << " : "
+    std::cerr << "CUDA error at " << file << ":" << line << " : "
               << cudaGetErrorString(error) << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -22,7 +22,7 @@ inline void cuda_check(cudaError_t error, const char *file, int line) {
 // utility function to check cuBLAS status errors
 inline void cublas_check(cublasStatus_t status, const char *file, int line) {
   if (status != CUBLAS_STATUS_SUCCESS) {
-    std::cout << "cuBLAS error at " << file << ":" << line << " : "
+    std::cerr << "cuBLAS error at " << file << ":" << line << " : "
               << status << std::endl;
     exit(EXIT_FAILURE);
   }
