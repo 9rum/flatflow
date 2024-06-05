@@ -1,11 +1,8 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <torch/extension.h>
 #include <torch/torch.h>
 #include <torch/types.h>
-
 #include <thread>
 #include <vector>
 

@@ -1,7 +1,5 @@
 #include <cublas_v2.h>
-#include <cuda_runtime.h>
-#include <stdio.h>
-#include <stdlib.h>
+#inlcude <iostream>
 
 namespace flatflow {
 namespace torch {
@@ -13,8 +11,8 @@ namespace modules {
 // utility function to check CUDA errors
 inline void cuda_check(cudaError_t error, const char *file, int line) {
   if (error != cudaSuccess) {
-    printf("[ERROR : cuda] at file %s: %d: \n %s \n", file, line,
-           cudaGetErrorString(error));
+    std::cout << "CUDA error at " << file << ":" << line << " : "
+              << cudaGetErrorString(error) << std::endl;
     exit(EXIT_FAILURE);
   }
 };
@@ -24,7 +22,8 @@ inline void cuda_check(cudaError_t error, const char *file, int line) {
 // utility function to check cuBLAS status errors
 inline void cublas_check(cublasStatus_t status, const char *file, int line) {
   if (status != CUBLAS_STATUS_SUCCESS) {
-    printf("[ERROR: cublas]: %d %s %d \n", status, file, line);
+    std::cout << "cuBLAS error at " << file << ":" << line << " : "
+              << status << std::endl;
     exit(EXIT_FAILURE);
   }
 }
