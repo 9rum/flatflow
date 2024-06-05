@@ -11,9 +11,9 @@ namespace modules {
 // flatflow::kernel::cuda_check
 //
 // utility function to check CUDA errors
-void cuda_check(cudaError_t error, const char *file, int line) {
+inline void cuda_check(cudaError_t error, const char *file, int line) {
   if (error != cudaSuccess) {
-    printf("[CUDA ERROR] at file %s:%d:\n%s\n", file, line,
+    printf("[ERROR : cuda] at file %s: %d: \n %s \n", file, line,
            cudaGetErrorString(error));
     exit(EXIT_FAILURE);
   }
@@ -22,17 +22,16 @@ void cuda_check(cudaError_t error, const char *file, int line) {
 // flatflow::kernel::cublas_check
 //
 // utility function to check cuBLAS status errors
-void cublas_check(cublasStatus_t status, const char *file, int line) {
+inline void cublas_check(cublasStatus_t status, const char *file, int line) {
   if (status != CUBLAS_STATUS_SUCCESS) {
-    printf("[cuBLAS ERROR]: %d %s %d\n", status, file, line);
+    printf("[ERROR: cublas]: %d %s %d \n", status, file, line);
     exit(EXIT_FAILURE);
   }
 }
 
-#define cudaCheck(err) (cuda_check(err, __FILE__, __LINE__))
-#define cublasCheck(status) \
-  { cublas_check((status), __FILE__, __LINE__); }
-
+// flatflow::kernel::split_attention
+//
+// Split input tensor into multiple tensors based on the split indices
 std::vector<torch::Tensor> split_attention(
     torch::Tensor &QKV, const std::vector<int> &split_indices);
 

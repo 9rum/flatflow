@@ -11,6 +11,8 @@
 
 #include "attention.h"
 
+#define WARP_SIZE 32
+
 namespace flatflow {
 namespace torch {
 namespace nn {
@@ -22,6 +24,26 @@ namespace modules {
 template <class T>
 __host__ __device__ T ceil_div(T dividend, T divisor) {
   return (dividend + divisor - 1) / divisor;
+}
+
+// flatflow::torch::nn::modules::warp_reduce_max
+//
+// return max value in warp-level reduction
+__device__ float warp_reduce_max(float val) {
+  for (int offset = 16; offset > 0; offset /= 2) {
+    val = fmaxf(val, __shfl_down_sync(0xFFFFFFFF, val, offset));
+  }
+  return val;
+}
+
+// flatflow::torch::nn::modules::warp_reduce_sum
+//
+// return sum in warp-level reduction
+__device__ float warp_reduce_sum(float val) {
+  for (int offset = 16; offset > 0; offset /= 2) {
+    val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+  }
+  return val;
 }
 
 // flatflow::torch::nn::modules::permute_kernel
@@ -108,18 +130,18 @@ __global__ void softmax_forward_kernel(float *post_softmax,
   extern __shared__ float shared[];
   const int block_id = blockIdx.x;
   const int thread_id = threadIdx.x;
-  const int warp_id = threadIdx.x / 32;
-  const int lane_id = threadIdx.x % 32;
-  const int warps_per_block = blockDim.x / 32;
+  const int warp_id = threadIdx.x / WARP_SIZE;
+  const int lane_id = threadIdx.x % WARP_SIZE;
+  const int warps_per_block = blockDim.x / WARP_SIZE;
 
   float *max_vals = shared;
   float *sum_vals = &shared[warps_per_block];
   const float *x = pre_softmax + block_id * sequence_length;
   float max_val = -INFINITY;
-  for (int i = thread_id; i < sequence_length; i += blockDim.x) {
+  for (std::size_t i = thread_id; i < sequence_length; i += blockDim.x) {
     max_val = fmaxf(max_val, x[i]);
   }
-  max_val = warpReduceMax(max_val);
+  max_val = warp_reduce_max(max_val);
 
   if (lane_id == 0) {
     max_vals[warp_id] = max_val;
@@ -127,7 +149,7 @@ __global__ void softmax_forward_kernel(float *post_softmax,
   __syncthreads();
   if (thread_id == 0) {
     float val = max_vals[thread_id];
-    for (int i = 1; i < warps_per_block; ++i) {
+    for (std::size_t i = 1; i < warps_per_block; ++i) {
       val = fmaxf(val, max_vals[i]);
     }
     max_vals[0] = val;
@@ -135,17 +157,17 @@ __global__ void softmax_forward_kernel(float *post_softmax,
   __syncthreads();
 
   const float offset = max_vals[0];
-  for (int i = thread_id; i < sequence_length; i += blockDim.x) {
+  for (std::size_t i = thread_id; i < sequence_length; i += blockDim.x) {
     post_softmax[block_id * sequence_length + i] = expf(x[i] - offset);
   }
 
   x = post_softmax + block_id * sequence_length;
   float sum_val = 0.0f;
-  for (int i = thread_id; i < sequence_length; i += blockDim.x) {
+  for (std::size_t i = thread_id; i < sequence_length; i += blockDim.x) {
     sum_val += x[i];
   }
 
-  sum_val = warpReduceSum(sum_val);
+  sum_val = warp_reduce_sum(sum_val);
 
   if (lane_id == 0) {
     sum_vals[warp_id] = sum_val;
@@ -154,7 +176,7 @@ __global__ void softmax_forward_kernel(float *post_softmax,
 
   if (thread_id == 0) {
     float val = sum_vals[thread_id];
-    for (int i = 1; i < warps_per_block; ++i) {
+    for (std::size_t i = 1; i < warps_per_block; ++i) {
       val += sum_vals[i];
     }
     sum_vals[0] = val;
@@ -162,7 +184,7 @@ __global__ void softmax_forward_kernel(float *post_softmax,
   __syncthreads();
 
   const float sum = sum_vals[0];
-  for (int i = thread_id; i < sequence_length; i += blockDim.x) {
+  for (std::size_t i = thread_id; i < sequence_length; i += blockDim.x) {
     post_softmax[block_id * sequence_length + i] = x[i] / sum;
   }
 }
@@ -193,11 +215,14 @@ void attention_forward(cublasHandle_t cublas_handle, float *output,
   const float alpha = 1.0f;
   const float beta = 0.0f;
 
-  cublasCheck(cublasSgemmStridedBatched(
-      cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, sequence_length, sequence_length,
-      head_size, &alpha, key, head_size, sequence_length * head_size, query,
-      head_size, sequence_length * head_size, &beta, pre_attention,
-      sequence_length, sequence_length * sequence_length, batch * num_heads));
+  cublas_check(
+      cublasSgemmStridedBatched(
+          cublas_handle, CUBLAS_OP_T, CUBLAS_OP_N, sequence_length,
+          sequence_length, head_size, &alpha, key, head_size,
+          sequence_length * head_size, query, head_size,
+          sequence_length * head_size, &beta, pre_attention, sequence_length,
+          sequence_length * sequence_length, batch * num_heads),
+      __FILE__, __LINE__);
 
   const float scale = 1.0 / sqrtf(head_size);
   total_thread = batch * num_heads * sequence_length * sequence_length;
@@ -207,18 +232,20 @@ void attention_forward(cublasHandle_t cublas_handle, float *output,
 
   const int softmax_block_size = 256;
   const int grid_size = batch * num_heads * sequence_length;
-  const size_t shared_memory = 2 * softmax_block_size / 32 * sizeof(float);
+  const size_t shared_memory =
+      2 * softmax_block_size / WARP_SIZE * sizeof(float);
   softmax_forward_kernel<<<grid_size, softmax_block_size, shared_memory,
                            stream>>>(attention, pre_attention,
                                      batch * num_heads * sequence_length,
                                      sequence_length);
 
-  cublasCheck(cublasSgemmStridedBatched(
-      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, head_size, sequence_length,
-      sequence_length, &alpha, value, head_size, sequence_length * head_size,
-      attention, sequence_length, sequence_length * sequence_length, &beta,
-      post_attention, head_size, sequence_length * head_size,
-      batch * num_heads));
+  cublas_check(cublasSgemmStridedBatched(
+                   cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, head_size,
+                   sequence_length, sequence_length, &alpha, value, head_size,
+                   sequence_length * head_size, attention, sequence_length,
+                   sequence_length * sequence_length, &beta, post_attention,
+                   head_size, sequence_length * head_size, batch * num_heads),
+               __FILE__, __LINE__);
 
   num_blocks = ceil_div(batch * sequence_length * dim, block_size);
   unpermute_kernel<<<num_blocks, block_size, stream>>>(
@@ -262,30 +289,36 @@ std::vector<torch::Tensor> split_attention(
     auto sequence_length = sliced_tensor.sizes()[0];
     auto hidden_dim = sliced_tensor.sizes()[1] / 3;
 
-    cudaCheck(cudaMalloc(&post_attentions[i],
-                         sequence_length * hidden_dim * sizeof(float)));
-    cudaCheck(cudaMalloc(&pre_split_inputs[i],
-                         sequence_length * 3 * hidden_dim * sizeof(float)));
-    cudaCheck(cudaMalloc(
-        &pre_attentions[i],
-        num_heads * sequence_length * sequence_length * sizeof(float)));
-    cudaCheck(cudaMalloc(&attentions[i], num_heads * sequence_length *
-                                             sequence_length * sizeof(float)));
-    cudaCheck(cudaMalloc(&inputs[i],
-                         sequence_length * 3 * hidden_dim * sizeof(float)));
-    cudaCheck(cudaMemcpy(inputs[i], split_tensors,
-                         sequence_length * 3 * hidden_dim * sizeof(float),
-                         cudaMemcpyHostToDevice));
+    cuda_check(cudaMalloc(&post_attentions[i],
+                          sequence_length * hidden_dim * sizeof(float)),
+               __FILE__, __LINE__);
+    cuda_check(cudaMalloc(&pre_split_inputs[i],
+                          sequence_length * 3 * hidden_dim * sizeof(float)),
+               __FILE__, __LINE__);
+    cuda_check(
+        cudaMalloc(&pre_attentions[i], num_heads * sequence_length *
+                                           sequence_length * sizeof(float)),
+        __FILE__, __LINE__);
+    cuda_check(cudaMalloc(&attentions[i], num_heads * sequence_length *
+                                              sequence_length * sizeof(float)),
+               __FILE__, __LINE__);
+    cuda_check(cudaMalloc(&inputs[i],
+                          sequence_length * 3 * hidden_dim * sizeof(float)),
+               __FILE__, __LINE__);
+    cuda_check(cudaMemcpy(inputs[i], split_tensors,
+                          sequence_length * 3 * hidden_dim * sizeof(float),
+                          cudaMemcpyHostToDevice),
+               __FILE__, __LINE__);
   }
 
-  for (int i = 0; i < split_tensors.size(); ++i) {
+  for (std::size_t i = 0; i < split_tensors.size(); ++i) {
     attention_thread.push_back(
         std::thread(attention_forward, handles[i], outputs[i].data_ptr<float>(),
                     post_attentions[i], pre_split_inputs[i], pre_attentions[i],
                     attentions[i], inputs[i], 1, sequence_length, hidden_dim,
                     num_heads, block_size, streams[i]));
   }
-  for (int i = 0; i < attention_forward.size(); ++i) {
+  for (std::size_t i = 0; i < attention_forward.size(); ++i) {
     attention_forward[i].join();
   }
 
@@ -299,12 +332,12 @@ std::vector<torch::Tensor> split_attention(
     cudaStreamDestroy(stream);
   }
 
-  for (int i = 0; i < inputs.size(); ++i) {
-    cudaCheck(cudaFree(post_attentions[i]));
-    cudaCheck(cudaFree(pre_split_inputs[i]));
-    cudaCheck(cudaFree(pre_attentions[i]));
-    cudaCheck(cudaFree(attentions[i]));
-    cudaCheck(cudaFree(inputs[i]));
+  for (std::size_t i = 0; i < inputs.size(); ++i) {
+    cuda_check(cudaFree(post_attentions[i]), __FILE__, __LINE__);
+    cuda_check(cudaFree(pre_split_inputs[i]), __FILE__, __LINE__);
+    cuda_check(cudaFree(pre_attentions[i]), __FILE__, __LINE__);
+    cuda_check(cudaFree(attentions[i]), __FILE__, __LINE__);
+    cuda_check(cudaFree(inputs[i]), __FILE__, __LINE__);
   }
 
   return outputs;
