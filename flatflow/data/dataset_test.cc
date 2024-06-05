@@ -155,8 +155,8 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
 
   std::for_each(
       std::execution::par, slots.begin(), slots.end(), [&](auto &slot) {
-        auto generator = std::ranlux48();
-        generator.seed(static_cast<uint_fast64_t>(epoch));
+        auto generator = std::mt19937();
+        generator.seed(static_cast<uint_fast32_t>(epoch));
         std::shuffle(slot.second.begin(), slot.second.end(), generator);
       });
 

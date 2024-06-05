@@ -28,11 +28,9 @@
 #include <utility>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
-#include "absl/random/internal/platform.h"
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
@@ -81,7 +79,7 @@ class Dataset {
   // Note that even if a copy/move constructor or assignment operator is called,
   // the data set is actually direct-initialized by copy elision.
   // See https://en.cppreference.com/w/cpp/language/copy_elision.
-  inline explicit Dataset() {}
+  explicit Dataset() {}
 
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
@@ -93,9 +91,8 @@ class Dataset {
   // inverted index at once, which is fast but memory-intensive. For key types
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
-  inline explicit Dataset(
-      const flatbuffers::Vector<key_type, mapped_type> *sizes,
-      const mapped_type &seed)
+  explicit Dataset(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+                   const mapped_type &seed)
       : seed_(seed) {
     CHECK_NE(sizes, nullptr);
 
@@ -168,13 +165,13 @@ class Dataset {
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %fs", omp_get_wtime() - now);
   }
 
-  inline explicit Dataset(const Dataset &other) = default;
+  explicit Dataset(const Dataset &other) = default;
 
-  inline Dataset &operator=(const Dataset &other) = default;
+  Dataset &operator=(const Dataset &other) = default;
 
-  inline explicit Dataset(Dataset &&other) = default;
+  explicit Dataset(Dataset &&other) = default;
 
-  inline Dataset &operator=(Dataset &&other) = default;
+  Dataset &operator=(Dataset &&other) = default;
 
   // Dataset::operator[]()
   //
@@ -220,7 +217,7 @@ class Dataset {
   // Takes the first `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
   // order of size.
-  inline std::vector<value_type> take(size_type n) {
+  std::vector<value_type> take(size_type n) {
     CHECK_LE(n, size_);
 
     auto items = std::vector<value_type>();
@@ -256,14 +253,12 @@ class Dataset {
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(
-      [[maybe_unused]] const mapped_type &batch) const noexcept {}
+  void on_batch_begin([[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(
-      [[maybe_unused]] const mapped_type &batch) const noexcept {}
+  void on_batch_end([[maybe_unused]] const mapped_type &batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
@@ -278,15 +273,15 @@ class Dataset {
     // * First, access each index slot in the inverted index. This can be
     //   parallelized since there is no data dependency between any couple of
     //   index slots.
-    // * Second, deterministically shuffle each index slot to ensure the
-    //   reproducibility of training. As PyTorch's distributed sampler does, set
-    //   the random seed to the sum of seed and epoch; a pseudorandom number
-    //   generator based on subtract-with-carry is adopted to produce
-    //   high-quality random numbers.
+    // * Second, deterministically shuffle each index slot to ensure
+    //   reproducibility of training. As PyTorch's distributed sampler does,
+    //   set the random seed to the sum of seed and epoch. A pseudo-random
+    //   number generator based on 32-bit Mersenne Twister algorithm is adopted,
+    //   just like in PyTorch.
     std::for_each(
         std::execution::par, items_.begin(), items_.end(), [&](auto &item) {
-          auto generator = std::ranlux48();
-          generator.seed(static_cast<uint_fast64_t>(seed_ + epoch));
+          auto generator = std::mt19937();
+          generator.seed(static_cast<uint_fast32_t>(seed_ + epoch));
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
@@ -307,18 +302,18 @@ class Dataset {
   // Dataset::on_train_begin()
   //
   // A callback to be called at the beginning of training.
-  inline void on_train_begin() const noexcept {}
+  void on_train_begin() const noexcept {}
 
   // Dataset::on_train_end()
   //
   // A callback to be called at the end of training.
-  inline void on_train_end() const noexcept {}
+  void on_train_end() const noexcept {}
 
  protected:
   // Dataset::take()
   //
   // Takes a data sample from item at `position`.
-  inline value_type take(container_type::iterator position) {
+  value_type take(container_type::iterator position) {
     // Take the last index from item and restore it to recycle bin. There are
     // four possible cases for this:
     //

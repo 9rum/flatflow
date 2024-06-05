@@ -20,9 +20,7 @@
 #include <random>
 #include <vector>
 
-#include "absl/base/attributes.h"
 #include "absl/log/check.h"
-#include "absl/random/internal/platform.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -37,9 +35,8 @@ namespace algorithm {
 // batches. It uses the same pseudorandom number generator and random seed
 // as `flatflow::data::Dataset<>` for deterministic shuffling.
 template <typename T>
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void shuffle(
-    std::vector<std::vector<std::vector<T>>> &ABSL_RANDOM_INTERNAL_RESTRICT tensor,
-    const T &ABSL_RANDOM_INTERNAL_RESTRICT seed) {
+inline void shuffle(std::vector<std::vector<std::vector<T>>> &tensor,
+                    const T &seed) {
   const auto interval = tensor.size();
   CHECK_NE(interval, 0);
 
@@ -54,8 +51,8 @@ inline ABSL_ATTRIBUTE_ALWAYS_INLINE void shuffle(
     std::advance(end, -1);
   }
 
-  auto generator = std::ranlux48();
-  generator.seed(static_cast<uint_fast64_t>(seed));
+  auto generator = std::mt19937();
+  generator.seed(static_cast<uint_fast32_t>(seed));
   std::shuffle(tensor.begin(), end, generator);
 }
 
