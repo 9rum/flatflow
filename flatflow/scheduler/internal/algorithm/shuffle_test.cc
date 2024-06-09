@@ -21,75 +21,86 @@
 
 namespace {
 
-TEST(ShuffleTest, RegularTensor) {
-  constexpr auto kInterval = static_cast<std::size_t>(1 << 10);
-  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 6);
-  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 4);
+TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
+  constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 
-  auto tensor = std::vector<std::vector<std::vector<uint64_t>>>();
-  tensor.reserve(kInterval);
+  auto micro_batches =
+      std::vector<std::pair<uint32_t, std::vector<uint64_t>>>();
+  micro_batches.reserve(kNumMicroBatches);
 
-  for (std::size_t step = 0; step < kInterval; ++step) {
-    auto batch = std::vector<std::vector<uint64_t>>();
-    batch.reserve(kWorldSize);
-    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      batch.emplace_back(std::move(std::vector<uint64_t>(kMicroBatchSize)));
+  for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
+    auto micro_batch = std::pair<uint32_t, std::vector<uint64_t>>();
+    micro_batch.first = static_cast<uint32_t>(std::lround(std::log2(step + 2)));
+    micro_batch.second.reserve(kMicroBatchSize);
+    for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
+      micro_batch.second.emplace_back(
+          static_cast<uint64_t>(step * kMicroBatchSize + index));
     }
-    tensor.emplace_back(std::move(batch));
+    micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  flatflow::scheduler::internal::algorithm::shuffle(tensor, 0UL);
+  auto shuffled =
+      flatflow::scheduler::internal::algorithm::shuffle(micro_batches, 0UL);
 
-  EXPECT_EQ(tensor.size(), kInterval);
+  EXPECT_EQ(shuffled.size(), kNumMicroBatches);
 
-  for (std::size_t step = 0; step < kInterval; ++step) {
-    EXPECT_EQ(tensor[step].size(), kWorldSize);
-    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      EXPECT_EQ(tensor[step][rank].size(), kMicroBatchSize);
-    }
+  for (const auto &micro_batch : shuffled) {
+    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
   }
 }
 
-TEST(ShuffleTest, IrregularTensor) {
-  constexpr auto kInterval = static_cast<std::size_t>(1 << 10);
-  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 6);
-  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 4);
-  constexpr auto kLastMicroBatchSize = static_cast<std::size_t>(1 << 3);
+TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
+  auto micro_batch = std::vector<uint64_t>(1, 0);
+  auto micro_batches =
+      std::vector<std::pair<uint32_t, std::vector<uint64_t>>>();
+  micro_batches.emplace_back(0, std::move(micro_batch));
 
-  auto tensor = std::vector<std::vector<std::vector<uint64_t>>>();
-  tensor.reserve(kInterval);
+  auto shuffled =
+      flatflow::scheduler::internal::algorithm::shuffle(micro_batches, 0UL);
 
-  for (std::size_t step = 0; step < kInterval - 1; ++step) {
-    auto batch = std::vector<std::vector<uint64_t>>();
-    batch.reserve(kWorldSize);
-    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      batch.emplace_back(std::move(std::vector<uint64_t>(kMicroBatchSize)));
+  EXPECT_EQ(shuffled.size(), 1);
+  EXPECT_EQ(shuffled[0].size(), 1);
+}
+
+TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
+  constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
+
+  auto micro_batches = std::vector<std::pair<double, std::vector<uint64_t>>>();
+  micro_batches.reserve(kNumMicroBatches);
+
+  for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
+    auto micro_batch = std::pair<double, std::vector<uint64_t>>();
+    micro_batch.first = std::round(std::log2(step + 2));
+    micro_batch.second.reserve(kMicroBatchSize);
+    for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
+      micro_batch.second.emplace_back(
+          static_cast<uint64_t>(step * kMicroBatchSize + index));
     }
-    tensor.emplace_back(std::move(batch));
+    micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  auto batch = std::vector<std::vector<uint64_t>>();
-  batch.reserve(kWorldSize);
-  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-    batch.emplace_back(std::move(std::vector<uint64_t>(kLastMicroBatchSize)));
+  auto shuffled =
+      flatflow::scheduler::internal::algorithm::shuffle(micro_batches, 0UL);
+
+  EXPECT_EQ(shuffled.size(), kNumMicroBatches);
+
+  for (const auto &micro_batch : shuffled) {
+    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
   }
-  tensor.emplace_back(std::move(batch));
+}
 
-  flatflow::scheduler::internal::algorithm::shuffle(tensor, 0UL);
+TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
+  auto micro_batch = std::vector<uint64_t>(1, 0);
+  auto micro_batches = std::vector<std::pair<double, std::vector<uint64_t>>>();
+  micro_batches.emplace_back(0.0, std::move(micro_batch));
 
-  EXPECT_EQ(tensor.size(), kInterval);
+  auto shuffled =
+      flatflow::scheduler::internal::algorithm::shuffle(micro_batches, 0UL);
 
-  for (std::size_t step = 0; step < kInterval - 1; ++step) {
-    EXPECT_EQ(tensor[step].size(), kWorldSize);
-    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-      EXPECT_EQ(tensor[step][rank].size(), kMicroBatchSize);
-    }
-  }
-
-  EXPECT_EQ(tensor[kInterval - 1].size(), kWorldSize);
-  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
-    EXPECT_EQ(tensor[kInterval - 1][rank].size(), kLastMicroBatchSize);
-  }
+  EXPECT_EQ(shuffled.size(), 1);
+  EXPECT_EQ(shuffled[0].size(), 1);
 }
 
 }  // namespace

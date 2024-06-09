@@ -15,12 +15,17 @@
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 
-#include <algorithm>
+#include <omp.h>
+
+#include <cassert>
+#include <execution>
 #include <iterator>
+#include <numeric>
 #include <random>
+#include <utility>
 #include <vector>
 
-#include "absl/log/check.h"
+#include "flatflow/data/internal/types.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -32,28 +37,81 @@ namespace algorithm {
 // After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
 // batches, which we call inter-batch shuffling. This enables shuffling not
 // only between data samples with the same size but also between scheduled
-// batches. It uses the same pseudorandom number generator and random seed
+// batches. It uses the same pseudo-random number generator and random seed
 // as `flatflow::data::Dataset<>` for deterministic shuffling.
-template <typename T>
-inline void shuffle(std::vector<std::vector<std::vector<T>>> &tensor,
-                    const T &seed) {
-  const auto interval = tensor.size();
-  CHECK_NE(interval, 0);
+template <typename R, typename T>
+  requires(flatflow::data::internal::Numerical<R> &&
+           flatflow::data::internal::Unsigned<T>)
+std::vector<std::vector<T>> shuffle(
+    const std::vector<std::pair<R, std::vector<T>>> &micro_batches,
+    const T &seed) {
+  assert(micro_batches.size() != 0);
 
-  const auto world_size = tensor[0].size();
-  CHECK_NE(world_size, 0);
+  // The inter-batch shuffling is carried out as follows:
+  //
+  // * First, group micro-batches with the same makespan to minimize computation
+  //   stall. This forms shuffling ranges.
+  // * Second, shuffle between these shuffling ranges.
+  // * Finally, shuffle the micro-batches within each shuffling range.
+  //   To minimize memory movement, shuffle the indices first and then project
+  //   the micro-batches onto the shuffled indices. Note that shuffling indices
+  //   first and then mapping the data to the shuffled indices yields the same
+  //   result as directly shuffling the data.
+  auto offsets = std::vector<std::size_t>();
+  offsets.emplace_back(0);
 
-  // When the batch size and last batch size are different from each other
-  // (i.e., when remainder exists), the last batch should be excluded from
-  // the shuffling range.
-  auto end = tensor.end();
-  if (tensor[0][0].size() != tensor[interval - 1][0].size()) {
-    std::advance(end, -1);
+  for (std::size_t offset = 1; offset < micro_batches.size(); ++offset) {
+    if (micro_batches[offset - 1].first != micro_batches[offset].first) {
+      offsets.emplace_back(offset);
+    }
+  }
+
+  auto indices = std::vector<std::size_t>(micro_batches.size());
+  std::iota(indices.begin(), indices.end(), 0);
+
+  auto ranges = std::vector<std::pair<std::vector<std::size_t>::iterator,
+                                      std::vector<std::size_t>::iterator>>();
+  ranges.reserve(offsets.size());
+
+  for (std::size_t index = 0; index < offsets.size(); ++index) {
+    const auto begin =
+        std::next(indices.begin(), static_cast<std::ptrdiff_t>(offsets[index]));
+    if (index < offsets.size() - 1) {
+      const auto end = std::next(
+          indices.begin(), static_cast<std::ptrdiff_t>(offsets[index + 1]));
+      ranges.emplace_back(begin, end);
+    } else {
+      const auto end = indices.end();
+      ranges.emplace_back(begin, end);
+    }
   }
 
   auto generator = std::mt19937();
   generator.seed(static_cast<uint_fast32_t>(seed));
-  std::shuffle(tensor.begin(), end, generator);
+  std::shuffle(ranges.begin(), ranges.end(), generator);
+
+  std::for_each(std::execution::par, ranges.cbegin(), ranges.cend(),
+                [&](const auto &range) {
+                  const auto begin = range.first;
+                  const auto end = range.second;
+                  auto generator = std::mt19937();
+                  generator.seed(static_cast<uint_fast32_t>(seed));
+                  std::shuffle(begin, end, generator);
+                });
+
+  auto shuffled = std::vector<std::vector<T>>();
+  shuffled.reserve(micro_batches.size());
+
+  std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),
+                [&](const auto &range) {
+                  std::for_each(std::execution::seq, range.first, range.second,
+                                [&](const std::size_t index) {
+                                  shuffled.emplace_back(
+                                      std::move(micro_batches[index].second));
+                                });
+                });
+
+  return shuffled;
 }
 
 }  // namespace algorithm

@@ -103,7 +103,7 @@ class DatasetTest : public testing::Test {
       }
     }
 
-    // As of FlatBuffers v24.3.7, it is not possible to initialize a 64-bit
+    // As of FlatBuffers v24.3.25, it is not possible to initialize a 64-bit
     // vector directly; use generated code from the FlatBuffers schema.
     auto builder = flatbuffers::FlatBufferBuilder64();
     auto data__ = builder.CreateVector64(data);

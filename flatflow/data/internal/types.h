@@ -28,6 +28,20 @@ namespace internal {
 template <typename T>
 concept Unsigned = std::unsigned_integral<T> && !std::same_as<T, bool>;
 
+// The concept `Integral<T>` is satisfied if and only if `T` is an integral type
+// and both `std::same_as<T, char>` and `std::same_as<T, bool>` are `false`.
+// This is intended to be a drop-in replacement for `std::is_integral` and
+// `std::integral`, as they treat character and boolean types as integers.
+template <typename T>
+concept Integral =
+    std::integral<T> && !std::same_as<T, char> && !std::same_as<T, bool>;
+
+// The concept `Numerical<T>` is satisfied if and only if `T` is a numerical
+// type (i.e., integers and floating-points) and both `std::same_as<T, char>`
+// and `std::same_as<T, bool>` are `false`.
+template <typename T>
+concept Numerical = Integral<T> || std::floating_point<T>;
+
 }  // namespace internal
 }  // namespace data
 }  // namespace flatflow
