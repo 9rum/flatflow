@@ -15,8 +15,6 @@
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 
-#include <omp.h>
-
 #include <cassert>
 #include <execution>
 #include <iterator>
