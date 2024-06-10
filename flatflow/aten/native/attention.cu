@@ -1,11 +1,12 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#include <torch/extension.h>
-#include <torch/torch.h>
-#include <torch/types.h>
 
 #include <thread>
 #include <vector>
+
+#include "torch/extension.h"
+#include "torch/torch.h"
+#include "torch/types.h"
 
 #include "flatflow/aten/native/attention.h"
 
@@ -339,7 +340,9 @@ std::vector<torch::Tensor> split_attention(
 
   return outputs;
 }
-#undef WARP_SIZE
+
 }  // namespace native
 }  // namespace aten
 }  // namespace flatflow
+
+#undef WARP_SIZE

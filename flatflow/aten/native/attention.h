@@ -2,6 +2,9 @@
 
 #include <iostream>
 
+#ifndef FLATFLOW_ATEN_NATIVE_ATTENTION_H_
+#define FLATFLOW_ATEN_NATIVE_ATTENTION_H_
+
 namespace flatflow {
 namespace aten {
 namespace native {
@@ -37,3 +40,5 @@ std::vector<torch::Tensor> split_attention(
 }  // namespace native
 }  // namespace aten
 }  // namespace flatflow
+
+#endif  // FLATFLOW_ATEN_NATIVE_ATTENTION_H_
