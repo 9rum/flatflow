@@ -24,7 +24,6 @@ if(BUILD_TESTING)
     PRIVATE ${CMAKE_SOURCE_DIR})
   target_link_libraries(
     algorithm_test
-    PRIVATE absl::check
     PRIVATE absl::log
     PRIVATE absl::log_initialize
     PRIVATE absl::str_format

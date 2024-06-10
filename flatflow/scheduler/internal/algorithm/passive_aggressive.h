@@ -8,10 +8,9 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <numeric>
 #include <vector>
-
-#include "absl/log/check.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -63,7 +62,7 @@ class PassiveAggressiveRegressor {
   // in the reference paper.
   bool fit(const std::vector<double> &workloads,
            const std::vector<double> &makespans) {
-    CHECK_EQ(workloads.size(), makespans.size());
+    assert(workloads.size() == makespans.size());
 
     auto converged = true;
 
@@ -153,7 +152,7 @@ class PassiveAggressiveRegressor<2> {
   // a dot product-based regression is used instead of the canonical regression.
   bool fit(const std::vector<std::vector<double>> &workloads,
            const std::vector<double> &makespans) {
-    CHECK_EQ(workloads.size(), makespans.size());
+    assert(workloads.size() == makespans.size());
 
     auto converged = true;
 

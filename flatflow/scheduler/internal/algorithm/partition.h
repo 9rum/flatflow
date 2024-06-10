@@ -16,15 +16,14 @@
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_PARTITION_H_
 
 #include <algorithm>
-#include <concepts>
+#include <cassert>
 #include <execution>
 #include <iterator>
 #include <queue>
 #include <span>
+#include <type_traits>
 #include <utility>
 #include <vector>
-
-#include "absl/log/check.h"
 
 #include "flatflow/data/internal/types.h"
 
@@ -41,9 +40,10 @@ namespace {
 // Note that unlike in the original partition problem, this structure does not
 // store the partitioned items but only the subset sum.
 template <typename Index, typename Size, typename UnaryOp>
-  requires(flatflow::data::internal::Unsigned<Index> &&
-           flatflow::data::internal::Unsigned<Size> &&
-           std::invocable<UnaryOp, Size>)
+  requires(
+      flatflow::data::internal::Unsigned<Index> &&
+      flatflow::data::internal::Unsigned<Size> &&
+      flatflow::data::internal::Numerical<std::invoke_result_t<UnaryOp, Size>>)
 struct Subset {
   using key_type = Size;
   using mapped_type = Index;
@@ -85,9 +85,10 @@ struct Subset {
 //
 // Structure holding a partial solution used in the Karmarkar-Karp algorithm.
 template <typename Index, typename Size, typename UnaryOp>
-  requires(flatflow::data::internal::Unsigned<Index> &&
-           flatflow::data::internal::Unsigned<Size> &&
-           std::invocable<UnaryOp, Size>)
+  requires(
+      flatflow::data::internal::Unsigned<Index> &&
+      flatflow::data::internal::Unsigned<Size> &&
+      flatflow::data::internal::Numerical<std::invoke_result_t<UnaryOp, Size>>)
 struct Solution {
   using key_type = Size;
   using mapped_type = Index;
@@ -140,16 +141,17 @@ struct Solution {
 // <https://www.sciencedirect.com/science/article/pii/S1572528611000508>`,
 // a variant of LDM for balanced number partitioning with larger cardinalities.
 template <typename Index, typename Size, typename UnaryOp>
-  requires(flatflow::data::internal::Unsigned<Index> &&
-           flatflow::data::internal::Unsigned<Size> &&
-           std::invocable<UnaryOp, Size>)
+  requires(
+      flatflow::data::internal::Unsigned<Index> &&
+      flatflow::data::internal::Unsigned<Size> &&
+      flatflow::data::internal::Numerical<std::invoke_result_t<UnaryOp, Size>>)
 std::vector<std::pair<std::invoke_result_t<UnaryOp, Size>, std::vector<Index>>>
 KarmarkarKarp(const std::vector<std::pair<Size, Index>> &items,
               const Index &num_micro_batches, UnaryOp op) {
-  CHECK_NE(num_micro_batches, 0);
+  assert(num_micro_batches != 0);
 
   const auto stride = static_cast<std::size_t>(num_micro_batches);
-  CHECK_EQ(items.size() % stride, 0);
+  assert(items.size() % stride == 0);
 
   // Initially, BLDM starts with a sequence of `k` partial solutions, where each
   // partial solution is obtained from the `m` smallest remaining items.

@@ -29,7 +29,6 @@
 #include <vector>
 
 #include "absl/container/inlined_vector.h"
-#include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
@@ -94,7 +93,7 @@ class Dataset {
   explicit Dataset(const flatbuffers::Vector<key_type, mapped_type> *sizes,
                    const mapped_type &seed)
       : seed_(seed) {
-    CHECK_NE(sizes, nullptr);
+    assert(sizes != nullptr);
 
     const auto now = omp_get_wtime();
 
@@ -184,7 +183,7 @@ class Dataset {
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
   inline value_type at(const key_type &size) {
-    CHECK_NE(size_, 0);
+    assert(size_ != 0);
 
     // The retrieval process of a data sample is described below:
     //
@@ -218,7 +217,7 @@ class Dataset {
   // checking. This ensures that the retrieved data samples are sorted in
   // order of size.
   std::vector<value_type> take(size_type n) {
-    CHECK_LE(n, size_);
+    assert(n <= size_);
 
     auto items = std::vector<value_type>();
     items.reserve(n);
@@ -293,7 +292,7 @@ class Dataset {
   // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
     // At the end of an epoch, the inverted index must be empty.
-    CHECK_EQ(size_, 0);
+    assert(size_ == 0);
 
     internal::container::swap(items_, recyclebin_);
     size_ = max_size_;
