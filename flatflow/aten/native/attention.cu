@@ -339,7 +339,7 @@ std::vector<torch::Tensor> split_attention(
 
   return outputs;
 }
-
+#undef WARP_SIZE
 }  // namespace native
 }  // namespace aten
 }  // namespace flatflow
