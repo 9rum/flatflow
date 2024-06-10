@@ -3,19 +3,19 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 #include <torch/types.h>
+
 #include <thread>
 #include <vector>
 
-#include "attention.h"
+#include "flatflow/aten/native/attention.h"
 
 #define WARP_SIZE 32
 
 namespace flatflow {
-namespace torch {
-namespace nn {
-namespace modules {
+namespace aten {
+namespace native {
 
-// flatflow::torch::nn::modules::ceil_div
+// flatflow::aten::native::ceil_div
 //
 // utility function to calculate grid size with given thread block size
 template <class T>
@@ -23,7 +23,7 @@ __host__ __device__ T ceil_div(T dividend, T divisor) {
   return (dividend + divisor - 1) / divisor;
 }
 
-// flatflow::torch::nn::modules::warp_reduce_max
+// flatflow::aten::native::warp_reduce_max
 //
 // return max value in warp-level reduction
 __device__ float warp_reduce_max(float val) {
@@ -33,7 +33,7 @@ __device__ float warp_reduce_max(float val) {
   return val;
 }
 
-// flatflow::torch::nn::modules::warp_reduce_sum
+// flatflow::aten::native::warp_reduce_sum
 //
 // return sum in warp-level reduction
 __device__ float warp_reduce_sum(float val) {
@@ -43,7 +43,7 @@ __device__ float warp_reduce_sum(float val) {
   return val;
 }
 
-// flatflow::torch::nn::modules::permute_kernel
+// flatflow::aten::native::permute_kernel
 //
 // Current permute function is implemented to adhere huggingface qkv shape.
 // query, key, value shape needs to be (batch, num_heads, sequence_length, dim)
@@ -72,7 +72,7 @@ __global__ void permute_kernel(float *query, float *key, float *value,
   }
 }
 
-// flatflow::torch::nn::modules::unpermute_kernel
+// flatflow::aten::native::unpermute_kernel
 //
 // Current unpermute function is implemented to adhere huggingface qkv shape.
 // After attention output_ has shape (batch, num_heads, sequence_length, dim)
@@ -96,7 +96,7 @@ __global__ void unpermute_kernel(float *input_, float *output_, const int batch,
   }
 }
 
-// flatflow::torch::nn::modules::scale_kernel
+// flatflow::aten::native::scale_kernel
 //
 // scale_kernel scales pre_softmax with scale factor.
 // For lookahead mask, it sets upper triangular part to -INFINITY.
@@ -117,7 +117,7 @@ __global__ void scale_kernel(float *pre_softmax, const float scale,
   }
 }
 
-// flatflow::torch::nn::modules::softmax_forward_kernel
+// flatflow::aten::native::softmax_forward_kernel
 //
 // softmax_forward_kernel computes softmax of input.
 // By using shared memory, softmax calculation can share results between warps.
@@ -186,7 +186,7 @@ __global__ void softmax_forward_kernel(float *post_softmax,
   }
 }
 
-// flatflow::torch::nn::modules::attention_forward
+// flatflow::aten::native::attention_forward
 //
 // Attention forward function that computes MultiHead Attention.
 // pre_split_input shape is (batch, sequence_length, 3*dim) since Linear.
@@ -249,13 +249,13 @@ void attention_forward(cublasHandle_t cublas_handle, float *output,
       post_attention, output, batch, sequence_length, num_heads, head_size);
 }
 
-// flatflow::torch::nn::modules::split_attention
+// flatflow::aten::native::split_attention
 //
 // Divide batched QKV from Merged QKV linear with given index to split tensor.
 // Intialize cublas handle and cuda stream for each splited tensor in order to
 // parallelize multiple attentions.
 std::vector<torch::Tensor> split_attention(
-    torch::Tensor &QKV, const std::vector<int> &split_indices) {
+    torch::Tensor &QKV, const std::vector<std::size_t> &split_indices) {
   TORCH_INTERNAL_ASSERT(QKV.device().type() == torch::DeviceType::CUDA);
 
   torch::Tensor QKV_contiguous = QKV.contiguous();
@@ -340,7 +340,6 @@ std::vector<torch::Tensor> split_attention(
   return outputs;
 }
 
-}  // namespace modules
-}  // namespace nn
-}  // namespace torch
+}  // namespace native
+}  // namespace aten
 }  // namespace flatflow
