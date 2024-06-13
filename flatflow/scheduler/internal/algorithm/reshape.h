@@ -16,11 +16,13 @@
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_RESHAPE_H_
 
 #include <algorithm>
+#include <cassert>
 #include <execution>
+#include <iterator>
 #include <utility>
 #include <vector>
 
-#include "absl/log/check.h"
+#include "flatflow/data/internal/types.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -29,39 +31,66 @@ namespace algorithm {
 
 // reshape()
 //
-// Converts the given three-dimensional tensor to a corresponding
-// two-dimensional tensor or a matrix.
+// Distributes the given shuffled micro-batches to each of the workers.
 template <typename T>
-inline auto reshape(const std::vector<std::vector<std::vector<T>>> &tensor)
-    -> std::vector<std::vector<T>> {
-  const auto interval = tensor.size();
-  CHECK_NE(interval, 0);
+  requires flatflow::data::internal::Unsigned<T>
+std::vector<std::vector<T>> reshape(
+    const std::vector<std::vector<T>> &micro_batches,
+    const T &data_parallel_size, const T &global_batch_size) {
+  const auto _data_parallel_size = static_cast<std::size_t>(data_parallel_size);
+  const auto _global_batch_size = static_cast<std::size_t>(global_batch_size);
+  assert(_data_parallel_size != 0);
+  assert(_global_batch_size != 0);
+  assert(_global_batch_size % _data_parallel_size == 0);
 
-  const auto world_size = tensor[0].size();
-  CHECK_NE(world_size, 0);
+  const auto num_micro_batches = micro_batches.size();
+  assert(num_micro_batches != 0);
+  assert(num_micro_batches % _data_parallel_size == 0);
 
-  auto matrix = std::vector<std::vector<T>>();
-  matrix.reserve(world_size);
+  const auto micro_batch_size = micro_batches[0].size();
+  assert(micro_batch_size != 0);
+  assert(_global_batch_size / _data_parallel_size % micro_batch_size == 0);
 
-  const auto row_size =
-      tensor[0][0].size() * (interval - 1) + tensor[interval - 1][0].size();
+  // To minimize both computation stalls across pipeline stages and
+  // synchronization latency between pipelines, we distribute the shuffled
+  // micro-batches at the granularity of mini-batch:
+  //
+  // * In pipeline parallelism, all pipeline stages should have the same
+  //   execution time, so micro-batches are first distributed to the same
+  //   pipeline.
+  // * On the other hand, in data parallelism, synchronization latency between
+  //   pipelines hinders scalability (in both synchronous pipeline schedules
+  //   such as GPipe and asynchronous pipeline schedules such as PipeDream),
+  //   so micro-batches are then distributed to other pipelines.
+  //
+  // Such distribution policy that prioritizes pipeline parallelism is due to
+  // the fact that computation stalls occur for each pipeline stage while
+  // synchronization latency occurs only for each batch.
+  const auto stride =
+      _global_batch_size / _data_parallel_size / micro_batch_size;
+  const auto num_samples =
+      num_micro_batches / _data_parallel_size * micro_batch_size;
 
-  for (; matrix.size() < matrix.capacity();) {
-    matrix.emplace_back(std::move(std::vector<T>(row_size)));
+  auto indices = std::vector<std::vector<T>>();
+  indices.reserve(_data_parallel_size);
+
+  while (indices.size() < indices.capacity()) {
+    indices.emplace_back(std::move(std::vector<T>(num_samples)));
   }
 
-  // TODO: Unroll the below nested loops into a single loop.
   #pragma omp parallel for
-  for (std::size_t rank = 0; rank < world_size; ++rank) {
-    auto dest = matrix[rank].begin();
-    std::for_each(std::execution::seq, tensor.cbegin(), tensor.cend(),
-                  [&](const auto &batch) {
-                    dest = std::copy(batch[rank].cbegin(), batch[rank].cend(),
-                                     dest);
-                  });
+  for (std::size_t offset = 0; offset < num_micro_batches; ++offset) {
+    const auto rank = offset / stride % _data_parallel_size;
+    const auto index = static_cast<std::ptrdiff_t>(
+        micro_batch_size *
+        (offset / stride / _data_parallel_size * stride + offset % stride));
+
+    const auto &micro_batch = micro_batches[offset];
+    std::copy(micro_batch.cbegin(), micro_batch.cend(),
+              std::next(indices[rank].begin(), index));
   }
 
-  return matrix;
+  return indices;
 }
 
 }  // namespace algorithm

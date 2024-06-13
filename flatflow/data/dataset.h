@@ -19,6 +19,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <cassert>
 #include <execution>
 #include <functional>
 #include <iterator>

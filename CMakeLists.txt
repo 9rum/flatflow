@@ -15,12 +15,10 @@
 # CMake 3.18 is the minimum supported version to use imported target for BLAS.
 cmake_minimum_required(VERSION 3.18)
 
-project(flatflow LANGUAGES CXX CUDA)
+project(flatflow LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CUDA_STANDARD 20)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 include(CTest)
 
@@ -29,6 +27,8 @@ find_package(OpenMP REQUIRED)
 find_package(TBB REQUIRED)
 
 # Find the absolute path to LibTorch and add it to CMake prefix path.
+# Note that Torch imports CUDA, so there is no need to specify this with project
+# or enable_language.
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 execute_process(
   COMMAND "${Python3_EXECUTABLE}" "-c" "import torch; print(torch.utils.cmake_prefix_path)"

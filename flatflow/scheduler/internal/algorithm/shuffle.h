@@ -43,7 +43,8 @@ template <typename R, typename T>
 std::vector<std::vector<T>> shuffle(
     const std::vector<std::pair<R, std::vector<T>>> &micro_batches,
     const T &seed) {
-  assert(micro_batches.size() != 0);
+  const auto num_micro_batches = micro_batches.size();
+  assert(num_micro_batches != 0);
 
   // The inter-batch shuffling is carried out as follows:
   //
@@ -58,13 +59,13 @@ std::vector<std::vector<T>> shuffle(
   auto offsets = std::vector<std::size_t>();
   offsets.emplace_back(0);
 
-  for (std::size_t offset = 1; offset < micro_batches.size(); ++offset) {
+  for (std::size_t offset = 1; offset < num_micro_batches; ++offset) {
     if (micro_batches[offset - 1].first != micro_batches[offset].first) {
       offsets.emplace_back(offset);
     }
   }
 
-  auto indices = std::vector<std::size_t>(micro_batches.size());
+  auto indices = std::vector<std::size_t>(num_micro_batches);
   std::iota(indices.begin(), indices.end(), 0);
 
   auto ranges = std::vector<std::pair<std::vector<std::size_t>::iterator,
@@ -98,7 +99,7 @@ std::vector<std::vector<T>> shuffle(
                 });
 
   auto shuffled = std::vector<std::vector<T>>();
-  shuffled.reserve(micro_batches.size());
+  shuffled.reserve(num_micro_batches);
 
   std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),
                 [&](const auto &range) {
