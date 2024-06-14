@@ -1,3 +1,5 @@
+#include "flatflow/aten/native/attention.h"
+
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
@@ -7,8 +9,6 @@
 #include "torch/extension.h"
 #include "torch/torch.h"
 #include "torch/types.h"
-
-#include "flatflow/aten/native/attention.h"
 
 #define WARP_SIZE 32
 

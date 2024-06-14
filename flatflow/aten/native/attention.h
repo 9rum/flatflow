@@ -1,9 +1,9 @@
+#ifndef FLATFLOW_ATEN_NATIVE_ATTENTION_H_
+#define FLATFLOW_ATEN_NATIVE_ATTENTION_H_
+
 #include <cublas_v2.h>
 
 #include <iostream>
-
-#ifndef FLATFLOW_ATEN_NATIVE_ATTENTION_H_
-#define FLATFLOW_ATEN_NATIVE_ATTENTION_H_
 
 namespace flatflow {
 namespace aten {
