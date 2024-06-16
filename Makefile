@@ -13,7 +13,7 @@ generate:
 	@./build/third_party/flatbuffers/flatc -c -o flatflow/data/ flatflow/data/dataset_test.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/scheduler/ flatflow/scheduler/scheduler_test.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc/ flatflow/rpc/empty.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc/ -I . --grpc --keep-prefix flatflow/rpc/communicator.fbs
+		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc/ -I . --keep-prefix flatflow/rpc/communicator.fbs
 
 test:
 	@ctest --test-dir build
