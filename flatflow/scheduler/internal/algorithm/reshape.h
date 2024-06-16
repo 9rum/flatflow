@@ -82,8 +82,8 @@ std::vector<std::vector<T>> reshape(
   for (std::size_t offset = 0; offset < num_micro_batches; ++offset) {
     const auto rank = offset / stride % _data_parallel_size;
     const auto index = static_cast<std::ptrdiff_t>(
-        micro_batch_size *
-        (offset / stride / _data_parallel_size * stride + offset % stride));
+        (offset / stride / _data_parallel_size * stride + offset % stride) *
+        micro_batch_size);
 
     const auto &micro_batch = micro_batches[offset];
     std::copy(micro_batch.cbegin(), micro_batch.cend(),

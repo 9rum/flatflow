@@ -46,6 +46,9 @@ std::vector<std::vector<T>> shuffle(
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
 
+  const auto _seed = static_cast<uint_fast32_t>(seed);
+  assert(static_cast<T>(_seed) == seed);
+
   // The inter-batch shuffling is carried out as follows:
   //
   // * First, group micro-batches with the same makespan to minimize computation
@@ -86,7 +89,7 @@ std::vector<std::vector<T>> shuffle(
   }
 
   auto generator = std::mt19937();
-  generator.seed(static_cast<uint_fast32_t>(seed));
+  generator.seed(_seed);
   std::shuffle(ranges.begin(), ranges.end(), generator);
 
   std::for_each(std::execution::par, ranges.cbegin(), ranges.cend(),
@@ -94,7 +97,7 @@ std::vector<std::vector<T>> shuffle(
                   const auto begin = range.first;
                   const auto end = range.second;
                   auto generator = std::mt19937();
-                  generator.seed(static_cast<uint_fast32_t>(seed));
+                  generator.seed(_seed);
                   std::shuffle(begin, end, generator);
                 });
 
