@@ -61,24 +61,24 @@ class PassiveAggressiveRegressor {
   // This uses epsilon-insensitive loss, which is equivalent to PA-I
   // in the reference paper.
   bool fit(const std::vector<double> &workloads,
-           const std::vector<double> &makespans) {
-    assert(workloads.size() == makespans.size());
+           const std::vector<double> &costs) {
+    assert(workloads.size() == costs.size());
 
     auto converged = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
       for (std::size_t index = 0; index < workloads.size(); ++index) {
         const auto workload = workloads[index];
-        const auto makespan = makespans[index];
+        const auto cost = costs[index];
 
         const auto prediction = coef_ * workload + intercept_;
-        const auto loss = std::abs(makespan - prediction) - epsilon_;
+        const auto loss = std::abs(cost - prediction) - epsilon_;
 
         if (0.0 < loss) {
           const auto sqnorm = workload * (workload + 1.0);
           const auto update = std::min(loss / sqnorm, C_);
 
-          if (prediction < makespan) {
+          if (prediction < cost) {
             coef_ += update * workload;
             intercept_ += update;
           } else {
@@ -96,7 +96,7 @@ class PassiveAggressiveRegressor {
 
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts makespan for the given workload.
+  // Predicts cost for the given workload.
   inline double predict(double workload) const noexcept {
     return coef_ * workload;
   }
@@ -147,19 +147,19 @@ class PassiveAggressiveRegressor<2> {
   // PassiveAggressiveRegressor::fit()
   //
   // Fits the model with passive-aggressive algorithm. Unlike the linear model,
-  // this regressor takes one or more workloads for each makespan since multiple
-  // workloads are mapped to a single makespan in the profile. For this reason,
-  // a dot product-based regression is used instead of the canonical regression.
+  // this regressor takes one or more workloads for each cost since multiple
+  // workloads are mapped to a single cost in the profile. For this reason, a
+  // dot product-based regression is used instead of the canonical regression.
   bool fit(const std::vector<std::vector<double>> &workloads,
-           const std::vector<double> &makespans) {
-    assert(workloads.size() == makespans.size());
+           const std::vector<double> &costs) {
+    assert(workloads.size() == costs.size());
 
     auto converged = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
       for (std::size_t index = 0; index < workloads.size(); ++index) {
         const auto &workload = workloads[index];
-        const auto makespan = makespans[index];
+        const auto cost = costs[index];
 
         const auto sum =
             std::accumulate(workload.cbegin(), workload.cend(), 0.0);
@@ -167,13 +167,13 @@ class PassiveAggressiveRegressor<2> {
             workload.cbegin(), workload.cend(), workload.cbegin(), 0.0);
 
         const auto prediction = coef_[0] * sqsum + coef_[1] * sum + intercept_;
-        const auto loss = std::abs(makespan - prediction) - epsilon_;
+        const auto loss = std::abs(cost - prediction) - epsilon_;
 
         if (0.0 < loss) {
           const auto sqnorm = sum * sum + sqsum * sqsum;
           const auto update = std::min(loss / sqnorm, C_);
 
-          if (prediction < makespan) {
+          if (prediction < cost) {
             coef_[0] += update * sqsum;
             coef_[1] += update * sum;
             intercept_ += update;
@@ -193,7 +193,7 @@ class PassiveAggressiveRegressor<2> {
 
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts makespan for the given workload.
+  // Predicts cost for the given workload.
   inline double predict(double workload) const noexcept {
     return workload * (coef_[0] * workload + coef_[1]);
   }

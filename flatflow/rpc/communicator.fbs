@@ -19,20 +19,20 @@ namespace flatflow.rpc;
 attribute "vector64";
 
 table InitRequest {
-  batch_size:       ulong;
-  hidden_size:      ulong;
-  micro_batch_size: ulong;
-  order:            ulong;
-  rank:             ulong;
-  seed:             ulong;
-  sizes:            [ushort] (vector64);
-  heterogeneous:    bool;
+  global_batch_size: ulong;
+  hidden_size:       ulong;
+  micro_batch_size:  ulong;
+  order:             ulong;
+  rank:              ulong;
+  seed:              ulong;
+  sizes:             [ushort] (vector64);
+  heterogeneous:     bool;
 }
 
 table BroadcastRequest {
-  epoch:     ulong;
-  rank:      ulong;
-  makespans: [double] (vector64);
+  epoch: ulong;
+  rank:  ulong;
+  costs: [double] (vector64);
 }
 
 table BroadcastResponse {

@@ -30,7 +30,7 @@ struct BroadcastResponseBuilder;
 struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef InitRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_BATCH_SIZE = 4,
+    VT_GLOBAL_BATCH_SIZE = 4,
     VT_HIDDEN_SIZE = 6,
     VT_MICRO_BATCH_SIZE = 8,
     VT_ORDER = 10,
@@ -39,8 +39,8 @@ struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_SIZES = 16,
     VT_HETEROGENEOUS = 18
   };
-  uint64_t batch_size() const {
-    return GetField<uint64_t>(VT_BATCH_SIZE, 0);
+  uint64_t global_batch_size() const {
+    return GetField<uint64_t>(VT_GLOBAL_BATCH_SIZE, 0);
   }
   uint64_t hidden_size() const {
     return GetField<uint64_t>(VT_HIDDEN_SIZE, 0);
@@ -65,7 +65,7 @@ struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint64_t>(verifier, VT_BATCH_SIZE, 8) &&
+           VerifyField<uint64_t>(verifier, VT_GLOBAL_BATCH_SIZE, 8) &&
            VerifyField<uint64_t>(verifier, VT_HIDDEN_SIZE, 8) &&
            VerifyField<uint64_t>(verifier, VT_MICRO_BATCH_SIZE, 8) &&
            VerifyField<uint64_t>(verifier, VT_ORDER, 8) &&
@@ -82,8 +82,8 @@ struct InitRequestBuilder {
   typedef InitRequest Table;
   ::flatbuffers::FlatBufferBuilder64 &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_batch_size(uint64_t batch_size) {
-    fbb_.AddElement<uint64_t>(InitRequest::VT_BATCH_SIZE, batch_size, 0);
+  void add_global_batch_size(uint64_t global_batch_size) {
+    fbb_.AddElement<uint64_t>(InitRequest::VT_GLOBAL_BATCH_SIZE, global_batch_size, 0);
   }
   void add_hidden_size(uint64_t hidden_size) {
     fbb_.AddElement<uint64_t>(InitRequest::VT_HIDDEN_SIZE, hidden_size, 0);
@@ -119,7 +119,7 @@ struct InitRequestBuilder {
 
 inline ::flatbuffers::Offset<InitRequest> CreateInitRequest(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
-    uint64_t batch_size = 0,
+    uint64_t global_batch_size = 0,
     uint64_t hidden_size = 0,
     uint64_t micro_batch_size = 0,
     uint64_t order = 0,
@@ -134,14 +134,14 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequest(
   builder_.add_order(order);
   builder_.add_micro_batch_size(micro_batch_size);
   builder_.add_hidden_size(hidden_size);
-  builder_.add_batch_size(batch_size);
+  builder_.add_global_batch_size(global_batch_size);
   builder_.add_heterogeneous(heterogeneous);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<InitRequest> CreateInitRequestDirect(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
-    uint64_t batch_size = 0,
+    uint64_t global_batch_size = 0,
     uint64_t hidden_size = 0,
     uint64_t micro_batch_size = 0,
     uint64_t order = 0,
@@ -152,7 +152,7 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequestDirect(
   auto sizes__ = sizes ? _fbb.CreateVector64(*sizes) : 0;
   return flatflow::rpc::CreateInitRequest(
       _fbb,
-      batch_size,
+      global_batch_size,
       hidden_size,
       micro_batch_size,
       order,
@@ -167,7 +167,7 @@ struct BroadcastRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_EPOCH = 4,
     VT_RANK = 6,
-    VT_MAKESPANS = 8
+    VT_COSTS = 8
   };
   uint64_t epoch() const {
     return GetField<uint64_t>(VT_EPOCH, 0);
@@ -175,15 +175,15 @@ struct BroadcastRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint64_t rank() const {
     return GetField<uint64_t>(VT_RANK, 0);
   }
-  const ::flatbuffers::Vector64<double> *makespans() const {
-    return GetPointer64<const ::flatbuffers::Vector64<double> *>(VT_MAKESPANS);
+  const ::flatbuffers::Vector64<double> *costs() const {
+    return GetPointer64<const ::flatbuffers::Vector64<double> *>(VT_COSTS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_EPOCH, 8) &&
            VerifyField<uint64_t>(verifier, VT_RANK, 8) &&
-           VerifyOffset64(verifier, VT_MAKESPANS) &&
-           verifier.VerifyVector(makespans()) &&
+           VerifyOffset64(verifier, VT_COSTS) &&
+           verifier.VerifyVector(costs()) &&
            verifier.EndTable();
   }
 };
@@ -198,8 +198,8 @@ struct BroadcastRequestBuilder {
   void add_rank(uint64_t rank) {
     fbb_.AddElement<uint64_t>(BroadcastRequest::VT_RANK, rank, 0);
   }
-  void add_makespans(::flatbuffers::Offset64<::flatbuffers::Vector64<double>> makespans) {
-    fbb_.AddOffset(BroadcastRequest::VT_MAKESPANS, makespans);
+  void add_costs(::flatbuffers::Offset64<::flatbuffers::Vector64<double>> costs) {
+    fbb_.AddOffset(BroadcastRequest::VT_COSTS, costs);
   }
   explicit BroadcastRequestBuilder(::flatbuffers::FlatBufferBuilder64 &_fbb)
         : fbb_(_fbb) {
@@ -216,9 +216,9 @@ inline ::flatbuffers::Offset<BroadcastRequest> CreateBroadcastRequest(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
     uint64_t epoch = 0,
     uint64_t rank = 0,
-    ::flatbuffers::Offset64<::flatbuffers::Vector64<double>> makespans = 0) {
+    ::flatbuffers::Offset64<::flatbuffers::Vector64<double>> costs = 0) {
   BroadcastRequestBuilder builder_(_fbb);
-  builder_.add_makespans(makespans);
+  builder_.add_costs(costs);
   builder_.add_rank(rank);
   builder_.add_epoch(epoch);
   return builder_.Finish();
@@ -228,13 +228,13 @@ inline ::flatbuffers::Offset<BroadcastRequest> CreateBroadcastRequestDirect(
     ::flatbuffers::FlatBufferBuilder64 &_fbb,
     uint64_t epoch = 0,
     uint64_t rank = 0,
-    const std::vector<double> *makespans = nullptr) {
-  auto makespans__ = makespans ? _fbb.CreateVector64(*makespans) : 0;
+    const std::vector<double> *costs = nullptr) {
+  auto costs__ = costs ? _fbb.CreateVector64(*costs) : 0;
   return flatflow::rpc::CreateBroadcastRequest(
       _fbb,
       epoch,
       rank,
-      makespans__);
+      costs__);
 }
 
 struct BroadcastResponse FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

@@ -56,53 +56,53 @@ TEST_F(RegressorTest, Linear) {
   auto sums = std::vector<double>();
   sums.reserve(kNumMicroBatches);
 
-  auto makespans = std::vector<double>();
-  makespans.reserve(kNumMicroBatches);
+  auto costs = std::vector<double>();
+  costs.reserve(kNumMicroBatches);
 
   for (const auto &workload : workloads) {
     const auto sum = std::accumulate(workload.cbegin(), workload.cend(), 0.0);
     sums.emplace_back(sum);
-    makespans.emplace_back(kCoefficient * sum + kIntercept);
+    costs.emplace_back(kCoefficient * sum + kIntercept);
   }
 
   auto regressor =
       flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<1>(
           kEpsilon);
-  EXPECT_FALSE(regressor.fit(sums, makespans));
+  EXPECT_FALSE(regressor.fit(sums, costs));
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
     const auto sum = sums[index];
-    const auto makespan = makespans[index];
+    const auto cost = costs[index];
     const auto prediction = regressor.predict(sum) + regressor.intercept();
-    EXPECT_LE(std::abs(makespan - prediction) / makespan, kThreshold);
+    EXPECT_LE(std::abs(cost - prediction) / cost, kThreshold);
   }
 }
 
 TEST_F(RegressorTest, Quadratic) {
   constexpr auto kIntercept = 3e2;
 
-  auto makespans = std::vector<double>();
-  makespans.reserve(kNumMicroBatches);
+  auto costs = std::vector<double>();
+  costs.reserve(kNumMicroBatches);
 
   for (const auto &workload : workloads) {
     const auto sum = std::accumulate(workload.cbegin(), workload.cend(), 0.0);
     const auto sqsum = std::inner_product(workload.cbegin(), workload.cend(),
                                           workload.cbegin(), 0.0);
-    makespans.emplace_back(sqsum + kHiddenSize * sum + kIntercept);
+    costs.emplace_back(sqsum + kHiddenSize * sum + kIntercept);
   }
 
   auto regressor =
       flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<2>(
           kHiddenSize, kEpsilon);
-  EXPECT_FALSE(regressor.fit(workloads, makespans));
+  EXPECT_FALSE(regressor.fit(workloads, costs));
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
     const auto &workload = workloads[index];
-    const auto makespan = makespans[index];
+    const auto cost = costs[index];
     const auto prediction = std::transform_reduce(
         workload.cbegin(), workload.cend(), regressor.intercept(), std::plus(),
         [&](const auto size) { return regressor.predict(size); });
-    EXPECT_LE(std::abs(makespan - prediction) / makespan, kThreshold);
+    EXPECT_LE(std::abs(cost - prediction) / cost, kThreshold);
   }
 }
 
