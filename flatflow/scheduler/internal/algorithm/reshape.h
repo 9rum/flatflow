@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <execution>
 #include <iterator>
 #include <utility>
@@ -66,8 +67,15 @@ std::vector<std::vector<T>> reshape(
   // Such distribution policy that prioritizes pipeline parallelism is due to
   // the fact that computation stalls occur for each pipeline stage while
   // synchronization latency occurs only for each batch.
+  const auto last_global_batch_size =
+      (micro_batch_size * num_micro_batches - 1) % _global_batch_size + 1;
   const auto stride =
       _global_batch_size / _data_parallel_size / micro_batch_size;
+  const auto last_stride =
+      last_global_batch_size / _data_parallel_size / micro_batch_size;
+  const auto last_batch_offset = num_micro_batches / stride /
+                                 _data_parallel_size * stride *
+                                 _data_parallel_size;
   const auto num_samples =
       num_micro_batches / _data_parallel_size * micro_batch_size;
 
@@ -80,14 +88,26 @@ std::vector<std::vector<T>> reshape(
 
   #pragma omp parallel for
   for (std::size_t offset = 0; offset < num_micro_batches; ++offset) {
-    const auto rank = offset / stride % _data_parallel_size;
-    const auto index = static_cast<std::ptrdiff_t>(
-        (offset / stride / _data_parallel_size * stride + offset % stride) *
-        micro_batch_size);
-
     const auto &micro_batch = micro_batches[offset];
-    std::copy(micro_batch.cbegin(), micro_batch.cend(),
-              std::next(indices[rank].begin(), index));
+
+    if (offset < last_batch_offset) {
+      const auto rank = offset / stride % _data_parallel_size;
+      const auto index =
+          (offset / stride / _data_parallel_size * stride + offset % stride) *
+          micro_batch_size;
+      std::copy(
+          micro_batch.cbegin(), micro_batch.cend(),
+          std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
+    } else {
+      const auto rank =
+          (offset - last_batch_offset) / last_stride % _data_parallel_size;
+      const auto index = (last_batch_offset / _data_parallel_size +
+                          (offset - last_batch_offset) % last_stride) *
+                         micro_batch_size;
+      std::copy(
+          micro_batch.cbegin(), micro_batch.cend(),
+          std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
+    }
   }
 
   return indices;
