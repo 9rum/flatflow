@@ -17,15 +17,20 @@
 
 #include <omp.h>
 
+#include <cassert>
 #include <vector>
 
-#include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 #include "flatbuffers/vector.h"
 
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/internal/types.h"
+#include "flatflow/scheduler/internal/algorithm/concat.h"
+#include "flatflow/scheduler/internal/algorithm/partition.h"
+#include "flatflow/scheduler/internal/algorithm/passive_aggressive.h"
+#include "flatflow/scheduler/internal/algorithm/reshape.h"
+#include "flatflow/scheduler/internal/algorithm/shuffle.h"
 
 namespace flatflow {
 namespace scheduler {
@@ -40,7 +45,7 @@ namespace scheduler {
 // complexity in the size of each data sample; traditional convolutional neural
 // networks (CNNs) and state space models (SSMs) in the Mamba family that
 // implement linear-time sequence modeling are of this kind.
-template <typename Index, typename Size, std::size_t Order, bool Heterogeneous>
+template <typename Index, typename Size, int Order, bool Heterogeneous>
   requires(flatflow::data::internal::Unsigned<Index> &&
            flatflow::data::internal::Unsigned<Size>)
 class Scheduler {
@@ -61,26 +66,28 @@ class Scheduler {
   // are not specified as `explicit` since an implicit conversion from scheduler
   // to `std::variant` is required.
   inline Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
-                   const mapped_type &world_size, const mapped_type &batch_size,
+                   const mapped_type &data_parallel_size,
+                   const mapped_type &global_batch_size,
                    const mapped_type &micro_batch_size, const mapped_type &seed)
-      : world_size_(world_size),
-        batch_size_(batch_size),
+      : data_parallel_size_(data_parallel_size),
+        global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
         seed_(seed) {
-    CHECK_NE(world_size, 0);
-    CHECK_NE(batch_size, 0);
-    CHECK_EQ(batch_size % world_size, 0);
-    CHECK_NE(micro_batch_size, 0);
-    CHECK_EQ(batch_size / world_size % micro_batch_size, 0);
-    CHECK_NE(sizes, nullptr);
-    CHECK_NE(sizes->size(), 0);
-    CHECK_EQ(sizes->size() % world_size, 0);
+    assert(data_parallel_size != 0);
+    assert(global_batch_size != 0);
+    assert(global_batch_size % data_parallel_size == 0);
+    assert(micro_batch_size != 0);
+    assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
+    assert(sizes != nullptr);
+    assert(sizes->size() != 0);
+    assert(sizes->size() % data_parallel_size == 0);
 
     // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
     // any branch instructions.
-    num_batches_ = (sizes->size() - 1) / batch_size + 1;
+    num_batches_ = (sizes->size() - 1) / global_batch_size + 1;
     num_micro_batches_ =
-        world_size * ((sizes->size() / world_size - 1) / micro_batch_size + 1);
+        ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
+        data_parallel_size;
 
     // The last batch size must be calculated since the total number of data
     // samples may not be a multiple of batch size, while both are multiples of
@@ -88,9 +95,10 @@ class Scheduler {
     //
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
     // branch instructions.
-    last_batch_size_ = (sizes->size() - 1) % batch_size + 1;
+    last_global_batch_size_ = (sizes->size() - 1) % global_batch_size + 1;
     last_micro_batch_size_ =
-        (last_batch_size_ / world_size - 1) % micro_batch_size + 1;
+        (last_global_batch_size_ / data_parallel_size - 1) % micro_batch_size +
+        1;
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -99,13 +107,13 @@ class Scheduler {
 
   Scheduler() = delete;
 
-  inline Scheduler(const Scheduler &other) = default;
+  Scheduler(const Scheduler &other) = default;
 
-  inline Scheduler &operator=(const Scheduler &other) = default;
+  Scheduler &operator=(const Scheduler &other) = default;
 
-  inline Scheduler(Scheduler &&other) = default;
+  Scheduler(Scheduler &&other) = default;
 
-  inline Scheduler &operator=(Scheduler &&other) = default;
+  Scheduler &operator=(Scheduler &&other) = default;
 
   // Scheduler::Schedule()
   //
@@ -117,7 +125,42 @@ class Scheduler {
   inline std::vector<std::vector<mapped_type>> Schedule() {
     const auto now = omp_get_wtime();
 
+    const auto casting_op =
+        flatflow::data::internal::OverflowSafeCast<key_type>;
+
+    if (micro_batch_size_ == last_micro_batch_size_) {
+      const auto items = dataset_.take(
+          static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
+      const auto micro_batches = internal::algorithm::KarmarkarKarp(
+          items, num_micro_batches_, casting_op);
+      const auto indices = internal::algorithm::reshape(
+          internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
+          data_parallel_size_, global_batch_size_);
+
+      LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
+
+      return indices;
+    }
+
+    const auto items = dataset_.take(static_cast<std::size_t>(
+        micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
+    const auto micro_batches = internal::algorithm::KarmarkarKarp(
+        items, num_micro_batches_ - data_parallel_size_, casting_op);
+    const auto indices = internal::algorithm::reshape(
+        internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
+        data_parallel_size_, global_batch_size_);
+
+    const auto last_items = dataset_.take(
+        static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
+    const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
+        last_items, data_parallel_size_, casting_op);
+    const auto last_indices = internal::algorithm::reshape(
+        internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_),
+        data_parallel_size_, global_batch_size_);
+
     LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
+
+    return internal::algorithm::concat(indices, last_indices);
   }
 
   // Scheduler::on_batch_begin()
@@ -132,7 +175,7 @@ class Scheduler {
   // A callback to be called at the end of a training batch.
   inline void on_batch_end(
       const mapped_type &batch, [[maybe_unused]] const mapped_type &rank,
-      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *profiles)
+      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *costs)
       const noexcept {
     dataset_.on_batch_end(batch);
   }
@@ -163,15 +206,15 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  mapped_type batch_size_;
+  mapped_type data_parallel_size_;
   mapped_type epoch_;
-  mapped_type last_batch_size_;
+  mapped_type global_batch_size_;
+  mapped_type last_global_batch_size_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
   mapped_type num_batches_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
-  mapped_type world_size_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
 
