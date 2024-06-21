@@ -15,6 +15,7 @@
 if(BUILD_TESTING)
   add_executable(
     algorithm_test
+    concat_test.cc
     partition_test.cc
     passive_aggressive_test.cc
     reshape_test.cc

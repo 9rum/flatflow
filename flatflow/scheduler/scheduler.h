@@ -122,7 +122,7 @@ class Scheduler {
   // Note that this scheduler discards the scheduling interval; scheduling
   // for models with linear complexity on identical machines occurs at the
   // granularity of epoch.
-  inline std::vector<std::vector<mapped_type>> Schedule() {
+  std::vector<std::vector<mapped_type>> Schedule() {
     const auto now = omp_get_wtime();
 
     const auto casting_op =
@@ -146,7 +146,7 @@ class Scheduler {
         micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
         items, num_micro_batches_ - data_parallel_size_, casting_op);
-    const auto indices = internal::algorithm::reshape(
+    auto indices = internal::algorithm::reshape(
         internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
         data_parallel_size_, global_batch_size_);
 
@@ -158,9 +158,11 @@ class Scheduler {
         internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_),
         data_parallel_size_, global_batch_size_);
 
+    internal::algorithm::concat(indices, last_indices);
+
     LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
 
-    return internal::algorithm::concat(indices, last_indices);
+    return indices;
   }
 
   // Scheduler::on_batch_begin()
