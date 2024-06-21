@@ -95,7 +95,7 @@ std::vector<std::vector<T>> reshape(
       const auto index =
           (offset / stride / _data_parallel_size * stride + offset % stride) *
           micro_batch_size;
-      std::copy(
+      std::move(
           micro_batch.cbegin(), micro_batch.cend(),
           std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
     } else {
@@ -104,7 +104,7 @@ std::vector<std::vector<T>> reshape(
       const auto index = (last_batch_offset / _data_parallel_size +
                           (offset - last_batch_offset) % last_stride) *
                          micro_batch_size;
-      std::copy(
+      std::move(
           micro_batch.cbegin(), micro_batch.cend(),
           std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
     }

@@ -16,6 +16,7 @@
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_CONCAT_H_
 
 #include <cassert>
+#include <iterator>
 #include <vector>
 
 namespace flatflow {
@@ -35,7 +36,9 @@ inline void concat(std::vector<std::vector<T>> &lhs,
   #pragma omp parallel for
   for (std::size_t rank = 0; rank < data_parallel_size; ++rank) {
     lhs[rank].reserve(lhs[rank].size() + rhs[rank].size());
-    lhs[rank].insert(lhs[rank].cend(), rhs[rank].cbegin(), rhs[rank].cend());
+    lhs[rank].insert(lhs[rank].cend(),
+                     std::make_move_iterator(rhs[rank].begin()),
+                     std::make_move_iterator(rhs[rank].end()));
   }
 }
 

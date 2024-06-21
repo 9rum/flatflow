@@ -72,7 +72,7 @@ struct Subset {
   inline void Join(const Subset &other) {
     sum += other.sum;
     indices.reserve(indices.size() + other.indices.size());
-    indices.insert(indices.end(),
+    indices.insert(indices.cend(),
                    std::make_move_iterator(other.indices.begin()),
                    std::make_move_iterator(other.indices.end()));
   }
