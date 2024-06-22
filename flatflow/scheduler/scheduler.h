@@ -84,21 +84,18 @@ class Scheduler {
 
     // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
     // any branch instructions.
-    num_batches_ = (sizes->size() - 1) / global_batch_size + 1;
     num_micro_batches_ =
         ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
         data_parallel_size;
 
-    // The last batch size must be calculated since the total number of data
-    // samples may not be a multiple of batch size, while both are multiples of
-    // world size.
+    // The last micro-batch size must be calculated since the total number of
+    // data samples is guaranteed to be a multiple of data parallel size, but
+    // may not be divisible by the micro-batch size.
     //
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
     // branch instructions.
-    last_global_batch_size_ = (sizes->size() - 1) % global_batch_size + 1;
     last_micro_batch_size_ =
-        (last_global_batch_size_ / data_parallel_size - 1) % micro_batch_size +
-        1;
+        (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -123,7 +120,7 @@ class Scheduler {
   // for models with linear complexity on identical machines occurs at the
   // granularity of epoch.
   std::vector<std::vector<mapped_type>> Schedule() {
-    const auto now = omp_get_wtime();
+    auto now = omp_get_wtime();
 
     const auto casting_op =
         flatflow::data::internal::OverflowSafeCast<key_type>;
@@ -133,11 +130,15 @@ class Scheduler {
           static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
       const auto micro_batches = internal::algorithm::KarmarkarKarp(
           items, num_micro_batches_, casting_op);
+
+      LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+      now = omp_get_wtime();
+
       const auto indices = internal::algorithm::reshape(
           internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
           data_parallel_size_, global_batch_size_);
 
-      LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
+      LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
       return indices;
     }
@@ -146,21 +147,26 @@ class Scheduler {
         micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
         items, num_micro_batches_ - data_parallel_size_, casting_op);
-    auto indices = internal::algorithm::reshape(
-        internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
-        data_parallel_size_, global_batch_size_);
 
     const auto last_items = dataset_.take(
         static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
     const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
         last_items, data_parallel_size_, casting_op);
+
+    LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+    now = omp_get_wtime();
+
+    auto indices = internal::algorithm::reshape(
+        internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
+        data_parallel_size_, global_batch_size_);
+
     const auto last_indices = internal::algorithm::reshape(
         internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_),
         data_parallel_size_, global_batch_size_);
 
     internal::algorithm::concat(indices, last_indices);
 
-    LOG(INFO) << absl::StrFormat("Scheduling %u batches took %fs", num_batches_, omp_get_wtime() - now);
+    LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
     return indices;
   }
@@ -211,10 +217,8 @@ class Scheduler {
   mapped_type data_parallel_size_;
   mapped_type epoch_;
   mapped_type global_batch_size_;
-  mapped_type last_global_batch_size_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
-  mapped_type num_batches_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
