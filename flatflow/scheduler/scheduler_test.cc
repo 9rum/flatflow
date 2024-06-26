@@ -15,8 +15,7 @@
 #include "flatflow/scheduler/scheduler.h"
 
 #include <algorithm>
-#include <iterator>
-#include <numeric>
+#include <cmath>
 #include <random>
 #include <string>
 #include <variant>
@@ -38,167 +37,168 @@ namespace {
 
 class SchedulerTest : public testing::Test {
  protected:
-  using sched_t = flatflow::scheduler::Schedule;
-
   void SetUp() override {
     if (!absl::log_internal::IsInitialized()) {
       absl::InitializeLog();
       absl::SetStderrThreshold(absl::LogSeverity::kInfo);
     }
 
-    data = std::vector<uint16_t>(kDatasetSize);
-    std::iota(data.begin(), data.end(), 1);
+    auto distribution = std::lognormal_distribution(5.252, 0.293);
+    auto generator = std::default_random_engine();
 
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    auto generator = std::ranlux48();
-    generator.seed(static_cast<uint_fast64_t>(std::rand()));
-    std::shuffle(data.begin(), data.end(), generator);
+    data_.reserve(kDatasetSize);
+
+    while (data_.size() < data_.capacity()) {
+      const auto size = distribution(generator);
+      if (0.5 <= size && size < 8192.5) {
+        data_.emplace_back(static_cast<uint16_t>(std::lround(size)));
+      }
+    }
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices) {
-    for (uint64_t step = 0;
-         step < static_cast<uint64_t>(kDatasetSize - 1) / kBatchSize + 1;
-         ++step) {
-      auto sums = std::vector<uint16_t>(kWorldSize, 0);
-      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-        std::for_each(
-            std::next(indices.at(rank).cbegin(),
-                      step * kBatchSize / kWorldSize),
-            std::next(indices.at(rank).cbegin(),
-                      std::min((step + 1) * kBatchSize / kWorldSize,
-                               static_cast<uint64_t>(indices.at(rank).size()))),
-            [&](const auto &index) { sums.at(rank) += data.at(index); });
+    constexpr auto kNumSteps = static_cast<std::size_t>(1 << 11);
+
+    auto sums =
+        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
+
+    for (std::size_t step = 0; step < kNumSteps; ++step) {
+      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+      const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
+
+      for (std::size_t rank = 0;
+           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+        auto sum = static_cast<uint16_t>(0);
+        for (std::size_t index = begin; index < end; ++index) {
+          sum += data_[static_cast<std::size_t>(indices[rank][index])];
+        }
+        sums[rank] = absl::StrFormat("%4u", sum);
       }
-      auto sums__ = std::vector<std::string>(kWorldSize);
-      std::transform(
-          sums.cbegin(), sums.cend(), sums__.begin(),
-          [](const auto &sum) { return absl::StrFormat("%4u", sum); });
-      LOG(INFO) << absl::StrFormat("Step: %2u got: [%s]", step,
-                                   absl::StrJoin(sums__, " "));
+
+      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                   absl::StrJoin(sums, " "));
     }
   }
 
-  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 10);
-  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
-  static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
-  static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kDataParallelSize = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 16);
+  static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(1 << 8);
+  static constexpr auto kMicroBatchSize = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
 
-  std::vector<uint16_t> data;
-  std::variant<
-      std::monostate,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kDynamic>,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kGuided>>
+  std::vector<uint16_t> data_;
+  std::variant<std::monostate,
+               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>
       scheduler_;
 };
 
-TEST_F(SchedulerTest, StaticScheduler) {
+TEST_F(SchedulerTest, ScheduleForLinearModelOnIdenticalMachines) {
   auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data__ = builder.CreateVector64(data);
-  auto offset = CreateSizes(builder, data__);
+  auto data = builder.CreateVector64(data_);
+  auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ =
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>(
-          sizes->data(), kWorldSize, kBatchSize, 0);
-  auto scheduler = std::get<
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>>(
-      scheduler_);
+  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0);
+  auto scheduler =
+      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
+          scheduler_);
 
   scheduler.on_train_begin();
-  for (uint64_t epoch = 0; epoch < kMaxEpoch; ++epoch) {
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_epoch_begin(epoch, rank);
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
+    print(scheduler.Schedule());
+    for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    print(scheduler.schedule());
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_epoch_end(epoch, rank);
-    }
+    scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
 }
 
 class SchedulerWithRemainderTest : public testing::Test {
  protected:
-  using sched_t = flatflow::scheduler::Schedule;
-
   void SetUp() override {
     if (!absl::log_internal::IsInitialized()) {
       absl::InitializeLog();
       absl::SetStderrThreshold(absl::LogSeverity::kInfo);
     }
 
-    data = std::vector<uint16_t>(kDatasetSize);
-    std::iota(data.begin(), data.end(), 1);
+    auto distribution = std::lognormal_distribution(5.252, 0.293);
+    auto generator = std::default_random_engine();
 
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    auto generator = std::ranlux48();
-    generator.seed(static_cast<uint_fast64_t>(std::rand()));
-    std::shuffle(data.begin(), data.end(), generator);
+    data_.reserve(kDatasetSize);
+
+    while (data_.size() < data_.capacity()) {
+      const auto size = distribution(generator);
+      if (0.5 <= size && size < 8192.5) {
+        data_.emplace_back(static_cast<uint16_t>(std::lround(size)));
+      }
+    }
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices) {
-    for (uint64_t step = 0;
-         step < static_cast<uint64_t>(kDatasetSize - 1) / kBatchSize + 1;
-         ++step) {
-      auto sums = std::vector<uint16_t>(kWorldSize, 0);
-      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-        std::for_each(
-            std::next(indices.at(rank).cbegin(),
-                      step * kBatchSize / kWorldSize),
-            std::next(indices.at(rank).cbegin(),
-                      std::min((step + 1) * kBatchSize / kWorldSize,
-                               static_cast<uint64_t>(indices.at(rank).size()))),
-            [&](const auto &index) { sums.at(rank) += data.at(index); });
+    constexpr auto kNumSteps = static_cast<std::size_t>(1366);
+
+    auto sums =
+        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
+
+    for (std::size_t step = 0; step < kNumSteps; ++step) {
+      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+      const auto end =
+          std::min((step + 1) * static_cast<std::size_t>(kMicroBatchSize),
+                   kDatasetSize / static_cast<std::size_t>(kDataParallelSize));
+
+      for (std::size_t rank = 0;
+           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+        auto sum = static_cast<uint16_t>(0);
+        for (std::size_t index = begin; index < end; ++index) {
+          sum += data_[static_cast<std::size_t>(indices[rank][index])];
+        }
+        sums[rank] = absl::StrFormat("%4u", sum);
       }
-      auto sums__ = std::vector<std::string>(kWorldSize);
-      std::transform(
-          sums.cbegin(), sums.cend(), sums__.begin(),
-          [](const auto &sum) { return absl::StrFormat("%4u", sum); });
-      LOG(INFO) << absl::StrFormat("Step: %2u got: [%s]", step,
-                                   absl::StrJoin(sums__, " "));
+
+      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                   absl::StrJoin(sums, " "));
     }
   }
 
-  static constexpr auto kDatasetSize =
-      static_cast<std::size_t>((1 << 10) + (1 << 3));
-  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 2);
-  static constexpr auto kBatchSize = static_cast<uint64_t>(1 << 5);
-  static constexpr auto kMaxEpoch = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kDataParallelSize = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 16);
+  static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(3 << 6);
+  static constexpr auto kMicroBatchSize = static_cast<uint64_t>(3 << 1);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
 
-  std::vector<uint16_t> data;
-  std::variant<
-      std::monostate,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kDynamic>,
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kGuided>>
+  std::vector<uint16_t> data_;
+  std::variant<std::monostate,
+               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>
       scheduler_;
 };
 
-TEST_F(SchedulerWithRemainderTest, StaticScheduler) {
+TEST_F(SchedulerWithRemainderTest, ScheduleForLinearModelOnIdenticalMachines) {
   auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data__ = builder.CreateVector64(data);
-  auto offset = CreateSizes(builder, data__);
+  auto data = builder.CreateVector64(data_);
+  auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ =
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>(
-          sizes->data(), kWorldSize, kBatchSize, 0);
-  auto scheduler = std::get<
-      flatflow::scheduler::Scheduler<uint64_t, uint16_t, sched_t::kStatic>>(
-      scheduler_);
+  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0);
+  auto scheduler =
+      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
+          scheduler_);
 
   scheduler.on_train_begin();
-  for (uint64_t epoch = 0; epoch < kMaxEpoch; ++epoch) {
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_epoch_begin(epoch, rank);
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
+    print(scheduler.Schedule());
+    for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    print(scheduler.schedule());
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_epoch_end(epoch, rank);
-    }
+    scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
 }

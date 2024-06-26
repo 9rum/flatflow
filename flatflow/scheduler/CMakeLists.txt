@@ -31,7 +31,8 @@ if(BUILD_TESTING)
     PRIVATE BLAS::BLAS
     PRIVATE flatbuffers
     PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX)
+    PRIVATE OpenMP::OpenMP_CXX
+    PRIVATE TBB::tbb)
   gtest_add_tests(
     TARGET scheduler_test)
 endif()

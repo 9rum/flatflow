@@ -122,14 +122,12 @@ class Scheduler {
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
-    const auto casting_op =
-        flatflow::data::internal::OverflowSafeCast<key_type>;
-
     if (micro_batch_size_ == last_micro_batch_size_) {
       const auto items = dataset_.take(
           static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
       const auto micro_batches = internal::algorithm::KarmarkarKarp(
-          items, num_micro_batches_, casting_op);
+          items, num_micro_batches_,
+          flatflow::data::internal::OverflowSafeCast<key_type>);
 
       LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
       now = omp_get_wtime();
@@ -146,12 +144,14 @@ class Scheduler {
     const auto items = dataset_.take(static_cast<std::size_t>(
         micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
-        items, num_micro_batches_ - data_parallel_size_, casting_op);
+        items, num_micro_batches_ - data_parallel_size_,
+        flatflow::data::internal::OverflowSafeCast<key_type>);
 
     const auto last_items = dataset_.take(
         static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
     const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
-        last_items, data_parallel_size_, casting_op);
+        last_items, data_parallel_size_,
+        flatflow::data::internal::OverflowSafeCast<key_type>);
 
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
     now = omp_get_wtime();
