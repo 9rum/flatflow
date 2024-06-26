@@ -65,10 +65,10 @@ class Scheduler {
   // Note that unlike `flatflow::data::Dataset<>`, the constructors of scheduler
   // are not specified as `explicit` since an implicit conversion from scheduler
   // to `std::variant` is required.
-  inline Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
-                   const mapped_type &data_parallel_size,
-                   const mapped_type &global_batch_size,
-                   const mapped_type &micro_batch_size, const mapped_type &seed)
+  Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+            const mapped_type &data_parallel_size,
+            const mapped_type &global_batch_size,
+            const mapped_type &micro_batch_size, const mapped_type &seed)
       : data_parallel_size_(data_parallel_size),
         global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
