@@ -92,7 +92,7 @@ class SchedulerTest : public testing::Test {
       scheduler_;
 };
 
-TEST_F(SchedulerTest, ScheduleForLinearModelOnIdenticalMachines) {
+TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
   auto builder = flatbuffers::FlatBufferBuilder64();
   auto data = builder.CreateVector64(data_);
   auto offset = CreateSizes(builder, data);
@@ -100,7 +100,35 @@ TEST_F(SchedulerTest, ScheduleForLinearModelOnIdenticalMachines) {
 
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
-      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0);
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0,
+      false);
+  auto scheduler =
+      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
+          scheduler_);
+
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
+    print(scheduler.Schedule());
+    for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
+      scheduler.on_batch_end(0, rank, nullptr);
+    }
+    scheduler.on_epoch_end(epoch);
+  }
+  scheduler.on_train_end();
+}
+
+TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithFlatShuffle) {
+  auto builder = flatbuffers::FlatBufferBuilder64();
+  auto data = builder.CreateVector64(data_);
+  auto offset = CreateSizes(builder, data);
+  builder.Finish(offset);
+
+  auto sizes = GetSizes(builder.GetBufferPointer());
+  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0,
+      true);
   auto scheduler =
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
           scheduler_);
@@ -177,7 +205,7 @@ class SchedulerWithRemainderTest : public testing::Test {
       scheduler_;
 };
 
-TEST_F(SchedulerWithRemainderTest, ScheduleForLinearModelOnIdenticalMachines) {
+TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
   auto builder = flatbuffers::FlatBufferBuilder64();
   auto data = builder.CreateVector64(data_);
   auto offset = CreateSizes(builder, data);
@@ -185,7 +213,35 @@ TEST_F(SchedulerWithRemainderTest, ScheduleForLinearModelOnIdenticalMachines) {
 
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
-      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0);
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0,
+      false);
+  auto scheduler =
+      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
+          scheduler_);
+
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
+    print(scheduler.Schedule());
+    for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
+      scheduler.on_batch_end(0, rank, nullptr);
+    }
+    scheduler.on_epoch_end(epoch);
+  }
+  scheduler.on_train_end();
+}
+
+TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithFlatShuffle) {
+  auto builder = flatbuffers::FlatBufferBuilder64();
+  auto data = builder.CreateVector64(data_);
+  auto offset = CreateSizes(builder, data);
+  builder.Finish(offset);
+
+  auto sizes = GetSizes(builder.GetBufferPointer());
+  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+      sizes->data(), kDataParallelSize, kGlobalBatchSize, kMicroBatchSize, 0,
+      true);
   auto scheduler =
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
           scheduler_);

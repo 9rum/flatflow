@@ -27,6 +27,7 @@ table InitRequest {
   seed:              ulong;
   sizes:             [ushort] (vector64);
   heterogeneous:     bool;
+  use_flat_shuffle:  bool;
 }
 
 table BroadcastRequest {

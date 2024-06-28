@@ -42,7 +42,7 @@ template <typename R, typename T>
            flatflow::data::internal::Unsigned<T>)
 std::vector<std::vector<T>> shuffle(
     const std::vector<std::pair<R, std::vector<T>>> &micro_batches,
-    const T &seed) {
+    const T &seed, bool use_flat_shuffle) {
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
 
@@ -53,7 +53,9 @@ std::vector<std::vector<T>> shuffle(
   //
   // * First, group micro-batches with the same makespan to minimize computation
   //   stall. This forms shuffling ranges.
-  // * Second, shuffle between these shuffling ranges.
+  // * Second, shuffle between these shuffling ranges if the user wants the data
+  //   samples to be more shuffled; i.e., when `use_flat_shuffle` is set to
+  //   `false`.
   // * Finally, shuffle the micro-batches within each shuffling range.
   //   To minimize memory movement, shuffle the indices first and then project
   //   the micro-batches onto the shuffled indices. Note that shuffling indices
@@ -88,9 +90,11 @@ std::vector<std::vector<T>> shuffle(
     }
   }
 
-  auto generator = std::mt19937();
-  generator.seed(_seed);
-  std::shuffle(ranges.begin(), ranges.end(), generator);
+  if (!use_flat_shuffle) {
+    auto generator = std::mt19937();
+    generator.seed(_seed);
+    std::shuffle(ranges.begin(), ranges.end(), generator);
+  }
 
   std::for_each(std::execution::par, ranges.cbegin(), ranges.cend(),
                 [&](const auto &range) {

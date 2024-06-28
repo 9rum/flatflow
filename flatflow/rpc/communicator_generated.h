@@ -37,7 +37,8 @@ struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_RANK = 12,
     VT_SEED = 14,
     VT_SIZES = 16,
-    VT_HETEROGENEOUS = 18
+    VT_HETEROGENEOUS = 18,
+    VT_USE_FLAT_SHUFFLE = 20
   };
   uint64_t global_batch_size() const {
     return GetField<uint64_t>(VT_GLOBAL_BATCH_SIZE, 0);
@@ -63,6 +64,9 @@ struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool heterogeneous() const {
     return GetField<uint8_t>(VT_HETEROGENEOUS, 0) != 0;
   }
+  bool use_flat_shuffle() const {
+    return GetField<uint8_t>(VT_USE_FLAT_SHUFFLE, 0) != 0;
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint64_t>(verifier, VT_GLOBAL_BATCH_SIZE, 8) &&
@@ -74,6 +78,7 @@ struct InitRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset64(verifier, VT_SIZES) &&
            verifier.VerifyVector(sizes()) &&
            VerifyField<uint8_t>(verifier, VT_HETEROGENEOUS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_USE_FLAT_SHUFFLE, 1) &&
            verifier.EndTable();
   }
 };
@@ -106,6 +111,9 @@ struct InitRequestBuilder {
   void add_heterogeneous(bool heterogeneous) {
     fbb_.AddElement<uint8_t>(InitRequest::VT_HETEROGENEOUS, static_cast<uint8_t>(heterogeneous), 0);
   }
+  void add_use_flat_shuffle(bool use_flat_shuffle) {
+    fbb_.AddElement<uint8_t>(InitRequest::VT_USE_FLAT_SHUFFLE, static_cast<uint8_t>(use_flat_shuffle), 0);
+  }
   explicit InitRequestBuilder(::flatbuffers::FlatBufferBuilder64 &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -126,7 +134,8 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequest(
     uint64_t rank = 0,
     uint64_t seed = 0,
     ::flatbuffers::Offset64<::flatbuffers::Vector64<uint16_t>> sizes = 0,
-    bool heterogeneous = false) {
+    bool heterogeneous = false,
+    bool use_flat_shuffle = false) {
   InitRequestBuilder builder_(_fbb);
   builder_.add_sizes(sizes);
   builder_.add_seed(seed);
@@ -135,6 +144,7 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequest(
   builder_.add_micro_batch_size(micro_batch_size);
   builder_.add_hidden_size(hidden_size);
   builder_.add_global_batch_size(global_batch_size);
+  builder_.add_use_flat_shuffle(use_flat_shuffle);
   builder_.add_heterogeneous(heterogeneous);
   return builder_.Finish();
 }
@@ -148,7 +158,8 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequestDirect(
     uint64_t rank = 0,
     uint64_t seed = 0,
     const std::vector<uint16_t> *sizes = nullptr,
-    bool heterogeneous = false) {
+    bool heterogeneous = false,
+    bool use_flat_shuffle = false) {
   auto sizes__ = sizes ? _fbb.CreateVector64(*sizes) : 0;
   return flatflow::rpc::CreateInitRequest(
       _fbb,
@@ -159,7 +170,8 @@ inline ::flatbuffers::Offset<InitRequest> CreateInitRequestDirect(
       rank,
       seed,
       sizes__,
-      heterogeneous);
+      heterogeneous,
+      use_flat_shuffle);
 }
 
 struct BroadcastRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {

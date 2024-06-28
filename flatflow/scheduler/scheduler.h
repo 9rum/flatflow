@@ -68,11 +68,13 @@ class Scheduler {
   Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
             const mapped_type &data_parallel_size,
             const mapped_type &global_batch_size,
-            const mapped_type &micro_batch_size, const mapped_type &seed)
+            const mapped_type &micro_batch_size, const mapped_type &seed,
+            bool use_flat_shuffle)
       : data_parallel_size_(data_parallel_size),
         global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
-        seed_(seed) {
+        seed_(seed),
+        use_flat_shuffle_(use_flat_shuffle) {
     assert(data_parallel_size != 0);
     assert(global_batch_size != 0);
     assert(global_batch_size % data_parallel_size == 0);
@@ -133,7 +135,8 @@ class Scheduler {
       now = omp_get_wtime();
 
       const auto indices = internal::algorithm::reshape(
-          internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
+          internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                       use_flat_shuffle_),
           data_parallel_size_, global_batch_size_);
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
@@ -157,11 +160,13 @@ class Scheduler {
     now = omp_get_wtime();
 
     auto indices = internal::algorithm::reshape(
-        internal::algorithm::shuffle(micro_batches, epoch_ + seed_),
+        internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                     use_flat_shuffle_),
         data_parallel_size_, global_batch_size_);
 
     const auto last_indices = internal::algorithm::reshape(
-        internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_),
+        internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
+                                     use_flat_shuffle_),
         data_parallel_size_, global_batch_size_);
 
     internal::algorithm::concat(indices, last_indices);
@@ -221,6 +226,7 @@ class Scheduler {
   mapped_type micro_batch_size_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
+  bool use_flat_shuffle_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
 
