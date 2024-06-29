@@ -111,7 +111,7 @@ std::vector<std::vector<T>> shuffle(
   std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),
                 [&](const auto &range) {
                   std::for_each(std::execution::seq, range.first, range.second,
-                                [&](const std::size_t index) {
+                                [&](const auto index) {
                                   shuffled.emplace_back(
                                       std::move(micro_batches[index].second));
                                 });

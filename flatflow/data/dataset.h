@@ -354,6 +354,9 @@ class Dataset {
     return std::make_pair(size, index);
   }
 
+  // Dataset::take()
+  //
+  // Takes a data sample from item at `position`.
   inline value_type take(container_type::reverse_iterator position) {
     return take(std::next(position).base());
   }

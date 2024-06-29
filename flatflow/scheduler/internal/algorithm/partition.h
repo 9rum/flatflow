@@ -49,8 +49,7 @@ struct Subset {
   using mapped_type = Index;
   using result_type = std::invoke_result_t<UnaryOp, Size>;
 
-  inline explicit Subset(const std::pair<key_type, mapped_type> &item,
-                         UnaryOp op) {
+  Subset(const std::pair<key_type, mapped_type> &item, UnaryOp op) {
     sum = op(item.first);
     indices = std::vector<mapped_type>(1, item.second);
   }
@@ -69,6 +68,9 @@ struct Subset {
     return sum < other.sum;
   }
 
+  // Subset::Join()
+  //
+  // Merges the given two partitions.
   inline void Join(const Subset &other) {
     sum += other.sum;
     indices.reserve(indices.size() + other.indices.size());
@@ -94,8 +96,8 @@ struct Solution {
   using mapped_type = Index;
   using result_type = std::invoke_result_t<UnaryOp, Size>;
 
-  explicit Solution(std::span<const std::pair<key_type, mapped_type>> items,
-                    UnaryOp op) {
+  Solution(std::span<const std::pair<key_type, mapped_type>> items,
+           UnaryOp op) {
     subsets.reserve(items.size());
     for (const auto &item : items) {
       subsets.emplace_back(item, op);
@@ -117,6 +119,12 @@ struct Solution {
     return difference < other.difference;
   }
 
+  // Solution::Combine()
+  //
+  // Differences the given two solutions by joining the subset with the smallest
+  // sum in one with the subset with the largest sum in the other, the subset
+  // with the second smallest sum in one with the subset with the second largest
+  // sum in the other, and so on.
   void Combine(const Solution &other) {
     #pragma omp parallel for
     for (std::size_t index = 0; index < subsets.size(); ++index) {
