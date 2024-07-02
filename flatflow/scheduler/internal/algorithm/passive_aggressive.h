@@ -39,9 +39,8 @@ class PassiveAggressiveRegressor {
   // `epsilon` denotes the threshold for prediction loss, which defaults to 0.1.
   // If the difference between the current prediction and the correct label is
   // below this threshold, the model is not updated.
-  inline explicit PassiveAggressiveRegressor(double epsilon = 0.1,
-                                             double C = 1.0,
-                                             std::size_t max_iter = 1000)
+  explicit PassiveAggressiveRegressor(double epsilon = 0.1, double C = 1.0,
+                                      std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_ = 1.0;
     intercept_ = 0.0;
@@ -114,12 +113,12 @@ class PassiveAggressiveRegressor {
   double intercept_;
 };
 
-// PassiveAggressiveRegressor<2>
+// PassiveAggressiveRegressor<>
 //
 // A template specialization of `PassiveAggressiveRegressor` for models with
 // quadratic complexity.
 template <>
-class PassiveAggressiveRegressor<2> {
+class PassiveAggressiveRegressor</*Order=*/2> {
  public:
   explicit PassiveAggressiveRegressor() {}
 
@@ -127,10 +126,9 @@ class PassiveAggressiveRegressor<2> {
   // to initialize the coefficients since the complexity of Transformers is
   // `O(n^2 d + n d^2)`, where `n` and `d` denote the sequence length and
   // hidden size, respectively.
-  inline explicit PassiveAggressiveRegressor(double hidden_size,
-                                             double epsilon = 0.1,
-                                             double C = 1.0,
-                                             std::size_t max_iter = 1000)
+  explicit PassiveAggressiveRegressor(double hidden_size, double epsilon = 0.1,
+                                      double C = 1.0,
+                                      std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_ = std::to_array({1.0, hidden_size});
     intercept_ = 0.0;

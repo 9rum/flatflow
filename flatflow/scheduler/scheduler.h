@@ -230,6 +230,94 @@ class Scheduler {
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
 
+// flatflow::scheduler::Scheduler<>
+//
+// This is a template specialization of `flatflow::scheduler::Scheduler` for
+// models with quadratic complexity, especially for Transformer-based models
+// such as large language models.
+//
+// Note that this scheduling policy is effective only when the model has a
+// quadratic complexity in the size of each data sample. To this end,
+// FlatFlow provides concatenation-based batching to avoid redundant
+// computations and memory footprint due to zero padding.
+template <typename Index, typename Size>
+  requires(flatflow::data::internal::Unsigned<Index> &&
+           flatflow::data::internal::Unsigned<Size>)
+class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
+ public:
+  using key_type = Size;
+  using mapped_type = Index;
+
+  // Constructors and assignment operators
+  //
+  // All scheduler implementations support the same overload set as the base
+  // class for construction and assignment. Likewise, an implicit conversion
+  // from scheduler to `std::variant` is required to avoid dynamic dispatch
+  // overhead, so the constructors are not specified as `explicit`.
+  //
+  // One API difference is that this scheduler takes `hidden_size` as an
+  // additional argument to estimate the model's complexity upon construction.
+  Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+            mapped_type data_parallel_size, mapped_type global_batch_size,
+            mapped_type micro_batch_size, mapped_type hidden_size,
+            mapped_type seed, bool use_flat_shuffle)
+      : data_parallel_size_(data_parallel_size),
+        global_batch_size_(global_batch_size),
+        micro_batch_size_(micro_batch_size),
+        seed_(seed),
+        use_flat_shuffle_(use_flat_shuffle) {
+    assert(data_parallel_size != 0);
+    assert(global_batch_size != 0);
+    assert(global_batch_size % data_parallel_size == 0);
+    assert(micro_batch_size != 0);
+    assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
+    assert(hidden_size != 0);
+    assert(sizes != nullptr);
+    assert(sizes->size() != 0);
+    assert(sizes->size() % data_parallel_size == 0);
+
+    num_micro_batches_ =
+        ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
+        data_parallel_size;
+
+    last_micro_batch_size_ =
+        (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
+
+    regressor_ = internal::algorithm::PassiveAggressiveRegressor(
+        static_cast<double>(hidden_size));
+
+    dataset_ = flatflow::data::Dataset(sizes, seed);
+  }
+
+  Scheduler() = delete;
+
+  Scheduler(const Scheduler &other) = default;
+
+  Scheduler &operator=(const Scheduler &other) = default;
+
+  Scheduler(Scheduler &&other) = default;
+
+  Scheduler &operator=(Scheduler &&other) = default;
+
+  // Scheduler::Schedule()
+  //
+  std::vector<std::vector<mapped_type>> Schedule();
+
+ protected:
+  mapped_type data_parallel_size_;
+  mapped_type epoch_;
+  mapped_type global_batch_size_;
+  mapped_type last_micro_batch_size_;
+  mapped_type micro_batch_size_;
+  mapped_type num_micro_batches_;
+  mapped_type seed_;
+  bool use_flat_shuffle_;
+  std::vector<std::vector<double>> workloads_;
+  std::vector<double> costs_;
+  internal::algorithm::PassiveAggressiveRegressor</*Order=*/2> regressor_;
+  flatflow::data::Dataset<mapped_type, key_type> dataset_;
+};
+
 }  // namespace scheduler
 }  // namespace flatflow
 
