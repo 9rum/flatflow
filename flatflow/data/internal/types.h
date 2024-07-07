@@ -49,7 +49,7 @@ concept Numerical = Integral<T> || std::floating_point<T>;
 template <typename T>
   requires(Unsigned<T> && std::numeric_limits<T>::digits <
                               std::numeric_limits<uint32_t>::digits)
-constexpr uint32_t OverflowSafeCast(const T &operand) noexcept {
+constexpr uint32_t OverflowSafeCast(T operand) noexcept {
   return static_cast<uint32_t>(operand);
 }
 
@@ -58,7 +58,7 @@ constexpr uint32_t OverflowSafeCast(const T &operand) noexcept {
 template <typename T>
   requires(Unsigned<T> && std::numeric_limits<uint32_t>::digits <=
                               std::numeric_limits<T>::digits)
-constexpr uint64_t OverflowSafeCast(const T &operand) noexcept {
+constexpr uint64_t OverflowSafeCast(T operand) noexcept {
   return static_cast<uint64_t>(operand);
 }
 

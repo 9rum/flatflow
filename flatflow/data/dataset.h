@@ -92,7 +92,7 @@ class Dataset {
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
   explicit Dataset(const flatbuffers::Vector<key_type, mapped_type> *sizes,
-                   const mapped_type &seed)
+                   mapped_type seed)
       : seed_(seed) {
     assert(sizes != nullptr);
 
@@ -177,13 +177,13 @@ class Dataset {
   //
   // Returns a data sample with the nearest size to the given size from inverted
   // index. This is equivalent to call `at()`.
-  inline value_type operator[](const key_type &size) { return at(size); }
+  inline value_type operator[](key_type size) { return at(size); }
 
   // Dataset::at()
   //
   // Finds a data sample with the same, or at least nearest size to the given
   // size from inverted index.
-  inline value_type at(const key_type &size) {
+  inline value_type at(key_type size) {
     assert(size_ != 0);
 
     // The retrieval process of a data sample is described below:
@@ -253,17 +253,17 @@ class Dataset {
   // Dataset::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  void on_batch_begin([[maybe_unused]] const mapped_type &batch) const noexcept {}
+  void on_batch_begin([[maybe_unused]] mapped_type batch) const noexcept {}
 
   // Dataset::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  void on_batch_end([[maybe_unused]] const mapped_type &batch) const noexcept {}
+  void on_batch_end([[maybe_unused]] mapped_type batch) const noexcept {}
 
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const mapped_type &epoch) {
+  inline void on_epoch_begin(mapped_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::data::Dataset<>`
@@ -291,7 +291,7 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] const mapped_type &epoch) {
+  inline void on_epoch_end([[maybe_unused]] mapped_type epoch) {
     // At the end of an epoch, the inverted index must be empty.
     assert(size_ == 0);
 
