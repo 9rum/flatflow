@@ -12,6 +12,8 @@
 #include <numeric>
 #include <vector>
 
+#include "flatflow/data/internal/types.h"
+
 namespace flatflow {
 namespace scheduler {
 namespace internal {
@@ -96,8 +98,10 @@ class PassiveAggressiveRegressor {
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts cost for the given workload.
-  inline double predict(double workload) const noexcept {
-    return coef_ * workload;
+  template <typename T>
+    requires flatflow::data::internal::Numerical<T>
+  inline double predict(T workload) const noexcept {
+    return coef_ * static_cast<double>(workload);
   }
 
   // PassiveAggressiveRegressor::intercept()
@@ -192,8 +196,11 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // PassiveAggressiveRegressor::predict()
   //
   // Predicts cost for the given workload.
-  inline double predict(double workload) const noexcept {
-    return workload * (coef_[0] * workload + coef_[1]);
+  template <typename T>
+    requires flatflow::data::internal::Numerical<T>
+  inline double predict(T workload) const noexcept {
+    return static_cast<double>(workload) *
+           (coef_[0] * static_cast<double>(workload) + coef_[1]);
   }
 
   // PassiveAggressiveRegressor::intercept()

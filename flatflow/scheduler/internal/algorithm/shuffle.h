@@ -15,6 +15,7 @@
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
 
+#include <algorithm>
 #include <cassert>
 #include <execution>
 #include <iterator>
@@ -37,17 +38,18 @@ namespace algorithm {
 // only between data samples with the same size but also between scheduled
 // batches. It uses the same pseudo-random number generator and random seed
 // as `flatflow::data::Dataset<>` for deterministic shuffling.
-template <typename R, typename T>
+template <typename R, typename Index, typename Size>
   requires(flatflow::data::internal::Numerical<R> &&
-           flatflow::data::internal::Unsigned<T>)
-std::vector<std::vector<T>> shuffle(
-    const std::vector<std::pair<R, std::vector<T>>> &micro_batches,
-    const T &seed, bool use_flat_shuffle) {
+           flatflow::data::internal::Unsigned<Index> &&
+           flatflow::data::internal::Unsigned<Size>)
+std::vector<std::vector<std::pair<Size, Index>>> shuffle(
+    const std::vector<std::pair<R, std::vector<std::pair<Size, Index>>>> &micro_batches,
+    Index seed, bool use_flat_shuffle) {
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
 
   const auto _seed = static_cast<uint_fast32_t>(seed);
-  assert(static_cast<T>(_seed) == seed);
+  assert(static_cast<Index>(_seed) == seed);
 
   // The inter-batch shuffling is carried out as follows:
   //
@@ -105,7 +107,7 @@ std::vector<std::vector<T>> shuffle(
                   std::shuffle(begin, end, generator);
                 });
 
-  auto shuffled = std::vector<std::vector<T>>();
+  auto shuffled = std::vector<std::vector<std::pair<Size, Index>>>();
   shuffled.reserve(num_micro_batches);
 
   std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),

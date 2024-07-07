@@ -25,16 +25,18 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 
-  auto micro_batches =
-      std::vector<std::pair<uint32_t, std::vector<uint64_t>>>();
+  auto micro_batches = std::vector<
+      std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch = std::pair<uint32_t, std::vector<uint64_t>>();
+    auto micro_batch =
+        std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>();
     micro_batch.first = static_cast<uint32_t>(std::lround(std::log2(step + 2)));
     micro_batch.second.reserve(kMicroBatchSize);
     for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
       micro_batch.second.emplace_back(
+          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
           static_cast<uint64_t>(step * kMicroBatchSize + index));
     }
     micro_batches.emplace_back(std::move(micro_batch));
@@ -51,9 +53,10 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
-  auto micro_batch = std::vector<uint64_t>(1, 0);
-  auto micro_batches =
-      std::vector<std::pair<uint32_t, std::vector<uint64_t>>>();
+  auto micro_batch =
+      std::vector<std::pair<uint16_t, uint64_t>>(1, std::make_pair(1, 0));
+  auto micro_batches = std::vector<
+      std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.emplace_back(0, std::move(micro_batch));
 
   auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
@@ -67,15 +70,18 @@ TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 
-  auto micro_batches = std::vector<std::pair<double, std::vector<uint64_t>>>();
+  auto micro_batches = std::vector<
+      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch = std::pair<double, std::vector<uint64_t>>();
+    auto micro_batch =
+        std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>();
     micro_batch.first = std::round(std::log2(step + 2));
     micro_batch.second.reserve(kMicroBatchSize);
     for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
       micro_batch.second.emplace_back(
+          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
           static_cast<uint64_t>(step * kMicroBatchSize + index));
     }
     micro_batches.emplace_back(std::move(micro_batch));
@@ -92,8 +98,10 @@ TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
-  auto micro_batch = std::vector<uint64_t>(1, 0);
-  auto micro_batches = std::vector<std::pair<double, std::vector<uint64_t>>>();
+  auto micro_batch =
+      std::vector<std::pair<uint16_t, uint64_t>>(1, std::make_pair(1, 0));
+  auto micro_batches = std::vector<
+      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.emplace_back(0.0, std::move(micro_batch));
 
   auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
@@ -107,15 +115,18 @@ TEST(ShuffleTest, InterBatchShufflingWithFlatShuffle) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 
-  auto micro_batches = std::vector<std::pair<double, std::vector<uint64_t>>>();
+  auto micro_batches = std::vector<
+      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch = std::pair<double, std::vector<uint64_t>>();
+    auto micro_batch =
+        std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>();
     micro_batch.first = std::round(std::log2(step + 2));
     micro_batch.second.reserve(kMicroBatchSize);
     for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
       micro_batch.second.emplace_back(
+          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
           static_cast<uint64_t>(step * kMicroBatchSize + index));
     }
     micro_batches.emplace_back(std::move(micro_batch));
