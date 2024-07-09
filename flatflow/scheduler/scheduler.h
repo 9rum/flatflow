@@ -66,9 +66,8 @@ class Scheduler {
   // are not specified as `explicit` since an implicit conversion from scheduler
   // to `std::variant` is required.
   Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
-            const mapped_type &data_parallel_size,
-            const mapped_type &global_batch_size,
-            const mapped_type &micro_batch_size, const mapped_type &seed,
+            mapped_type data_parallel_size, mapped_type global_batch_size,
+            mapped_type micro_batch_size, mapped_type seed,
             bool use_flat_shuffle)
       : data_parallel_size_(data_parallel_size),
         global_batch_size_(global_batch_size),
@@ -179,7 +178,7 @@ class Scheduler {
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(const mapped_type &batch) const noexcept {
+  inline void on_batch_begin(mapped_type batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
@@ -187,7 +186,7 @@ class Scheduler {
   //
   // A callback to be called at the end of a training batch.
   inline void on_batch_end(
-      const mapped_type &batch, [[maybe_unused]] const mapped_type &rank,
+      mapped_type batch, [[maybe_unused]] mapped_type rank,
       [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *costs)
       const noexcept {
     dataset_.on_batch_end(batch);
@@ -196,7 +195,7 @@ class Scheduler {
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(const mapped_type &epoch) {
+  inline void on_epoch_begin(mapped_type epoch) {
     epoch_ = epoch;
     dataset_.on_epoch_begin(epoch);
   }
@@ -204,9 +203,7 @@ class Scheduler {
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end(const mapped_type &epoch) {
-    dataset_.on_epoch_end(epoch);
-  }
+  inline void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
 
   // Scheduler::on_train_begin()
   //
