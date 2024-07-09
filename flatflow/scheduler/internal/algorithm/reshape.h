@@ -33,11 +33,12 @@ namespace algorithm {
 // reshape()
 //
 // Distributes the given shuffled micro-batches to each of the workers.
-template <typename T>
-  requires flatflow::data::internal::Unsigned<T>
-std::vector<std::vector<T>> reshape(
-    const std::vector<std::vector<T>> &micro_batches,
-    const T &data_parallel_size, const T &global_batch_size) {
+template <typename Index, typename Size>
+  requires(flatflow::data::internal::Unsigned<Index> &&
+           flatflow::data::internal::Unsigned<Size>)
+std::vector<std::vector<std::pair<Size, Index>>> reshape(
+    const std::vector<std::vector<std::pair<Size, Index>>> &micro_batches,
+    Index data_parallel_size, Index global_batch_size) {
   const auto _data_parallel_size = static_cast<std::size_t>(data_parallel_size);
   const auto _global_batch_size = static_cast<std::size_t>(global_batch_size);
   assert(_data_parallel_size != 0);
@@ -48,7 +49,7 @@ std::vector<std::vector<T>> reshape(
   assert(num_micro_batches != 0);
   assert(num_micro_batches % _data_parallel_size == 0);
 
-  const auto micro_batch_size = micro_batches[0].size();
+  const auto micro_batch_size = micro_batches.front().size();
   assert(micro_batch_size != 0);
   assert(_global_batch_size / _data_parallel_size % micro_batch_size == 0);
 
@@ -79,11 +80,12 @@ std::vector<std::vector<T>> reshape(
   const auto num_samples =
       num_micro_batches / _data_parallel_size * micro_batch_size;
 
-  auto indices = std::vector<std::vector<T>>();
-  indices.reserve(_data_parallel_size);
+  auto reshaped = std::vector<std::vector<std::pair<Size, Index>>>();
+  reshaped.reserve(_data_parallel_size);
 
-  while (indices.size() < indices.capacity()) {
-    indices.emplace_back(std::move(std::vector<T>(num_samples)));
+  while (reshaped.size() < reshaped.capacity()) {
+    reshaped.emplace_back(
+        std::move(std::vector<std::pair<Size, Index>>(num_samples)));
   }
 
   #pragma omp parallel for
@@ -95,22 +97,22 @@ std::vector<std::vector<T>> reshape(
       const auto index =
           (offset / stride / _data_parallel_size * stride + offset % stride) *
           micro_batch_size;
-      std::move(
-          micro_batch.cbegin(), micro_batch.cend(),
-          std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
+      std::move(micro_batch.cbegin(), micro_batch.cend(),
+                std::next(reshaped[rank].begin(),
+                          static_cast<std::ptrdiff_t>(index)));
     } else {
       const auto rank =
           (offset - last_batch_offset) / last_stride % _data_parallel_size;
       const auto index = (last_batch_offset / _data_parallel_size +
                           (offset - last_batch_offset) % last_stride) *
                          micro_batch_size;
-      std::move(
-          micro_batch.cbegin(), micro_batch.cend(),
-          std::next(indices[rank].begin(), static_cast<std::ptrdiff_t>(index)));
+      std::move(micro_batch.cbegin(), micro_batch.cend(),
+                std::next(reshaped[rank].begin(),
+                          static_cast<std::ptrdiff_t>(index)));
     }
   }
 
-  return indices;
+  return reshaped;
 }
 
 }  // namespace algorithm

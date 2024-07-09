@@ -28,13 +28,20 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 5);
   constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 5);
+  constexpr auto kNumSamples = static_cast<std::size_t>(1 << 5);
 
-  auto micro_batches = std::vector<std::vector<std::size_t>>();
+  auto micro_batches =
+      std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
-    auto micro_batch = std::vector<std::size_t>(kMicroBatchSize);
-    std::iota(micro_batch.begin(), micro_batch.end(), index * kMicroBatchSize);
+    auto micro_batch = std::vector<std::pair<uint16_t, std::size_t>>();
+    micro_batch.reserve(kMicroBatchSize);
+
+    const auto base = index * kMicroBatchSize;
+    for (std::size_t offset = 0; offset < kMicroBatchSize; ++offset) {
+      micro_batch.emplace_back(0, base + offset);
+    }
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
@@ -54,10 +61,10 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
 
   EXPECT_EQ(reshaped.size(), kDataParallelSize);
   for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
-    EXPECT_EQ(reshaped[rank].size(),
-              kMicroBatchSize * kNumMicroBatches / kDataParallelSize);
-    EXPECT_TRUE(std::equal(reshaped[rank].cbegin(), reshaped[rank].cend(),
-                           indices[rank].cbegin()));
+    EXPECT_EQ(reshaped[rank].size(), kNumSamples);
+    for (std::size_t index = 0; index < kNumSamples; ++index) {
+      EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
+    }
   }
 }
 
@@ -66,13 +73,20 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 5);
   constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
+  constexpr auto kNumSamples = static_cast<std::size_t>(1 << 5);
 
-  auto micro_batches = std::vector<std::vector<std::size_t>>();
+  auto micro_batches =
+      std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
-    auto micro_batch = std::vector<std::size_t>(kMicroBatchSize);
-    std::iota(micro_batch.begin(), micro_batch.end(), index * kMicroBatchSize);
+    auto micro_batch = std::vector<std::pair<uint16_t, std::size_t>>();
+    micro_batch.reserve(kMicroBatchSize);
+
+    const auto base = index * kMicroBatchSize;
+    for (std::size_t offset = 0; offset < kMicroBatchSize; ++offset) {
+      micro_batch.emplace_back(0, base + offset);
+    }
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
@@ -92,10 +106,10 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
 
   EXPECT_EQ(reshaped.size(), kDataParallelSize);
   for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
-    EXPECT_EQ(reshaped[rank].size(),
-              kMicroBatchSize * kNumMicroBatches / kDataParallelSize);
-    EXPECT_TRUE(std::equal(reshaped[rank].cbegin(), reshaped[rank].cend(),
-                           indices[rank].cbegin()));
+    EXPECT_EQ(reshaped[rank].size(), kNumSamples);
+    for (std::size_t index = 0; index < kNumSamples; ++index) {
+      EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
+    }
   }
 }
 
@@ -104,13 +118,20 @@ TEST(ReshapeTest, ReshapeWithRemainderOnly) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 2);
   constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
+  constexpr auto kNumSamples = static_cast<std::size_t>(1 << 2);
 
-  auto micro_batches = std::vector<std::vector<std::size_t>>();
+  auto micro_batches =
+      std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
-    auto micro_batch = std::vector<std::size_t>(kMicroBatchSize);
-    std::iota(micro_batch.begin(), micro_batch.end(), index * kMicroBatchSize);
+    auto micro_batch = std::vector<std::pair<uint16_t, std::size_t>>();
+    micro_batch.reserve(kMicroBatchSize);
+
+    const auto base = index * kMicroBatchSize;
+    for (std::size_t offset = 0; offset < kMicroBatchSize; ++offset) {
+      micro_batch.emplace_back(0, base + offset);
+    }
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
@@ -122,10 +143,10 @@ TEST(ReshapeTest, ReshapeWithRemainderOnly) {
 
   EXPECT_EQ(reshaped.size(), kDataParallelSize);
   for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
-    EXPECT_EQ(reshaped[rank].size(),
-              kMicroBatchSize * kNumMicroBatches / kDataParallelSize);
-    EXPECT_TRUE(std::equal(reshaped[rank].cbegin(), reshaped[rank].cend(),
-                           indices[rank].cbegin()));
+    EXPECT_EQ(reshaped[rank].size(), kNumSamples);
+    for (std::size_t index = 0; index < kNumSamples; ++index) {
+      EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
+    }
   }
 }
 

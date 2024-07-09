@@ -63,7 +63,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
       micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), 1);
-  EXPECT_EQ(shuffled[0].size(), 1);
+  EXPECT_EQ(shuffled.front().size(), 1);
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
@@ -108,7 +108,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
       micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), 1);
-  EXPECT_EQ(shuffled[0].size(), 1);
+  EXPECT_EQ(shuffled.front().size(), 1);
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithFlatShuffle) {
