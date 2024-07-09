@@ -44,6 +44,28 @@ __device__ float warp_reduce_sum(float val) {
   return val;
 }
 
+// flatflow::aten::native::cuda_check
+//
+// utility function to check CUDA errors
+inline void cuda_check(cudaError_t error, const char *file, int line) {
+  if (error != cudaSuccess) {
+    std::cerr << "CUDA error at " << file << ":" << line << " : "
+              << cudaGetErrorString(error) << std::endl;
+    exit(EXIT_FAILURE);
+  }
+};
+
+// flatflow::aten::native::cublas_check
+//
+// utility function to check cuBLAS status errors
+inline void cublas_check(cublasStatus_t status, const char *file, int line) {
+  if (status != CUBLAS_STATUS_SUCCESS) {
+    std::cerr << "cuBLAS error at " << file << ":" << line << " : " << status
+              << std::endl;
+    exit(EXIT_FAILURE);
+  }
+}
+
 // flatflow::aten::native::permute_kernel
 //
 // Current permute function is implemented to adhere huggingface qkv shape.
