@@ -1,0 +1,4 @@
+packaging
+ninja
+pytest
+einops

@@ -1,24 +1,28 @@
+import gc
+import os
+import sys
+import time
+
+import psutil
 import pytest
 import torch
-from torch.profiler import profile, record_function, ProfilerActivity
 import torch.nn.functional as F
 from einops import rearrange, repeat
-import sys,os
-import time
-import psutil
-import gc
+from torch.profiler import ProfilerActivity, profile, record_function
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
 
-from flatflow.torch.nn.flash_attn_modules import _flash_attention_forward
 from flash_attn import flash_attn_varlen_func
 from flash_attn.bert_padding import pad_input, unpad_input
+
+from flatflow.torch.nn.flash_attn_modules import _flash_attention_forward
 
 is_sm75 = torch.cuda.get_device_capability("cuda") == (7, 5)
 is_sm8x = torch.cuda.get_device_capability("cuda")[0] == 8
 is_sm80 = torch.cuda.get_device_capability("cuda") == (8, 0)
 is_sm90 = torch.cuda.get_device_capability("cuda") == (9, 0)
+
 
 def _format_time(time_us):
     """Define how to format time in FunctionEvent."""
@@ -29,6 +33,7 @@ def _format_time(time_us):
     if time_us >= US_IN_MS:
         return f"{time_us / US_IN_MS:.3f}ms"
     return f"{time_us:.3f}us"
+
 
 def _format_memory(nbytes):
     """Return a formatted memory size string."""
@@ -44,33 +49,47 @@ def _format_memory(nbytes):
     else:
         return str(nbytes) + " b"
 
+
 def generate_random_padding_mask(max_seqlen, batch_size, device, mode="random"):
     assert mode in ["full", "random", "third"]
     if mode == "full":
-        lengths = torch.full((batch_size, 1), max_seqlen, device=device, dtype=torch.int32)
+        lengths = torch.full(
+            (batch_size, 1), max_seqlen, device=device, dtype=torch.int32
+        )
     elif mode == "random":
         lengths = torch.randint(
             max(1, max_seqlen - 20), max_seqlen + 1, (batch_size, 1), device=device
         )
     elif mode == "third":
-        lengths = torch.randint(max_seqlen // 3, max_seqlen + 1, (batch_size, 1), device=device)
+        lengths = torch.randint(
+            max_seqlen // 3, max_seqlen + 1, (batch_size, 1), device=device
+        )
     padding_mask = (
-        repeat(torch.arange(max_seqlen, device=device), "s -> b s", b=batch_size) < lengths
+        repeat(torch.arange(max_seqlen, device=device), "s -> b s", b=batch_size)
+        < lengths
     )
     return padding_mask
 
 
-
 def attn_bias_from_alibi_slopes(
-    slopes, seqlen_q, seqlen_k, query_padding_mask=None, key_padding_mask=None, causal=False
+    slopes,
+    seqlen_q,
+    seqlen_k,
+    query_padding_mask=None,
+    key_padding_mask=None,
+    causal=False,
 ):
     batch, nheads = slopes.shape
     device = slopes.device
     slopes = rearrange(slopes, "b h -> b h 1 1")
     if causal:
-        return torch.arange(-seqlen_k + 1, 1, device=device, dtype=torch.float32) * slopes
+        return (
+            torch.arange(-seqlen_k + 1, 1, device=device, dtype=torch.float32) * slopes
+        )
     else:
-        row_idx = rearrange(torch.arange(seqlen_q, device=device, dtype=torch.long), "s -> s 1")
+        row_idx = rearrange(
+            torch.arange(seqlen_q, device=device, dtype=torch.long), "s -> s 1"
+        )
         col_idx = torch.arange(seqlen_k, device=device, dtype=torch.long)
         sk = (
             seqlen_k
@@ -85,8 +104,15 @@ def attn_bias_from_alibi_slopes(
         relative_pos = torch.abs(row_idx + sk - sq - col_idx)
         return -slopes * relative_pos.to(dtype=slopes.dtype)
 
+
 def generate_qkv(
-    q, k, v, query_padding_mask=None, key_padding_mask=None, kvpacked=False, qkvpacked=False
+    q,
+    k,
+    v,
+    query_padding_mask=None,
+    key_padding_mask=None,
+    kvpacked=False,
+    qkvpacked=False,
 ):
     """
     Arguments:
@@ -103,14 +129,20 @@ def generate_qkv(
     assert v.shape == (batch_size, seqlen_k, nheads_k, d)
 
     if query_padding_mask is not None:
-        q_unpad, indices_q, cu_seqlens_q, max_seqlen_q = unpad_input(q, query_padding_mask)
+        q_unpad, indices_q, cu_seqlens_q, max_seqlen_q = unpad_input(
+            q, query_padding_mask
+        )
         output_pad_fn = lambda output_unpad: pad_input(
             output_unpad, indices_q, batch_size, seqlen_q
         )
     else:
         q_unpad = rearrange(q, "b s h d -> (b s) h d")
         cu_seqlens_q = torch.arange(
-            0, (batch_size + 1) * seqlen_q, step=seqlen_q, dtype=torch.int32, device=q_unpad.device
+            0,
+            (batch_size + 1) * seqlen_q,
+            step=seqlen_q,
+            dtype=torch.int32,
+            device=q_unpad.device,
         )
         max_seqlen_q = seqlen_q
         output_pad_fn = lambda output_unpad: rearrange(
@@ -118,13 +150,19 @@ def generate_qkv(
         )
 
     if key_padding_mask is not None:
-        k_unpad, indices_k, cu_seqlens_k, max_seqlen_k = unpad_input(k, key_padding_mask)
+        k_unpad, indices_k, cu_seqlens_k, max_seqlen_k = unpad_input(
+            k, key_padding_mask
+        )
         v_unpad, _, _, _ = unpad_input(v, key_padding_mask)
     else:
         k_unpad = rearrange(k, "b s h d -> (b s) h d")
         v_unpad = rearrange(v, "b s h d -> (b s) h d")
         cu_seqlens_k = torch.arange(
-            0, (batch_size + 1) * seqlen_k, step=seqlen_k, dtype=torch.int32, device=k_unpad.device
+            0,
+            (batch_size + 1) * seqlen_k,
+            step=seqlen_k,
+            dtype=torch.int32,
+            device=k_unpad.device,
         )
         max_seqlen_k = seqlen_k
 
@@ -134,7 +172,9 @@ def generate_qkv(
         qkv_unpad = torch.stack([q_unpad, k_unpad, v_unpad], dim=1)
         qkv = torch.stack([q, k, v], dim=2)
         if query_padding_mask is not None:
-            dqkv_pad_fn = lambda dqkv_unpad: pad_input(dqkv_unpad, indices_q, batch_size, seqlen_q)
+            dqkv_pad_fn = lambda dqkv_unpad: pad_input(
+                dqkv_unpad, indices_q, batch_size, seqlen_q
+            )
         else:
             dqkv_pad_fn = lambda dqkv_unpad: rearrange(
                 dqkv_unpad, "(b s) t h d -> b s t h d", b=batch_size
@@ -152,7 +192,9 @@ def generate_qkv(
         kv = torch.stack([k, v], dim=2)
         dq_pad_fn = output_pad_fn
         if key_padding_mask is not None:
-            dkv_pad_fn = lambda dkv_unpad: pad_input(dkv_unpad, indices_k, batch_size, seqlen_k)
+            dkv_pad_fn = lambda dkv_unpad: pad_input(
+                dkv_unpad, indices_k, batch_size, seqlen_k
+            )
         else:
             dkv_pad_fn = lambda dkv_unpad: rearrange(
                 dkv_unpad, "(b s) t h d -> b s t h d", b=batch_size
@@ -173,9 +215,13 @@ def generate_qkv(
     else:
         dq_pad_fn = output_pad_fn
         if key_padding_mask is not None:
-            dk_pad_fn = lambda dk_unpad: pad_input(dk_unpad, indices_k, batch_size, seqlen_k)
+            dk_pad_fn = lambda dk_unpad: pad_input(
+                dk_unpad, indices_k, batch_size, seqlen_k
+            )
         else:
-            dk_pad_fn = lambda dk_unpad: rearrange(dk_unpad, "(b s) h d -> b s h d", b=batch_size)
+            dk_pad_fn = lambda dk_unpad: rearrange(
+                dk_unpad, "(b s) h d -> b s h d", b=batch_size
+            )
         return (
             q_unpad.detach().requires_grad_(),
             k_unpad.detach().requires_grad_(),
@@ -194,7 +240,9 @@ def generate_qkv(
 
 
 @pytest.mark.parametrize("kvpacked", [False])
-@pytest.mark.parametrize("dtype", ([torch.float16] if is_sm75 else [torch.float16, torch.bfloat16]))
+@pytest.mark.parametrize(
+    "dtype", ([torch.float16] if is_sm75 else [torch.float16, torch.bfloat16])
+)
 @pytest.mark.parametrize("mha_type", ["mha", "mqa", "gqa"])
 @pytest.mark.parametrize("deterministic", [False, True])
 @pytest.mark.parametrize("alibi", [True])
@@ -211,7 +259,17 @@ def generate_qkv(
 )
 @pytest.mark.parametrize("dropout_p", [0.0, 0.17])
 def test_flash_attn_varlen_output(
-    seqlen_q, seqlen_k, d, dropout_p, causal, local, alibi, deterministic, mha_type, dtype, kvpacked
+    seqlen_q,
+    seqlen_k,
+    d,
+    dropout_p,
+    causal,
+    local,
+    alibi,
+    deterministic,
+    mha_type,
+    dtype,
+    kvpacked,
 ):
     if (
         max(seqlen_q, seqlen_k) >= 2048
@@ -226,23 +284,64 @@ def test_flash_attn_varlen_output(
     nheads_k = nheads if mha_type == "mha" else (1 if mha_type == "mqa" else 3)
     assert nheads % nheads_k == 0
     window_size = (-1, -1) if not local else torch.randint(0, seqlen_k, (2,))
-    q = torch.randn(batch_size, seqlen_q, nheads, d, device=device, dtype=dtype, requires_grad=True)
-    k = torch.randn(batch_size, seqlen_k, nheads_k, d, device=device, dtype=dtype, requires_grad=True)
-    v = torch.randn(batch_size, seqlen_k, nheads_k, d, device=device, dtype=dtype, requires_grad=True)
+    q = torch.randn(
+        batch_size, seqlen_q, nheads, d, device=device, dtype=dtype, requires_grad=True
+    )
+    k = torch.randn(
+        batch_size,
+        seqlen_k,
+        nheads_k,
+        d,
+        device=device,
+        dtype=dtype,
+        requires_grad=True,
+    )
+    v = torch.randn(
+        batch_size,
+        seqlen_k,
+        nheads_k,
+        d,
+        device=device,
+        dtype=dtype,
+        requires_grad=True,
+    )
 
-    query_padding_mask = generate_random_padding_mask(seqlen_q, batch_size, device, mode="random")
-    key_padding_mask = generate_random_padding_mask(seqlen_k, batch_size, device, mode="random")
-    
+    query_padding_mask = generate_random_padding_mask(
+        seqlen_q, batch_size, device, mode="random"
+    )
+    key_padding_mask = generate_random_padding_mask(
+        seqlen_k, batch_size, device, mode="random"
+    )
+
     if alibi:
-        alibi_slopes = torch.rand(batch_size, nheads, device=device, dtype=torch.float32) * 0.3
+        alibi_slopes = (
+            torch.rand(batch_size, nheads, device=device, dtype=torch.float32) * 0.3
+        )
         attn_bias = attn_bias_from_alibi_slopes(
-            alibi_slopes, seqlen_q, seqlen_k, query_padding_mask, key_padding_mask, causal=causal
+            alibi_slopes,
+            seqlen_q,
+            seqlen_k,
+            query_padding_mask,
+            key_padding_mask,
+            causal=causal,
         )
     else:
         alibi_slopes, attn_bias = None, None
 
-    q_unpad , k_unpad , v_unpad, cu_seqlens_k, cu_seqlens_q, max_seqlen_k, max_seqlen_q = None, None, None, None, None, None, None
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, profile_memory=True) as prof:
+    (
+        q_unpad,
+        k_unpad,
+        v_unpad,
+        cu_seqlens_k,
+        cu_seqlens_q,
+        max_seqlen_k,
+        max_seqlen_q,
+    ) = (None, None, None, None, None, None, None)
+    with profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        record_shapes=True,
+        profile_memory=True,
+    ) as prof:
         with record_function("flash_attention_forward"):
             (
                 q_unpad,
@@ -258,7 +357,9 @@ def test_flash_attn_varlen_output(
                 output_pad_fn,
                 dq_pad_fn,
                 dk_pad_fn,
-            ) = generate_qkv(q, k, v, query_padding_mask, key_padding_mask, kvpacked=False)
+            ) = generate_qkv(
+                q, k, v, query_padding_mask, key_padding_mask, kvpacked=False
+            )
             out_unpad, sm_lse, S_dmask = flash_attn_varlen_func(
                 q_unpad,
                 k_unpad,
@@ -276,16 +377,26 @@ def test_flash_attn_varlen_output(
             )
             out = output_pad_fn(out_unpad)
     events = prof.key_averages()
-    flash_attn_cuda_time = sum(getattr(event, 'device_time_total', 0) for event in events)
-    flash_attn_cpu_time = sum(getattr(event, 'cpu_time_total', 0) for event in events)
-    flash_attn_cuda_memory = sum(getattr(event, 'device_memory_usage', 0) for event in events)
-    flash_attn_cpu_memory = sum(getattr(event, 'cpu_memory_usage', 0) for event in events)
+    flash_attn_cuda_time = sum(
+        getattr(event, "device_time_total", 0) for event in events
+    )
+    flash_attn_cpu_time = sum(getattr(event, "cpu_time_total", 0) for event in events)
+    flash_attn_cuda_memory = sum(
+        getattr(event, "device_memory_usage", 0) for event in events
+    )
+    flash_attn_cpu_memory = sum(
+        getattr(event, "cpu_memory_usage", 0) for event in events
+    )
 
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True, profile_memory=True) as prof:
+    with profile(
+        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+        record_shapes=True,
+        profile_memory=True,
+    ) as prof:
         with record_function("flash_attention_forward"):
             unpad_output = _flash_attention_forward(
-                q_unpad, 
-                k_unpad, 
+                q_unpad,
+                k_unpad,
                 v_unpad,
                 cu_seqlens_q,
                 cu_seqlens_k,
@@ -295,13 +406,22 @@ def test_flash_attn_varlen_output(
                 use_causal=causal,
             )
     events = prof.key_averages()
-    flatflow_cuda_time = sum(getattr(event, 'device_time_total', 0) for event in events)
-    flatflow_cpu_time = sum(getattr(event, 'cpu_time_total', 0) for event in events)
-    flatflow_cuda_memory = sum(getattr(event, 'device_memory_usage', 0) for event in events)
-    flatflow_cpu_memory = sum(getattr(event, 'cpu_memory_usage', 0) for event in events)
+    flatflow_cuda_time = sum(getattr(event, "device_time_total", 0) for event in events)
+    flatflow_cpu_time = sum(getattr(event, "cpu_time_total", 0) for event in events)
+    flatflow_cuda_memory = sum(
+        getattr(event, "device_memory_usage", 0) for event in events
+    )
+    flatflow_cpu_memory = sum(getattr(event, "cpu_memory_usage", 0) for event in events)
 
-    assert flatflow_cuda_time <= flash_attn_cuda_time, "FlatFlow CUDA time should be less"
-    assert flatflow_cpu_time <= flash_attn_cpu_time, f"FlatFlow CPU time should be less // flatflow_cpu_time"
-    assert flatflow_cuda_memory <= flash_attn_cuda_memory, "FlatFlow CUDA memory usage should be less"
-    assert flatflow_cpu_memory <= flash_attn_cpu_memory, "FlatFlow CPU memory usage should be less"
-
+    assert (
+        flatflow_cuda_time <= flash_attn_cuda_time
+    ), "FlatFlow CUDA time should be less"
+    assert (
+        flatflow_cpu_time <= flash_attn_cpu_time
+    ), f"FlatFlow CPU time should be less // flatflow_cpu_time"
+    assert (
+        flatflow_cuda_memory <= flash_attn_cuda_memory
+    ), "FlatFlow CUDA memory usage should be less"
+    assert (
+        flatflow_cpu_memory <= flash_attn_cpu_memory
+    ), "FlatFlow CPU memory usage should be less"
