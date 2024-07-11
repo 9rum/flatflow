@@ -38,6 +38,8 @@ class PassiveAggressiveRegressor {
  public:
   explicit PassiveAggressiveRegressor() {}
 
+  // Constructors and assignment operators
+  //
   // `epsilon` denotes the threshold for prediction loss, which defaults to 0.1.
   // If the difference between the current prediction and the correct label is
   // below this threshold, the model is not updated.
@@ -61,29 +63,31 @@ class PassiveAggressiveRegressor {
   // Fits the model with passive-aggressive algorithm.
   // This uses epsilon-insensitive loss, which is equivalent to PA-I
   // in the reference paper.
-  bool fit(const std::vector<double> &workloads,
-           const std::vector<double> &costs) {
-    assert(workloads.size() == costs.size());
+  template <typename T, typename U>
+    requires(flatflow::data::internal::Numerical<T> &&
+             flatflow::data::internal::Numerical<U>)
+  bool fit(const std::vector<T> &sizes, const std::vector<U> &costs) {
+    assert(sizes.size() == costs.size());
 
     auto converged = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
-      for (std::size_t index = 0; index < workloads.size(); ++index) {
-        const auto workload = workloads[index];
-        const auto cost = costs[index];
+      for (std::size_t index = 0; index < sizes.size(); ++index) {
+        const auto size = static_cast<double>(sizes[index]);
+        const auto cost = static_cast<double>(costs[index]);
 
-        const auto prediction = coef_ * workload + intercept_;
+        const auto prediction = coef_ * size + intercept_;
         const auto loss = std::abs(cost - prediction) - epsilon_;
 
         if (0.0 < loss) {
-          const auto sqnorm = workload * (workload + 1.0);
+          const auto sqnorm = size * (size + 1.0);
           const auto update = std::min(loss / sqnorm, C_);
 
           if (prediction < cost) {
-            coef_ += update * workload;
+            coef_ += update * size;
             intercept_ += update;
           } else {
-            coef_ -= update * workload;
+            coef_ -= update * size;
             intercept_ -= update;
           }
 
@@ -97,11 +101,11 @@ class PassiveAggressiveRegressor {
 
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts cost for the given workload.
+  // Predicts cost for the given size.
   template <typename T>
     requires flatflow::data::internal::Numerical<T>
-  inline double predict(T workload) const noexcept {
-    return coef_ * static_cast<double>(workload);
+  inline double predict(T size) const noexcept {
+    return coef_ * static_cast<double>(size);
   }
 
   // PassiveAggressiveRegressor::intercept()
@@ -126,15 +130,20 @@ class PassiveAggressiveRegressor</*Order=*/2> {
  public:
   explicit PassiveAggressiveRegressor() {}
 
+  // Constructors and assignment operators
+  //
   // Unlike its linear counterpart, this regressor requires `hidden_size`
   // to initialize the coefficients since the complexity of Transformers is
-  // `O(n^2 d + n d^2)`, where `n` and `d` denote the sequence length and
+  // determined by `n` and `d`, where `n` and `d` denote the sequence length and
   // hidden size, respectively.
-  explicit PassiveAggressiveRegressor(double hidden_size, double epsilon = 0.1,
+  template <typename T>
+    requires flatflow::data::internal::Numerical<T>
+  explicit PassiveAggressiveRegressor(T hidden_size, double epsilon = 0.1,
                                       double C = 1.0,
                                       std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
-    coef_ = std::to_array({1.0, hidden_size});
+    coef_.front() = 1.0;
+    coef_.back() = 8.0 * static_cast<double>(hidden_size);
     intercept_ = 0.0;
   }
 
@@ -148,27 +157,31 @@ class PassiveAggressiveRegressor</*Order=*/2> {
 
   // PassiveAggressiveRegressor::fit()
   //
-  // Fits the model with passive-aggressive algorithm. Unlike the linear model,
-  // this regressor takes one or more workloads for each cost since multiple
-  // workloads are mapped to a single cost in the profile. For this reason, a
-  // dot product-based regression is used instead of the canonical regression.
-  bool fit(const std::vector<std::vector<double>> &workloads,
-           const std::vector<double> &costs) {
-    assert(workloads.size() == costs.size());
+  // Fits the model with passive-aggressive algorithm.
+  // Unlike the linear model, this regressor takes one or more sizes for each
+  // cost since multiple sizes are mapped to a single cost in the profile.
+  // For this reason, a dot product-based regression is used instead of the
+  // canonical regression.
+  template <typename T, typename U>
+    requires(flatflow::data::internal::Numerical<T> &&
+             flatflow::data::internal::Numerical<U>)
+  bool fit(const std::vector<std::vector<T>> &sizes,
+           const std::vector<U> &costs) {
+    assert(sizes.size() == costs.size());
 
     auto converged = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
-      for (std::size_t index = 0; index < workloads.size(); ++index) {
-        const auto &workload = workloads[index];
+      for (std::size_t index = 0; index < sizes.size(); ++index) {
+        const auto &_sizes = sizes[index];
         const auto cost = costs[index];
 
-        const auto sum =
-            std::accumulate(workload.cbegin(), workload.cend(), 0.0);
-        const auto sqsum = std::inner_product(
-            workload.cbegin(), workload.cend(), workload.cbegin(), 0.0);
+        const auto sum = std::accumulate(_sizes.cbegin(), _sizes.cend(), 0.0);
+        const auto sqsum = std::inner_product(_sizes.cbegin(), _sizes.cend(),
+                                              _sizes.cbegin(), 0.0);
 
-        const auto prediction = coef_[0] * sqsum + coef_[1] * sum + intercept_;
+        const auto prediction =
+            coef_.front() * sqsum + coef_.back() * sum + intercept_;
         const auto loss = std::abs(cost - prediction) - epsilon_;
 
         if (0.0 < loss) {
@@ -176,12 +189,12 @@ class PassiveAggressiveRegressor</*Order=*/2> {
           const auto update = std::min(loss / sqnorm, C_);
 
           if (prediction < cost) {
-            coef_[0] += update * sqsum;
-            coef_[1] += update * sum;
+            coef_.front() += update * sqsum;
+            coef_.back() += update * sum;
             intercept_ += update;
           } else {
-            coef_[0] -= update * sqsum;
-            coef_[1] -= update * sum;
+            coef_.front() -= update * sqsum;
+            coef_.back() -= update * sum;
             intercept_ -= update;
           }
 
@@ -195,12 +208,12 @@ class PassiveAggressiveRegressor</*Order=*/2> {
 
   // PassiveAggressiveRegressor::predict()
   //
-  // Predicts cost for the given workload.
+  // Predicts cost for the given size.
   template <typename T>
     requires flatflow::data::internal::Numerical<T>
-  inline double predict(T workload) const noexcept {
-    return static_cast<double>(workload) *
-           (coef_[0] * static_cast<double>(workload) + coef_[1]);
+  inline double predict(T size) const noexcept {
+    return static_cast<double>(size) *
+           (coef_.front() * static_cast<double>(size) + coef_.back());
   }
 
   // PassiveAggressiveRegressor::intercept()

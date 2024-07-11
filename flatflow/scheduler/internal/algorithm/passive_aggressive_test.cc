@@ -30,14 +30,14 @@ class RegressorTest : public testing::Test {
     auto distribution = std::lognormal_distribution(5.252, 0.293);
     auto generator = std::default_random_engine();
 
-    workloads.reserve(kNumMicroBatches);
-    while (workloads.size() < workloads.capacity()) {
-      auto workload = std::vector<double>();
-      workload.reserve(kMicroBatchSize);
-      while (workload.size() < workload.capacity()) {
-        workload.emplace_back(std::round(distribution(generator)));
+    sizes.reserve(kNumMicroBatches);
+    while (sizes.size() < sizes.capacity()) {
+      auto _sizes = std::vector<double>();
+      _sizes.reserve(kMicroBatchSize);
+      while (_sizes.size() < _sizes.capacity()) {
+        _sizes.emplace_back(std::round(distribution(generator)));
       }
-      workloads.emplace_back(std::move(workload));
+      sizes.emplace_back(std::move(_sizes));
     }
   }
 
@@ -46,7 +46,7 @@ class RegressorTest : public testing::Test {
   static constexpr auto kEpsilon = 1e-4;
   static constexpr auto kThreshold = 1e-2;
   static constexpr auto kHiddenSize = 4e2;
-  std::vector<std::vector<double>> workloads;
+  std::vector<std::vector<double>> sizes;
 };
 
 TEST_F(RegressorTest, Linear) {
@@ -59,8 +59,8 @@ TEST_F(RegressorTest, Linear) {
   auto costs = std::vector<double>();
   costs.reserve(kNumMicroBatches);
 
-  for (const auto &workload : workloads) {
-    const auto sum = std::accumulate(workload.cbegin(), workload.cend(), 0.0);
+  for (const auto &_sizes : sizes) {
+    const auto sum = std::accumulate(_sizes.cbegin(), _sizes.cend(), 0.0);
     sums.emplace_back(sum);
     costs.emplace_back(kCoefficient * sum + kIntercept);
   }
@@ -84,23 +84,23 @@ TEST_F(RegressorTest, Quadratic) {
   auto costs = std::vector<double>();
   costs.reserve(kNumMicroBatches);
 
-  for (const auto &workload : workloads) {
-    const auto sum = std::accumulate(workload.cbegin(), workload.cend(), 0.0);
-    const auto sqsum = std::inner_product(workload.cbegin(), workload.cend(),
-                                          workload.cbegin(), 0.0);
-    costs.emplace_back(sqsum + kHiddenSize * sum + kIntercept);
+  for (const auto &_sizes : sizes) {
+    const auto sum = std::accumulate(_sizes.cbegin(), _sizes.cend(), 0.0);
+    const auto sqsum = std::inner_product(_sizes.cbegin(), _sizes.cend(),
+                                          _sizes.cbegin(), 0.0);
+    costs.emplace_back(sqsum + 8.0 * kHiddenSize * sum + kIntercept);
   }
 
   auto regressor =
       flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<2>(
           kHiddenSize, kEpsilon);
-  EXPECT_FALSE(regressor.fit(workloads, costs));
+  EXPECT_FALSE(regressor.fit(sizes, costs));
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
-    const auto &workload = workloads[index];
+    const auto &_sizes = sizes[index];
     const auto cost = costs[index];
     const auto prediction = std::transform_reduce(
-        workload.cbegin(), workload.cend(), regressor.intercept(), std::plus(),
+        _sizes.cbegin(), _sizes.cend(), regressor.intercept(), std::plus(),
         [&](const auto size) { return regressor.predict(size); });
     EXPECT_LE(std::abs(cost - prediction) / cost, kThreshold);
   }
