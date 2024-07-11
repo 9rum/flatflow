@@ -4,26 +4,42 @@ from torch import nn
 
 
 class Attention(nn.Module):
-    def __init__(self, offsets):
+    def __init__(self, config):
         """Attention module.
         Assigns the input offsets to the class variables.
         Args:
-            offsets : Dict[str, Union[List[Any], int]]
+            config : Dict[str, Union[float, bool, int]]
+            dropout : optional[float]
+                Dropout probability
+            softmax_scale : optional[float]
+                Scaling of QK^T before applying softmax. Default to 1 / sqrt(head_dim)
+            use_causal : optional[bool]
+                Boolean value whether to use causal mask or not
+            window_size : optional[Tuple[int, int]]
+                Window size for local attention
+            alibi_slopes : optional[Union[torch.Tensor, Tuple[torch.Tensor]]]
+                alibli slops tensor of shape (num_heads,) or (batch_size, num_heads)
+            return_attn_probs : optional[bool]
+                Whether to return the attention probabilities. This option is for testing only.
         """
         super().__init__()
-        self.cu_seqlens_q = offsets["cu_seqlens_q"]
-        self.cu_seqlens_k = offsets["cu_seqlens_k"]
-        self.max_seqlen_q = offsets["max_seqlen_q"]
-        self.max_seqlen_k = offsets["max_seqlen_k"]
+        self.dropout = getattr(config, "dropout", 0.0)
+        self.softmax_scale = getattr(config, "softmax_scale", None)
+        self.use_causal = getattr(config, "use_causal", True)
+        self.window_size = getattr(config, "window_size", None)
+        self.alibi_slopes = getattr(config, "alibi_slopes", None)
+        self.deterministic = getattr(config, "deterministic", False)
+        self.return_attn_probs = getattr(config, "return_attn_probs", False)
 
     def _flash_attention_forward(
         self,
         query,
         key,
         value,
-        dropout=0.0,
-        softmax_scale=None,
-        use_causal=True,
+        cu_seqlens_q,
+        cu_seqlens_k,
+        max_seqlen_q,
+        max_seqlen_k,
     ):
         """
         Calls the forward method of Flash Attention.
@@ -49,22 +65,16 @@ class Attention(nn.Module):
                 Maximum query sequence length in the batch
             max_seqlen_k : int
                 Maximum key sequence length in the batch
-            dropout : optional[float]
-                Dropout probability
-            softmax_scale : optional[float]
-                Scaling of QK^T before applying softmax. Default to 1 / sqrt(head_dim)
-            use_causal : optional[bool]
-                Boolean value whether to use causal mask or not
         """
         return flash_attn_varlen_func(
             query,
             key,
             value,
-            cu_seqlens_q=self.cu_seqlens_q,
-            cu_seqlens_k=self.cu_seqlens_k,
-            max_seqlen_q=self.max_seqlen_q,
-            max_seqlen_k=self.max_seqlen_k,
-            dropout_p=dropout,
-            softmax_scale=softmax_scale,
-            causal=use_causal,
+            cu_seqlens_q=cu_seqlens_q,
+            cu_seqlens_k=cu_seqlens_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
+            dropout_p=self.dropout,
+            softmax_scale=self.softmax_scale,
+            causal=self.use_causal,
         )

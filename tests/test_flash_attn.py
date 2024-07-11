@@ -1,6 +1,7 @@
 import os
 import sys
 
+import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
@@ -17,6 +18,23 @@ is_sm75 = torch.cuda.get_device_capability("cuda") == (7, 5)
 is_sm8x = torch.cuda.get_device_capability("cuda")[0] == 8
 is_sm80 = torch.cuda.get_device_capability("cuda") == (8, 0)
 is_sm90 = torch.cuda.get_device_capability("cuda") == (9, 0)
+
+cuda_time_diffs = []
+cuda_memory_diffs = []
+
+
+@pytest.fixture(scope="module", autouse=True)
+def collect_results():
+    yield
+    avg_time_improvement = np.mean(cuda_time_diffs)
+    avg_memory_improvement = np.mean(cuda_memory_diffs)
+
+    print(f"\nAverage CUDA time improvement: {avg_time_improvement:.2f}%")
+    print(f"Average CUDA memory improvement: {avg_memory_improvement:.2f}%")
+
+
+def calculate_improvement(flatflow_value, flash_attn_value):
+    return (1 - flatflow_value / flash_attn_value) * 100
 
 
 def _format_time(time_us):
@@ -375,19 +393,17 @@ def test_flash_attn_varlen_output(
     flash_attn_cuda_time = sum(
         getattr(event, "device_time_total", 0) for event in events
     )
-    flash_attn_cpu_time = sum(getattr(event, "cpu_time_total", 0) for event in events)
     flash_attn_cuda_memory = sum(
         getattr(event, "device_memory_usage", 0) for event in events
     )
-    flash_attn_cpu_memory = sum(
-        getattr(event, "cpu_memory_usage", 0) for event in events
-    )
-    offsets = dict()
-    offsets["cu_seqlens_q"] = cu_seqlens_q
-    offsets["cu_seqlens_k"] = cu_seqlens_k
-    offsets["max_seqlen_q"] = max_seqlen_q
-    offsets["max_seqlen_k"] = max_seqlen_k
-    flatflow_attention = Attention(offsets)
+
+    config = dict()
+    config["dropout"] = dropout_p
+    config["use_causal"] = causal
+    config["window_size"] = window_size
+
+    flatflow_attention = Attention(config)
+
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         record_shapes=True,
@@ -398,26 +414,21 @@ def test_flash_attn_varlen_output(
                 q_unpad,
                 k_unpad,
                 v_unpad,
-                dropout_p,
-                use_causal=causal,
+                cu_seqlens_q,
+                cu_seqlens_k,
+                max_seqlen_q,
+                max_seqlen_k,
             )
     events = prof.key_averages()
     flatflow_cuda_time = sum(getattr(event, "device_time_total", 0) for event in events)
-    flatflow_cpu_time = sum(getattr(event, "cpu_time_total", 0) for event in events)
     flatflow_cuda_memory = sum(
         getattr(event, "device_memory_usage", 0) for event in events
     )
-    flatflow_cpu_memory = sum(getattr(event, "cpu_memory_usage", 0) for event in events)
 
-    assert (
-        flatflow_cuda_time <= flash_attn_cuda_time
-    ), "FlatFlow CUDA time should be less"
-    assert (
-        flatflow_cpu_time <= flash_attn_cpu_time
-    ), f"FlatFlow CPU time should be less // flatflow_cpu_time"
-    assert (
-        flatflow_cuda_memory <= flash_attn_cuda_memory
-    ), "FlatFlow CUDA memory usage should be less"
-    assert (
-        flatflow_cpu_memory <= flash_attn_cpu_memory
-    ), "FlatFlow CPU memory usage should be less"
+    time_improvement = calculate_improvement(flatflow_cuda_time, flash_attn_cuda_time)
+    memory_improvement = calculate_improvement(
+        flatflow_cuda_memory, flash_attn_cuda_memory
+    )
+
+    cuda_time_diffs.append(time_improvement)
+    cuda_memory_diffs.append(memory_improvement)

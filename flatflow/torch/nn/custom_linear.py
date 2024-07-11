@@ -20,7 +20,6 @@ class Linear(nn.Module):
         """
         Args:
             x : torch.Tensor
-                Input tensor x
             offsets : Dict[str, Union[List[Any], int]]
                 Offset values of cu_seqlens and max_seqlen
                 There are four keys : cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k
