@@ -1,8 +1,9 @@
+import sys
 try:
-    from flash_attn import flash_attn_func, flash_attn_varlen_func
+    from flash_attn import flash_attn_varlen_func
 except ImportError:
-    from pip._internal import main as pip 
-    pip(['install', 'flash-attn' , '--no-build-isolation'])
+    sys.exit("This program requires ``flash-attn`` package to be installed, "
+            "Please run ``pip install flash-attn --no-build-isolation``.")
 
 def _flash_attention_forward(
     query, key, value, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k , dropout=0.0, softmax_scale=None, use_causal=True,
@@ -44,8 +45,8 @@ def _flash_attention_forward(
         value,
         cu_seqlens_q=cu_seqlens_q,
         cu_seqlens_k=cu_seqlens_k,
-        max_seqlen_q=max_query_seqlen,
-        max_seqlen_k=max_key_seqlen,
+        max_seqlen_q=max_seqlen_q,
+        max_seqlen_k=max_seqlen_k,
         dropout_p=dropout,
         softmax_scale=softmax_scale,
         causal=use_causal,
