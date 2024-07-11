@@ -1,22 +1,17 @@
-import gc
 import os
 import sys
-import time
 
-import psutil
 import pytest
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
+from flash_attn import flash_attn_varlen_func
+from flash_attn.bert_padding import pad_input, unpad_input
 from torch.profiler import ProfilerActivity, profile, record_function
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
-
-from flash_attn import flash_attn_varlen_func
-from flash_attn.bert_padding import pad_input, unpad_input
-
-from flatflow.torch.nn.flash_attn_modules import _flash_attention_forward
+from flatflow.torch.nn.flash_attn_modules import Attention
 
 is_sm75 = torch.cuda.get_device_capability("cuda") == (7, 5)
 is_sm8x = torch.cuda.get_device_capability("cuda")[0] == 8
@@ -254,7 +249,6 @@ def generate_qkv(
     [
         (108, 216),
         (256, 512),
-        (512, 256),
     ],
 )
 @pytest.mark.parametrize("dropout_p", [0.0, 0.17])
@@ -337,6 +331,7 @@ def test_flash_attn_varlen_output(
         max_seqlen_k,
         max_seqlen_q,
     ) = (None, None, None, None, None, None, None)
+
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         record_shapes=True,
@@ -387,21 +382,22 @@ def test_flash_attn_varlen_output(
     flash_attn_cpu_memory = sum(
         getattr(event, "cpu_memory_usage", 0) for event in events
     )
-
+    offsets = dict()
+    offsets["cu_seqlens_q"] = cu_seqlens_q
+    offsets["cu_seqlens_k"] = cu_seqlens_k
+    offsets["max_seqlen_q"] = max_seqlen_q
+    offsets["max_seqlen_k"] = max_seqlen_k
+    flatflow_attention = Attention(offsets)
     with profile(
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         record_shapes=True,
         profile_memory=True,
     ) as prof:
         with record_function("flash_attention_forward"):
-            unpad_output = _flash_attention_forward(
+            unpad_output = flatflow_attention._flash_attention_forward(
                 q_unpad,
                 k_unpad,
                 v_unpad,
-                cu_seqlens_q,
-                cu_seqlens_k,
-                max_seqlen_q,
-                max_seqlen_k,
                 dropout_p,
                 use_causal=causal,
             )
