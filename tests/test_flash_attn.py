@@ -305,6 +305,3 @@ def test_flash_attn_varlen_output(
     assert flatflow_cuda_memory <= flash_attn_cuda_memory, "FlatFlow CUDA memory usage should be less"
     assert flatflow_cpu_memory <= flash_attn_cpu_memory, "FlatFlow CPU memory usage should be less"
 
-    print(f"Flash attention  - GPU Memory: {_format_memory(flash_attn_cuda_memory)} bytes, CPU Memory: {_format_memory(flash_attn_cpu_memory)} bytes, Cuda Time: {_format_time(flash_attn_cuda_time)} seconds, Cpu Time: {_format_time(flash_attn_cpu_time)}")
-    print(f"Flatflow  - GPU Memory: {_format_memory(flatflow_cuda_memory)} bytes, CPU Memory: {_format_memory(flatflow_cpu_memory)} bytes, Cuda Time: {_format_time(flatflow_cuda_time)} seconds, Cpu Time: {_format_time(flatflow_cpu_time)}") 
-
