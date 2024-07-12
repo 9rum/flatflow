@@ -31,7 +31,7 @@ class Attention(nn.Module):
         self.deterministic = getattr(config, "deterministic", False)
         self.return_attn_probs = getattr(config, "return_attn_probs", False)
 
-    def _flash_attention_forward(
+    def flash_attn_unpadded_func(
         self,
         query,
         key,
