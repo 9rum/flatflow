@@ -390,11 +390,12 @@ def test_flash_attn_varlen_output(
             )
             out = output_pad_fn(out_unpad)
     events = prof.key_averages()
+    attribute = "device" if hasattr(events[0], "device_time_total") else "cuda"
     flash_attn_cuda_time = sum(
-        getattr(event, "device_time_total", 0) for event in events
+        getattr(event, f"{attribute}_time_total", 0) for event in events
     )
     flash_attn_cuda_memory = sum(
-        getattr(event, "device_memory_usage", 0) for event in events
+        getattr(event, f"{attribute}_memory_usage", 0) for event in events
     )
 
     config = dict()
@@ -420,9 +421,11 @@ def test_flash_attn_varlen_output(
                 max_seqlen_k,
             )
     events = prof.key_averages()
-    flatflow_cuda_time = sum(getattr(event, "device_time_total", 0) for event in events)
+    flatflow_cuda_time = sum(
+        getattr(event, f"{attribute}_time_total", 0) for event in events
+    )
     flatflow_cuda_memory = sum(
-        getattr(event, "device_memory_usage", 0) for event in events
+        getattr(event, f"{attribute}_memory_usage", 0) for event in events
     )
 
     time_improvement = calculate_improvement(flatflow_cuda_time, flash_attn_cuda_time)
