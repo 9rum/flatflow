@@ -27,6 +27,7 @@
 #include "flatflow/data/dataset.h"
 #include "flatflow/data/internal/types.h"
 #include "flatflow/scheduler/internal/algorithm/concat.h"
+#include "flatflow/scheduler/internal/algorithm/extract.h"
 #include "flatflow/scheduler/internal/algorithm/partition.h"
 #include "flatflow/scheduler/internal/algorithm/passive_aggressive.h"
 #include "flatflow/scheduler/internal/algorithm/reshape.h"
@@ -115,11 +116,12 @@ class Scheduler {
 
   // Scheduler::Schedule()
   //
-  // Makes schedules for the next training epoch and then shuffles them.
+  // Generates the computation schedule for the next training epoch and then
+  // shuffles it.
   //
-  // Note that this scheduler discards the scheduling interval; scheduling
-  // for models with linear complexity on identical machines occurs at the
-  // granularity of epoch.
+  // Note that this scheduler does not take the scheduling interval into
+  // account; scheduling for models with linear complexity on identical machines
+  // occurs at the granularity of epoch.
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
@@ -133,10 +135,11 @@ class Scheduler {
       LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
       now = omp_get_wtime();
 
-      const auto indices = internal::algorithm::reshape(
-          internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
-                                       use_flat_shuffle_),
-          data_parallel_size_, global_batch_size_);
+      const auto [indices, sizes] =
+          internal::algorithm::extract(internal::algorithm::reshape(
+              internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                           use_flat_shuffle_),
+              data_parallel_size_, global_batch_size_));
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
@@ -158,15 +161,17 @@ class Scheduler {
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
     now = omp_get_wtime();
 
-    auto indices = internal::algorithm::reshape(
-        internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
-                                     use_flat_shuffle_),
-        data_parallel_size_, global_batch_size_);
+    auto [indices, sizes] =
+        internal::algorithm::extract(internal::algorithm::reshape(
+            internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                         use_flat_shuffle_),
+            data_parallel_size_, global_batch_size_));
 
-    const auto last_indices = internal::algorithm::reshape(
-        internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
-                                     use_flat_shuffle_),
-        data_parallel_size_, global_batch_size_);
+    const auto [last_indices, last_sizes] =
+        internal::algorithm::extract(internal::algorithm::reshape(
+            internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
+                                         use_flat_shuffle_),
+            data_parallel_size_, global_batch_size_));
 
     internal::algorithm::concat(indices, last_indices);
 
@@ -309,7 +314,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   mapped_type num_micro_batches_;
   mapped_type seed_;
   bool use_flat_shuffle_;
-  std::vector<std::vector<double>> workloads_;
+  std::vector<std::vector<key_type>> sizes_;
   std::vector<double> costs_;
   internal::algorithm::PassiveAggressiveRegressor</*Order=*/2> regressor_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
