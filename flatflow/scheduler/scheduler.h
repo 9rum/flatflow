@@ -285,8 +285,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     last_micro_batch_size_ =
         (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
 
-    regressor_ = internal::algorithm::PassiveAggressiveRegressor(
-        static_cast<double>(hidden_size));
+    regressor_ =
+        internal::algorithm::PassiveAggressiveRegressor(hidden_size << 3);
 
     dataset_ = flatflow::data::Dataset(sizes, seed);
   }
@@ -303,7 +303,66 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
   // Scheduler::Schedule()
   //
-  std::vector<std::vector<mapped_type>> Schedule();
+  // Generates the computation schedule for the next training epoch and then
+  // shuffles it.
+  //
+  // Note that this naive implementation does not support profile-guided
+  // optimization and may change in the future.
+  std::vector<std::vector<mapped_type>> Schedule() {
+    auto now = omp_get_wtime();
+
+    if (micro_batch_size_ == last_micro_batch_size_) {
+      const auto items = dataset_.take(
+          static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
+      const auto micro_batches = internal::algorithm::KarmarkarKarp(
+          items, num_micro_batches_, regressor_.predict<key_type>);
+
+      LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+      now = omp_get_wtime();
+
+      const auto [indices, sizes] =
+          internal::algorithm::extract(internal::algorithm::reshape(
+              internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                           use_flat_shuffle_),
+              data_parallel_size_, global_batch_size_));
+
+      LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
+
+      return indices;
+    }
+
+    const auto items = dataset_.take(static_cast<std::size_t>(
+        micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
+    const auto micro_batches = internal::algorithm::KarmarkarKarp(
+        items, num_micro_batches_ - data_parallel_size_,
+        regressor_.predict<key_type>);
+
+    const auto last_items = dataset_.take(
+        static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
+    const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
+        last_items, data_parallel_size_, regressor_.predict<key_type>);
+
+    LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+    now = omp_get_wtime();
+
+    auto [indices, sizes] =
+        internal::algorithm::extract(internal::algorithm::reshape(
+            internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                         use_flat_shuffle_),
+            data_parallel_size_, global_batch_size_));
+
+    const auto [last_indices, last_sizes] =
+        internal::algorithm::extract(internal::algorithm::reshape(
+            internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
+                                         use_flat_shuffle_),
+            data_parallel_size_, global_batch_size_));
+
+    internal::algorithm::concat(indices, last_indices);
+
+    LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
+
+    return indices;
+  }
 
  protected:
   mapped_type data_parallel_size_;

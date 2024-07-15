@@ -132,18 +132,17 @@ class PassiveAggressiveRegressor</*Order=*/2> {
 
   // Constructors and assignment operators
   //
-  // Unlike its linear counterpart, this regressor requires `hidden_size`
-  // to initialize the coefficients since the complexity of Transformers is
-  // determined by `n` and `d`, where `n` and `d` denote the sequence length and
-  // hidden size, respectively.
+  // Unlike its linear counterpart, this regressor requires initial value
+  // of the linear term.
+  // For typical Transformers, this is eight times the hidden dimension size.
   template <typename T>
     requires flatflow::data::internal::Numerical<T>
-  explicit PassiveAggressiveRegressor(T hidden_size, double epsilon = 0.1,
+  explicit PassiveAggressiveRegressor(T coefficient, double epsilon = 0.1,
                                       double C = 1.0,
                                       std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_.front() = 1.0;
-    coef_.back() = 8.0 * static_cast<double>(hidden_size);
+    coef_.back() = static_cast<double>(coefficient);
     intercept_ = 0.0;
   }
 

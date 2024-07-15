@@ -88,7 +88,7 @@ TEST_F(RegressorTest, Quadratic) {
     const auto sum = std::accumulate(_sizes.cbegin(), _sizes.cend(), 0.0);
     const auto sqsum = std::inner_product(_sizes.cbegin(), _sizes.cend(),
                                           _sizes.cbegin(), 0.0);
-    costs.emplace_back(sqsum + 8.0 * kHiddenSize * sum + kIntercept);
+    costs.emplace_back(sqsum + kHiddenSize * sum + kIntercept);
   }
 
   auto regressor =
