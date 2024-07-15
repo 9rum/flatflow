@@ -36,23 +36,27 @@ class Attention(nn.Module):
         query,
         key,
         value,
-        cu_seqlens_q,
-        cu_seqlens_k,
-        max_seqlen_q,
-        max_seqlen_k,
+        offsets, 
     ):
         """
         Calls the forward method of Flash Attention.
         Based on flatflow programming model tensors are not in stacked manner,
         therefore unpad_input & pad_input is unnecessary.
+        Note: This interface supports separated tensors of Q, K, V and eventually supports GQA, MQA, MHA. 
 
         Args:
-            query : torch.Tensor
+            query : torch.Tensor [total_q, num_heads, head_dim]
                 Input query to be passed to Flash Attention API
-            key : torch.Tensor
+            key : torch.Tensor [total_k, num_heads, head_dim]
                 Input key to be passed to Flash Attention API
-            value : torch.Tensor
+            value : torch.Tensor [total_k, num_heads, head_dim]
                 Input value to be passed to Flash Attention API
+            offsets: {
+                'cu_seqlens_q': [batch_size + 1],
+                'cu_seqlens_k': [batch_size + 1],
+                'max_seqlen_q': int,
+                'max_seqlen_k': int
+            }
             cu_seqlens_q : List[int]
                 Index of different query data sample's offset
                 (batch_size + 1,), dtype torch.int32.
@@ -65,15 +69,25 @@ class Attention(nn.Module):
                 Maximum query sequence length in the batch
             max_seqlen_k : int
                 Maximum key sequence length in the batch
+
+        Examples::
+
+            >>> query_lengths_info = [128, 256, 256, 512]
+            >>> cu_seqlens_q = [0, 0+128, 0+128+256, 0+128+256+256, 0+128+256+256+512]
+            >>> max_seqlen_q = 512
+            >>> key_lengths_info = [128, 256, 256, 512]
+            >>> cu_seqlens_k = [0, 0+128, 0+128+256, 0+128+256+256, 0+128+256+256+512]
+            >>> max_seqlen_k = 512
         """
+
         return flash_attn_varlen_func(
             query,
             key,
             value,
-            cu_seqlens_q=cu_seqlens_q,
-            cu_seqlens_k=cu_seqlens_k,
-            max_seqlen_q=max_seqlen_q,
-            max_seqlen_k=max_seqlen_k,
+            cu_seqlens_q=offsets["cu_seqlens_q"],
+            cu_seqlens_k=offsets['cu_seqlens_k'],
+            max_seqlen_q=offsets['max_seqlen_q'],
+            max_seqlen_k=offsets['max_seqlen_k'],
             dropout_p=self.dropout,
             softmax_scale=self.softmax_scale,
             causal=self.use_causal,

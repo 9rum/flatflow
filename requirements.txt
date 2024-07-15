@@ -1,4 +1,0 @@
-ninja
-numpy
-packaging
-pytest
