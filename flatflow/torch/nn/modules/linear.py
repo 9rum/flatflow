@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List
 
 import torch
 from torch import Tensor, nn
@@ -39,8 +39,11 @@ class Linear(nn.Linear):
 
         >>> m = nn.Linear(20, 30)
         >>> input = torch.randn(128, 20)
-        >>> offsets = {'cu_seqlens_q': [0, 2, 3, 6], 'cu_seqlens_k': [0, 2, 3, 6], 'max_seqlen_q': 3, 'max_seqlen_k': 3}
-        >>> output = m(input, offsets)
+        >>> cu_seqlens_q = [0, 2, 3, 6]
+        >>> cu_seqlens_k = [0, 2, 3, 6]
+        >>> max_seqlen_q = 3
+        >>> max_seqlen_k = 3
+        >>> output = m(input, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k)
         >>> print(output.size())
         torch.Size([128, 30])
     """
@@ -55,13 +58,32 @@ class Linear(nn.Linear):
     ) -> None:
         super().__init__(in_features, out_features, bias, device, dtype)
 
-    def forward(self, input_tensor: Tensor, offsets: Dict) -> Tensor:
+    def forward(
+        self,
+        input_tensor: Tensor,
+        cu_seqlens_q: List[int],
+        cu_seqlens_k: List[int],
+        max_seqlen_q: int,
+        max_seqlen_k: int,
+    ) -> Tensor:
         """
         Args:
         input_tensor : torch.Tensor
             Input tensor to be passed to the forward method of the Linear layer
-        offsets : Dict[str, Union[List[Any], int]]
-            Offset values of cu_seqlens and max_seqlen
-            Consist of four keys : cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k
+        cu_seqlens_q : List[int]
+            List of sequence lengths of the input q
+        cu_seqlens_k : List[int]
+            List of sequence lengths of the input kv
+        max_seqlen_q : int
+            Maximum sequence length of the input q
+        max_seqlen_k : int
+            Maximum sequence length of the input kv
+
         """
-        return super().forward(input_tensor), offsets
+        return (
+            super().forward(input_tensor),
+            cu_seqlens_q,
+            cu_seqlens_k,
+            max_seqlen_q,
+            max_seqlen_k,
+        )
