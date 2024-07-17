@@ -18,6 +18,7 @@
 #include <omp.h>
 
 #include <cassert>
+#include <functional>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -285,8 +286,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     last_micro_batch_size_ =
         (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
 
-    regressor_ =
-        internal::algorithm::PassiveAggressiveRegressor(hidden_size << 3);
+    regressor_ = internal::algorithm::PassiveAggressiveRegressor</*Order=*/2>(
+        hidden_size << 3);
 
     dataset_ = flatflow::data::Dataset(sizes, seed);
   }
@@ -311,11 +312,15 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
+    const auto transform = std::bind(
+        &internal::algorithm::PassiveAggressiveRegressor<2>::predict<key_type>,
+        regressor_, std::placeholders::_1);
+
     if (micro_batch_size_ == last_micro_batch_size_) {
       const auto items = dataset_.take(
           static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
       const auto micro_batches = internal::algorithm::KarmarkarKarp(
-          items, num_micro_batches_, regressor_.predict<key_type>);
+          items, num_micro_batches_, transform);
 
       LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
       now = omp_get_wtime();
@@ -334,13 +339,12 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     const auto items = dataset_.take(static_cast<std::size_t>(
         micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
-        items, num_micro_batches_ - data_parallel_size_,
-        regressor_.predict<key_type>);
+        items, num_micro_batches_ - data_parallel_size_, transform);
 
     const auto last_items = dataset_.take(
         static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
     const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
-        last_items, data_parallel_size_, regressor_.predict<key_type>);
+        last_items, data_parallel_size_, transform);
 
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
     now = omp_get_wtime();
