@@ -1,4 +1,4 @@
-from typing import List, tuple
+from typing import List
 
 import torch
 from torch import Tensor, nn
