@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, tuple
 
 import torch
 from torch import Tensor, nn
@@ -59,10 +59,10 @@ class Linear(nn.Linear):
         self,
         input: Tensor,
         offsets: List[int],
-    ) -> Tensor:
+    ) -> tuple[Tensor, List[int]]:
         """
         Args:
-        input_tensor : torch.Tensor
+        input : torch.Tensor
             Input tensor to be passed to the forward method of the Linear layer
         offsets : List[int]
             List of offsets to handle variable length inputs
