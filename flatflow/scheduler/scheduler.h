@@ -368,6 +368,46 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     return indices;
   }
 
+  // Scheduler::on_batch_begin()
+  //
+  // A callback to be called at the beginning of a training batch.
+  inline void on_batch_begin(mapped_type batch) const noexcept {
+    dataset_.on_batch_begin(batch);
+  }
+
+  // Scheduler::on_batch_end()
+  //
+  // A callback to be called at the end of a training batch.
+  inline void on_batch_end(
+      mapped_type batch, [[maybe_unused]] mapped_type rank,
+      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *costs)
+      const noexcept {
+    dataset_.on_batch_end(batch);
+  }
+
+  // Scheduler::on_epoch_begin()
+  //
+  // A callback to be called at the beginning of an epoch.
+  inline void on_epoch_begin(mapped_type epoch) {
+    epoch_ = epoch;
+    dataset_.on_epoch_begin(epoch);
+  }
+
+  // Scheduler::on_epoch_end()
+  //
+  // A callback to be called at the end of an epoch.
+  inline void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
+
+  // Scheduler::on_train_begin()
+  //
+  // A callback to be called at the beginning of training.
+  inline void on_train_begin() const noexcept { dataset_.on_train_begin(); }
+
+  // Scheduler::on_train_end()
+  //
+  // A callback to be called at the end of training.
+  inline void on_train_end() const noexcept { dataset_.on_train_end(); }
+
  protected:
   mapped_type data_parallel_size_;
   mapped_type epoch_;

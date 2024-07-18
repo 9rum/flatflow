@@ -57,61 +57,47 @@ class SchedulerTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
+    constexpr std::size_t kNumSteps = 1 << 11;
+
+    auto sums =
+        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
+
     if (linear) {
-      PrintForLinearModel(indices);
+      for (std::size_t step = 0; step < kNumSteps; ++step) {
+        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
+
+        for (std::size_t rank = 0;
+             rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+          uint16_t sum = 0;
+          for (std::size_t index = begin; index < end; ++index) {
+            sum += data_[static_cast<std::size_t>(indices[rank][index])];
+          }
+          sums[rank] = absl::StrFormat("%4u", sum);
+        }
+
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                     absl::StrJoin(sums, " "));
+      }
     } else {
-      PrintForQuadraticModel(indices);
-    }
-  }
+      for (std::size_t step = 0; step < kNumSteps; ++step) {
+        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
 
-  void PrintForLinearModel(const std::vector<std::vector<uint64_t>> &indices) {
-    constexpr std::size_t kNumSteps = 1 << 11;
-
-    auto sums =
-        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
-
-    for (std::size_t step = 0; step < kNumSteps; ++step) {
-      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-      const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
-
-      for (std::size_t rank = 0;
-           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
-        uint16_t sum = 0;
-        for (std::size_t index = begin; index < end; ++index) {
-          sum += data_[static_cast<std::size_t>(indices[rank][index])];
+        for (std::size_t rank = 0;
+             rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+          uint64_t sum = 0;
+          for (std::size_t index = begin; index < end; ++index) {
+            const auto size = static_cast<uint64_t>(
+                data_[static_cast<std::size_t>(indices[rank][index])]);
+            sum += size * (size + 8 * kHiddenSize);
+          }
+          sums[rank] = absl::StrFormat("%7u", sum);
         }
-        sums[rank] = absl::StrFormat("%4u", sum);
+
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                     absl::StrJoin(sums, " "));
       }
-
-      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                   absl::StrJoin(sums, " "));
-    }
-  }
-
-  void PrintForQuadraticModel(
-      const std::vector<std::vector<uint64_t>> &indices) {
-    constexpr std::size_t kNumSteps = 1 << 11;
-
-    auto sums =
-        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
-
-    for (std::size_t step = 0; step < kNumSteps; ++step) {
-      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-      const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
-
-      for (std::size_t rank = 0;
-           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
-        uint64_t sum = 0;
-        for (std::size_t index = begin; index < end; ++index) {
-          const auto size = static_cast<uint64_t>(
-              data_[static_cast<std::size_t>(indices[rank][index])]);
-          sum += size * (size + 8 * kHiddenSize);
-        }
-        sums[rank] = absl::StrFormat("%7u", sum);
-      }
-
-      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                   absl::StrJoin(sums, " "));
     }
   }
 
@@ -197,18 +183,17 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
           scheduler_);
 
-  // scheduler.on_train_begin();
-  // for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-  for (uint64_t epoch = 0; epoch < 1; ++epoch) {
-    // scheduler.on_epoch_begin(epoch);
-    // scheduler.on_batch_begin(0);
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
     print(scheduler.Schedule(), false);
     for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
-      // scheduler.on_batch_end(0, rank, nullptr);
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    // scheduler.on_epoch_end(epoch);
+    scheduler.on_epoch_end(epoch);
   }
-  // scheduler.on_train_end();
+  scheduler.on_train_end();
 }
 
 TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
@@ -225,18 +210,17 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
           scheduler_);
 
-  // scheduler.on_train_begin();
-  // for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-  for (uint64_t epoch = 0; epoch < 1; ++epoch) {
-    // scheduler.on_epoch_begin(epoch);
-    // scheduler.on_batch_begin(0);
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
     print(scheduler.Schedule(), false);
     for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
-      // scheduler.on_batch_end(0, rank, nullptr);
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    // scheduler.on_epoch_end(epoch);
+    scheduler.on_epoch_end(epoch);
   }
-  // scheduler.on_train_end();
+  scheduler.on_train_end();
 }
 
 class SchedulerWithRemainderTest : public testing::Test {
@@ -261,65 +245,51 @@ class SchedulerWithRemainderTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
+    constexpr std::size_t kNumSteps = 1366;
+
+    auto sums =
+        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
+
     if (linear) {
-      PrintForLinearModel(indices);
+      for (std::size_t step = 0; step < kNumSteps; ++step) {
+        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto end = std::min(
+            (step + 1) * static_cast<std::size_t>(kMicroBatchSize),
+            kDatasetSize / static_cast<std::size_t>(kDataParallelSize));
+
+        for (std::size_t rank = 0;
+             rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+          uint16_t sum = 0;
+          for (std::size_t index = begin; index < end; ++index) {
+            sum += data_[static_cast<std::size_t>(indices[rank][index])];
+          }
+          sums[rank] = absl::StrFormat("%4u", sum);
+        }
+
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                     absl::StrJoin(sums, " "));
+      }
     } else {
-      PrintForQuadraticModel(indices);
-    }
-  }
+      for (std::size_t step = 0; step < kNumSteps; ++step) {
+        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto end = std::min(
+            (step + 1) * static_cast<std::size_t>(kMicroBatchSize),
+            kDatasetSize / static_cast<std::size_t>(kDataParallelSize));
 
-  void PrintForLinearModel(const std::vector<std::vector<uint64_t>> &indices) {
-    constexpr std::size_t kNumSteps = 1366;
-
-    auto sums =
-        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
-
-    for (std::size_t step = 0; step < kNumSteps; ++step) {
-      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-      const auto end =
-          std::min((step + 1) * static_cast<std::size_t>(kMicroBatchSize),
-                   kDatasetSize / static_cast<std::size_t>(kDataParallelSize));
-
-      for (std::size_t rank = 0;
-           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
-        uint16_t sum = 0;
-        for (std::size_t index = begin; index < end; ++index) {
-          sum += data_[static_cast<std::size_t>(indices[rank][index])];
+        for (std::size_t rank = 0;
+             rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
+          uint64_t sum = 0;
+          for (std::size_t index = begin; index < end; ++index) {
+            const auto size = static_cast<uint64_t>(
+                data_[static_cast<std::size_t>(indices[rank][index])]);
+            sum += size * (size + 8 * kHiddenSize);
+          }
+          sums[rank] = absl::StrFormat("%7u", sum);
         }
-        sums[rank] = absl::StrFormat("%4u", sum);
+
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
+                                     absl::StrJoin(sums, " "));
       }
-
-      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                   absl::StrJoin(sums, " "));
-    }
-  }
-
-  void PrintForQuadraticModel(
-      const std::vector<std::vector<uint64_t>> &indices) {
-    constexpr std::size_t kNumSteps = 1366;
-
-    auto sums =
-        std::vector<std::string>(static_cast<std::size_t>(kDataParallelSize));
-
-    for (std::size_t step = 0; step < kNumSteps; ++step) {
-      const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-      const auto end =
-          std::min((step + 1) * static_cast<std::size_t>(kMicroBatchSize),
-                   kDatasetSize / static_cast<std::size_t>(kDataParallelSize));
-
-      for (std::size_t rank = 0;
-           rank < static_cast<std::size_t>(kDataParallelSize); ++rank) {
-        uint64_t sum = 0;
-        for (std::size_t index = begin; index < end; ++index) {
-          const auto size = static_cast<uint64_t>(
-              data_[static_cast<std::size_t>(indices[rank][index])]);
-          sum += size * (size + 8 * kHiddenSize);
-        }
-        sums[rank] = absl::StrFormat("%7u", sum);
-      }
-
-      LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                   absl::StrJoin(sums, " "));
     }
   }
 
@@ -405,18 +375,17 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
           scheduler_);
 
-  // scheduler.on_train_begin();
-  // for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-  for (uint64_t epoch = 0; epoch < 1; ++epoch) {
-    // scheduler.on_epoch_begin(epoch);
-    // scheduler.on_batch_begin(0);
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
     print(scheduler.Schedule(), false);
     for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
-      // scheduler.on_batch_end(0, rank, nullptr);
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    // scheduler.on_epoch_end(epoch);
+    scheduler.on_epoch_end(epoch);
   }
-  // scheduler.on_train_end();
+  scheduler.on_train_end();
 }
 
 TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
@@ -433,18 +402,17 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
       std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
           scheduler_);
 
-  // scheduler.on_train_begin();
-  // for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-  for (uint64_t epoch = 0; epoch < 1; ++epoch) {
-    // scheduler.on_epoch_begin(epoch);
-    // scheduler.on_batch_begin(0);
+  scheduler.on_train_begin();
+  for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+    scheduler.on_epoch_begin(epoch);
+    scheduler.on_batch_begin(0);
     print(scheduler.Schedule(), false);
     for (uint64_t rank = 0; rank < kDataParallelSize; ++rank) {
-      // scheduler.on_batch_end(0, rank, nullptr);
+      scheduler.on_batch_end(0, rank, nullptr);
     }
-    // scheduler.on_epoch_end(epoch);
+    scheduler.on_epoch_end(epoch);
   }
-  // scheduler.on_train_end();
+  scheduler.on_train_end();
 }
 
 }  // namespace
