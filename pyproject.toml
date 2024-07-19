@@ -1,0 +1,27 @@
+[tool.ruff]
+extend-exclude = ["third_party"]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+extend-ignore = [
+  "C901",
+  "E501",
+  "E731",
+  "E741",
+  "F402",
+  "F405",
+  "F841",
+]
+extend-select = [
+  "C",
+  "E",
+  "I",
+  "W",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
