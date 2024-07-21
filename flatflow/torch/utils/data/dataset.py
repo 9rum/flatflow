@@ -1,0 +1,128 @@
+# Adapted from https://github.com/pytorch/pytorch/blob/v2.3.1/torch/utils/data/dataset.py
+# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+import bisect
+import warnings
+from collections.abc import Iterable, Sequence
+from typing import TypeVar
+
+import torch.utils.data
+
+__all__ = [
+    "ChainDataset",
+    "ConcatDataset",
+    "Dataset",
+    "IterableDataset",
+]
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Dataset(torch.utils.data.Dataset[T_co]):
+    """An abstract class representing a data set.
+
+    This is an extension of :class:`torch.utils.data.Dataset` for use with
+    :class:`~flatflow.torch.utils.data.DistributedSampler`.  In addition to the
+    methods supported in :class:`torch.utils.data.Dataset`, subclasses could
+    also optionally overwrite :meth:`__sizeof__`, which is expected to return
+    the user-defined size of the data sample at position :param:`index`.
+    """
+
+    def __add__(self, other: "Dataset[T_co]") -> "ConcatDataset[T_co]":
+        return ConcatDataset([self, other])
+
+    def __sizeof__(self, index: int) -> int:
+        return 1
+
+
+class IterableDataset(Dataset[T_co], Iterable[T_co]):
+    """An iterable data set.
+
+    All data sets that represent an iterable of data samples should subclass it.
+    Such form of data sets is particularly useful when data come from a stream.
+
+    All subclasses should overwrite :meth:`__iter__`, which would return an
+    iterator of samples in this data set.
+    """
+
+    def __add__(self, other: Dataset[T_co]):
+        return ChainDataset([self, other])
+
+
+class ConcatDataset(Dataset[T_co]):
+    """Data set as a concatenation of multiple data sets.
+
+    This class is useful to assemble different existing data sets.
+
+    Args:
+        datasets (Iterable[Dataset]): List of data sets to be concatenated.
+    """
+
+    datasets: Sequence[Dataset[T_co]]
+    cumulative_sizes: Sequence[int]
+
+    @staticmethod
+    def cumsum(sequence: Sequence[Dataset]) -> Sequence[int]:
+        r, s = [], 0
+        for e in sequence:
+            s += len(e)  # type: ignore[arg-type]
+            r.append(s)
+        return r
+
+    def __init__(self, datasets: Iterable[Dataset]) -> None:
+        super().__init__()
+        self.datasets = list(datasets)
+        assert 0 < len(self.datasets), "datasets should not be an empty iterable"  # type: ignore[arg-type]
+        for d in self.datasets:
+            assert not isinstance(d, IterableDataset), "ConcatDataset does not support IterableDataset"
+        self.cumulative_sizes = self.cumsum(self.datasets)
+
+    def __len__(self) -> int:
+        return self.cumulative_sizes[-1]
+
+    def __getitem__(self, index: int) -> T_co:
+        if index < 0:
+            if len(self) < -index:
+                raise ValueError("absolute value of index should not exceed data set length")
+            index += len(self)
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, index)
+        if dataset_idx == 0:
+            sample_idx = index
+        else:
+            sample_idx = index - self.cumulative_sizes[dataset_idx - 1]
+        return self.datasets[dataset_idx][sample_idx]
+
+    @property
+    def cummulative_sizes(self) -> Sequence[int]:
+        warnings.warn("cummulative_sizes attribute is renamed to cumulative_sizes", DeprecationWarning, 2)
+        return self.cumulative_sizes
+
+
+class ChainDataset(IterableDataset):
+    """Data set for chaining multiple :class:`IterableDataset`s.
+
+    This class is useful to assemble different existing data set streams. The
+    chaining operation is done on-the-fly, so concatenating large-scale
+    data sets with this class will be efficient.
+
+    Args:
+        datasets (Iterable[Dataset]): data sets to be chained together
+    """
+
+    def __init__(self, datasets: Iterable[Dataset]) -> None:
+        super().__init__()
+        self.datasets = datasets
+
+    def __iter__(self):
+        for d in self.datasets:
+            assert isinstance(d, IterableDataset), "ChainDataset only supports IterableDataset"
+            yield from d
+
+    def __len__(self) -> int:
+        total = 0
+        for d in self.datasets:
+            assert isinstance(d, IterableDataset), "ChainDataset only supports IterableDataset"
+            total += len(d)  # type: ignore[arg-type]
+        return total
