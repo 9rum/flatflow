@@ -45,6 +45,16 @@ class IterableDataset(Dataset[T_co], Iterable[T_co]):
 
     All subclasses should overwrite :meth:`__iter__`, which would return an
     iterator of samples in this data set.
+
+    When a subclass is used with :class:`~flatflow.torch.utils.data.DataLoader`,
+    each item in the data set will be yielded from the data loader iterator.
+    When :attr:`0 < num_workers`, each worker process will have a different copy
+    of the data set object, so it is often desired to configure each copy
+    independently to avoid having duplicate data returned from the workers.
+    :func:`torch.utils.data.get_worker_info`, when called in a worker process,
+    returns information about the worker. It can be used in either the data set's
+    :meth:`__iter__` method or the data loader's :attr:`worker_init_fn` option
+    to modify each copy's behavior.
     """
 
     def __add__(self, other: Dataset[T_co]):
@@ -82,16 +92,16 @@ class ConcatDataset(Dataset[T_co]):
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
 
-    def __getitem__(self, index: int) -> T_co:
-        if index < 0:
-            if len(self) < -index:
+    def __getitem__(self, idx: int) -> T_co:
+        if idx < 0:
+            if len(self) < -idx:
                 raise ValueError("absolute value of index should not exceed data set length")
-            index += len(self)
-        dataset_idx = bisect.bisect_right(self.cumulative_sizes, index)
+            idx += len(self)
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
         if dataset_idx == 0:
-            sample_idx = index
+            sample_idx = idx
         else:
-            sample_idx = index - self.cumulative_sizes[dataset_idx - 1]
+            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
         return self.datasets[dataset_idx][sample_idx]
 
     @property
@@ -101,10 +111,10 @@ class ConcatDataset(Dataset[T_co]):
 
 
 class ChainDataset(IterableDataset):
-    """Data set for chaining multiple :class:`IterableDataset`s.
+    """Data set for chaining multiple iterable data sets.
 
-    This class is useful to assemble different existing data set streams. The
-    chaining operation is done on-the-fly, so concatenating large-scale
+    This class is useful to assemble different existing data set streams.
+    The chaining operation is done on-the-fly, so concatenating large-scale
     data sets with this class will be efficient.
 
     Args:
