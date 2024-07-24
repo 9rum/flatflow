@@ -8,7 +8,7 @@ import warnings
 from collections.abc import Iterable, Sequence
 from typing import TypeVar
 
-import torch.utils.data
+import torch
 
 __all__ = [
     "ChainDataset",
@@ -75,16 +75,15 @@ class ConcatDataset(Dataset[T_co]):
 
     @staticmethod
     def cumsum(sequence: Sequence[Dataset]) -> Sequence[int]:
-        r, s = [], 0
-        for e in sequence:
-            s += len(e)  # type: ignore[arg-type]
-            r.append(s)
+        r = [0] * len(sequence)
+        for i, e in enumerate(sequence):
+            r[i] = r[i - 1] + len(e)  # type: ignore[arg-type]
         return r
 
     def __init__(self, datasets: Iterable[Dataset]) -> None:
         super().__init__()
         self.datasets = list(datasets)
-        assert 0 < len(self.datasets), "datasets should not be an empty iterable"  # type: ignore[arg-type]
+        assert 0 < len(self.datasets), "datasets should not be an empty iterable"
         for d in self.datasets:
             assert not isinstance(d, IterableDataset), "ConcatDataset does not support IterableDataset"
         self.cumulative_sizes = self.cumsum(self.datasets)
