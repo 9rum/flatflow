@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from typing import Optional, Union
 
 import torch
+from torch.utils.data._utils.collate import collate
 
 
 def collate_tensor_fn(batch, *, collate_fn_map: Optional[Mapping[Union[type, tuple[type, ...]], Callable]] = None):
@@ -36,3 +37,18 @@ def collate_tensor_fn(batch, *, collate_fn_map: Optional[Mapping[Union[type, tup
 
 
 default_collate_fn_map: Mapping[Union[type, tuple[type, ...]], Callable] = {torch.Tensor: collate_tensor_fn}
+
+
+def default_collate(batch):
+    """Take in a batch of data and concatenate the elements within the batch.
+
+    This is used as the default function for collation when
+    `batch_size` or `batch_sampler` is defined in :class:`~flatflow.torch.utils.data.DataLoader`.
+
+    For layers that require the notion of data samples, id offsets are provided
+    along with the concatenated tensor to specify the sequence boundaries.
+
+    Args:
+        batch: a single batch to be collated
+    """
+    return collate(batch, collate_fn_map=default_collate_fn_map)
