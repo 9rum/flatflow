@@ -6,7 +6,6 @@
 from collections.abc import Sequence
 
 import torch
-from torch import Tensor
 
 __all__ = ["Linear"]
 
@@ -32,5 +31,5 @@ class Linear(torch.nn.Linear):
     def __init__(self, in_features: int, out_features: int, bias: bool = True, device=None, dtype=None) -> None:
         super().__init__(in_features, out_features, bias, device, dtype)
 
-    def forward(self, input: Tensor, offsets: Sequence[int]) -> tuple[Tensor, Sequence[int]]:
+    def forward(self, input: torch.Tensor, offsets: Sequence[int]) -> tuple[torch.Tensor, Sequence[int]]:
         return super().forward(input), offsets

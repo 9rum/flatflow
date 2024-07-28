@@ -9,6 +9,8 @@ from typing import Optional, Union
 import torch
 from torch.utils.data._utils.collate import collate
 
+__all__ = ["default_collate"]
+
 
 def collate_tensor_fn(batch, *, collate_fn_map: Optional[Mapping[Union[type, tuple[type, ...]], Callable]] = None):
     elem = batch[0]

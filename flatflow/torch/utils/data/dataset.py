@@ -37,7 +37,7 @@ class Dataset(torch.utils.data.Dataset[T_co]):
         return 1
 
 
-class IterableDataset(Dataset[T_co], Iterable[T_co]):
+class IterableDataset(Dataset[T_co], torch.utils.data.IterableDataset[T_co]):
     """An iterable data set.
 
     All data sets that represent an iterable of data samples should subclass it.
