@@ -23,5 +23,8 @@ extend-select = [
   "W",
 ]
 
+[tool.ruff.lint.isort]
+known-local-folder = ["flatflow"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
