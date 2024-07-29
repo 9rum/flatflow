@@ -74,12 +74,20 @@ class ConcatDataset(Dataset[T_co]):
 
     datasets: Sequence[torch.utils.data.Dataset[T_co]]
     cumulative_sizes: Sequence[int]
+    _cumulative_sizes: Sequence[int]
 
     @staticmethod
     def cumsum(sequence: Sequence[torch.utils.data.Dataset]) -> Sequence[int]:
         r = [0] * len(sequence)
         for i, e in enumerate(sequence):
             r[i] = r[i - 1] + len(e)  # type: ignore[arg-type]
+        return r
+
+    @staticmethod
+    def _cumsum(sequence: Sequence[torch.utils.data.Dataset]) -> Sequence[int]:
+        r = [0] * (len(sequence) + 1)
+        for i, e in enumerate(sequence):
+            r[i + 1] = r[i] + len(e)  # type: ignore[arg-type]
         return r
 
     def __init__(self, datasets: Iterable[torch.utils.data.Dataset]) -> None:
@@ -91,6 +99,7 @@ class ConcatDataset(Dataset[T_co]):
                 d, torch.utils.data.IterableDataset
             ), "ConcatDataset does not support IterableDataset."
         self.cumulative_sizes = self.cumsum(self.datasets)
+        self._cumulative_sizes = self._cumsum(self.datasets)
 
     def __len__(self) -> int:
         return self.cumulative_sizes[-1]
@@ -100,11 +109,8 @@ class ConcatDataset(Dataset[T_co]):
             if len(self) + idx < 0:
                 raise ValueError("absolute value of index should not exceed data set length.")
             idx += len(self)
-        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-        if dataset_idx == 0:
-            sample_idx = idx
-        else:
-            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        dataset_idx = bisect.bisect(self.cumulative_sizes, idx)
+        sample_idx = idx - self._cumulative_sizes[dataset_idx]
         return self.datasets[dataset_idx][sample_idx]
 
     def __sizeof__(self, idx: int) -> int:
@@ -112,11 +118,8 @@ class ConcatDataset(Dataset[T_co]):
             if len(self) + idx < 0:
                 raise ValueError("absolute value of index should not exceed data set length.")
             idx += len(self)
-        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
-        if dataset_idx == 0:
-            sample_idx = idx
-        else:
-            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        dataset_idx = bisect.bisect(self.cumulative_sizes, idx)
+        sample_idx = idx - self._cumulative_sizes[dataset_idx]
         return sys.getsizeof(self.datasets[dataset_idx], sample_idx)
 
     @property
