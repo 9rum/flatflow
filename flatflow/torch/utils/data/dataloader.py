@@ -8,7 +8,7 @@ from typing import Any, Optional, TypeVar, Union
 
 import torch
 import torch.utils.data.graph_settings
-from torch.utils.data import default_convert, get_worker_info
+from torch.utils.data import _DatasetKind, default_convert, get_worker_info
 from torch.utils.data.dataloader import _InfiniteConstantSampler
 from torch.utils.data.datapipes.datapipe import _IterDataPipeSerializationWrapper, _MapDataPipeSerializationWrapper
 
@@ -16,6 +16,7 @@ from flatflow.torch.utils.data._utils import default_collate
 
 __all__ = [
     "DataLoader",
+    "_DatasetKind",
     "default_collate",
     "default_convert",
     "get_worker_info",
@@ -130,7 +131,7 @@ class DataLoader(torch.utils.data.DataLoader[T_co]):
             self.dataset = _MapDataPipeSerializationWrapper(self.dataset)
 
         if isinstance(dataset, torch.utils.data.IterableDataset):
-            self._dataset_kind = torch.utils.data._DatasetKind.Iterable
+            self._dataset_kind = _DatasetKind.Iterable
             if isinstance(dataset, torch.utils.data.IterDataPipe):
                 if shuffle is not None:
                     dataset = torch.utils.data.graph_settings.apply_shuffle_settings(dataset, shuffle=shuffle)
@@ -152,7 +153,7 @@ class DataLoader(torch.utils.data.DataLoader[T_co]):
                 )
         else:
             shuffle = bool(shuffle)
-            self._dataset_kind = torch.utils.data._DatasetKind.Map
+            self._dataset_kind = _DatasetKind.Map
 
         if sampler is not None and shuffle:
             raise ValueError("sampler option is mutually exclusive with shuffle.")
@@ -171,7 +172,7 @@ class DataLoader(torch.utils.data.DataLoader[T_co]):
                 )
 
         if sampler is None:
-            if self._dataset_kind == torch.utils.data._DatasetKind.Iterable:
+            if self._dataset_kind == _DatasetKind.Iterable:
                 sampler = _InfiniteConstantSampler()
             else:
                 if shuffle:
