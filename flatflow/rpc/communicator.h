@@ -18,6 +18,7 @@
 #include <atomic>
 #include <csignal>
 #include <cstdint>
+#include <variant>
 
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
@@ -30,6 +31,7 @@
 #include "flatflow/rpc/communicator.grpc.fb.h"
 #include "flatflow/rpc/communicator_generated.h"
 #include "flatflow/rpc/empty_generated.h"
+#include "flatflow/scheduler/scheduler.h"
 
 namespace flatflow {
 namespace rpc {
@@ -77,6 +79,47 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), rank);
     ++fanin_;
 
+    if (rank == 0) {
+      const auto order = args->order();
+
+      if (order == 1) {
+        if (args->heterogeneous()) {
+          return grpc::Status(
+              grpc::StatusCode::UNIMPLEMENTED,
+              "Support for heterogeneous clusters is not yet implemented");
+        }
+        scheduler_ =
+            flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+                args->sizes(), data_parallel_size_, args->global_batch_size(),
+                args->micro_batch_size(), args->seed(),
+                args->use_flat_shuffle());
+      } else if (order == 2) {
+        if (args->heterogeneous()) {
+          return grpc::Status(
+              grpc::StatusCode::UNIMPLEMENTED,
+              "Support for heterogeneous clusters is not yet implemented");
+        }
+        scheduler_ =
+            flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+                args->sizes(), data_parallel_size_, args->global_batch_size(),
+                args->micro_batch_size(), args->hidden_size(), args->seed(),
+                args->use_flat_shuffle());
+      } else {
+        return grpc::Status(
+            grpc::StatusCode::INVALID_ARGUMENT,
+            absl::StrFormat("Invalid order %u, order should be 1 or 2", order));
+      }
+
+      // `compare_exchange_weak` tolerates spurious failures, but may yield
+      // better performance than `compare_exchange_strong` on some platforms
+      // when compare-and-swap is inside a loop.
+      // See https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange.
+      auto expected = data_parallel_size_;
+      while (!fanin_.compare_exchange_weak(expected, 0)) {
+        expected = data_parallel_size_;
+      }
+    }
+
     auto offset = CreateEmpty(builder_);
     builder_.Finish(offset);
     *response = builder_.ReleaseMessage<Empty>();
@@ -93,6 +136,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       grpc::ServerContext *context,
       const flatbuffers::grpc::Message<BroadcastRequest> *request,
       flatbuffers::grpc::Message<BroadcastResponse> *response) override {
+    const auto args = request->GetRoot();
+    const auto rank = args->rank();
+
+    LOG(INFO) << absl::StrFormat("Broadcast called from %s (rank %u)", context->peer(), rank);
+    ++fanin_;
+
     return grpc::Status::OK;
   }
 
@@ -119,14 +168,18 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   uint64_t epoch_;
   std::atomic_uint64_t fanin_;
   flatbuffers::grpc::MessageBuilder builder_;
+  std::variant<std::monostate,
+               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>,
+               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>
+      scheduler_;
 };
 
 // flatflow::rpc::run()
 //
 // Executes the communicator runtime. This routine is invoked from the Python
 // frontend via foreign function interface (FFI); that is, there is no direct
-// entrypoint to the communicator runtime and the actual initialization and
-// termination are handled through `Init` and `Finalize`.
+// entry point to the communicator runtime and the actual initialization and
+// termination are handled through `Init` and `Finalize`, respectively.
 void run(uint16_t port, uint64_t data_parallel_size) {
   if (!absl::log_internal::IsInitialized()) {
     absl::InitializeLog();
