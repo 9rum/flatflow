@@ -15,6 +15,8 @@
 #ifndef FLATFLOW_RPC_COMMUNICATOR_H_
 #define FLATFLOW_RPC_COMMUNICATOR_H_
 
+#include <atomic>
+#include <csignal>
 #include <cstdint>
 
 #include "absl/base/log_severity.h"
@@ -69,6 +71,16 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   grpc::Status Init(grpc::ServerContext *context,
                     const flatbuffers::grpc::Message<InitRequest> *request,
                     flatbuffers::grpc::Message<Empty> *response) override {
+    const auto args = request->GetRoot();
+    const auto rank = args->rank();
+
+    LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), rank);
+    ++fanin_;
+
+    auto offset = CreateEmpty(builder_);
+    builder_.Finish(offset);
+    *response = builder_.ReleaseMessage<Empty>();
+
     return grpc::Status::OK;
   }
 
@@ -90,6 +102,14 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   grpc::Status Finalize(grpc::ServerContext *context,
                         const flatbuffers::grpc::Message<Empty> *request,
                         flatbuffers::grpc::Message<Empty> *response) override {
+    LOG(INFO) << absl::StrFormat("Finalize called from %s", context->peer());
+
+    std::raise(SIGTERM);
+
+    auto offset = CreateEmpty(builder_);
+    builder_.Finish(offset);
+    *response = builder_.ReleaseMessage<Empty>();
+
     return grpc::Status::OK;
   }
 
@@ -97,6 +117,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   uint64_t data_parallel_size_;
   uint64_t batch_;
   uint64_t epoch_;
+  std::atomic_uint64_t fanin_;
+  flatbuffers::grpc::MessageBuilder builder_;
 };
 
 // flatflow::rpc::run()
@@ -118,10 +140,15 @@ void run(uint16_t port, uint64_t data_parallel_size) {
   auto service = CommunicatorServiceImpl(data_parallel_size);
   builder.RegisterService(&service);
 
-  auto server = builder.BuildAndStart();
-  LOG(INFO) << absl::StrFormat("Server listening on %s", addr);
+  static auto server = builder.BuildAndStart();
+  if (server == nullptr) {
+    LOG(FATAL) << absl::StrFormat("Failed to start server on %s", addr);
+  }
 
-  server->Wait();
+  auto shutdown = [](int signal) { server->Shutdown(); };
+  std::signal(SIGTERM, shutdown);
+
+  LOG(INFO) << absl::StrFormat("Server listening on %s", addr);
 }
 
 }  // namespace rpc
