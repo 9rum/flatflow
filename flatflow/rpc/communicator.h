@@ -18,7 +18,10 @@
 #include <atomic>
 #include <csignal>
 #include <cstdint>
+#include <future>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
@@ -57,7 +60,16 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   explicit CommunicatorServiceImpl() {}
 
   explicit CommunicatorServiceImpl(uint64_t data_parallel_size)
-      : data_parallel_size_(data_parallel_size) {}
+      : data_parallel_size_(data_parallel_size) {
+    sync_ = 0;
+
+    const auto _data_parallel_size =
+        static_cast<std::size_t>(data_parallel_size);
+    for (std::size_t rank = 0; rank < _data_parallel_size; ++rank) {
+      producers_[rank] = std::promise<std::vector<uint64_t>>();
+      consumers_[rank] = producers_[rank].get_future();
+    }
+  }
 
   explicit CommunicatorServiceImpl(const CommunicatorServiceImpl &other) = default;
 
@@ -74,10 +86,10 @@ class CommunicatorServiceImpl final : public Communicator::Service {
                     const flatbuffers::grpc::Message<InitRequest> *request,
                     flatbuffers::grpc::Message<Empty> *response) override {
     const auto args = request->GetRoot();
-    const auto rank = args->rank();
+    const auto rank = static_cast<std::size_t>(args->rank());
 
     LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), rank);
-    ++fanin_;
+    ++sync_;
 
     if (rank == 0) {
       const auto order = args->order();
@@ -115,14 +127,25 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       // when compare-and-swap is inside a loop.
       // See https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange.
       auto expected = data_parallel_size_;
-      while (!fanin_.compare_exchange_weak(expected, 0)) {
+      while (!sync_.compare_exchange_weak(expected, 0)) {
         expected = data_parallel_size_;
+      }
+
+      for (auto &producer : producers_) {
+        producer.set_value(std::move(std::vector<uint64_t>()));
       }
     }
 
     auto offset = CreateEmpty(builder_);
     builder_.Finish(offset);
     *response = builder_.ReleaseMessage<Empty>();
+
+    consumers_[rank].get();
+
+    // The promise-future communication channel is disposable; each worker
+    // should reset its own channel after receiving a fanout signal.
+    producers_[rank] = std::promise<std::vector<uint64_t>>();
+    consumers_[rank] = producers_[rank].get_future();
 
     return grpc::Status::OK;
   }
@@ -137,10 +160,22 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       const flatbuffers::grpc::Message<BroadcastRequest> *request,
       flatbuffers::grpc::Message<BroadcastResponse> *response) override {
     const auto args = request->GetRoot();
-    const auto rank = args->rank();
+    const auto rank = static_cast<std::size_t>(args->rank());
 
     LOG(INFO) << absl::StrFormat("Broadcast called from %s (rank %u)", context->peer(), rank);
-    ++fanin_;
+    ++sync_;
+
+    if (rank == 0) {
+      auto expected = data_parallel_size_;
+      while (!sync_.compare_exchange_weak(expected, 0)) {
+        expected = data_parallel_size_;
+      }
+    }
+
+    const auto indices = consumers_[rank].get();
+
+    producers_[rank] = std::promise<std::vector<uint64_t>>();
+    consumers_[rank] = producers_[rank].get_future();
 
     return grpc::Status::OK;
   }
@@ -166,7 +201,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   uint64_t data_parallel_size_;
   uint64_t batch_;
   uint64_t epoch_;
-  std::atomic_uint64_t fanin_;
+  std::atomic_uint64_t sync_;
+  std::vector<std::promise<std::vector<uint64_t>>> producers_;
+  std::vector<std::future<std::vector<uint64_t>>> consumers_;
   flatbuffers::grpc::MessageBuilder builder_;
   std::variant<std::monostate,
                flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>,
