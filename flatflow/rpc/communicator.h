@@ -18,12 +18,19 @@
 #include <atomic>
 #include <cstdint>
 #include <future>
+#include <memory>
+#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/initialize.h"
+#include "absl/log/internal/globals.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
+#include "grpcpp/grpcpp.h"
 
 #include "flatflow/rpc/communicator.grpc.fb.h"
 #include "flatflow/rpc/communicator_generated.h"
@@ -119,6 +126,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
             absl::StrFormat("Invalid order %u, order should be 1 or 2", order));
       }
 
+      batch_ = 0;
+      epoch_ = 0;
+
+      _call_callbacks_on_train_begin();
+      _call_callbacks_on_epoch_begin();
+
       // `compare_exchange_weak` tolerates spurious failures, but may yield
       // better performance than `compare_exchange_strong` on some platforms
       // when compare-and-swap is inside a loop.
@@ -185,6 +198,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
                         flatbuffers::grpc::Message<Empty> *response) override {
     LOG(INFO) << absl::StrFormat("Finalize called from %s", context->peer());
 
+    _call_callbacks_on_train_end();
+
     handler_.set_value();
 
     auto offset = CreateEmpty(builder_);
@@ -195,6 +210,74 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   }
 
  private:
+  // CommunicatorServiceImpl::_call_callbacks_on_batch_begin()
+  //
+  // Calls every callback's `on_batch_begin` hook.
+  inline void _call_callbacks_on_batch_begin() const noexcept {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_batch_begin(batch_);
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_batch_begin(batch_);
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_batch_end()
+  //
+  // Calls every callback's `on_batch_end` hook.
+  inline void _call_callbacks_on_batch_end(
+      uint64_t rank,
+      const flatbuffers::Vector64<double> *costs) const noexcept {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_batch_end(batch_, rank, costs);
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_epoch_begin()
+  //
+  // Calls every callback's `on_epoch_begin` hook.
+  inline void _call_callbacks_on_epoch_begin() {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_epoch_begin(epoch_);
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_epoch_begin(epoch_);
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_epoch_end()
+  //
+  // Calls every callback's `on_epoch_end` hook.
+  inline void _call_callbacks_on_epoch_end() {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_epoch_end(epoch_);
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_epoch_end(epoch_);
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_train_begin()
+  //
+  // Calls every callback's `on_train_begin` hook.
+  inline void _call_callbacks_on_train_begin() const noexcept {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_train_begin();
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_train_begin();
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_train_end()
+  //
+  // Calls every callback's `on_train_end` hook.
+  inline void _call_callbacks_on_train_end() const noexcept {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_train_end();
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_train_end();
+    }
+  }
+
   uint64_t data_parallel_size_;
   uint64_t batch_;
   uint64_t epoch_;
@@ -209,6 +292,52 @@ class CommunicatorServiceImpl final : public Communicator::Service {
                flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>
       scheduler_;
 };
+
+// flatflow::rpc::snoop()
+//
+// Monitors the signal coming while blocking, then shuts down the server.
+//
+// Note that the service does nothing in this scope but is passed to manage
+// the ownership to match the lifetime with the server.
+void snoop(std::future<void> signal, std::unique_ptr<grpc::Server> server,
+           std::unique_ptr<flatflow::rpc::CommunicatorServiceImpl> service) {
+  signal.get();
+  server->Shutdown();
+}
+
+// flatflow::rpc::run()
+//
+// Executes the communicator runtime. This routine is invoked from the Python
+// frontend via foreign function interface (FFI); that is, there is no direct
+// entry point to the communicator runtime and the actual initialization and
+// termination are handled through `Init` and `Finalize`, respectively.
+void run(uint16_t port, uint64_t data_parallel_size) {
+  if (!absl::log_internal::IsInitialized()) {
+    absl::InitializeLog();
+    absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+  }
+
+  auto handler = std::promise<void>();
+  auto signal = handler.get_future();
+
+  auto service = std::make_unique<flatflow::rpc::CommunicatorServiceImpl>(
+      data_parallel_size, std::move(handler));
+
+  auto builder = grpc::ServerBuilder();
+  auto addr = absl::StrFormat("[::]:%u", port);
+  builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
+  builder.RegisterService(service.get());
+
+  auto server = builder.BuildAndStart();
+  if (server == nullptr) {
+    LOG(FATAL) << absl::StrFormat("Failed to start server on %s", addr);
+  }
+
+  std::thread(snoop, std::move(signal), std::move(server), std::move(service))
+      .detach();
+
+  LOG(INFO) << absl::StrFormat("Server listening on %s", addr);
+}
 
 }  // namespace rpc
 }  // namespace flatflow
