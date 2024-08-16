@@ -85,6 +85,14 @@ class Scheduler {
     assert(sizes->size() != 0);
     assert(sizes->size() % data_parallel_size == 0);
 
+    LOG(INFO) << absl::StrFormat(
+        "Initializing scheduler with the following arguments:\n  "
+        "data_parallel_size: %u\n  global_batch_size: %u\n  micro_batch_size: "
+        "%u\n  order: %d\n  seed: %u\n  heterogeneous: %v\n  use_flat_shuffle: "
+        "%v",
+        data_parallel_size, global_batch_size, micro_batch_size, 1, seed, false,
+        use_flat_shuffle);
+
     // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
     // any branch instructions.
     num_micro_batches_ =
@@ -278,6 +286,14 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     assert(sizes != nullptr);
     assert(sizes->size() != 0);
     assert(sizes->size() % data_parallel_size == 0);
+
+    LOG(INFO) << absl::StrFormat(
+        "Initializing scheduler with the following arguments:\n  "
+        "data_parallel_size: %u\n  global_batch_size: %u\n  hidden_size: %u\n  "
+        "micro_batch_size: %u\n  order: %d\n  seed: %u\n  heterogeneous: %v\n  "
+        "use_flat_shuffle: %v",
+        data_parallel_size, global_batch_size, hidden_size, micro_batch_size, 2,
+        seed, false, use_flat_shuffle);
 
     num_micro_batches_ =
         ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
