@@ -96,8 +96,10 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     ++fanin_;
 
     if (rank == 0) {
-      const auto order = args->order();
+      batch_ = 0;
+      epoch_ = 0;
 
+      const auto order = args->order();
       if (order == 1) {
         if (args->heterogeneous()) {
           return grpc::Status(
@@ -126,11 +128,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
             absl::StrFormat("Invalid order %u, order should be 1 or 2", order));
       }
 
-      batch_ = 0;
-      epoch_ = 0;
-
       _call_callbacks_on_train_begin();
-      _call_callbacks_on_epoch_begin();
 
       // `compare_exchange_weak` tolerates spurious failures, but may yield
       // better performance than `compare_exchange_strong` on some platforms
@@ -210,6 +208,16 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   }
 
  private:
+  // CommunicatorServiceImpl::GetSchedule()
+  //
+  // Gets computation schedule from the scheduler.
+  inline std::vector<std::vector<uint64_t>> GetSchedule() {
+    if (scheduler_.index() == 1) {
+      return std::get<1>(scheduler_).Schedule();
+    }
+    return std::get<2>(scheduler_).Schedule();
+  }
+
   // CommunicatorServiceImpl::_call_callbacks_on_batch_begin()
   //
   // Calls every callback's `on_batch_begin` hook.
