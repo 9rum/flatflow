@@ -97,7 +97,10 @@ class CommunicatorServiceImpl final : public Communicator::Service {
 
     if (rank == 0) {
       batch_ = 0;
-      epoch_ = 0;
+      num_scheduled_batches_ = 0;
+      per_replica_batch_size_ = args->global_batch_size() / data_parallel_size_;
+      num_batches_ =
+          (args->sizes()->size() - 1) / args->global_batch_size() + 1;
 
       const auto order = args->order();
       if (order == 1) {
@@ -171,12 +174,34 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     const auto rank = static_cast<std::size_t>(args->rank());
 
     LOG(INFO) << absl::StrFormat("Broadcast called from %s (rank %u)", context->peer(), rank);
+    if (batch_ != 0 || num_scheduled_batches_ != 0) {
+      _call_callbacks_on_batch_end(args->rank(), args->costs());
+    }
     ++fanin_;
 
     if (rank == 0) {
       auto expected = data_parallel_size_;
       while (!fanin_.compare_exchange_weak(expected, 0)) {
         expected = data_parallel_size_;
+      }
+
+      batch_ += num_scheduled_batches_;
+      if (batch_ == num_batches_) {
+        _call_callbacks_on_epoch_end();
+        batch_ = 0;
+      }
+      if (batch_ == 0) {
+        epoch_ = args->epoch();
+        _call_callbacks_on_epoch_begin();
+      }
+
+      auto schedule = GetSchedule();
+      num_scheduled_batches_ =
+          (schedule.front().size() - 1) / per_replica_batch_size_ + 1;
+      _call_callbacks_on_batch_begin();
+
+      for (std::size_t _rank = 0; _rank < data_parallel_size_; ++_rank) {
+        fanout_.first[_rank].set_value(std::move(schedule[_rank]));
       }
     }
 
@@ -286,9 +311,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     }
   }
 
-  uint64_t data_parallel_size_;
   uint64_t batch_;
+  uint64_t data_parallel_size_;
   uint64_t epoch_;
+  uint64_t num_batches_;
+  uint64_t num_scheduled_batches_;
+  uint64_t per_replica_batch_size_;
   std::atomic_uint64_t fanin_;
   std::promise<void> handler_;
   std::pair<std::vector<std::promise<std::vector<uint64_t>>>,
