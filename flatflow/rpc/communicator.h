@@ -53,6 +53,10 @@ namespace rpc {
 // the schedules to all workers.
 class CommunicatorServiceImpl final : public Communicator::Service {
  public:
+  using key_type = uint16_t;
+  using mapped_type = uint64_t;
+  using atomic_mapped_type = std::atomic_uint64_t;
+
   // Constructors and assignment operators
   //
   // There are only default constructors and assignment operators to allow copy
@@ -60,7 +64,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // upon initialization. The actual initializations are handled through `Init`.
   explicit CommunicatorServiceImpl() {}
 
-  explicit CommunicatorServiceImpl(uint64_t data_parallel_size,
+  explicit CommunicatorServiceImpl(mapped_type data_parallel_size,
                                    std::promise<void> handler)
       : data_parallel_size_(data_parallel_size), handler_(std::move(handler)) {
     fanin_ = 0;
@@ -110,7 +114,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
               "Support for heterogeneous clusters is not yet implemented");
         }
         scheduler_ =
-            flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+            flatflow::scheduler::Scheduler<mapped_type, key_type, 1, false>(
                 args->sizes(), data_parallel_size_, args->global_batch_size(),
                 args->micro_batch_size(), args->seed(),
                 args->use_flat_shuffle());
@@ -121,7 +125,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
               "Support for heterogeneous clusters is not yet implemented");
         }
         scheduler_ =
-            flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+            flatflow::scheduler::Scheduler<mapped_type, key_type, 2, false>(
                 args->sizes(), data_parallel_size_, args->global_batch_size(),
                 args->micro_batch_size(), args->hidden_size(), args->seed(),
                 args->use_flat_shuffle());
@@ -143,19 +147,20 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       }
 
       for (auto &producer : fanout_.first) {
-        producer.set_value(std::move(std::vector<uint64_t>()));
+        producer.set_value(std::move(std::vector<mapped_type>()));
       }
     }
 
-    auto offset = CreateEmpty(builder_);
-    builder_.Finish(offset);
-    *response = builder_.ReleaseMessage<Empty>();
+    auto builder = flatbuffers::grpc::MessageBuilder();
+    auto offset = CreateEmpty(builder);
+    builder.Finish(offset);
+    *response = builder.ReleaseMessage<Empty>();
 
     fanout_.second[rank].get();
 
     // The promise-future communication channel is disposable; each worker
     // should reset its own channel after receiving a fanout signal.
-    fanout_.first[rank] = std::promise<std::vector<uint64_t>>();
+    fanout_.first[rank] = std::promise<std::vector<mapped_type>>();
     fanout_.second[rank] = fanout_.first[rank].get_future();
 
     return grpc::Status::OK;
@@ -205,9 +210,13 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       }
     }
 
-    const auto indices = fanout_.second[rank].get();
+    auto builder = flatbuffers::grpc::MessageBuilder();
+    auto indices = builder.CreateVector(fanout_.second[rank].get());
+    auto offset = CreateBroadcastResponse(builder, indices, true);
+    builder.Finish(offset);
+    *response = builder.ReleaseMessage<BroadcastResponse>();
 
-    fanout_.first[rank] = std::promise<std::vector<uint64_t>>();
+    fanout_.first[rank] = std::promise<std::vector<mapped_type>>();
     fanout_.second[rank] = fanout_.first[rank].get_future();
 
     return grpc::Status::OK;
@@ -223,11 +232,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
 
     _call_callbacks_on_train_end();
 
-    handler_.set_value();
+    auto builder = flatbuffers::grpc::MessageBuilder();
+    auto offset = CreateEmpty(builder);
+    builder.Finish(offset);
+    *response = builder.ReleaseMessage<Empty>();
 
-    auto offset = CreateEmpty(builder_);
-    builder_.Finish(offset);
-    *response = builder_.ReleaseMessage<Empty>();
+    handler_.set_value();
 
     return grpc::Status::OK;
   }
@@ -236,7 +246,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::GetSchedule()
   //
   // Gets computation schedule from the scheduler.
-  inline std::vector<std::vector<uint64_t>> GetSchedule() {
+  inline std::vector<std::vector<mapped_type>> GetSchedule() {
     if (scheduler_.index() == 1) {
       return std::get<1>(scheduler_).Schedule();
     }
@@ -258,8 +268,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   //
   // Calls every callback's `on_batch_end` hook.
   inline void _call_callbacks_on_batch_end(
-      uint64_t rank,
-      const flatbuffers::Vector64<double> *costs) const noexcept {
+      mapped_type rank,
+      const flatbuffers::Vector<double> *costs) const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
     } else if (scheduler_.index() == 2) {
@@ -311,21 +321,20 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     }
   }
 
-  uint64_t batch_;
-  uint64_t data_parallel_size_;
-  uint64_t epoch_;
-  uint64_t num_batches_;
-  uint64_t num_scheduled_batches_;
-  uint64_t per_replica_batch_size_;
-  std::atomic_uint64_t fanin_;
+  mapped_type batch_;
+  mapped_type data_parallel_size_;
+  mapped_type epoch_;
+  mapped_type num_batches_;
+  mapped_type num_scheduled_batches_;
+  mapped_type per_replica_batch_size_;
+  atomic_mapped_type fanin_;
   std::promise<void> handler_;
-  std::pair<std::vector<std::promise<std::vector<uint64_t>>>,
-            std::vector<std::future<std::vector<uint64_t>>>>
+  std::pair<std::vector<std::promise<std::vector<mapped_type>>>,
+            std::vector<std::future<std::vector<mapped_type>>>>
       fanout_;
-  flatbuffers::grpc::MessageBuilder builder_;
   std::variant<std::monostate,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>
+               flatflow::scheduler::Scheduler<mapped_type, key_type, 1, false>,
+               flatflow::scheduler::Scheduler<mapped_type, key_type, 2, false>>
       scheduler_;
 };
 
