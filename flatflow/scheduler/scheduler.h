@@ -205,10 +205,8 @@ class Scheduler {
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(
-      mapped_type batch, [[maybe_unused]] mapped_type rank,
-      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *costs)
-      const noexcept {
+  inline void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
+                           [[maybe_unused]] const flatbuffers::Vector<double> *costs) const noexcept {
     dataset_.on_batch_end(batch);
   }
 
@@ -407,10 +405,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(
-      mapped_type batch, [[maybe_unused]] mapped_type rank,
-      [[maybe_unused]] const flatbuffers::Vector<double, mapped_type> *costs)
-      const noexcept {
+  inline void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
+                           [[maybe_unused]] const flatbuffers::Vector<double> *costs) const noexcept {
     dataset_.on_batch_end(batch);
   }
 
