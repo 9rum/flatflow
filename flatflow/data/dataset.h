@@ -32,6 +32,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
+#include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
 #include "flatflow/data/internal/container/btree_map.h"
@@ -91,8 +92,7 @@ class Dataset {
   // inverted index at once, which is fast but memory-intensive. For key types
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
-  explicit Dataset(const flatbuffers::Vector<key_type, mapped_type> *sizes,
-                   mapped_type seed)
+  explicit Dataset(const flatbuffers::Vector<key_type> *sizes, mapped_type seed)
       : seed_(seed) {
     assert(sizes != nullptr);
 
@@ -119,7 +119,7 @@ class Dataset {
                 omp_out.data(), 1)) initializer(omp_priv = omp_orig)
 
     #pragma omp parallel for reduction(vadd : counts)
-    for (mapped_type index = 0; index < sizes->size(); ++index) {
+    for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
       ++counts[size];
     }
@@ -146,9 +146,9 @@ class Dataset {
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
     #pragma omp unroll partial
-    for (mapped_type index = 0; index < sizes->size(); ++index) {
+    for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
       const auto size = static_cast<std::size_t>(sizes->Get(index));
-      slots[size].emplace_back(index);
+      slots[size].emplace_back(static_cast<mapped_type>(index));
     }
 
     #pragma omp unroll full

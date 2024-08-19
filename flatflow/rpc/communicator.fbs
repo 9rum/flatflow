@@ -16,8 +16,6 @@ include "flatflow/rpc/empty.fbs";
 
 namespace flatflow.rpc;
 
-attribute "vector64";
-
 table InitRequest {
   global_batch_size: ulong;
   hidden_size:       ulong;
@@ -25,7 +23,7 @@ table InitRequest {
   order:             ulong;
   rank:              ulong;
   seed:              ulong;
-  sizes:             [ushort] (vector64);
+  sizes:             [ushort];
   heterogeneous:     bool;
   use_flat_shuffle:  bool;
 }
@@ -33,11 +31,11 @@ table InitRequest {
 table BroadcastRequest {
   epoch: ulong;
   rank:  ulong;
-  costs: [double] (vector64);
+  costs: [double];
 }
 
 table BroadcastResponse {
-  indices:   [ulong] (required, vector64);
+  indices:   [ulong] (required);
   converged: bool;
 }
 

@@ -67,7 +67,7 @@ class Scheduler {
   // Note that unlike `flatflow::data::Dataset<>`, the constructors of scheduler
   // are not specified as `explicit` since an implicit conversion from scheduler
   // to `std::variant` is required.
-  Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+  Scheduler(const flatbuffers::Vector<key_type> *sizes,
             mapped_type data_parallel_size, mapped_type global_batch_size,
             mapped_type micro_batch_size, mapped_type seed,
             bool use_flat_shuffle)
@@ -82,21 +82,27 @@ class Scheduler {
     assert(micro_batch_size != 0);
     assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
     assert(sizes != nullptr);
-    assert(sizes->size() != 0);
-    assert(sizes->size() % data_parallel_size == 0);
+
+    const auto num_samples = static_cast<mapped_type>(sizes->size());
+    assert(num_samples != 0);
+    assert(num_samples % data_parallel_size == 0);
 
     LOG(INFO) << absl::StrFormat(
-        "Initializing scheduler with the following arguments:\n  "
-        "data_parallel_size: %u\n  global_batch_size: %u\n  micro_batch_size: "
-        "%u\n  order: %d\n  seed: %u\n  heterogeneous: %v\n  use_flat_shuffle: "
-        "%v",
+        "Initializing scheduler with the following arguments:\n"
+        "  data_parallel_size: %u\n"
+        "  global_batch_size: %u\n"
+        "  micro_batch_size: %u\n"
+        "  order: %d\n"
+        "  seed: %u\n"
+        "  heterogeneous: %v\n"
+        "  use_flat_shuffle: %v",
         data_parallel_size, global_batch_size, micro_batch_size, 1, seed, false,
         use_flat_shuffle);
 
     // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
     // any branch instructions.
     num_micro_batches_ =
-        ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
+        ((num_samples / data_parallel_size - 1) / micro_batch_size + 1) *
         data_parallel_size;
 
     // The last micro-batch size must be calculated since the total number of
@@ -106,7 +112,7 @@ class Scheduler {
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
     // branch instructions.
     last_micro_batch_size_ =
-        (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
+        (num_samples / data_parallel_size - 1) % micro_batch_size + 1;
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -268,7 +274,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   //
   // One API difference is that this scheduler takes `hidden_size` as an
   // additional argument to estimate the model's complexity upon construction.
-  Scheduler(const flatbuffers::Vector<key_type, mapped_type> *sizes,
+  Scheduler(const flatbuffers::Vector<key_type> *sizes,
             mapped_type data_parallel_size, mapped_type global_batch_size,
             mapped_type micro_batch_size, mapped_type hidden_size,
             mapped_type seed, bool use_flat_shuffle)
@@ -284,23 +290,30 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
     assert(hidden_size != 0);
     assert(sizes != nullptr);
-    assert(sizes->size() != 0);
-    assert(sizes->size() % data_parallel_size == 0);
+
+    const auto num_samples = static_cast<mapped_type>(sizes->size());
+    assert(num_samples != 0);
+    assert(num_samples % data_parallel_size == 0);
 
     LOG(INFO) << absl::StrFormat(
-        "Initializing scheduler with the following arguments:\n  "
-        "data_parallel_size: %u\n  global_batch_size: %u\n  hidden_size: %u\n  "
-        "micro_batch_size: %u\n  order: %d\n  seed: %u\n  heterogeneous: %v\n  "
-        "use_flat_shuffle: %v",
+        "Initializing scheduler with the following arguments:\n"
+        "  data_parallel_size: %u\n"
+        "  global_batch_size: %u\n"
+        "  hidden_size: %u\n"
+        "  micro_batch_size: %u\n"
+        "  order: %d\n"
+        "  seed: %u\n"
+        "  heterogeneous: %v\n"
+        "  use_flat_shuffle: %v",
         data_parallel_size, global_batch_size, hidden_size, micro_batch_size, 2,
         seed, false, use_flat_shuffle);
 
     num_micro_batches_ =
-        ((sizes->size() / data_parallel_size - 1) / micro_batch_size + 1) *
+        ((num_samples / data_parallel_size - 1) / micro_batch_size + 1) *
         data_parallel_size;
 
     last_micro_batch_size_ =
-        (sizes->size() / data_parallel_size - 1) % micro_batch_size + 1;
+        (num_samples / data_parallel_size - 1) % micro_batch_size + 1;
 
     regressor_ = internal::algorithm::PassiveAggressiveRegressor</*Order=*/2>(
         hidden_size << 3);

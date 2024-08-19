@@ -116,8 +116,8 @@ class SchedulerTest : public testing::Test {
 };
 
 TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -143,8 +143,8 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
 }
 
 TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -170,8 +170,8 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
 }
 
 TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -197,8 +197,8 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
 }
 
 TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -308,8 +308,8 @@ class SchedulerWithRemainderTest : public testing::Test {
 };
 
 TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -335,8 +335,8 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
 }
 
 TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -362,8 +362,8 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithoutFlatShuf
 }
 
 TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 
@@ -389,8 +389,8 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
 }
 
 TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
-  auto builder = flatbuffers::FlatBufferBuilder64();
-  auto data = builder.CreateVector64(data_);
+  auto builder = flatbuffers::FlatBufferBuilder();
+  auto data = builder.CreateVector(data_);
   auto offset = CreateSizes(builder, data);
   builder.Finish(offset);
 

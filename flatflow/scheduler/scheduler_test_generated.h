@@ -21,12 +21,12 @@ struct Sizes FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_DATA = 4
   };
-  const ::flatbuffers::Vector64<uint16_t> *data() const {
-    return GetPointer64<const ::flatbuffers::Vector64<uint16_t> *>(VT_DATA);
+  const ::flatbuffers::Vector<uint16_t> *data() const {
+    return GetPointer<const ::flatbuffers::Vector<uint16_t> *>(VT_DATA);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset64(verifier, VT_DATA) &&
+           VerifyOffset(verifier, VT_DATA) &&
            verifier.VerifyVector(data()) &&
            verifier.EndTable();
   }
@@ -34,12 +34,12 @@ struct Sizes FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
 
 struct SizesBuilder {
   typedef Sizes Table;
-  ::flatbuffers::FlatBufferBuilder64 &fbb_;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_data(::flatbuffers::Offset64<::flatbuffers::Vector64<uint16_t>> data) {
+  void add_data(::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> data) {
     fbb_.AddOffset(Sizes::VT_DATA, data);
   }
-  explicit SizesBuilder(::flatbuffers::FlatBufferBuilder64 &_fbb)
+  explicit SizesBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
@@ -51,17 +51,17 @@ struct SizesBuilder {
 };
 
 inline ::flatbuffers::Offset<Sizes> CreateSizes(
-    ::flatbuffers::FlatBufferBuilder64 &_fbb,
-    ::flatbuffers::Offset64<::flatbuffers::Vector64<uint16_t>> data = 0) {
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> data = 0) {
   SizesBuilder builder_(_fbb);
   builder_.add_data(data);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<Sizes> CreateSizesDirect(
-    ::flatbuffers::FlatBufferBuilder64 &_fbb,
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint16_t> *data = nullptr) {
-  auto data__ = data ? _fbb.CreateVector64(*data) : 0;
+  auto data__ = data ? _fbb.CreateVector<uint16_t>(*data) : 0;
   return CreateSizes(
       _fbb,
       data__);
@@ -72,7 +72,7 @@ inline const Sizes *GetSizes(const void *buf) {
 }
 
 inline const Sizes *GetSizePrefixedSizes(const void *buf) {
-  return ::flatbuffers::GetSizePrefixedRoot<Sizes,::flatbuffers::uoffset64_t>(buf);
+  return ::flatbuffers::GetSizePrefixedRoot<Sizes>(buf);
 }
 
 inline bool VerifySizesBuffer(
@@ -82,17 +82,17 @@ inline bool VerifySizesBuffer(
 
 inline bool VerifySizePrefixedSizesBuffer(
     ::flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<Sizes,::flatbuffers::uoffset64_t>(nullptr);
+  return verifier.VerifySizePrefixedBuffer<Sizes>(nullptr);
 }
 
 inline void FinishSizesBuffer(
-    ::flatbuffers::FlatBufferBuilder64 &fbb,
+    ::flatbuffers::FlatBufferBuilder &fbb,
     ::flatbuffers::Offset<Sizes> root) {
   fbb.Finish(root);
 }
 
 inline void FinishSizePrefixedSizesBuffer(
-    ::flatbuffers::FlatBufferBuilder64 &fbb,
+    ::flatbuffers::FlatBufferBuilder &fbb,
     ::flatbuffers::Offset<Sizes> root) {
   fbb.FinishSizePrefixed(root);
 }
