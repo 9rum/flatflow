@@ -26,6 +26,9 @@ find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TBB REQUIRED)
 
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+
 # Find the absolute path to LibTorch and add it to CMake prefix path.
 # Note that Torch imports CUDA, so there is no need to specify this with project
 # or enable_language.
