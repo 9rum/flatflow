@@ -297,6 +297,12 @@ class Dataset {
 
     internal::container::swap(items_, recyclebin_);
     size_ = max_size_;
+
+    std::for_each(std::execution::par, items_.begin(), items_.end(),
+                  [&](auto &item) {
+                    std::sort(std::execution::par, item.second.begin(),
+                              item.second.end());
+                  });
   }
 
   // Dataset::on_train_begin()
