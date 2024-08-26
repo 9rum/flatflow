@@ -93,7 +93,6 @@ flatflow/rpc/BroadcastRequest.py
 flatflow/rpc/BroadcastResponse.py
 flatflow/rpc/Empty.py
 flatflow/rpc/InitRequest.py
-flatflow/rpc/__init__.py
 flatflow/rpc/communicator_grpc_fb.py
 flatflow/rpc/communicator_generated.h
 flatflow/rpc/empty_generated.h
