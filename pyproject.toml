@@ -9,7 +9,6 @@ line-ending = "lf"
 [tool.ruff.lint]
 extend-ignore = [
   "C901",
-  "E501",
   "E731",
   "E741",
   "F403",
@@ -28,3 +27,8 @@ known-local-folder = ["flatflow"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+python_files = "test_*.py"
+testpaths = ["tests"]

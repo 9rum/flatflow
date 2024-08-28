@@ -42,3 +42,4 @@ find_package(Torch REQUIRED)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)
+add_subdirectory(tests)

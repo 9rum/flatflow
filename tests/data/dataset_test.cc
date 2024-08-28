@@ -27,8 +27,7 @@
 #include "absl/log/internal/globals.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
-
-#include "flatflow/data/dataset_test_generated.h"
+#include "tests/data/dataset_test_generated.h"
 
 namespace {
 

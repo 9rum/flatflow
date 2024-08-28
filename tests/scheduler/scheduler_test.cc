@@ -30,8 +30,7 @@
 #include "absl/strings/str_join.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
-
-#include "flatflow/scheduler/scheduler_test_generated.h"
+#include "tests/scheduler/scheduler_test_generated.h"
 
 namespace {
 
