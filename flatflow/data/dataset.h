@@ -25,7 +25,6 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <random>
 #include <utility>
 #include <vector>
 
@@ -35,6 +34,7 @@
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
+#include "flatflow/aten/generator.h"
 #include "flatflow/data/internal/container/btree_map.h"
 #include "flatflow/data/internal/types.h"
 
@@ -278,10 +278,12 @@ class Dataset {
     //   set the random seed to the sum of seed and epoch. A pseudo-random
     //   number generator based on 32-bit Mersenne Twister algorithm is adopted,
     //   just like in PyTorch.
+    const auto _seed =
+        static_cast<flatflow::aten::Generator::result_type>(seed_ + epoch);
+
     std::for_each(
         std::execution::par, items_.begin(), items_.end(), [&](auto &item) {
-          auto generator = std::mt19937();
-          generator.seed(static_cast<uint_fast32_t>(seed_ + epoch));
+          auto generator = flatflow::aten::Generator(_seed);
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 

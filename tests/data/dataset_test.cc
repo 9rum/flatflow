@@ -15,9 +15,9 @@
 #include "flatflow/data/dataset.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <execution>
 #include <map>
-#include <random>
 #include <utility>
 #include <vector>
 
@@ -28,6 +28,8 @@
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 #include "tests/data/dataset_test_generated.h"
+
+#include "flatflow/aten/generator.h"
 
 namespace {
 
@@ -152,8 +154,7 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
 
   std::for_each(
       std::execution::par, slots.begin(), slots.end(), [&](auto &slot) {
-        auto generator = std::mt19937();
-        generator.seed(static_cast<uint_fast32_t>(epoch));
+        auto generator = flatflow::aten::Generator(epoch);
         std::shuffle(slot.second.begin(), slot.second.end(), generator);
       });
 

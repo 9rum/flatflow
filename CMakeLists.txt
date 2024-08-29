@@ -40,6 +40,10 @@ execute_process(
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX_PATH})
 find_package(Torch REQUIRED)
 
+# Since LibTorch defines _GLIBCXX_USE_CXX11_ABI as zero, one must adjust this to
+# avoid conflicts upon linking.
+add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+
 add_subdirectory(third_party)
 add_subdirectory(flatflow)
 add_subdirectory(tests)

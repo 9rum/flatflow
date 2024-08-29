@@ -15,6 +15,8 @@
 #ifndef FLATFLOW_RPC_COMMUNICATOR_H_
 #define FLATFLOW_RPC_COMMUNICATOR_H_
 
+#include <grpcpp/grpcpp.h>
+
 #include <atomic>
 #include <cstdint>
 #include <future>
@@ -30,7 +32,6 @@
 #include "absl/log/internal/globals.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
-#include "grpcpp/grpcpp.h"
 
 #include "flatflow/rpc/communicator.grpc.fb.h"
 #include "flatflow/rpc/communicator_generated.h"

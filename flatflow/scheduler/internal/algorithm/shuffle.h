@@ -20,10 +20,10 @@
 #include <execution>
 #include <iterator>
 #include <numeric>
-#include <random>
 #include <utility>
 #include <vector>
 
+#include "flatflow/aten/generator.h"
 #include "flatflow/data/internal/types.h"
 
 namespace flatflow {
@@ -48,7 +48,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
 
-  const auto _seed = static_cast<uint_fast32_t>(seed);
+  const auto _seed = static_cast<flatflow::aten::Generator::result_type>(seed);
   assert(static_cast<Index>(_seed) == seed);
 
   // The inter-batch shuffling is carried out as follows:
@@ -93,8 +93,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   }
 
   if (!use_flat_shuffle) {
-    auto generator = std::mt19937();
-    generator.seed(_seed);
+    auto generator = flatflow::aten::Generator(_seed);
     std::shuffle(ranges.begin(), ranges.end(), generator);
   }
 
@@ -102,8 +101,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
                 [&](const auto &range) {
                   const auto begin = range.first;
                   const auto end = range.second;
-                  auto generator = std::mt19937();
-                  generator.seed(_seed);
+                  auto generator = flatflow::aten::Generator(_seed);
                   std::shuffle(begin, end, generator);
                 });
 

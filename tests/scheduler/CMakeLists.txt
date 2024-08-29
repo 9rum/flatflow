@@ -23,6 +23,7 @@ if(BUILD_TESTING)
     PRIVATE ${CMAKE_SOURCE_DIR})
   target_link_libraries(
     scheduler_test
+    PRIVATE ${TORCH_LIBRARIES}
     PRIVATE absl::btree
     PRIVATE absl::inlined_vector
     PRIVATE absl::log
