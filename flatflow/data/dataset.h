@@ -294,6 +294,8 @@ class Dataset {
   //
   // A callback to be called at the end of an epoch.
   inline void on_epoch_end([[maybe_unused]] mapped_type epoch) {
+    const auto now = omp_get_wtime();
+
     // At the end of an epoch, the inverted index must be empty.
     assert(size_ == 0);
 
@@ -305,6 +307,8 @@ class Dataset {
                     std::sort(std::execution::par, item.second.begin(),
                               item.second.end());
                   });
+
+    LOG(INFO) << absl::StrFormat("Epoch: %u sorting inverted index took %fs", epoch, omp_get_wtime() - now);
   }
 
   // Dataset::on_train_begin()
