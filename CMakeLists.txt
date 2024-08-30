@@ -25,7 +25,6 @@ include(CTest)
 find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TBB REQUIRED)
-
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 
@@ -43,6 +42,11 @@ find_package(Torch REQUIRED)
 # Since LibTorch defines _GLIBCXX_USE_CXX11_ABI as zero, one must adjust this to
 # avoid conflicts upon linking.
 add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
+
+# Intel has contributed to PSTL headers with a dependency on tbb/task.h, then
+# deprecated it in a later TBB release. One has to either use an older version
+# of TBB or suppress the warning by defining TBB_SUPPRESS_DEPRECATED_MESSAGES macro.
+add_compile_definitions(TBB_SUPPRESS_DEPRECATED_MESSAGES)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)
