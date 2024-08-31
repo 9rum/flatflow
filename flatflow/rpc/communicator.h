@@ -18,10 +18,9 @@
 #include <grpcpp/grpcpp.h>
 
 #include <atomic>
+#include <csignal>
 #include <cstdint>
 #include <future>
-#include <memory>
-#include <thread>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -65,9 +64,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // upon initialization. The actual initializations are handled through `Init`.
   explicit CommunicatorServiceImpl() {}
 
-  explicit CommunicatorServiceImpl(mapped_type data_parallel_size,
-                                   std::promise<void> handler)
-      : data_parallel_size_(data_parallel_size), handler_(std::move(handler)) {
+  explicit CommunicatorServiceImpl(mapped_type data_parallel_size)
+      : data_parallel_size_(data_parallel_size) {
     fanin_ = 0;
 
     const auto _data_parallel_size =
@@ -87,6 +85,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   explicit CommunicatorServiceImpl(CommunicatorServiceImpl &&other) = default;
 
   CommunicatorServiceImpl &operator=(CommunicatorServiceImpl &&other) = default;
+
+  ~CommunicatorServiceImpl() override {
+    if (signal_.get() != 0) {
+      LOG(ERROR) << "Failed to send signal to program";
+    }
+  }
 
   // CommunicatorServiceImpl::Init()
   //
@@ -238,7 +242,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     builder.Finish(offset);
     *response = builder.ReleaseMessage<Empty>();
 
-    handler_.set_value();
+    signal_ = std::async(std::launch::async, std::raise, SIGTERM);
 
     return grpc::Status::OK;
   }
@@ -329,7 +333,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   mapped_type num_scheduled_batches_;
   mapped_type per_replica_batch_size_;
   atomic_mapped_type fanin_;
-  std::promise<void> handler_;
+  std::future<int> signal_;
   std::pair<std::vector<std::promise<std::vector<mapped_type>>>,
             std::vector<std::future<std::vector<mapped_type>>>>
       fanout_;
@@ -339,48 +343,35 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       scheduler_;
 };
 
-// flatflow::rpc::snoop()
-//
-// Monitors the signal coming while blocking, then shuts down the server.
-//
-// Note that the service does nothing in this scope but is passed to manage
-// the ownership to match the lifetime with the server.
-void snoop(std::future<void> signal, std::unique_ptr<grpc::Server> server,
-           std::unique_ptr<flatflow::rpc::CommunicatorServiceImpl> service) {
-  signal.get();
-  server->Shutdown();
-}
-
 // flatflow::rpc::run()
 //
 // Executes the communicator runtime. This routine is invoked from the Python
 // frontend via foreign function interface (FFI); that is, there is no direct
 // entry point to the communicator runtime and the actual initialization and
 // termination are handled through `Init` and `Finalize`, respectively.
-void run(uint16_t port, uint64_t data_parallel_size) {
+void run(uint16_t port,
+         CommunicatorServiceImpl::mapped_type data_parallel_size) {
   if (!absl::log_internal::IsInitialized()) {
     absl::InitializeLog();
     absl::SetStderrThreshold(absl::LogSeverity::kInfo);
   }
 
-  auto handler = std::promise<void>();
-  auto signal = handler.get_future();
-
-  auto service = std::make_unique<flatflow::rpc::CommunicatorServiceImpl>(
-      data_parallel_size, std::move(handler));
-
   auto builder = grpc::ServerBuilder();
   auto addr = absl::StrFormat("[::]:%u", port);
   builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
-  builder.RegisterService(service.get());
 
-  auto server = builder.BuildAndStart();
+  static auto service = CommunicatorServiceImpl(data_parallel_size);
+  builder.RegisterService(&service);
+
+  static auto server = builder.BuildAndStart();
   if (server == nullptr) {
     LOG(FATAL) << absl::StrFormat("Failed to start server on %s", addr);
   }
 
-  std::thread(snoop, std::move(signal), std::move(server), std::move(service))
-      .detach();
+  auto handler = [](int signal) { server->Shutdown(); };
+  if (std::signal(SIGTERM, handler) == SIG_ERR) {
+    LOG(ERROR) << "Failed to change handling of SIGTERM";
+  }
 
   LOG(INFO) << absl::StrFormat("Server listening on %s", addr);
 }
