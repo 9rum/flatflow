@@ -31,13 +31,21 @@ find_package(gRPC CONFIG REQUIRED)
 # Find the absolute path to LibTorch and add it to CMake prefix path.
 # Note that Torch imports CUDA, so there is no need to specify this with project
 # or enable_language.
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
 execute_process(
-  COMMAND "${Python3_EXECUTABLE}" "-c" "import torch; print(torch.utils.cmake_prefix_path)"
+  COMMAND ${Python_EXECUTABLE} -c "import torch; print(torch.utils.cmake_prefix_path)"
   OUTPUT_VARIABLE TORCH_CMAKE_PREFIX_PATH
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX_PATH})
 find_package(Torch REQUIRED)
+
+# Detect the installed nanobind package and import it into CMake.
+execute_process(
+  COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir
+  OUTPUT_VARIABLE NANOBIND_CMAKE_PREFIX_PATH
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+list(APPEND CMAKE_PREFIX_PATH ${NANOBIND_CMAKE_PREFIX_PATH})
+find_package(nanobind CONFIG REQUIRED)
 
 # Since LibTorch defines _GLIBCXX_USE_CXX11_ABI as zero, one must adjust this to
 # avoid conflicts upon linking.

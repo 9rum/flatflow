@@ -15,9 +15,9 @@
 #ifndef FLATFLOW_ATEN_GENERATOR_H_
 #define FLATFLOW_ATEN_GENERATOR_H_
 
-#include <cstdint>
+#include <ATen/core/MT19937RNGEngine.h>
 
-#include "ATen/core/MT19937RNGEngine.h"
+#include <cstdint>
 
 namespace flatflow {
 namespace aten {
