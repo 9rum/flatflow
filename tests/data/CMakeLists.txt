@@ -12,26 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(BUILD_TESTING)
-  add_executable(
-    dataset_test
-    dataset_test.cc)
-  target_include_directories(
-    dataset_test
-    PRIVATE ${CMAKE_SOURCE_DIR})
-  target_link_libraries(
-    dataset_test
-    PRIVATE ${TORCH_LIBRARIES}
-    PRIVATE absl::btree
-    PRIVATE absl::inlined_vector
-    PRIVATE absl::log
-    PRIVATE absl::log_initialize
-    PRIVATE absl::str_format
-    PRIVATE BLAS::BLAS
-    PRIVATE flatbuffers
-    PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX
-    PRIVATE TBB::tbb)
-  gtest_add_tests(
-    TARGET dataset_test)
-endif()
+add_executable(
+  dataset_test
+  dataset_test.cc)
+target_compile_features(
+  dataset_test
+  PRIVATE cxx_std_20)
+target_include_directories(
+  dataset_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  dataset_test
+  PRIVATE ${TORCH_LIBRARIES}
+  PRIVATE absl::btree
+  PRIVATE absl::inlined_vector
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE BLAS::BLAS
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX
+  PRIVATE TBB::tbb)
+gtest_add_tests(
+  TARGET dataset_test)

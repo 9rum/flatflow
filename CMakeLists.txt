@@ -17,45 +17,32 @@ cmake_minimum_required(VERSION 3.18)
 
 project(flatflow LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 include(CTest)
+
+option(FLATFLOW_BUILD_TESTS "If ON, FlatFlow will build its own tests" OFF)
+
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(TBB REQUIRED)
-find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
-
-# Find the absolute path to LibTorch and add it to CMake prefix path.
-# Note that Torch imports CUDA, so there is no need to specify this with project
-# or enable_language.
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-execute_process(
-  COMMAND ${Python_EXECUTABLE} -c "import torch; print(torch.utils.cmake_prefix_path)"
-  OUTPUT_VARIABLE TORCH_CMAKE_PREFIX_PATH
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-list(APPEND CMAKE_PREFIX_PATH ${TORCH_CMAKE_PREFIX_PATH})
-find_package(Torch REQUIRED)
-
-# Detect the installed nanobind package and import it into CMake.
-execute_process(
-  COMMAND ${Python_EXECUTABLE} -m nanobind --cmake_dir
-  OUTPUT_VARIABLE NANOBIND_CMAKE_PREFIX_PATH
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
-list(APPEND CMAKE_PREFIX_PATH ${NANOBIND_CMAKE_PREFIX_PATH})
-find_package(nanobind CONFIG REQUIRED)
-
-# Since LibTorch defines _GLIBCXX_USE_CXX11_ABI as zero, one must adjust this to
-# avoid conflicts upon linking.
-add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 
 # Intel has contributed to PSTL headers with a dependency on tbb/task.h, then
 # deprecated it in a later TBB release. One has to either use an older version
-# of TBB or suppress the warning by defining TBB_SUPPRESS_DEPRECATED_MESSAGES macro.
+# of TBB or suppress the warning by defining TBB_SUPPRESS_DEPRECATED_MESSAGES.
 add_compile_definitions(TBB_SUPPRESS_DEPRECATED_MESSAGES)
+
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+
+# Torch imports CUDA, so there is no need to specify this with project or
+# enable_language.
+find_package(Torch REQUIRED)
+find_package(pybind11 REQUIRED)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)
-add_subdirectory(tests)
+
+if(BUILD_TESTING AND FLATFLOW_BUILD_TESTS)
+  add_subdirectory(tests)
+endif()

@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-nanobind_add_module(
+pybind11_add_module(
   flatflow
-  NOMINSIZE
   communicator.grpc.fb.cc
-  nanobind.cc)
+  pybind.cc)
+target_compile_features(
+  flatflow
+  PRIVATE cxx_std_20)
 target_include_directories(
   flatflow
   PRIVATE ${CMAKE_SOURCE_DIR})

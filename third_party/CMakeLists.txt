@@ -18,7 +18,7 @@ add_subdirectory(abseil-cpp)
 set(FLATBUFFERS_BUILD_TESTS OFF)
 add_subdirectory(flatbuffers)
 
-if(BUILD_TESTING)
+if(BUILD_TESTING AND FLATFLOW_BUILD_TESTS)
   include(GoogleTest)
   set(BUILD_GMOCK OFF)
   set(INSTALL_GTEST OFF)

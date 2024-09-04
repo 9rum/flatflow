@@ -12,27 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(BUILD_TESTING)
-  add_executable(
-    algorithm_test
-    concat_test.cc
-    extract_test.cc
-    partition_test.cc
-    passive_aggressive_test.cc
-    reshape_test.cc
-    shuffle_test.cc)
-  target_include_directories(
-    algorithm_test
-    PRIVATE ${CMAKE_SOURCE_DIR})
-  target_link_libraries(
-    algorithm_test
-    PRIVATE ${TORCH_LIBRARIES}
-    PRIVATE absl::log
-    PRIVATE absl::log_initialize
-    PRIVATE absl::str_format
-    PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX
-    PRIVATE TBB::tbb)
-  gtest_add_tests(
-    TARGET algorithm_test)
-endif()
+add_executable(
+  algorithm_test
+  concat_test.cc
+  extract_test.cc
+  partition_test.cc
+  passive_aggressive_test.cc
+  reshape_test.cc
+  shuffle_test.cc)
+target_compile_features(
+  algorithm_test
+  PRIVATE cxx_std_20)
+target_include_directories(
+  algorithm_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  algorithm_test
+  PRIVATE ${TORCH_LIBRARIES}
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX
+  PRIVATE TBB::tbb)
+gtest_add_tests(
+  TARGET algorithm_test)
