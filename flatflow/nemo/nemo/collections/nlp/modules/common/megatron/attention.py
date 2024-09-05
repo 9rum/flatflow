@@ -1081,3 +1081,4 @@ class CoreAttention(MegatronModule):
             context_layer = context_layer * attention_mask_q
 
         return context_layer
+    
