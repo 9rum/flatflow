@@ -14,26 +14,27 @@
 
 add_subdirectory(internal/algorithm)
 
-if(BUILD_TESTING)
-  add_executable(
-    scheduler_test
-    scheduler_test.cc)
-  target_include_directories(
-    scheduler_test
-    PRIVATE ${CMAKE_SOURCE_DIR})
-  target_link_libraries(
-    scheduler_test
-    PRIVATE ${TORCH_LIBRARIES}
-    PRIVATE absl::btree
-    PRIVATE absl::inlined_vector
-    PRIVATE absl::log
-    PRIVATE absl::log_initialize
-    PRIVATE absl::str_format
-    PRIVATE BLAS::BLAS
-    PRIVATE flatbuffers
-    PRIVATE GTest::gtest_main
-    PRIVATE OpenMP::OpenMP_CXX
-    PRIVATE TBB::tbb)
-  gtest_add_tests(
-    TARGET scheduler_test)
-endif()
+add_executable(
+  scheduler_test
+  scheduler_test.cc)
+target_compile_features(
+  scheduler_test
+  PRIVATE cxx_std_20)
+target_include_directories(
+  scheduler_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  scheduler_test
+  PRIVATE ${TORCH_LIBRARIES}
+  PRIVATE absl::btree
+  PRIVATE absl::inlined_vector
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE BLAS::BLAS
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX
+  PRIVATE TBB::tbb)
+gtest_add_tests(
+  TARGET scheduler_test)
