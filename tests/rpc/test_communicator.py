@@ -21,7 +21,7 @@ import grpc
 import numpy as np
 import pytest
 
-from flatflow.rpc import CommunicatorClient
+from flatflow.rpc import CommunicatorClient, run
 
 
 def lognormal_n(mean: float, sigma: float, n: int, seed: int) -> Sequence[int]:
@@ -49,6 +49,9 @@ def launch(
     hidden_size: Optional[int],
     num_samples: int,
 ) -> None:
+    if rank == 0:
+        run(port, data_parallel_size)
+
     sizes = None
     if rank == 0:
         sizes = lognormal_n(5.252, 0.293, num_samples, seed)

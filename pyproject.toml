@@ -1,3 +1,10 @@
+[build-system]
+requires = [
+  "cmake-build-extension",
+  "setuptools",
+]
+build-backend = "setuptools.build_meta"
+
 [tool.ruff]
 extend-exclude = ["third_party"]
 line-length = 120
