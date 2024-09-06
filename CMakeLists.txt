@@ -38,7 +38,9 @@ find_package(gRPC CONFIG REQUIRED)
 # Torch imports CUDA, so there is no need to specify this with project or
 # enable_language.
 find_package(Torch REQUIRED)
-find_package(pybind11 REQUIRED)
+
+set(PYBIND11_FINDPYTHON ON)
+find_package(pybind11 CONFIG REQUIRED)
 
 add_subdirectory(third_party)
 add_subdirectory(flatflow)

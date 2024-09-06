@@ -15,9 +15,6 @@
 add_executable(
   dataset_test
   dataset_test.cc)
-target_compile_features(
-  dataset_test
-  PRIVATE cxx_std_20)
 target_include_directories(
   dataset_test
   PRIVATE ${CMAKE_SOURCE_DIR})

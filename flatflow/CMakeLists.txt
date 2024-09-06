@@ -12,4 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(rpc)
+pybind11_add_module(
+  _C
+  rpc/communicator.grpc.fb.cc
+  pybind.cc)
+target_include_directories(
+  _C
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  _C
+  PRIVATE ${TORCH_LIBRARIES}
+  PRIVATE absl::btree
+  PRIVATE absl::inlined_vector
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE BLAS::BLAS
+  PRIVATE flatbuffers
+  PRIVATE gRPC::grpc++
+  PRIVATE OpenMP::OpenMP_CXX
+  PRIVATE TBB::tbb)

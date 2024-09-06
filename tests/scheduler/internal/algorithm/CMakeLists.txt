@@ -20,9 +20,6 @@ add_executable(
   passive_aggressive_test.cc
   reshape_test.cc
   shuffle_test.cc)
-target_compile_features(
-  algorithm_test
-  PRIVATE cxx_std_20)
 target_include_directories(
   algorithm_test
   PRIVATE ${CMAKE_SOURCE_DIR})

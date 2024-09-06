@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <torch/extension.h>
+#include <pybind11/pybind11.h>
 
 #include "flatflow/rpc/communicator.h"
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+PYBIND11_MODULE(_C, m) {
   auto rpc = m.def_submodule("rpc");
   rpc.def("run", &flatflow::rpc::run);
 }
