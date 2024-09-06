@@ -18,10 +18,6 @@ from functools import partial
 from typing import Any, Optional
 
 import torch
-from omegaconf import DictConfig, ListConfig
-from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
-from pytorch_lightning.trainer.trainer import Trainer
-
 from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
@@ -38,6 +34,9 @@ from nemo.collections.nlp.modules.common.text_generation_utils import generate, 
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.utils import AppState, logging
+from omegaconf import DictConfig, ListConfig
+from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
+from pytorch_lightning.trainer.trainer import Trainer
 
 try:
     from apex.transformer.pipeline_parallel.utils import (
@@ -113,12 +112,12 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 return None, "loss"
             if data_cfg.metric.name not in MetricStringToTorchMetric:
                 raise KeyError(
-                    f"{data_cfg.metric.name} is not supported. List of supported metrics: {MetricStringToTorchMetric.keys()}"
+                    f"{data_cfg.metric.name} is not supported. List of supported metrics: {MetricStringToTorchMetric.keys()}" #noqa E501
                 )
             if data_cfg.metric.name in self._metrics_require_string2category_map:
                 if data_cfg.metric.average is None:
                     raise ValueError(
-                        f"{data_cfg.metric.name} requires specifying whether you want to compute a micro or macro average. Found None."
+                        f"{data_cfg.metric.name} requires specifying whether you want to compute a micro or macro average. Found None." #noqa E501
                     )
             if (
                 data_cfg.metric.get('labels_are_strings', False)
@@ -127,18 +126,18 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 if data_cfg.metric.num_classes is None:
                     raise ValueError(
                         "Number of classes is not provided in the metric section within the data config. "
-                        f"Please provide the number of classes in the data config to use the {data_cfg.metric.name} metric."
+                        f"Please provide the number of classes in the data config to use the {data_cfg.metric.name} metric." #noqa E501
                     )
                 if data_cfg.metric.get('class_labels', None) is None or not isinstance(
                     data_cfg.metric.get('class_labels', None), ListConfig
                 ):
                     raise ValueError(
                         "Class labels are not provided properly in the metric section witnin the data config. "
-                        f"Please provide the class labels as a list of strings in the data config to use the {data_cfg.metric.name} metric."
+                        f"Please provide the class labels as a list of strings in the data config to use the {data_cfg.metric.name} metric." #noqa E501
                     )
                 if len(data_cfg.metric.get('class_labels', None)) != data_cfg.metric.num_classes:
                     raise ValueError(
-                        f"Number of class labels {len(data_cfg.metric.get('class_labels', None))} does not match `num_classes` : {data_cfg.metric.num_classes}"
+                        f"Number of class labels {len(data_cfg.metric.get('class_labels', None))} does not match `num_classes` : {data_cfg.metric.num_classes}" #noqa E501
                     )
 
             metric_name = data_cfg.metric.name
@@ -162,7 +161,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
     @property
     def _metrics_require_string2category_map(self):
-        return set(["f1", "accuracy", "average_precision"])
+        return set("f1", "accuracy", "average_precision")
 
     def maybe_setup_test(self):
         if hasattr(self.cfg.data, 'test_ds') and self.cfg.data.test_ds.get('file_names', None) is not None:
@@ -170,7 +169,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         return
 
     def setup(self, stage=None):
-        # NOTE: super().__init__ will try and setup train/val/test datasets, but we sidestep this using a if self._train_ds is not None condition
+        # NOTE: super().__init__ will try and setup train/val/test datasets,
+        # but we sidestep this using a if self._train_ds is not None condition
         # We then set things up for real only once setup() of this class is called.
         resume_checkpoint_path = self.trainer.ckpt_path
         self.setup_complete = True
@@ -207,7 +207,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # Determine if we are using a single dataset or a list of datasets.
         is_list_config = isinstance(data_cfg.file_names, ListConfig)
         if not is_list_config:
-            raise ValueError(f"SFT train/validation datasets must be provided as a list of individual JSONL files.")
+            raise ValueError("SFT train/validation datasets must be provided as a list of individual JSONL files.")
 
         if is_train:
             # Construct the data prefix list for `get_datasets_weights_and_num_samples()`
@@ -217,7 +217,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             ):
                 raise ValueError(
                     (
-                        f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names."
+                        f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names." #noqa E501
                         f"Found: {data_cfg.concat_sampling_probabilities}"
                     )
                 )
@@ -225,8 +225,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             if len(data_cfg.get('concat_sampling_probabilities', None)) != len(data_cfg.file_names):
                 raise ValueError(
                     (
-                        f"concat_sampling_probabilities must be of the same size as file_names.",
-                        f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}",
+                        "concat_sampling_probabilities must be of the same size as file_names.",
+                        f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}", #noqa E501
                     )
                 )
 
@@ -251,7 +251,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             and data_cfg.max_seq_length > self.cfg.max_position_embeddings
         ):
             logging.warning(
-                f"Set dataset max_seq_length to max_position_embeddings {self.cfg.max_position_embeddings} if using learned_absolute position embedding"
+                f"Set dataset max_seq_length to max_position_embeddings {self.cfg.max_position_embeddings} if using learned_absolute position embedding" #noqa E501
             )
             data_cfg.max_seq_length = self.cfg.max_position_embeddings
 
@@ -301,19 +301,20 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 virtual_tokens=self.virtual_tokens,
                 tokens_to_generate=data_cfg.get(
                     'tokens_to_generate', 0
-                ),  # used at inference time to allocate tensor positions for tokens that will be generated by inf procedure.
+                ),  # used at inference time to allocate tensor positions for tokens that will be generated by inf procedure. #noqa E501
                 memmap_workers=data_cfg.get(
                     'memmap_workers', None
                 ),  # used to set num. of workers to create the memmap index files
                 hf_dataset=data_cfg.get(
                     'hf_dataset', False
-                ),  # Whether to load the json file with the HuggingFace dataset. otherwise, will load the jsonl file with the JSONLMemMapDataset.
+                ),  # Whether to load the json file with the HuggingFace dataset.
+                    # otherwise, will load the jsonl file with the JSONLMemMapDataset.
                 truncation_method=data_cfg.get(
                     'truncation_method', 'right'
                 ),  # used to choose truncation method. Options: ['random', 'left', 'right']
                 special_tokens=self.cfg.data.get(
                     'chat_prompt_tokens', None
-                ),  # special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"}
+                ),  # special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"} #noqa E501
                 is_test=not is_train,
                 **dataset_kwargs,
             )
@@ -329,7 +330,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             return datasets
 
     def _determine_log_key(self, data_config, dataloader_idx, metric_name, mode):
-        # Function that determines whether to log based on the user provided name of the dataset or the dataloader index.
+        # Function that determines whether to log based on the user provided
+        # name of the dataset or the dataloader index.
         base_key = f"{mode}_{metric_name}_" if metric_name is not None else f"{mode}_"
         # If the user provided names for each validation/test dataset, use those.
         if hasattr(data_config, "names") and data_config.names is not None:
@@ -344,7 +346,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
     def fwd_bwd_step(self, dataloader_iter, forward_only, first_val_step=None):
         # Return only batch if batch, batch_idx, dataloder_idx are extracted as a tuple in the previous func
-        # call like validation_step otherwise return tuple (in which case dataloader_iter is still a PTL _DataFetcherWrapper object)
+        # call like validation_step otherwise return tuple
+        # (in which case dataloader_iter is still a PTL _DataFetcherWrapper object)
         if isinstance(dataloader_iter, _DataFetcherWrapper):
             batch, _, _ = next(dataloader_iter)
         else:
@@ -445,14 +448,16 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         outputs = self.inference_step_validation_call(batch, batch_idx, data_cfg, dataloader_idx)
 
         if mode == 'validation':
-            if type(self.trainer.val_dataloaders) == list and len(self.trainer.val_dataloaders) > 1:
-                # super().validation_step appends just loss to self.validation_step_outputs, replace the last appended loss with the outputs dict
+            if isinstance(self.trainer.val_dataloaders, list) and len(self.trainer.val_dataloaders) > 1:
+                # super().validation_step appends just loss to self.validation_step_outputs,
+                # replace the last appended loss with the outputs dict
                 self.validation_step_outputs[dataloader_idx][-1] = outputs
             else:
-                # super().validation_step appends just loss to self.validation_step_outputs, replace the last appended loss with the outputs dict
+                # super().validation_step appends just loss to self.validation_step_outputs,
+                # replace the last appended loss with the outputs dict
                 self.validation_step_outputs[-1] = outputs
         else:
-            if type(self.trainer.test_dataloaders) == list and len(self.trainer.test_dataloaders) > 1:
+            if isinstance(self.trainer.test_dataloaders, list) and len(self.trainer.test_dataloaders) > 1:
                 self.test_step_outputs[dataloader_idx][-1] = outputs
             else:
                 self.test_step_outputs[-1] = outputs
@@ -460,8 +465,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
     def inference_step_validation_call(self, batch, batch_idx, data_cfg, dataloader_idx=0):
         metadata = batch.get('metadata', [{}] * len(batch['tokens']))
-        # Pass dataloader_idx, as it's needed in val_step of GPTModel to append the loss correctly to self.val/test_step_outputs
-        # in case of multi dataloaders
+        # Pass dataloader_idx, as it's needed in val_step of GPTModel to append the loss correctly
+        # to self.val/test_step_outputs in case of multi dataloaders
         loss = super().validation_step(itertools.chain([batch]), dataloader_idx)
 
         if data_cfg.get("write_predictions_to_file", False) or data_cfg.metric.name != 'loss':
@@ -495,7 +500,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         return outputs
 
     def gather_and_maybe_write_predictions(self, output, data_cfg, mode, averaged_metric, dataloader_idx=0):
-        # Gather the outputs object from all data parallel ranks since we are using the DistributedSampler which splits data across DDP ranks.
+        # Gather the outputs object from all data parallel ranks since we are using the DistributedSampler
+        # which splits data across DDP ranks.
         gathered_outputs = [None for _ in range(parallel_state.get_data_parallel_world_size())]
         torch.distributed.all_gather_object(
             gathered_outputs,
@@ -566,7 +572,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             # Check if the user provided a prefix path to the file(s) they want to write.
             if not hasattr(data_cfg, "output_file_path_prefix") or data_cfg.output_file_path_prefix is None:
                 raise ValueError(
-                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
+                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file." #noqa E501
                 )
             filename_log_key = self._determine_log_key(data_cfg, dataloader_idx, None, mode)
             self.write_predictions_to_file(
@@ -588,7 +594,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         averaged_metric = []
         # Log metrics for each provided validation/test dataset.
         for dataloader_idx, output in enumerate(outputs):
-            # Expand on_validation_epoch_end from parent class MegatronGPTModel as on_validation_epoch_end doesnt take outputs arg
+            # Expand on_validation_epoch_end from parent class MegatronGPTModel as on_validation_epoch_end
+            # does not take outputs arg
             # loss = super().on_validation_epoch_end([x['loss'] for x in output])
             loss_vals = [x['loss'] for x in output]
             if parallel_state.is_pipeline_last_stage():
@@ -608,7 +615,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
             self.log('val_loss', loss, prog_bar=True, rank_zero_only=True, batch_size=1)
 
-            # Determine the key used to log the loss based on the user provided name of the dataset or the dataloader index.
+            # Determine the key used to log the loss based on the user provided name of the dataset
+            # or the dataloader index.
             loss_log_key = self._determine_log_key(data_cfg, dataloader_idx, "loss", mode)
             self.log(loss_log_key, loss, batch_size=1)
             averaged_loss.append(loss)
@@ -904,6 +912,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # return super().on_validation_epoch_end()
 
     def on_train_epoch_start(self) -> None:
-        # Same logic as validation epoch end, but this may be need if there is no validation sanity check to trigger on_validation_epoch_end()
+        # Same logic as validation epoch end, but this may be need if there is no validation sanity check to trigger
+        # on_validation_epoch_end()
         self.on_validation_epoch_end()
         return super().on_train_epoch_start()
