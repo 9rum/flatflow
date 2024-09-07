@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
+import subprocess
 import sys
 
-from cmake_build_extension import BuildExtension, CMakeExtension
 from setuptools import find_packages, setup
 
 cwd = os.path.abspath(os.path.dirname(__file__))
@@ -26,33 +26,24 @@ from flatflow import __version__  # noqa: E402
 readme = open(os.path.join(cwd, "README.md")).read().strip()
 requirements = open(os.path.join(cwd, "requirements.txt")).read().strip().split("\n")
 
+CMAKE_BUILD_TYPE = "Release"
 CMAKE_CXX_STANDARD = 20
 CMAKE_LIBRARY_OUTPUT_DIRECTORY = os.path.join(cwd, "flatflow")
 FLATFLOW_BUILD_TESTS = "OFF"
 
-cmake_configure_options = [
-    f"-DCMAKE_CXX_STANDARD={CMAKE_CXX_STANDARD}",
-    f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={CMAKE_LIBRARY_OUTPUT_DIRECTORY}",
-    f"-DFLATFLOW_BUILD_TESTS={FLATFLOW_BUILD_TESTS}",
-]
+subprocess.check_call(
+    [
+        "make",
+        "build",
+        f"CMAKE_BUILD_TYPE={CMAKE_BUILD_TYPE}",
+        f"CMAKE_CXX_STANDARD={CMAKE_CXX_STANDARD}",
+        f"CMAKE_LIBRARY_OUTPUT_DIRECTORY={CMAKE_LIBRARY_OUTPUT_DIRECTORY}",
+        f"FLATFLOW_BUILD_TESTS={FLATFLOW_BUILD_TESTS}",
+    ],
+    cwd=cwd,
+)
 
-ext_modules = [
-    CMakeExtension(
-        name="flatflow",
-        cmake_configure_options=cmake_configure_options,
-    ),
-]
-
-cmdclass = {
-    "build_ext": BuildExtension,
-}
-
-
-package_data = {
-    "flatflow": [
-        "*.so",
-    ]
-}
+package_data = {"flatflow": ["*.so"]}
 
 setup(
     name="flatflow",
@@ -62,11 +53,12 @@ setup(
     long_description_content_type="text/markdown",
     author="The FlatFlow Authors",
     url="https://github.com/9rum/flatflow",
-    packages=find_packages(),
-    ext_modules=ext_modules,
+    packages=find_packages(exclude=("tests*",)),
     classifiers=[
-        "License :: OSI Approved :: Artistic License",
+        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: C++",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -74,8 +66,7 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     license="Apache-2.0",
-    cmdclass=cmdclass,
     package_data=package_data,
     install_requires=requirements,
-    python_requires=">=3.9",
+    python_requires=">=3.8",
 )
