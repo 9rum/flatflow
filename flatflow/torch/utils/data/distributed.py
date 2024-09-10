@@ -1,17 +1,12 @@
 # Adapted from https://github.com/pytorch/pytorch/blob/v2.4.0/torch/utils/data/distributed.py
 import math
 import os
-import shutil
-import subprocess
-import time
-from typing import Iterable, Iterator, Optional, TypeVar
+from typing import Iterator, Optional, TypeVar
 
 import grpc
 import numpy as np
 import torch
 import torch.distributed as dist
-from google.protobuf.empty_pb2 import Empty
-from sklearn.linear_model import LinearRegression
 from torch.utils.data import Sampler
 from collections.abc import Sequence
 
@@ -26,8 +21,8 @@ class DistributedSampler(Sampler[T_co]):
   def __init__(self, dataset: Dataset, global_batch_size: int, micro_batch_size: int, order: Optional[int] = 2,
                rank: Optional[int] = None, use_flat_shuffle: bool = True,
                seed: int = 0, master_addr: Optional[str] = None,
-               master_port: int = 50051, heterogeneous: bool = None,
-               hidden_size: int = False, sizes: Optional[Sequence[int]] = None) -> None:
+               master_port: int = 50051, heterogeneous: bool = True,
+               hidden_size: Optional[int] = False, sizes: Optional[Sequence[int]] = None) -> None:
     
     if num_replicas is None:
       if not dist.is_available():
@@ -41,6 +36,9 @@ class DistributedSampler(Sampler[T_co]):
       master_addr = os.getenv("MASTER_ADDR")
       if master_addr is None:
         raise ValueError("Invalid master address {}, either master address or MASTER_ADDR should be given".format(master_addr))
+    if order == 2:
+      if hidden_size != None:
+        raise ValueError("hidden_size should be None when order is 2")
     
     self.num_replicas = num_replicas
     self.dataset = dataset
