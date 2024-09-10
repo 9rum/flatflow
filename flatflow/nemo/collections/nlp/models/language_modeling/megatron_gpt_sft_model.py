@@ -1,4 +1,5 @@
-# Copyright (c) 2024, FlatFlow Authors
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
+# Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import itertools
 import json
 from functools import partial
@@ -47,6 +49,7 @@ try:
     )
 
     HAVE_APEX = True
+
 except (ImportError, ModuleNotFoundError):
     HAVE_APEX = False
 
@@ -57,9 +60,7 @@ try:
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):
-
     HAVE_MEGATRON_CORE = False
-
 
 __all__ = ['MegatronGPTSFTModel']
 
