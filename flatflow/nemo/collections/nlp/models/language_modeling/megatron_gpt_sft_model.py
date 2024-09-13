@@ -40,6 +40,9 @@ from omegaconf import DictConfig, ListConfig
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
+import flatflow
+from flatflow.megatron import FlatFlowMegatronDataset
+
 try:
     from apex.transformer.pipeline_parallel.utils import (
         _reconfigure_microbatch_calculator,
@@ -98,7 +101,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if hasattr(self, '_memory_profile_enabled'):
             self._memory_profile_start_step = self.cfg.memory_profile.get('start_step', 0)
             self._memory_profile_end_step = self.cfg.memory_profile.get('end_step', 0)
-
+        self.use_flatflow = cfg.get("use_flatflow", False)
         self.virtual_tokens = 0
         self.init_global_step = 0
 
@@ -266,7 +269,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         dataset_kwargs = {}
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
-            if self.cfg.data.get("chat", False):
+            if self.use_flatflow:
+                dataset_cls = FlatFlowMegatronDataset
+            elif self.cfg.data.get("chat", False):
                 dataset_cls = GPTSFTChatDataset
             elif packed_sequence:
                 dataset_cls = GPTSFTPackedDataset
@@ -321,7 +326,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             )
             datasets.append(dataset)
         if is_train:
-            if packed_sequence:
+            if self.use_flatflow or packed_sequence:
                 num_train_samples_after_blend = sum(len(dataset) for dataset in datasets)
             dataset = BlendableDataset(
                 datasets=datasets, weights=data_cfg.concat_sampling_probabilities, size=num_train_samples_after_blend
@@ -361,7 +366,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
         batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
         _, seq_length = batch['tokens'].shape
-        data_iter = get_iterator_k_split(batch, get_num_microbatches())
+        if self.use_flatflow:
+            split_size = self.cfg.data.train_ds.global_batch_size // get_num_microbatches()
+        else:
+            split_size = get_num_microbatches()
+        data_iter = get_iterator_k_split(batch, split_size)
 
         if log_token_counts:
             self.log('seq_length_padded', seq_length, prog_bar=True, batch_size=1)
@@ -382,7 +391,15 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.param_sync_func = param_sync_func
 
         fwd_bwd_function = get_forward_backward_func()
-
+        num_microbatches = 0
+        micro_batch_size = 0
+        if self.use_flatflow:
+            num_microbatches = self.cfg.data.train_ds.global_batch_size // get_num_microbatches()
+            micro_batch_size = 1
+        else:
+            num_microbatches = get_num_microbatches()
+            micro_batch_size = get_micro_batch_size()
+        assert num_microbatches > 0 and micro_batch_size > 0, "Invalid microbatch configuration"
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
@@ -852,14 +869,24 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             drop_last=data_cfg.drop_last,
             pad_samples_to_global_batch_size=not data_cfg.drop_last,
         )
-        return torch.utils.data.DataLoader(
-            dataset,
-            batch_sampler=batch_sampler,
-            collate_fn=collate_fn,
-            num_workers=data_cfg.num_workers,
-            pin_memory=data_cfg.pin_memory,
-            persistent_workers=True if data_cfg.num_workers > 0 else False,
-        )
+        if self.use_flatflow:
+            return flatflow.torch.utils.data.DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                collate_fn=collate_fn,
+                num_workers=data_cfg.num_workers,
+                pin_memory=data_cfg.pin_memory,
+                persistent_workers=True if data_cfg.num_workers > 0 else False,
+            )
+        else:
+            return torch.utils.data.DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                collate_fn=collate_fn,
+                num_workers=data_cfg.num_workers,
+                pin_memory=data_cfg.pin_memory,
+                persistent_workers=True if data_cfg.num_workers > 0 else False,
+            )
 
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
