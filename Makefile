@@ -4,13 +4,20 @@
 # LICENSE file in the root directory of this source tree.
 
 # This makefile does nothing but delegating the actual building to CMake.
-.PHONY: all build generate test clean
+CMAKE_BUILD_TYPE ?= Release
+CMAKE_CXX_STANDARD ?= 20
+FLATFLOW_BUILD_TESTS ?= OFF
+
+.PHONY: all generate test clean
 
 all:
-	@python3 -m build --wheel
-
-build:
-	@mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(CMAKE_LIBRARY_OUTPUT_DIRECTORY) -DFLATFLOW_BUILD_TESTS=$(FLATFLOW_BUILD_TESTS) && $(MAKE)
+	@mkdir -p build && \
+		cd build && \
+		cmake .. \
+		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
+		-DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) \
+		-DFLATFLOW_BUILD_TESTS=$(FLATFLOW_BUILD_TESTS) && \
+		$(MAKE)
 
 generate:
 	@./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
