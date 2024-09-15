@@ -31,7 +31,11 @@ target_link_libraries(
   PRIVATE BLAS::BLAS
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX
-  PRIVATE TBB::tbb)
+  PRIVATE OpenMP::OpenMP_CXX)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+  target_link_libraries(
+    scheduler_test
+    PRIVATE TBB::tbb)
+endif()
 gtest_add_tests(
   TARGET scheduler_test)

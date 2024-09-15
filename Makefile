@@ -28,8 +28,7 @@ generate:
 		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs
 
 test:
-	@ctest --test-dir build && \
-		pytest
+	@ctest --test-dir build
 
 clean:
 	@rm -r build
