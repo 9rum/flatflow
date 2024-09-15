@@ -101,7 +101,7 @@ ext_modules = [
         os.curdir,
         cmake_args=[
             "-DCMAKE_CXX_STANDARD=20",
-            "-DFLATFLOW_BUILD_TESTS=OFF",
+            "-DFLATFLOW_BUILD_TESTS=ON",
         ],
         py_limited_api=True,
     ),
