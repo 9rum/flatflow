@@ -15,14 +15,13 @@
 #ifndef FLATFLOW_ATEN_GENERATOR_H_
 #define FLATFLOW_ATEN_GENERATOR_H_
 
-#include <ATen/core/MT19937RNGEngine.h>
-
 #include <cstdint>
+#include <random>
 
 namespace flatflow {
 namespace aten {
 
-// An STL-compatible wrapper class for `at::Generator`.
+// An STL-compatible replacement for `at::Generator`.
 class Generator {
  public:
   using result_type = uint64_t;
@@ -35,7 +34,13 @@ class Generator {
   // Unlike `at::Generator`, this generator class provides copy and move
   // constructors and assignment operators to allow copy elision while
   // satisfying the `UniformRandomBitGenerator`.
-  explicit Generator(result_type seed = 5489) { engine_ = at::mt19937(seed); }
+  //
+  // Note that we use `std::mt19937` instead of using `at::mt19937` because
+  // `std::mt19937` turns out to be faster than the ATen counterpart when used
+  // with `std::shuffle`.
+  explicit Generator(result_type seed = 5489) {
+    engine_ = std::mt19937(static_cast<uint_fast32_t>(seed));
+  }
 
   explicit Generator(const Generator &other) = default;
 
@@ -64,7 +69,7 @@ class Generator {
   }
 
  protected:
-  at::mt19937 engine_;
+  std::mt19937 engine_;
 };
 
 }  // namespace aten

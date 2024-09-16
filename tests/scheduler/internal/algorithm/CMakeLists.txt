@@ -25,7 +25,6 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   algorithm_test
-  PRIVATE ${TORCH_LIBRARIES}
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
