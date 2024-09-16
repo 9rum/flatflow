@@ -12,53 +12,119 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
+import logging
 import os
 import subprocess
-import sys
+from collections.abc import Sequence
+from typing import Optional
 
-from setuptools import find_packages, setup
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
+
+
+class CMakeExtension(Extension):
+    def __init__(
+        self,
+        name: str,
+        cmake_lists_dir: str,
+        cmake_build_type: str = "Release",
+        cmake_generator: str = "Ninja",
+        cmake_args: Optional[Sequence[str]] = None,
+        **kwargs,
+    ) -> None:
+        Extension.__init__(self, name, sources=[], **kwargs)
+        self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
+        self.cmake_build_type = cmake_build_type
+        self.cmake_generator = cmake_generator
+        if cmake_args is None:
+            cmake_args = []
+        self.cmake_args = cmake_args
+
+
+class BuildExtension(build_ext):
+    def build_extension(self, ext: CMakeExtension) -> None:
+        if not os.path.exists(self.build_temp):
+            os.makedirs(self.build_temp, exist_ok=True)
+
+        outdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        args = [
+            "cmake",
+            ext.cmake_lists_dir,
+            "-G",
+            ext.cmake_generator,
+            f"-DCMAKE_BUILD_TYPE={ext.cmake_build_type}",
+            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={outdir}",
+            f"-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={self.build_temp}",
+            *ext.cmake_args,
+        ]
+        cmd = " ".join(args)
+        logging.info(f"-- Configuring: {cmd}")
+        subprocess.check_call(args, cwd=self.build_temp)
+
+        try:
+            num_jobs = len(os.sched_getaffinity(0))
+        except AttributeError:
+            num_jobs = os.cpu_count()
+
+        args = [
+            "cmake",
+            "--build",
+            os.curdir,
+            "--config",
+            ext.cmake_build_type,
+            f"-j{num_jobs}",
+        ]
+        cmd = " ".join(args)
+        logging.info(f"-- Building: {cmd}")
+        subprocess.check_call(args, cwd=self.build_temp)
+
+
+def get_flatflow_version() -> str:
+    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), "flatflow", "__init__.py")
+    tree = ast.parse(open(filename).read(), filename)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
+            for target in node.targets:
+                if isinstance(target, ast.Name) and target.id == "__version__":
+                    return str(node.value.s)
+    raise RuntimeError("Unable to find version")
+
 
 cwd = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(cwd)
-
-from flatflow import __version__  # noqa: E402
-
 readme = open(os.path.join(cwd, "README.md")).read().strip()
 requirements = open(os.path.join(cwd, "requirements.txt")).read().strip().split("\n")
 
-CMAKE_BUILD_TYPE = "Release"
-CMAKE_CXX_STANDARD = 20
-CMAKE_LIBRARY_OUTPUT_DIRECTORY = os.path.join(cwd, "flatflow")
-FLATFLOW_BUILD_TESTS = "OFF"
+ext_modules = [
+    CMakeExtension(
+        "flatflow._C",
+        os.curdir,
+        cmake_args=[
+            "-DCMAKE_CXX_STANDARD=20",
+            "-DFLATFLOW_BUILD_TESTS=ON",
+        ],
+        py_limited_api=True,
+    ),
+]
 
-subprocess.check_call(
-    [
-        "make",
-        "build",
-        f"CMAKE_BUILD_TYPE={CMAKE_BUILD_TYPE}",
-        f"CMAKE_CXX_STANDARD={CMAKE_CXX_STANDARD}",
-        f"CMAKE_LIBRARY_OUTPUT_DIRECTORY={CMAKE_LIBRARY_OUTPUT_DIRECTORY}",
-        f"FLATFLOW_BUILD_TESTS={FLATFLOW_BUILD_TESTS}",
-    ],
-    cwd=cwd,
-)
-
-package_data = {"flatflow": ["*.so"]}
+cmdclass = {
+    "build_ext": BuildExtension,
+}
 
 setup(
     name="flatflow",
-    version=__version__,
+    version=get_flatflow_version(),
     description="A learned system for parallel training of neural networks",
     long_description=readme,
     long_description_content_type="text/markdown",
     author="The FlatFlow Authors",
     url="https://github.com/9rum/flatflow",
     packages=find_packages(exclude=("tests*",)),
+    ext_modules=ext_modules,
     classifiers=[
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: C++",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -66,7 +132,7 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     license="Apache-2.0",
-    package_data=package_data,
+    cmdclass=cmdclass,
     install_requires=requirements,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )
