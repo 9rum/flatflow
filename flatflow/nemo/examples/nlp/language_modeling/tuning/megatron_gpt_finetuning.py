@@ -13,9 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
-import torch
 import torch.multiprocessing as mp
 from omegaconf.omegaconf import OmegaConf
 
@@ -78,21 +75,7 @@ def main(cfg) -> None:
     else:
         logging.info(f"Running full finetuning since no peft scheme is given.\n{model.summarize()}")
 
-    gpu_rank = torch.distributed.get_rank()
-    print(f"[{gpu_rank=}] Before the training. {torch.cuda.max_memory_allocated()=:,} {torch.cuda.max_memory_reserved()=:,}")
-    start_time = time.monotonic()
-
     trainer.fit(model)
-    end_time = time.monotonic()
-    time_elapsed = end_time - start_time
-    num_total_samples = 15000
-    print(f"[{gpu_rank=}] After the training.  {torch.cuda.max_memory_allocated()=:,} {torch.cuda.max_memory_reserved()=:,}")
-
-    print(f"{'Number of data samples':>30}: {num_total_samples}\n"
-            f"{'Time':>30}: {time_elapsed}\n"
-            f"{'Throughput(samples/sec)':>30}: {num_total_samples/time_elapsed}")
-    print(f"Training is finished.")
-
 
 
 if __name__ == '__main__':
