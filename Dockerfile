@@ -1,28 +1,29 @@
-FROM ubuntu:22.04
+FROM quay.io/pypa/manylinux_2_28_x86_64
 
-ARG PYTHON_VERSION=3.10
 ARG GRPC_VERSION=1.66.0
 
-ENV DEBIAN_FRONTEND=noninteractive
+RUN echo -e "[oneAPI]\n\
+name=Intel® oneAPI repository\n\
+baseurl=https://yum.repos.intel.com/oneapi\n\
+enabled=1\n\
+gpgcheck=1\n\
+repo_gpgcheck=1\n\
+gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB" > /etc/yum.repos.d/oneAPI.repo
 
-RUN apt update && \
-    apt upgrade -y && \
-    apt install -y intel-mkl build-essential autoconf libtool pkg-config cmake git python${PYTHON_VERSION} python3-pip python${PYTHON_VERSION}-venv && \
-    apt autopurge -y && \
-    apt autoremove -y && \
-    apt autoclean -y
-
-RUN python${PYTHON_VERSION} -m pip install --upgrade pip && \
-    python${PYTHON_VERSION} -m pip install build twine auditwheel patchelf && \
-    python${PYTHON_VERSION} -m pip cache purge
+RUN rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+    dnf install -y intel-basekit && \
+    dnf autoremove && \
+    dnf clean all && \
+    ln -s /opt/intel/oneapi/mkl/latest/include/mkl_cblas.h /usr/include/cblas.h && \
+    source /opt/intel/oneapi/setvars.sh
 
 WORKDIR /workspace
 
 RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
-    cd grpc && \
+    pushd grpc && \
     git submodule update --init --recursive && \
     mkdir -p cmake/build && \
-    cd cmake/build && \
+    pushd cmake/build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
           -DgRPC_INSTALL=ON \
           -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
@@ -32,9 +33,6 @@ RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
           -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF ../.. && \
     make -j4 && \
     make install && \
-    cd /workspace && \
+    popd && \
+    popd && \
     rm -rf grpc
-
-WORKDIR /workspace/flatflow
-COPY . .
-RUN python${PYTHON_VERSION} -m build -w

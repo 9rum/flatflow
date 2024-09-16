@@ -27,7 +27,7 @@ class CMakeExtension(Extension):
     def __init__(
         self,
         name: str,
-        cmake_lists_dir: str,
+        cmake_lists_dir: str = os.curdir,
         cmake_build_type: str = "Release",
         cmake_generator: str = "Ninja",
         cmake_args: Optional[Sequence[str]] = None,
@@ -80,8 +80,11 @@ class BuildExtension(build_ext):
         subprocess.check_call(args, cwd=self.build_temp)
 
 
+cwd = os.path.dirname(__file__)
+
+
 def get_flatflow_version() -> str:
-    filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), "flatflow", "__init__.py")
+    filename = os.path.join(cwd, "flatflow", "__init__.py")
     tree = ast.parse(open(filename).read(), filename)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
@@ -91,14 +94,12 @@ def get_flatflow_version() -> str:
     raise RuntimeError("Unable to find version")
 
 
-cwd = os.path.abspath(os.path.dirname(__file__))
 readme = open(os.path.join(cwd, "README.md")).read().strip()
 requirements = open(os.path.join(cwd, "requirements.txt")).read().strip().split("\n")
 
 ext_modules = [
     CMakeExtension(
         "flatflow._C",
-        os.curdir,
         cmake_args=[
             "-DCMAKE_CXX_STANDARD=20",
             "-DFLATFLOW_BUILD_TESTS=ON",
