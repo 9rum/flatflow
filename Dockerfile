@@ -1,5 +1,6 @@
 FROM quay.io/pypa/manylinux_2_28_x86_64
 
+# This should be consistent with the gRPC version in requirements.txt.
 ARG GRPC_VERSION=1.66.0
 
 RUN echo -e "[oneAPI]\n\
@@ -14,8 +15,7 @@ RUN rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW
     dnf install -y intel-basekit && \
     dnf autoremove && \
     dnf clean all && \
-    ln -s /opt/intel/oneapi/mkl/latest/include/mkl_cblas.h /usr/include/cblas.h && \
-    source /opt/intel/oneapi/setvars.sh
+    ln -s /opt/intel/oneapi/mkl/latest/include/mkl_cblas.h /usr/include/cblas.h
 
 WORKDIR /workspace
 
@@ -36,3 +36,19 @@ RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
     popd && \
     popd && \
     rm -rf grpc
+
+WORKDIR /workspace/flatflow
+
+COPY . .
+
+RUN source /opt/intel/oneapi/setvars.sh && \
+    for PYTHON_VERSION in 3.9 3.10 3.11 3.12; \
+    do \
+      python$PYTHON_VERSION -m build -w && \
+      rm -rf build flatflow.egg-info; \
+    done && \
+    auditwheel repair dist/*
+
+# To upload to PyPI, run the commands commented out below.
+# RUN pipx install twine
+# RUN twine upload wheelhouse/*

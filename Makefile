@@ -20,12 +20,18 @@ all:
 		$(MAKE)
 
 generate:
-	@./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
+	@mkdir -p tmp/rpc && \
+		mv flatflow/__init__.py tmp && \
+		mv flatflow/rpc/__init__.py tmp/rpc && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix flatflow/rpc/communicator.fbs && \
 		./build/third_party/flatbuffers/flatc -p flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -p --grpc -I . flatflow/rpc/communicator.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o tests/data tests/data/dataset_test.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs
+		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs && \
+		mv tmp/__init__.py flatflow && \
+		mv tmp/rpc/__init__.py flatflow/rpc && \
+		rm -r tmp
 
 test:
 	@ctest --test-dir build

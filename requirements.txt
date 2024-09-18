@@ -1,4 +1,3 @@
 flatbuffers==24.3.25
 grpcio==1.66.0
 numpy
-torch>=2.3.0
