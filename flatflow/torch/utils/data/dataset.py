@@ -4,11 +4,11 @@
 # LICENSE file in the root directory of this source tree.
 
 import bisect
-import warnings
 from collections.abc import Iterable, Sequence
 from typing import TypeVar
 
 import torch
+from typing_extensions import deprecated
 
 from flatflow import sys
 
@@ -93,11 +93,9 @@ class ConcatDataset(Dataset[T_co]):
     def __init__(self, datasets: Iterable[torch.utils.data.Dataset]) -> None:
         super().__init__()
         self.datasets = list(datasets)
-        assert 0 < len(self.datasets), "datasets should not be an empty iterable."
+        assert 0 < len(self.datasets), "datasets should not be an empty iterable"
         for d in self.datasets:
-            assert not isinstance(
-                d, torch.utils.data.IterableDataset
-            ), "ConcatDataset does not support IterableDataset."
+            assert not isinstance(d, torch.utils.data.IterableDataset), "ConcatDataset does not support IterableDataset"
         self.cumulative_sizes = self.cumsum(self.datasets)
         self._cumulative_sizes = self._cumsum(self.datasets)
 
@@ -107,7 +105,7 @@ class ConcatDataset(Dataset[T_co]):
     def __getitem__(self, idx: int) -> T_co:
         if idx < 0:
             if len(self) + idx < 0:
-                raise ValueError("absolute value of index should not exceed data set length.")
+                raise ValueError("absolute value of index should not exceed dataset length")
             idx += len(self)
         dataset_idx = bisect.bisect(self.cumulative_sizes, idx)
         sample_idx = idx - self._cumulative_sizes[dataset_idx]
@@ -116,15 +114,15 @@ class ConcatDataset(Dataset[T_co]):
     def __sizeof__(self, idx: int) -> int:
         if idx < 0:
             if len(self) + idx < 0:
-                raise ValueError("absolute value of index should not exceed data set length.")
+                raise ValueError("absolute value of index should not exceed dataset length")
             idx += len(self)
         dataset_idx = bisect.bisect(self.cumulative_sizes, idx)
         sample_idx = idx - self._cumulative_sizes[dataset_idx]
         return sys.getsizeof(self.datasets[dataset_idx], sample_idx)
 
     @property
+    @deprecated("`cummulative_sizes` attribute is renamed to `cumulative_sizes`", category=FutureWarning)
     def cummulative_sizes(self) -> Sequence[int]:
-        warnings.warn("cummulative_sizes attribute is renamed to cumulative_sizes.", DeprecationWarning, 2)
         return self.cumulative_sizes
 
 
@@ -145,12 +143,12 @@ class ChainDataset(IterableDataset):
 
     def __iter__(self):
         for d in self.datasets:
-            assert isinstance(d, torch.utils.data.IterableDataset), "ChainDataset only supports IterableDataset."
+            assert isinstance(d, torch.utils.data.IterableDataset), "ChainDataset only supports IterableDataset"
             yield from d
 
     def __len__(self) -> int:
         total = 0
         for d in self.datasets:
-            assert isinstance(d, torch.utils.data.IterableDataset), "ChainDataset only supports IterableDataset."
+            assert isinstance(d, torch.utils.data.IterableDataset), "ChainDataset only supports IterableDataset"
             total += len(d)  # type: ignore[arg-type]
         return total
