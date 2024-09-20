@@ -1,3 +1,4 @@
+# Copyright 2024 The FlatFlow Authors
 # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
