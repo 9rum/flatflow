@@ -1,3 +1,4 @@
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/examples/nlp/language_modeling/tuning/megatron_gpt_finetuning.py
 # Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
 #
