@@ -12,6 +12,7 @@ repo_gpgcheck=1\n\
 gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB" > /etc/yum.repos.d/oneAPI.repo
 
 RUN rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+    dnf update -y && \
     dnf install -y intel-basekit && \
     dnf autoremove && \
     dnf clean all && \
@@ -50,5 +51,5 @@ RUN source /opt/intel/oneapi/setvars.sh && \
     auditwheel repair dist/*
 
 # To upload to PyPI, run the commands commented out below.
-# RUN pipx install twine
-# RUN twine upload wheelhouse/*
+# RUN pipx install twine && \
+#     twine upload wheelhouse/*
