@@ -107,6 +107,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             self._memory_profile_end_step = self.cfg.memory_profile.get('end_step', 0)
 
         self.use_flatflow = cfg.get("use_flatflow", False)
+        self.num_batch_per_device = cfg.get("num_batch_per_device", 0)
         self.virtual_tokens = 0
         self.init_global_step = 0
 
@@ -399,7 +400,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         num_microbatches = 0
         micro_batch_size = 0
         if self.use_flatflow:
-            num_microbatches = self.cfg.data.train_ds.global_batch_size // get_num_microbatches()
+            num_microbatches = self.num_batch_per_device
             micro_batch_size = 1
         else:
             num_microbatches = get_num_microbatches()
@@ -409,7 +410,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
             model=self.model,
-            num_microbatches=num_microbatches, # should be 1 for flatflow
+            num_microbatches=num_microbatches,
             forward_only=forward_only,
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
