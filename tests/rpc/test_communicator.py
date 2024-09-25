@@ -38,7 +38,7 @@ def lognormal_n(mean: float, sigma: float, n: int, seed: int) -> Sequence[int]:
 
 def launch(
     port: int,
-    data_parallel_size: int,
+    world_size: int,
     global_batch_size: int,
     micro_batch_size: int,
     order: int,
@@ -50,7 +50,7 @@ def launch(
     num_samples: int,
 ) -> None:
     if rank == 0:
-        run(port, data_parallel_size)
+        run(port, world_size)
 
     sizes = None
     if rank == 0:
@@ -63,17 +63,17 @@ def launch(
         global_batch_size, micro_batch_size, order, rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes
     )
 
-    for epoch in range(data_parallel_size):
+    for epoch in range(world_size):
         response = client.Broadcast(epoch)
         assert response.Converged()
-        assert response.IndicesLength() == num_samples // data_parallel_size
+        assert response.IndicesLength() == num_samples // world_size
 
     if rank == 0:
         client.Finalize()
 
 
 @pytest.mark.parametrize("port", [50051])
-@pytest.mark.parametrize("data_parallel_size", [8])
+@pytest.mark.parametrize("world_size", [8])
 @pytest.mark.parametrize("global_batch_size", [128])
 @pytest.mark.parametrize("micro_batch_size", [4])
 @pytest.mark.parametrize("order", [2])
@@ -84,7 +84,7 @@ def launch(
 @pytest.mark.parametrize("num_samples", [65536])
 def test_communicator(
     port,
-    data_parallel_size,
+    world_size,
     global_batch_size,
     micro_batch_size,
     order,
@@ -94,12 +94,12 @@ def test_communicator(
     hidden_size,
     num_samples,
 ):
-    executor = ThreadPoolExecutor(max_workers=data_parallel_size)
+    executor = ThreadPoolExecutor(max_workers=world_size)
     futures = [
         executor.submit(
             launch,
             port,
-            data_parallel_size,
+            world_size,
             global_batch_size,
             micro_batch_size,
             order,
@@ -110,7 +110,7 @@ def test_communicator(
             hidden_size,
             num_samples,
         )
-        for rank in range(data_parallel_size)
+        for rank in range(world_size)
     ]
     for future in futures:
         future.result()

@@ -67,43 +67,41 @@ class Scheduler {
   // Note that unlike `flatflow::data::Dataset<>`, the constructors of scheduler
   // are not specified as `explicit` since an implicit conversion from scheduler
   // to `std::variant` is required.
-  Scheduler(const flatbuffers::Vector<key_type> *sizes,
-            mapped_type data_parallel_size, mapped_type global_batch_size,
-            mapped_type micro_batch_size, mapped_type seed,
-            bool use_flat_shuffle)
-      : data_parallel_size_(data_parallel_size),
+  Scheduler(const flatbuffers::Vector<key_type> *sizes, mapped_type world_size,
+            mapped_type global_batch_size, mapped_type micro_batch_size,
+            mapped_type seed, bool use_flat_shuffle)
+      : world_size_(world_size),
         global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
         seed_(seed),
         use_flat_shuffle_(use_flat_shuffle) {
-    assert(data_parallel_size != 0);
+    assert(world_size != 0);
     assert(global_batch_size != 0);
-    assert(global_batch_size % data_parallel_size == 0);
+    assert(global_batch_size % world_size == 0);
     assert(micro_batch_size != 0);
-    assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
+    assert(global_batch_size / world_size % micro_batch_size == 0);
     assert(sizes != nullptr);
 
     const auto num_samples = static_cast<mapped_type>(sizes->size());
     assert(num_samples != 0);
-    assert(num_samples % data_parallel_size == 0);
+    assert(num_samples % world_size == 0);
 
     LOG(INFO) << absl::StrFormat(
         "Initializing scheduler with the following arguments:\n"
-        "  data_parallel_size: %u\n"
+        "  world_size: %u\n"
         "  global_batch_size: %u\n"
         "  micro_batch_size: %u\n"
         "  order: %d\n"
         "  seed: %u\n"
         "  heterogeneous: %v\n"
         "  use_flat_shuffle: %v",
-        data_parallel_size, global_batch_size, micro_batch_size, 1, seed, false,
+        world_size, global_batch_size, micro_batch_size, 1, seed, false,
         use_flat_shuffle);
 
     // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
     // any branch instructions.
     num_micro_batches_ =
-        ((num_samples / data_parallel_size - 1) / micro_batch_size + 1) *
-        data_parallel_size;
+        ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
 
     // The last micro-batch size must be calculated since the total number of
     // data samples is guaranteed to be a multiple of data parallel size, but
@@ -112,7 +110,7 @@ class Scheduler {
     // (x - 1) % y + 1 is always equal to x % y == 0 ? y : x % y without any
     // branch instructions.
     last_micro_batch_size_ =
-        (num_samples / data_parallel_size - 1) % micro_batch_size + 1;
+        (num_samples / world_size - 1) % micro_batch_size + 1;
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -154,7 +152,7 @@ class Scheduler {
           internal::algorithm::extract(internal::algorithm::reshape(
               internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
                                            use_flat_shuffle_),
-              data_parallel_size_, global_batch_size_));
+              world_size_, global_batch_size_));
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
@@ -162,15 +160,15 @@ class Scheduler {
     }
 
     const auto items = dataset_.take(static_cast<std::size_t>(
-        micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
+        micro_batch_size_ * (num_micro_batches_ - world_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
-        items, num_micro_batches_ - data_parallel_size_,
+        items, num_micro_batches_ - world_size_,
         flatflow::data::internal::OverflowSafeCast<key_type>);
 
     const auto last_items = dataset_.take(
-        static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
+        static_cast<std::size_t>(last_micro_batch_size_ * world_size_));
     const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
-        last_items, data_parallel_size_,
+        last_items, world_size_,
         flatflow::data::internal::OverflowSafeCast<key_type>);
 
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
@@ -180,13 +178,13 @@ class Scheduler {
         internal::algorithm::extract(internal::algorithm::reshape(
             internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
                                          use_flat_shuffle_),
-            data_parallel_size_, global_batch_size_));
+            world_size_, global_batch_size_));
 
     const auto [last_indices, last_sizes] =
         internal::algorithm::extract(internal::algorithm::reshape(
             internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
                                          use_flat_shuffle_),
-            data_parallel_size_, global_batch_size_));
+            world_size_, global_batch_size_));
 
     internal::algorithm::concat(indices, last_indices);
 
@@ -234,13 +232,13 @@ class Scheduler {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  mapped_type data_parallel_size_;
   mapped_type epoch_;
   mapped_type global_batch_size_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
+  mapped_type world_size_;
   bool use_flat_shuffle_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };
@@ -272,30 +270,29 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   //
   // One API difference is that this scheduler takes `hidden_size` as an
   // additional argument to estimate the model's complexity upon construction.
-  Scheduler(const flatbuffers::Vector<key_type> *sizes,
-            mapped_type data_parallel_size, mapped_type global_batch_size,
-            mapped_type micro_batch_size, mapped_type hidden_size,
-            mapped_type seed, bool use_flat_shuffle)
-      : data_parallel_size_(data_parallel_size),
+  Scheduler(const flatbuffers::Vector<key_type> *sizes, mapped_type world_size,
+            mapped_type global_batch_size, mapped_type micro_batch_size,
+            mapped_type hidden_size, mapped_type seed, bool use_flat_shuffle)
+      : world_size_(world_size),
         global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
         seed_(seed),
         use_flat_shuffle_(use_flat_shuffle) {
-    assert(data_parallel_size != 0);
+    assert(world_size != 0);
     assert(global_batch_size != 0);
-    assert(global_batch_size % data_parallel_size == 0);
+    assert(global_batch_size % world_size == 0);
     assert(micro_batch_size != 0);
-    assert(global_batch_size / data_parallel_size % micro_batch_size == 0);
+    assert(global_batch_size / world_size % micro_batch_size == 0);
     assert(hidden_size != 0);
     assert(sizes != nullptr);
 
     const auto num_samples = static_cast<mapped_type>(sizes->size());
     assert(num_samples != 0);
-    assert(num_samples % data_parallel_size == 0);
+    assert(num_samples % world_size == 0);
 
     LOG(INFO) << absl::StrFormat(
         "Initializing scheduler with the following arguments:\n"
-        "  data_parallel_size: %u\n"
+        "  world_size: %u\n"
         "  global_batch_size: %u\n"
         "  hidden_size: %u\n"
         "  micro_batch_size: %u\n"
@@ -303,15 +300,14 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
         "  seed: %u\n"
         "  heterogeneous: %v\n"
         "  use_flat_shuffle: %v",
-        data_parallel_size, global_batch_size, hidden_size, micro_batch_size, 2,
-        seed, false, use_flat_shuffle);
+        world_size, global_batch_size, hidden_size, micro_batch_size, 2, seed,
+        false, use_flat_shuffle);
 
     num_micro_batches_ =
-        ((num_samples / data_parallel_size - 1) / micro_batch_size + 1) *
-        data_parallel_size;
+        ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
 
     last_micro_batch_size_ =
-        (num_samples / data_parallel_size - 1) % micro_batch_size + 1;
+        (num_samples / world_size - 1) % micro_batch_size + 1;
 
     regressor_ = internal::algorithm::PassiveAggressiveRegressor</*Order=*/2>(
         hidden_size << 3);
@@ -356,7 +352,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
           internal::algorithm::extract(internal::algorithm::reshape(
               internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
                                            use_flat_shuffle_),
-              data_parallel_size_, global_batch_size_));
+              world_size_, global_batch_size_));
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
@@ -364,14 +360,14 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     }
 
     const auto items = dataset_.take(static_cast<std::size_t>(
-        micro_batch_size_ * (num_micro_batches_ - data_parallel_size_)));
+        micro_batch_size_ * (num_micro_batches_ - world_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
-        items, num_micro_batches_ - data_parallel_size_, transform);
+        items, num_micro_batches_ - world_size_, transform);
 
     const auto last_items = dataset_.take(
-        static_cast<std::size_t>(last_micro_batch_size_ * data_parallel_size_));
-    const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
-        last_items, data_parallel_size_, transform);
+        static_cast<std::size_t>(last_micro_batch_size_ * world_size_));
+    const auto last_micro_batches =
+        internal::algorithm::KarmarkarKarp(last_items, world_size_, transform);
 
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
     now = omp_get_wtime();
@@ -380,13 +376,13 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
         internal::algorithm::extract(internal::algorithm::reshape(
             internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
                                          use_flat_shuffle_),
-            data_parallel_size_, global_batch_size_));
+            world_size_, global_batch_size_));
 
     const auto [last_indices, last_sizes] =
         internal::algorithm::extract(internal::algorithm::reshape(
             internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
                                          use_flat_shuffle_),
-            data_parallel_size_, global_batch_size_));
+            world_size_, global_batch_size_));
 
     internal::algorithm::concat(indices, last_indices);
 
@@ -434,13 +430,13 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   inline void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
-  mapped_type data_parallel_size_;
   mapped_type epoch_;
   mapped_type global_batch_size_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
+  mapped_type world_size_;
   bool use_flat_shuffle_;
   std::vector<std::vector<key_type>> sizes_;
   std::vector<double> costs_;

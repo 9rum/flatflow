@@ -22,8 +22,8 @@
 namespace {
 
 TEST(ExtractTest, HandleRegularMatrices) {
-  constexpr std::size_t kDataParallelSize = 4;
   constexpr std::size_t kNumSamples = 32;
+  constexpr std::size_t kWorldSize = 4;
 
   const auto items = std::vector<std::vector<std::pair<uint16_t, uint64_t>>>(
       {{{0, 0},   {1, 1},   {2, 2},   {3, 3},   {4, 4},   {5, 5},   {6, 6},
@@ -51,10 +51,10 @@ TEST(ExtractTest, HandleRegularMatrices) {
   const auto [indices, sizes] =
       flatflow::scheduler::internal::algorithm::extract(items);
 
-  EXPECT_EQ(indices.size(), kDataParallelSize);
-  EXPECT_EQ(sizes.size(), kDataParallelSize);
+  EXPECT_EQ(indices.size(), kWorldSize);
+  EXPECT_EQ(sizes.size(), kWorldSize);
 
-  for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
+  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
     EXPECT_EQ(indices[rank].size(), kNumSamples);
     EXPECT_EQ(sizes[rank].size(), kNumSamples);
 

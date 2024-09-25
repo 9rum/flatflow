@@ -30,11 +30,11 @@ namespace algorithm {
 template <typename T>
 inline void concat(std::vector<std::vector<T>> &lhs,
                    const std::vector<std::vector<T>> &rhs) {
-  const auto data_parallel_size = lhs.size();
-  assert(data_parallel_size == rhs.size());
+  const auto world_size = lhs.size();
+  assert(world_size == rhs.size());
 
   #pragma omp parallel for
-  for (std::size_t rank = 0; rank < data_parallel_size; ++rank) {
+  for (std::size_t rank = 0; rank < world_size; ++rank) {
     lhs[rank].reserve(lhs[rank].size() + rhs[rank].size());
     lhs[rank].insert(lhs[rank].cend(),
                      std::make_move_iterator(rhs[rank].begin()),

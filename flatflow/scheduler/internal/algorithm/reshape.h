@@ -38,20 +38,20 @@ template <typename Index, typename Size>
            flatflow::data::internal::Unsigned<Size>)
 std::vector<std::vector<std::pair<Size, Index>>> reshape(
     const std::vector<std::vector<std::pair<Size, Index>>> &micro_batches,
-    Index data_parallel_size, Index global_batch_size) {
-  const auto _data_parallel_size = static_cast<std::size_t>(data_parallel_size);
+    Index world_size, Index global_batch_size) {
+  const auto _world_size = static_cast<std::size_t>(world_size);
   const auto _global_batch_size = static_cast<std::size_t>(global_batch_size);
-  assert(_data_parallel_size != 0);
+  assert(_world_size != 0);
   assert(_global_batch_size != 0);
-  assert(_global_batch_size % _data_parallel_size == 0);
+  assert(_global_batch_size % _world_size == 0);
 
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
-  assert(num_micro_batches % _data_parallel_size == 0);
+  assert(num_micro_batches % _world_size == 0);
 
   const auto micro_batch_size = micro_batches.front().size();
   assert(micro_batch_size != 0);
-  assert(_global_batch_size / _data_parallel_size % micro_batch_size == 0);
+  assert(_global_batch_size / _world_size % micro_batch_size == 0);
 
   // To minimize both computation stalls across pipeline stages and
   // synchronization latency between pipelines, we distribute the shuffled
@@ -70,18 +70,15 @@ std::vector<std::vector<std::pair<Size, Index>>> reshape(
   // synchronization latency occurs only for each batch.
   const auto last_global_batch_size =
       (micro_batch_size * num_micro_batches - 1) % _global_batch_size + 1;
-  const auto stride =
-      _global_batch_size / _data_parallel_size / micro_batch_size;
+  const auto stride = _global_batch_size / _world_size / micro_batch_size;
   const auto last_stride =
-      last_global_batch_size / _data_parallel_size / micro_batch_size;
-  const auto last_batch_offset = num_micro_batches / stride /
-                                 _data_parallel_size * stride *
-                                 _data_parallel_size;
-  const auto num_samples =
-      num_micro_batches / _data_parallel_size * micro_batch_size;
+      last_global_batch_size / _world_size / micro_batch_size;
+  const auto last_batch_offset =
+      num_micro_batches / stride / _world_size * stride * _world_size;
+  const auto num_samples = num_micro_batches / _world_size * micro_batch_size;
 
   auto reshaped = std::vector<std::vector<std::pair<Size, Index>>>();
-  reshaped.reserve(_data_parallel_size);
+  reshaped.reserve(_world_size);
 
   while (reshaped.size() < reshaped.capacity()) {
     reshaped.emplace_back(
@@ -93,17 +90,17 @@ std::vector<std::vector<std::pair<Size, Index>>> reshape(
     const auto &micro_batch = micro_batches[offset];
 
     if (offset < last_batch_offset) {
-      const auto rank = offset / stride % _data_parallel_size;
+      const auto rank = offset / stride % _world_size;
       const auto index =
-          (offset / stride / _data_parallel_size * stride + offset % stride) *
+          (offset / stride / _world_size * stride + offset % stride) *
           micro_batch_size;
       std::move(micro_batch.cbegin(), micro_batch.cend(),
                 std::next(reshaped[rank].begin(),
                           static_cast<std::ptrdiff_t>(index)));
     } else {
       const auto rank =
-          (offset - last_batch_offset) / last_stride % _data_parallel_size;
-      const auto index = (last_batch_offset / _data_parallel_size +
+          (offset - last_batch_offset) / last_stride % _world_size;
+      const auto index = (last_batch_offset / _world_size +
                           (offset - last_batch_offset) % last_stride) *
                          micro_batch_size;
       std::move(micro_batch.cbegin(), micro_batch.cend(),
