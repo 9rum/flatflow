@@ -1,24 +1,31 @@
 # Adapted from https://github.com/pytorch/pytorch/blob/v2.4.0/torch/utils/data/distributed.py
-import math
+# Copyright 2024 The FlatFlow Authors.
+# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import os
-from typing import Iterator, Optional, TypeVar
+from typing import Optional, TypeVar
 
 import grpc
-import numpy as np
-import torch
-import torch.distributed as dist
-from torch.utils.data import Sampler
-from collections.abc import Sequence
+from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_sampler import BaseMegatronBatchSampler
 
 import flatflow
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset
 
-__all__ = ["DistributedSampler"]
-
 T_co = TypeVar('T_co', covariant=True)
 
-class DistributedSampler(Sampler[T_co]):
+class DistributedSampler(BaseMegatronBatchSampler):
   r"""Sampler that restricts data loading to a subset of the dataset.
 
   It is especially useful in conjunction with
@@ -52,94 +59,93 @@ class DistributedSampler(Sampler[T_co]):
       order (int, optional): Indicates model complexity. (CNN: 1, transformer: 2)
       use_flat_shuffle (bool, optional): If ``True``, then the sampler will shuffle in inter-range.
           This will enable faster training.
-      master_addr (str, optional): Address of the master node (rank 0).
-          If rendezvous protocol is enabled using ``torchrun``, the sampler automatically gets the address
-          from the environment variable.
-      master_port (int, optional): Port on the master node (rank 0) to be used for initializing
+      port (int, optional): Port on the master node (rank 0) to be used for initializing
           the communicator server. (default: ``50051``)
       heterogeneous (str, optional): Indicates whether cluster is heterogeneous or not.
           Currently, only False is supported.
       hidden_size (bool, optional): Indicates the hidden dimension size of model.
           This is given only when order is 2.
-          
+
   .. warning::
       In distributed mode, calling the :meth:`set_epoch` method at
       the beginning of each epoch **before** creating the :class:`DataLoader` iterator
       is necessary to make scheduling work properly across multiple epochs.
   """
-  def __init__(self, dataset: Dataset, global_batch_size: int, micro_batch_size: int, 
-               num_replicas: Optional[int] = None, rank: Optional[int] = None, shuffle: bool = True, 
-               seed: int = 0, drop_last: bool = False, order: Optional[int] = 2, use_flat_shuffle: bool = True,
-               master_addr: Optional[str] = None, master_port: int = 50051, heterogeneous: bool = False,
-               hidden_size: Optional[int] = False) -> None:
-    
-    if len(dataset) <= 0:
-      raise ValueError(f"Dataset must be greater than 0, but {len(dataset)}")
-    if micro_batch_size <= 0:
-        raise RuntimeError(f"micro_batch_size size must be greater than 0, but {micro_batch_size}")
-    if data_parallel_size <= 0:
-        raise RuntimeError(f"data parallel size must be greater than 0, but {data_parallel_size}")
-    if num_replicas is None:
-      if not dist.is_available():
-        raise RuntimeError("Requires distributed package to be available")
-      num_replicas = dist.get_world_size()
-    if rank is None:
-      if not dist.is_available():
-        raise RuntimeError("Requires distributed package to be available")
-      rank = dist.get_rank()
-    if master_addr is None:
-      master_addr = os.getenv("MASTER_ADDR")
-      if master_addr is None:
-        raise ValueError("Invalid master address {}, either master address or MASTER_ADDR should be given".format(master_addr))
-    if order == 2:
-      if hidden_size == None:
-        raise ValueError("hidden_size should be assigned")
+  def __init__(self,
+        dataset: Dataset,
+        total_samples: int,
+        consumed_samples: int,
+        micro_batch_size: int,
+        global_batch_size: int,
+        data_parallel_rank: int,
+        data_parallel_size: int,
+        drop_last: bool,
+        pad_samples_to_global_batch_size=False,
+        order: Optional[int] = 2,
+        use_flat_shuffle: bool = True,
+        seed: Optional[int] = 0,
+        heterogeneous: bool = False,
+        hidden_size: Optional[int] = False,
+        port: int = 50051,
+        ) -> None:
 
-    self.num_replicas = num_replicas
+    super().__init__(
+        total_samples=total_samples,
+        consumed_samples=consumed_samples,
+        micro_batch_size=micro_batch_size,
+        data_parallel_rank=data_parallel_rank,
+        data_parallel_size=data_parallel_size,
+        drop_last=drop_last,
+        global_batch_size=global_batch_size,
+        pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
+    )
+    self.order = order
+    self.use_flat_shuffle = use_flat_shuffle
     self.dataset = dataset
-    self.rank = rank
-    self.map = list(range(len(self.dataset)))  # type: ignore[arg-type]
-    self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)
-    
-    if self.rank == 0:
-      data_parallel_size = torch.distributed.get_world_size()
-      run(master_port, data_parallel_size)
-    
-    addr = os.getenv("MASTER_ADDR", master_addr)
-    channel = grpc.insecure_channel(f"{addr}:{master_port}")
-    self.stub = CommunicatorClient(channel)
+    self.rank = data_parallel_rank
+    self.epoch = 0
+    self.indices = []
+    self.last_batch_size = self.total_samples % self._global_batch_size
+    addr = os.getenv("MASTER_ADDR")
+    channel = grpc.insecure_channel(f"{addr}:{port}")
 
     if self.rank == 0:
-      sizes = list(map(lambda index: flatflow.sys.getsizeof(self.dataset, index), list(range(len(self.dataset)))))
-      self.stub.Init(global_batch_size, micro_batch_size, order, rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes)
+        sizes = [flatflow.sys.getsizeof(item) for item in self.dataset]
+        run(port, data_parallel_size)
+
+    self.client = CommunicatorClient(channel)
+    if self.rank == 0:
+        self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes) #noqa E501
     else:
-      self.stub.Init(global_batch_size, micro_batch_size, order, rank, seed, heterogeneous, use_flat_shuffle, hidden_size)
-    
+        self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size) #noqa E501
 
-  def __iter__(self) -> Iterator[T_co]:
-    broadcast = self.stub.Broadcast(epoch=self.epoch)
-    self.indices = broadcast.IndicesAsNumpy()  # type: ignore[arg-type]
-    converged = broadcast.converged()
-    assert converged, "Converge option is not supported yet : internal Failed"
-    self._num_yielded = 0
-    return self
-  
-  def __next__(self) -> T_co:
-    if self.num_samples <= self._num_yielded:
-      raise StopIteration
-    index = self.map[self.indices[self._num_yielded]]
+  def __iter__(self):
+    broadcast = self.client.Broadcast(epoch=self.epoch)
+    self.indices = list(broadcast.IndicesAsNumpy())
+    batch = []
+    for idx in range(len(self.indices)):
+        batch.append(self.indices[idx])
+        if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
+            self.consumed_samples += self._global_batch_size
+            yield batch
+            batch = []
+    if len(batch) > 0 and not self.drop_last:
+        yield batch
 
-    self._num_yielded += 1
-    return index
-  
+
   def __len__(self) -> int:
-    num_available_samples: int = self.num_samples - self._num_yielded
-    return (num_available_samples + self.global_batch_size - 1) // self.global_batch_size
+    """Length of Random Batch Sampler.
 
-  
-  def __del__(self) -> None:
-    if self.rank == 0:
-      self.client.Finalize()
+    ..note::
+        When `rampup_batch_size` is enabled, the return value can be not exactly precise.
+
+    """
+    active_total_samples = self.total_samples - (self.last_batch_size if self.drop_last else 0)
+    num_available_samples = active_total_samples - self.consumed_samples % active_total_samples
+    if self.drop_last:
+        return num_available_samples // self.global_batch_size
+    else:
+        return (num_available_samples + self.global_batch_size - 1) // self.global_batch_size
 
   def set_epoch(self, epoch: int) -> None:
     r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -149,3 +155,7 @@ class DistributedSampler(Sampler[T_co]):
         epoch (int): Epoch number.
     """
     self.epoch = epoch
+
+  def __del__(self) -> None:
+    if self.rank == 0:
+      self.client.Finalize()
