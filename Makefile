@@ -4,25 +4,37 @@
 # LICENSE file in the root directory of this source tree.
 
 # This makefile does nothing but delegating the actual building to CMake.
-.PHONY: all build generate test clean
+CMAKE_BUILD_TYPE ?= Release
+CMAKE_CXX_STANDARD ?= 20
+FLATFLOW_BUILD_TESTS ?= OFF
+
+.PHONY: all generate test clean
 
 all:
-	@python3 -m build --wheel
-
-build:
-	@mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) -DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$(CMAKE_LIBRARY_OUTPUT_DIRECTORY) -DFLATFLOW_BUILD_TESTS=$(FLATFLOW_BUILD_TESTS) && $(MAKE)
+	@mkdir -p build && \
+		cd build && \
+		cmake .. \
+		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
+		-DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) \
+		-DFLATFLOW_BUILD_TESTS=$(FLATFLOW_BUILD_TESTS) && \
+		$(MAKE)
 
 generate:
-	@./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
+	@mkdir -p tmp/rpc && \
+		mv flatflow/__init__.py tmp && \
+		mv flatflow/rpc/__init__.py tmp/rpc && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix flatflow/rpc/communicator.fbs && \
 		./build/third_party/flatbuffers/flatc -p flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -p --grpc -I . flatflow/rpc/communicator.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o tests/data tests/data/dataset_test.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs
+		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs && \
+		mv tmp/__init__.py flatflow && \
+		mv tmp/rpc/__init__.py flatflow/rpc && \
+		rm -r tmp
 
 test:
-	@ctest --test-dir build && \
-		pytest
+	@ctest --test-dir build
 
 clean:
 	@rm -r build

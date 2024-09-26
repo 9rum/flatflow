@@ -101,20 +101,20 @@ class DataLoader(torch.utils.data.DataLoader[T_co]):
             raise ValueError("num_workers option should be non-negative; use num_workers=0 to disable multiprocessing.")
 
         if timeout < 0:
-            raise ValueError("timeout option should be non-negative.")
+            raise ValueError("timeout option should be non-negative")
 
         if num_workers == 0 and prefetch_factor is not None:
             raise ValueError(
-                "prefetch_factor option could only be specified in multiprocessing. "
-                "Let 0 < num_workers to enable multiprocessing, otherwise set prefetch_factor to None."
+                "prefetch_factor option could only be specified in multiprocessing."
+                "let num_workers > 0 to enable multiprocessing, otherwise set prefetch_factor to None."
             )
         elif 0 < num_workers and prefetch_factor is None:
             prefetch_factor = 2
         elif prefetch_factor is not None and prefetch_factor < 0:
-            raise ValueError("prefetch_factor option should be non-negative.")
+            raise ValueError("prefetch_factor option should be non-negative")
 
         if persistent_workers and num_workers == 0:
-            raise ValueError("persistent_workers option needs 0 < num_workers.")
+            raise ValueError("persistent_workers option needs num_workers > 0")
 
         self.dataset = dataset
         self.num_workers = num_workers
@@ -137,38 +137,36 @@ class DataLoader(torch.utils.data.DataLoader[T_co]):
                     dataset = torch.utils.data.graph_settings.apply_shuffle_settings(dataset, shuffle=shuffle)
             elif shuffle:
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"shuffle option, but got shuffle={shuffle}."
+                    f"DataLoader with IterableDataset: expected unspecified shuffle option, but got shuffle={shuffle}"
                 )
 
             if sampler is not None:
                 raise ValueError(
-                    "DataLoader with IterableDataset: expected unspecified "
-                    f"sampler option, but got sampler={sampler}."
+                    f"DataLoader with IterableDataset: expected unspecified sampler option, but got sampler={sampler}"
                 )
             elif batch_sampler is not None:
                 raise ValueError(
                     "DataLoader with IterableDataset: expected unspecified "
-                    f"batch_sampler option, but got batch_sampler={batch_sampler}."
+                    f"batch_sampler option, but got batch_sampler={batch_sampler}"
                 )
         else:
             shuffle = bool(shuffle)
             self._dataset_kind = _DatasetKind.Map
 
         if sampler is not None and shuffle:
-            raise ValueError("sampler option is mutually exclusive with shuffle.")
+            raise ValueError("sampler option is mutually exclusive with shuffle")
 
         if batch_sampler is not None:
             if batch_size != 1 or shuffle or sampler is not None or drop_last:
                 raise ValueError(
-                    "batch_sampler option is mutually exclusive with batch_size, shuffle, sampler, and drop_last."
+                    "batch_sampler option is mutually exclusive with batch_size, shuffle, sampler, and drop_last"
                 )
             batch_size = None
             drop_last = False
         elif batch_size is None:
             if drop_last:
                 raise ValueError(
-                    "batch_size=None option disables auto-batching and is mutually exclusive with drop_last."
+                    "batch_size=None option disables auto-batching and is mutually exclusive with drop_last"
                 )
 
         if sampler is None:

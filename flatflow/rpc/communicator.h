@@ -64,15 +64,14 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // upon initialization. The actual initializations are handled through `Init`.
   explicit CommunicatorServiceImpl() {}
 
-  explicit CommunicatorServiceImpl(mapped_type data_parallel_size)
-      : data_parallel_size_(data_parallel_size) {
+  explicit CommunicatorServiceImpl(mapped_type world_size)
+      : world_size_(world_size) {
     fanin_ = 0;
 
-    const auto _data_parallel_size =
-        static_cast<std::size_t>(data_parallel_size);
-    fanout_.first.reserve(_data_parallel_size);
-    fanout_.second.reserve(_data_parallel_size);
-    for (std::size_t rank = 0; rank < _data_parallel_size; ++rank) {
+    const auto _world_size = static_cast<std::size_t>(world_size);
+    fanout_.first.reserve(_world_size);
+    fanout_.second.reserve(_world_size);
+    for (std::size_t rank = 0; rank < _world_size; ++rank) {
       fanout_.first.emplace_back();
       fanout_.second.emplace_back(std::move(fanout_.first[rank].get_future()));
     }
@@ -107,7 +106,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     if (rank == 0) {
       batch_ = 0;
       num_scheduled_batches_ = 0;
-      per_replica_batch_size_ = args->global_batch_size() / data_parallel_size_;
+      per_replica_batch_size_ = args->global_batch_size() / world_size_;
       num_batches_ =
           (args->sizes()->size() - 1) / args->global_batch_size() + 1;
 
@@ -120,7 +119,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
         }
         scheduler_ =
             flatflow::scheduler::Scheduler<mapped_type, key_type, 1, false>(
-                args->sizes(), data_parallel_size_, args->global_batch_size(),
+                args->sizes(), world_size_, args->global_batch_size(),
                 args->micro_batch_size(), args->seed(),
                 args->use_flat_shuffle());
       } else if (order == 2) {
@@ -131,7 +130,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
         }
         scheduler_ =
             flatflow::scheduler::Scheduler<mapped_type, key_type, 2, false>(
-                args->sizes(), data_parallel_size_, args->global_batch_size(),
+                args->sizes(), world_size_, args->global_batch_size(),
                 args->micro_batch_size(), args->hidden_size(), args->seed(),
                 args->use_flat_shuffle());
       } else {
@@ -146,9 +145,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       // better performance than `compare_exchange_strong` on some platforms
       // when compare-and-swap is inside a loop.
       // See https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange.
-      auto expected = data_parallel_size_;
+      auto expected = world_size_;
       while (!fanin_.compare_exchange_weak(expected, 0)) {
-        expected = data_parallel_size_;
+        expected = world_size_;
       }
 
       for (auto &producer : fanout_.first) {
@@ -190,9 +189,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     ++fanin_;
 
     if (rank == 0) {
-      auto expected = data_parallel_size_;
+      auto expected = world_size_;
       while (!fanin_.compare_exchange_weak(expected, 0)) {
-        expected = data_parallel_size_;
+        expected = world_size_;
       }
 
       batch_ += num_scheduled_batches_;
@@ -210,7 +209,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
           (schedule.front().size() - 1) / per_replica_batch_size_ + 1;
       _call_callbacks_on_batch_begin();
 
-      for (std::size_t _rank = 0; _rank < data_parallel_size_; ++_rank) {
+      for (std::size_t _rank = 0; _rank < world_size_; ++_rank) {
         fanout_.first[_rank].set_value(std::move(schedule[_rank]));
       }
     }
@@ -327,11 +326,11 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   }
 
   mapped_type batch_;
-  mapped_type data_parallel_size_;
   mapped_type epoch_;
   mapped_type num_batches_;
   mapped_type num_scheduled_batches_;
   mapped_type per_replica_batch_size_;
+  mapped_type world_size_;
   atomic_mapped_type fanin_;
   std::future<int> signal_;
   std::pair<std::vector<std::promise<std::vector<mapped_type>>>,
@@ -349,8 +348,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
 // frontend via foreign function interface (FFI); that is, there is no direct
 // entry point to the communicator runtime and the actual initialization and
 // termination are handled through `Init` and `Finalize`, respectively.
-void run(uint16_t port,
-         CommunicatorServiceImpl::mapped_type data_parallel_size) {
+void run(uint16_t port, CommunicatorServiceImpl::mapped_type world_size) {
   if (!absl::log_internal::IsInitialized()) {
     absl::InitializeLog();
     absl::SetStderrThreshold(absl::LogSeverity::kInfo);
@@ -360,7 +358,7 @@ void run(uint16_t port,
   auto addr = absl::StrFormat("[::]:%u", port);
   builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
 
-  static auto service = CommunicatorServiceImpl(data_parallel_size);
+  static auto service = CommunicatorServiceImpl(world_size);
   builder.RegisterService(&service);
 
   static auto server = builder.BuildAndStart();

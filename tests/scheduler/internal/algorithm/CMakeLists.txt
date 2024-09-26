@@ -25,12 +25,15 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   algorithm_test
-  PRIVATE ${TORCH_LIBRARIES}
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
   PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX
-  PRIVATE TBB::tbb)
+  PRIVATE OpenMP::OpenMP_CXX)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+  target_link_libraries(
+    algorithm_test
+    PRIVATE TBB::tbb)
+endif()
 gtest_add_tests(
   TARGET algorithm_test)

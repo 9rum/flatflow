@@ -21,7 +21,6 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   _C
-  PRIVATE ${TORCH_LIBRARIES}
   PRIVATE absl::btree
   PRIVATE absl::inlined_vector
   PRIVATE absl::log
@@ -30,5 +29,9 @@ target_link_libraries(
   PRIVATE BLAS::BLAS
   PRIVATE flatbuffers
   PRIVATE gRPC::grpc++
-  PRIVATE OpenMP::OpenMP_CXX
-  PRIVATE TBB::tbb)
+  PRIVATE OpenMP::OpenMP_CXX)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+  target_link_libraries(
+    _C
+    PRIVATE TBB::tbb)
+endif()
