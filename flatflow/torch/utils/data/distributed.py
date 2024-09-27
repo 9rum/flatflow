@@ -1,4 +1,5 @@
 # Adapted from https://github.com/pytorch/pytorch/blob/v2.4.0/torch/utils/data/distributed.py
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/collections/nlp/data/language_modeling/megatron/megatron_batch_samplers.py
 # Copyright 2024 The FlatFlow Authors.
 # Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -13,11 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
+import warnings
 from typing import Optional, TypeVar
 
 import grpc
-from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_sampler import BaseMegatronBatchSampler
+from megatron.core import parallel_state
 
 import flatflow
 from flatflow.rpc import CommunicatorClient, run
@@ -25,14 +28,12 @@ from flatflow.torch.utils.data.dataset import Dataset
 
 T_co = TypeVar('T_co', covariant=True)
 
-class DistributedSampler(BaseMegatronBatchSampler):
-  r"""Sampler that restricts data loading to a subset of the dataset.
+__all__ = ["DistributedSampler"]
 
-  It is especially useful in conjunction with
-  :class:`torch.nn.parallel.DistributedDataParallel`. In such a case, each
-  process can pass a :class:`~flatflow.torch.utils.data.DistributedSampler` instance
-  as a :class:`~torch.utils.data.DataLoader` sampler, and load a subset of the
-  original dataset that is exclusive to it.
+class DistributedSampler:
+  r"""Sampler that restricts data loading to a subset of the dataset.
+    This Sampler is adopted from nemo's megatron_batch_samplers.
+    Planning to apply Torch based support later if necessary.
 
   .. note::
       Dataset is assumed to be of constant size and that any instance of it always
@@ -40,18 +41,13 @@ class DistributedSampler(BaseMegatronBatchSampler):
 
   Args:
       dataset (Dataset): Dataset used for sampling.
+      total_samples (int): Total number of samples in the dataset.
+      consumed_samples (int): Number of samples consumed by the model.
+      micro_batch_size (int): Micro batch size integer value.
       global_batch_size (int): Global batch size integer value.
          Calculated as data_parallel_size * per_replica_batch_size.
-      micro_batch_size (int): Micro batch size integer value.
-      num_replicas (int, optional): Number of processes participating in
-          distributed training. By default, :attr:`world_size` is retrieved from the
-          current distributed group.
-      rank (int, optional): Rank of the current process within :attr:`num_replicas`.
-          By default, :attr:`rank` is retrieved from the current distributed
-          group.
-      shuffle (bool, optional): Not used but for PyTorch compatibility.
-      seed (int, optional): Random seed used to shuffle the sampler.
-          This number should be identical across all processes in the distributed group. (default: ``0``)
+      data_parallel_rank (int): Data parallel rank integer value.
+      data_parallel_size (int): Data parallel size integer value.
       drop_last (bool, optional): If ``True``, then the sampler will drop the
           tail of the data to make it evenly divisible across the number of
           replicas. If ``False``, the sampler will add extra indices to make
@@ -59,18 +55,23 @@ class DistributedSampler(BaseMegatronBatchSampler):
       order (int, optional): Indicates model complexity. (CNN: 1, transformer: 2)
       use_flat_shuffle (bool, optional): If ``True``, then the sampler will shuffle in inter-range.
           This will enable faster training.
-      port (int, optional): Port on the master node (rank 0) to be used for initializing
-          the communicator server. (default: ``50051``)
+      seed (int, optional): Random seed used to shuffle the sampler.
+          This number should be identical across all processes in the distributed group. (default: ``0``)
       heterogeneous (str, optional): Indicates whether cluster is heterogeneous or not.
           Currently, only False is supported.
       hidden_size (bool, optional): Indicates the hidden dimension size of model.
           This is given only when order is 2.
-
+      port (int, optional): Port on the master node (rank 0) to be used for initializing
+          the communicator server. (default: ``50051``)
   .. warning::
       In distributed mode, calling the :meth:`set_epoch` method at
       the beginning of each epoch **before** creating the :class:`DataLoader` iterator
       is necessary to make scheduling work properly across multiple epochs.
   """
+  _global_batch_size: int
+  _num_micro_batches: int
+  _global_batch_size_on_this_data_parallel_rank: int
+
   def __init__(self,
         dataset: Dataset,
         total_samples: int,
@@ -80,7 +81,6 @@ class DistributedSampler(BaseMegatronBatchSampler):
         data_parallel_rank: int,
         data_parallel_size: int,
         drop_last: bool,
-        pad_samples_to_global_batch_size=False,
         order: Optional[int] = 2,
         use_flat_shuffle: bool = True,
         seed: Optional[int] = 0,
@@ -88,21 +88,41 @@ class DistributedSampler(BaseMegatronBatchSampler):
         hidden_size: Optional[int] = False,
         port: int = 50051,
         ) -> None:
+    """Constructor of Megatron-LM style Batch Sampler."""
+    if total_samples <= 0:
+        raise RuntimeError("no sample to consume: {}".format(total_samples))
+    if micro_batch_size <= 0:
+        raise RuntimeError(f"micro_batch_size size must be greater than 0, but {micro_batch_size}")
+    if data_parallel_size <= 0:
+        raise RuntimeError(f"data parallel size must be greater than 0, but {data_parallel_size}")
+    if data_parallel_rank >= data_parallel_size:
+        raise RuntimeError(
+            "data_parallel_rank should be smaller than data size, but {} >= {}".format(
+                data_parallel_rank, data_parallel_size
+            )
+        )
 
-    super().__init__(
-        total_samples=total_samples,
-        consumed_samples=consumed_samples,
-        micro_batch_size=micro_batch_size,
-        data_parallel_rank=data_parallel_rank,
-        data_parallel_size=data_parallel_size,
-        drop_last=drop_last,
-        global_batch_size=global_batch_size,
-        pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
-    )
     self.order = order
     self.use_flat_shuffle = use_flat_shuffle
+    self.total_samples: int = total_samples
+    self.consumed_samples: int = consumed_samples
+    self.micro_batch_size: int = micro_batch_size
+    self.data_parallel_rank: int = data_parallel_rank
+    self.data_parallel_size: int = data_parallel_size
+    self.drop_last: bool = drop_last
+    self.tensor_parallel_world_size = parallel_state.get_tensor_model_parallel_world_size()
+    self.tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+    self.pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+    self.pipeline_parallel_world_size = parallel_state.get_pipeline_model_parallel_world_size()
+    self.micro_batch_times_data_parallel_size = self.micro_batch_size * self.data_parallel_size
     self.dataset = dataset
-    self.rank = data_parallel_rank
+
+    self.update_global_batch_size(global_batch_size)
+
+    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank \
+                + self.pipeline_parallel_rank * self.tensor_parallel_world_size \
+                + self.tensor_parallel_rank
+
     self.epoch = 0
     self.indices = []
     self.last_batch_size = self.total_samples % self._global_batch_size
@@ -118,6 +138,27 @@ class DistributedSampler(BaseMegatronBatchSampler):
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes) #noqa E501
     else:
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size) #noqa E501
+
+  def update_global_batch_size(self, new_global_batch_size: int) -> None:
+        """Update the global batch size."""
+        self._global_batch_size = new_global_batch_size
+        if self._global_batch_size % self.micro_batch_times_data_parallel_size != 0:
+            raise RuntimeError(
+                f"`global_batch_size` ({self._global_batch_size}) is not divisible by "
+                f"`micro_batch_size ({self.micro_batch_size}) x data_parallel_size "
+                f"({self.data_parallel_size})`"
+            )
+        self._num_micro_batches = self._global_batch_size // self.micro_batch_times_data_parallel_size
+        self._global_batch_size_on_this_data_parallel_rank = self._num_micro_batches * self.micro_batch_size
+
+  @property
+  def global_batch_size(self) -> int:
+        return self._global_batch_size
+
+  @global_batch_size.setter
+  def global_batch_size(self, new_global_batch_size: int) -> None:
+    warnings.warn("`self.update_global_batch_size(new_global_batch_size)` is recommended.")
+    self.update_global_batch_size(new_global_batch_size=new_global_batch_size)
 
   def __iter__(self):
     broadcast = self.client.Broadcast(epoch=self.epoch)
