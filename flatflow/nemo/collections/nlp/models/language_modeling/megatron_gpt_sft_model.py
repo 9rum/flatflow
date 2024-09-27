@@ -20,17 +20,17 @@ from functools import partial
 from typing import Any, Optional
 
 import torch
-from omegaconf import DictConfig, ListConfig
-from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
-from pytorch_lightning.trainer.trainer import Trainer
-
 from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
 )
 from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_chat_dataset import GPTSFTChatDataset
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import GPTSFTDataset, GPTSFTPackedDataset
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import (
+    GPTConcatSFTDataset,
+    GPTSFTDataset,
+    GPTSFTPackedDataset,
+)
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
     MegatronPretrainingBatchSampler,
 )
@@ -40,10 +40,11 @@ from nemo.collections.nlp.modules.common.text_generation_utils import generate, 
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.utils import AppState, logging
+from omegaconf import DictConfig, ListConfig
+from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
+from pytorch_lightning.trainer.trainer import Trainer
 
 import flatflow.torch
-from flatflow.megatron import FlatFlowMegatronDataset
-
 
 try:
     from apex.transformer.pipeline_parallel.utils import (
@@ -107,7 +108,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             self._memory_profile_end_step = self.cfg.memory_profile.get('end_step', 0)
 
         self.use_flatflow = cfg.get("use_flatflow", False)
-        self.device_per_micro_batch_size = cfg.get("device_per_micro_batch_size", 0)
+        self.num_samples_per_micro_batch = cfg.get("num_samples_per_micro_batch", 0)
         self.virtual_tokens = 0
         self.init_global_step = 0
 
@@ -276,7 +277,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         dataset_kwargs = {}
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
             if self.use_flatflow:
-                dataset_cls = FlatFlowMegatronDataset
+                dataset_cls = GPTConcatSFTDataset
             elif self.cfg.data.get("chat", False):
                 dataset_cls = GPTSFTChatDataset
             elif packed_sequence:
@@ -400,7 +401,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         num_microbatches = 0
         micro_batch_size = 0
         if self.use_flatflow:
-            num_microbatches = self.device_per_micro_batch_size
+            num_microbatches = self.num_samples_per_micro_batch
             micro_batch_size = 1
         else:
             num_microbatches = get_num_microbatches()
