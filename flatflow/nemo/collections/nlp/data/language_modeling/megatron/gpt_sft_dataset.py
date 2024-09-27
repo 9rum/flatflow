@@ -93,7 +93,7 @@ class GPTSFTDataset(Dataset):
         special_tokens: special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"}
         is_test: Whether this dataset is the test split.
         output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
-        """
+        """ # noqa: E501
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.max_seq_length = max_seq_length
@@ -163,7 +163,7 @@ class GPTSFTDataset(Dataset):
         assert (
             self.prompt_template is not None
         ), f'we need prompt_template to combine contexts and label {self.label_key}'
-        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them.
+        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them. #noqa: E501
         self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
         self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
 
@@ -172,7 +172,7 @@ class GPTSFTDataset(Dataset):
             self.prompt_template[-len(label_placeholder) :] == label_placeholder
         ), f'{label_placeholder} must be at the end of prompt_template.'
 
-        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output']
+        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output'] #noqa: E501
         if len(self.truncation_fields) > 0:
             if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
                 self.truncation_fields[0] = self.prompt_template_keys[0]
@@ -258,7 +258,7 @@ class GPTSFTDataset(Dataset):
             template_strings = ['Context:', ' xxx', 'Question:', 'yyy', 'Answer:', 'zzz']
 
             template_strings_keys = ['<template>', 'context', '<template>', 'question', '<template>', 'label']
-        """
+        """ #noqa: E501
         placeholders = [f'{{{k}}}' for k in self.prompt_template_keys]
 
         # placeholder to string
@@ -269,13 +269,13 @@ class GPTSFTDataset(Dataset):
         # separate prompt_template based on '<space>{placeholder}'
         # examples:
         #   self.prompt_template = "Context:{context}  Passage: {passage}\n\nQuestion:{question} {label}"
-        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}']
+        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}'] #noqa: E501
         template_with_placeholder_separated = re.split('( *?{.+?})', self.prompt_template)
         template_with_placeholder_separated = [s for s in template_with_placeholder_separated if len(s) > 0]
 
         # remove space if we have leading space and tokenizer is not space_sensitive
-        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B')
-        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B')
+        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B') #noqa: E501
+        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B') #noqa: E501
         space_sensitive = getattr(self.tokenizer, 'space_sensitive', False)
         template_with_space_reduced = [
             s[1:] if not space_sensitive and s[0] == ' ' else s for s in template_with_placeholder_separated
@@ -302,7 +302,7 @@ class GPTSFTDataset(Dataset):
         Returns:
             context_ids (List[int]): all context ids.
             label_ids (List[int]): all label ids.
-        """
+        """ #noqa: E501
         context_ids = template_ids[:-1]
         label_ids = template_ids[-1]
         total_ids = (
@@ -676,12 +676,12 @@ class GPTSFTPackedDataset(GPTSFTDataset):
 
 class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
     """
-    A dataset class implementing interfaces for TEDotProductAttention and Flatflow scheduler. 
+    A dataset class implementing interfaces for TEDotProductAttention and Flatflow scheduler.
 
     1. Flatflow scheduler requires sizes of all items, to yield indices of scheduled samples in order.
     2. TEDotProductAttention requires cu_seqlens, to utilize `flash_attn_varlen_func`.
 
-    It processes a jsonl data with formatting and tokenization. And it defines `collate_fn` to 
+    It processes a jsonl data with formatting and tokenization. And it defines `collate_fn` to
     concatenate each batch sampled by the Flatflow scheduler, which will be used inside a data loader.
 
     * Many parts are adopted from megatron's GPTSFTDataset and GPTSFTPackedDataset, then modified accordingly.
@@ -767,7 +767,8 @@ class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
 
         Args:
             template_ids (List[List[int]]): the list of separate prompt_template ids.
-            template_ids_keys (List[str]): the list of placeholder keys or <template> (used to check key in truncation_fields).
+            template_ids_keys (List[str]): the list of placeholder keys or <template>
+            (used to check key in truncation_fields).
 
         Returns:
             context_ids (List[int]): all context ids.
@@ -886,7 +887,7 @@ class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
             'token_count': len(input_ids),
         }
         return processed_example
-    
+
     def _load_dataset(self):
         if self.hf_dataset:
             self.indexed_dataset = load_dataset(
@@ -904,12 +905,13 @@ class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
                 index_mapping_dir=self.index_mapping_dir,
                 workers=self.memmap_workers,
             )
-         
+
     def _maybe_validate_prompt_template(self):
         assert (
             self.prompt_template is not None
         ), f'we need prompt_template to combine contexts and label {self.label_key}'
-        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them.
+        # When providing things like newlines in the prompt template via the CLI, they are escaped.
+        # This line unescapes them.
         self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
         self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
 
@@ -918,14 +920,15 @@ class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
             self.prompt_template[-len(label_placeholder) :] == label_placeholder
         ), f'{label_placeholder} must be at the end of prompt_template.'
 
-        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output']
+        # Legacy checkpoints has self.truncation_fields = ['context'] and
+        # self.prompt_template_keys = ['input', 'output']
         if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
             self.truncation_fields[0] = self.prompt_template_keys[0]
 
         assert set(self.truncation_fields).issubset(
             self.prompt_template_keys
         ), f'truncation_fields {self.truncation_fields} must in {self.prompt_template_keys}'
-    
+
     def _process_dataset(self):
         """
         Process the loaded dataset.
@@ -974,7 +977,7 @@ class GPTConcatSFTDataset(flatflow.torch.utils.data.Dataset):
         position_ids = [np.concatenate([list(range(item['seqlen'])) for item in batch])]
         token_count = [input_ids[0].shape[0]]
 
-        if input_ids[0].shape[0] != position_ids[0].shape[0]: 
+        if input_ids[0].shape[0] != position_ids[0].shape[0]:
             raise ValueError("Dataset problem: input_ids and position_ids lengths don't match")
 
         # Process cu_seqlens-related values.
