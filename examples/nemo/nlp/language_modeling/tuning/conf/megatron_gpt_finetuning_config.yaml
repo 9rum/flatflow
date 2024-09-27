@@ -57,7 +57,6 @@ model:
   megatron_amp_O2: False
 
   use_flatflow: True
-  num_samples_per_micro_batch: 16
   ## Sequence Parallelism
   # Makes tensor parallelism more memory efficient for LLMs (20B+) by parallelizing layer norms and dropout sequentially
   # See Reducing Activation Recomputation in Large Transformer Models: https://arxiv.org/abs/2205.05198 for more details.
