@@ -30,21 +30,21 @@ namespace algorithm {
 template <typename Index, typename Size>
 std::pair<std::vector<std::vector<Index>>, std::vector<std::vector<Size>>>
 extract(const std::vector<std::vector<std::pair<Size, Index>>> &items) {
-  const auto data_parallel_size = items.size();
-  assert(data_parallel_size != 0);
+  const auto world_size = items.size();
+  assert(world_size != 0);
 
   const auto num_samples = items.front().size();
   assert(num_samples != 0);
 
-  const auto num_items = data_parallel_size * num_samples;
+  const auto num_items = world_size * num_samples;
 
   auto indices = std::vector<std::vector<Index>>();
-  indices.reserve(data_parallel_size);
+  indices.reserve(world_size);
 
   auto sizes = std::vector<std::vector<Size>>();
-  sizes.reserve(data_parallel_size);
+  sizes.reserve(world_size);
 
-  for (std::size_t rank = 0; rank < data_parallel_size; ++rank) {
+  for (std::size_t rank = 0; rank < world_size; ++rank) {
     indices.emplace_back(std::move(std::vector<Index>(num_samples)));
     sizes.emplace_back(std::move(std::vector<Size>(num_samples)));
   }

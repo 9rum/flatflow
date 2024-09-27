@@ -24,11 +24,11 @@
 namespace {
 
 TEST(ReshapeTest, ReshapeWithoutRemainder) {
+  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 5);
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 5);
-  constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
-  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 5);
   constexpr auto kNumSamples = static_cast<std::size_t>(1 << 5);
+  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
   auto micro_batches =
       std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
@@ -46,7 +46,7 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
   }
 
   const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kDataParallelSize, kGlobalBatchSize);
+      micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0,  1,  2,  3,  4,  5,  6,  7,  32, 33, 34, 35, 36,  37,  38,  39,
@@ -59,8 +59,8 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
         59, 60, 61,  62,  63,  88,  89,  90,  91,  92, 93,
         94, 95, 120, 121, 122, 123, 124, 125, 126, 127}});
 
-  EXPECT_EQ(reshaped.size(), kDataParallelSize);
-  for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
+  EXPECT_EQ(reshaped.size(), kWorldSize);
+  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
     EXPECT_EQ(reshaped[rank].size(), kNumSamples);
     for (std::size_t index = 0; index < kNumSamples; ++index) {
       EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
@@ -69,11 +69,11 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
 }
 
 TEST(ReshapeTest, ReshapeWithRemainder) {
+  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 5);
-  constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
-  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
   constexpr auto kNumSamples = static_cast<std::size_t>(1 << 5);
+  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
   auto micro_batches =
       std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
@@ -91,7 +91,7 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
   }
 
   const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kDataParallelSize, kGlobalBatchSize);
+      micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 48,  49,  50,  51,
@@ -104,8 +104,8 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
         47, 84, 85,  86,  87,  88,  89,  90,  91,  92, 93,
         94, 95, 120, 121, 122, 123, 124, 125, 126, 127}});
 
-  EXPECT_EQ(reshaped.size(), kDataParallelSize);
-  for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
+  EXPECT_EQ(reshaped.size(), kWorldSize);
+  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
     EXPECT_EQ(reshaped[rank].size(), kNumSamples);
     for (std::size_t index = 0; index < kNumSamples; ++index) {
       EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
@@ -114,11 +114,11 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
 }
 
 TEST(ReshapeTest, ReshapeWithRemainderOnly) {
+  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 2);
-  constexpr auto kDataParallelSize = static_cast<std::size_t>(1 << 2);
-  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 4);
   constexpr auto kNumSamples = static_cast<std::size_t>(1 << 2);
+  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
   auto micro_batches =
       std::vector<std::vector<std::pair<uint16_t, std::size_t>>>();
@@ -136,13 +136,13 @@ TEST(ReshapeTest, ReshapeWithRemainderOnly) {
   }
 
   const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kDataParallelSize, kGlobalBatchSize);
+      micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15}});
 
-  EXPECT_EQ(reshaped.size(), kDataParallelSize);
-  for (std::size_t rank = 0; rank < kDataParallelSize; ++rank) {
+  EXPECT_EQ(reshaped.size(), kWorldSize);
+  for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
     EXPECT_EQ(reshaped[rank].size(), kNumSamples);
     for (std::size_t index = 0; index < kNumSamples; ++index) {
       EXPECT_EQ(reshaped[rank][index].second, indices[rank][index]);
