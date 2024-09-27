@@ -107,7 +107,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             self._memory_profile_end_step = self.cfg.memory_profile.get('end_step', 0)
 
         self.use_flatflow = cfg.get("use_flatflow", False)
-        self.num_batch_per_device = cfg.get("num_batch_per_device", 0)
+        self.device_per_micro_batch_size = cfg.get("device_per_micro_batch_size", 0)
         self.virtual_tokens = 0
         self.init_global_step = 0
 
@@ -400,7 +400,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         num_microbatches = 0
         micro_batch_size = 0
         if self.use_flatflow:
-            num_microbatches = self.num_batch_per_device
+            num_microbatches = self.device_per_micro_batch_size
             micro_batch_size = 1
         else:
             num_microbatches = get_num_microbatches()
@@ -876,6 +876,17 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             pad_samples_to_global_batch_size=not data_cfg.drop_last,
         )
         if self.use_flatflow:
+            batch_sampler = flatflow.torch.utils.data.distributed.DistributedBatchSampler(
+                dataset=dataset,
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=data_cfg.micro_batch_size,
+                global_batch_size=data_cfg.global_batch_size,
+                data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                drop_last=data_cfg.drop_last,
+                pad_samples_to_global_batch_size=not data_cfg.drop_last,
+            )
             return flatflow.torch.utils.data.DataLoader(
                 dataset,
                 batch_sampler=batch_sampler,
