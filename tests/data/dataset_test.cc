@@ -117,8 +117,8 @@ class DatasetTest : public testing::Test {
   Dataset dataset_;
 };
 
-// This test answers the following questions to see that the inverted index is
-// constructed as intended:
+// This test answers the following questions to see that the inverted indices
+// are constructed as intended:
 //
 // * Are there any redundant keys stored in the inverted index?
 // * Does each index slot occupy exactly as much memory footprint as required?
@@ -165,51 +165,119 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
   }
 }
 
-// This test checks whether the retrieval process of data sample finds one with
-// the nearest size to the requested value. It also verifies that the retrieved
-// data samples are properly recovered in the recycle bin.
-TEST_F(DatasetTest, At) {
-  const auto epoch = static_cast<uint64_t>(std::rand());
+// This test checks whether the basic insertion routine works as intended.
+TEST_F(DatasetTest, Insert) {
+  std::size_t count = 0;
 
-  for (auto [size, count] : counts_) {
-    for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.at(size).first, size);
+  const auto samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
+                [&](const auto &sample) {
+                  dataset_.insert<false>(sample);
+                  ++count;
+                  EXPECT_EQ(dataset_.size(), count);
+                });
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size), count);
+      EXPECT_EQ(dataset_.capacity(size), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size));
     }
   }
+}
 
-  EXPECT_TRUE(dataset_.empty());
+// This test checks whether the reverse insertion routine works as intended.
+TEST_F(DatasetTest, InsertIntoRecycleBin) {
+  const auto samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
+                [&](const auto &sample) {
+                  dataset_.insert<true>(sample);
+                  EXPECT_TRUE(dataset_.empty(true));
+                });
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
 
   for (const auto [size, count] : counts_) {
     if (0 < count) {
       EXPECT_EQ(dataset_.size(size, false), count);
       EXPECT_EQ(dataset_.capacity(size, false), count);
-      EXPECT_TRUE(dataset_.is_sorted(size, false));
     } else {
       EXPECT_FALSE(dataset_.contains(size, false));
     }
   }
-
-  dataset_.on_epoch_end(epoch);
-  EXPECT_TRUE(dataset_.empty(false));
-
-  dataset_.on_epoch_begin(epoch);
-  for (auto [size, count] : counts_) {
-    for (; 0 < count; --count) {
-      EXPECT_EQ(dataset_.at(size).first, size);
-    }
-  }
-
-  EXPECT_TRUE(dataset_.empty());
 }
 
-// This test checks whether the bulk loading retrieves data samples as intended.
+// This test checks whether the bulk insertion routine works as intended.
+TEST_F(DatasetTest, InsertRange) {
+  const auto samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+  dataset_.insert_range<false>(samples);
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size), count);
+      EXPECT_EQ(dataset_.capacity(size), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size));
+    }
+  }
+}
+
+// This test checks whether the reverse bulk insertion routine works as
+// intended.
+TEST_F(DatasetTest, InsertRangeIntoRecycleBin) {
+  const auto samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+  dataset_.insert_range<true>(samples);
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size, false), count);
+      EXPECT_EQ(dataset_.capacity(size, false), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size, false));
+    }
+  }
+}
+
+// This test checks whether the bulk loading routine retrieves data samples as
+// intended. It also verifies that the retrieved data samples are properly
+// recovered in the recycle bin.
 TEST_F(DatasetTest, Take) {
-  auto items = dataset_.take(dataset_.size());
-  EXPECT_TRUE(std::is_sorted(items.cbegin(), items.cend(),
-                             [](const auto &pair, const auto &other) {
-                               return pair.first < other.first;
+  auto samples = dataset_.take<false>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
+                             [](const auto &sample, const auto &other) {
+                               return sample.first < other.first;
                              }));
-  EXPECT_EQ(dataset_.size(), 0);
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size, false), count);
+      EXPECT_EQ(dataset_.capacity(size, false), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size, false));
+    }
+  }
 
   const auto epoch = static_cast<uint64_t>(std::rand());
 
@@ -217,12 +285,68 @@ TEST_F(DatasetTest, Take) {
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
   dataset_.on_epoch_begin(epoch);
 
-  items = dataset_.take(dataset_.size());
-  EXPECT_TRUE(std::is_sorted(items.cbegin(), items.cend(),
-                             [](const auto &pair, const auto &other) {
-                               return pair.first < other.first;
+  samples = dataset_.take<false>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
+                             [](const auto &sample, const auto &other) {
+                               return sample.first < other.first;
                              }));
-  EXPECT_EQ(dataset_.size(), 0);
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size, false), count);
+      EXPECT_EQ(dataset_.capacity(size, false), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size, false));
+    }
+  }
+}
+
+// This test checks whether the reverse bulk loading routine retrieves data
+// samples as intended.
+TEST_F(DatasetTest, TakeWithoutRestoration) {
+  auto samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
+                             [](const auto &sample, const auto &other) {
+                               return sample.first < other.first;
+                             }));
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size, false), 0);
+      EXPECT_EQ(dataset_.capacity(size, false), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size, false));
+    }
+  }
+
+  dataset_.insert_range<false>(samples);
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+  EXPECT_FALSE(dataset_.empty(true));
+  EXPECT_TRUE(dataset_.empty(false));
+
+  samples = dataset_.take<true>(dataset_.size());
+  EXPECT_EQ(samples.size(), dataset_.max_size());
+  EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
+                             [](const auto &sample, const auto &other) {
+                               return sample.first < other.first;
+                             }));
+  EXPECT_TRUE(dataset_.empty(true));
+  EXPECT_FALSE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size, false), 0);
+      EXPECT_EQ(dataset_.capacity(size, false), count);
+    } else {
+      EXPECT_FALSE(dataset_.contains(size, false));
+    }
+  }
 }
 
 }  // namespace
