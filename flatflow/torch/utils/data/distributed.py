@@ -111,17 +111,13 @@ class DistributedSampler:
     self.data_parallel_size: int = data_parallel_size
     self.drop_last: bool = drop_last
     self.tensor_parallel_world_size = parallel_state.get_tensor_model_parallel_world_size()
-    self.tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-    self.pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
     self.pipeline_parallel_world_size = parallel_state.get_pipeline_model_parallel_world_size()
     self.micro_batch_times_data_parallel_size = self.micro_batch_size * self.data_parallel_size
     self.dataset = dataset
 
     self.update_global_batch_size(global_batch_size)
 
-    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank \
-                + self.pipeline_parallel_rank * self.tensor_parallel_world_size \
-                + self.tensor_parallel_rank
+    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank
 
     self.epoch = 0
     self.indices = []
