@@ -308,7 +308,7 @@ class Dataset {
     size_ = max_size_;
 
     std::for_each(std::execution::par, items_.begin(), items_.end(),
-                  [&](auto &item) {
+                  [](auto &item) {
                     std::sort(std::execution::par, item.second.begin(),
                               item.second.end());
                   });

@@ -109,7 +109,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   shuffled.reserve(num_micro_batches);
 
   std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),
-                [&](const auto &range) {
+                [](const auto &range) {
                   std::for_each(std::execution::seq, range.first, range.second,
                                 [&](const auto index) {
                                   shuffled.emplace_back(
