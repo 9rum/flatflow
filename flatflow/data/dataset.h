@@ -173,71 +173,76 @@ class Dataset {
 
   Dataset &operator=(Dataset &&other) = default;
 
-  // Dataset::operator[]()
+  // Dataset::insert<>()
   //
-  // Returns a data sample with the nearest size to the given size from inverted
-  // index. This is equivalent to call `at()`.
-  inline value_type operator[](key_type size) { return at(size); }
-
-  // Dataset::at()
-  //
-  // Finds a data sample with the same, or at least nearest size to the given
-  // size from inverted index.
-  inline value_type at(key_type size) {
-    assert(size_ != 0);
-
-    // The retrieval process of a data sample is described below:
-    //
-    // * First, find lower bound for the given size from inverted index. To find
-    //   the item with the nearest size, compare the size of the found item with
-    //   its precedence if necessary. Since the actual size of the found item
-    //   may be different from the given size, the index of the found item is
-    //   returned along with its size.
-    // * Once the item has been found, select and remove an index from its index
-    //   slot. For efficient removal, it always choose the last index in the
-    //   index slot. Even though the choice of index within a given index slot
-    //   is deterministic, the training sequence is guaranteed to be randomized
-    //   since each index slot is shuffled at the beginning of each training
-    //   epoch. If the index has been removed, store the index in another
-    //   inverted index (i.e., the `recycle bin`) for efficient recovery of
-    //   inverted index at the end of training epoch.
-    auto item = items_.lower_bound(size);
-    if (item != items_.begin()) {
-      const auto prev = std::prev(item);
-      if (item == items_.end() || size - prev->first < item->first - size) {
-        item = prev;
-      }
+  // Depending on `Drop`, inserts the given data sample into the inverted index
+  // or recycle bin with bounds checking.
+  template <bool Drop>
+  inline void insert(const value_type &sample) {
+    if constexpr (!Drop) {
+      assert(size_ < max_size_);
     }
 
-    return take(item);
+    insert_impl<Drop>(sample.first, sample.second);
+
+    if constexpr (!Drop) {
+      ++size_;
+    }
   }
 
-  // Dataset::take()
+  // Dataset::insert_range<>()
+  //
+  // Depending on `Drop`, inserts the given data samples into the inverted index
+  // or recycle bin with bounds checking.
+  template <bool Drop>
+  void insert_range(const std::vector<value_type> &samples) {
+    if constexpr (!Drop) {
+      assert(size_ + samples.size() <= max_size_);
+    }
+
+    std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
+                  [&](const auto &sample) {
+                    insert_impl<Drop>(sample.first, sample.second);
+                  });
+
+    if constexpr (!Drop) {
+      size_ += samples.size();
+    }
+  }
+
+  // Dataset::take<>()
   //
   // Takes the first `n` data samples from the inverted index with bounds
   // checking. This ensures that the retrieved data samples are sorted in
-  // order of size.
+  // order of size, which are restored to the recycle bin if `Drop` is
+  // evaluated to `false`.
+  template <bool Drop>
   std::vector<value_type> take(size_type n) {
     assert(n <= size_);
 
-    auto items = std::vector<value_type>();
-    items.reserve(n);
+    auto samples = std::vector<value_type>();
+    samples.reserve(n);
 
+    #pragma omp unroll partial
     for (auto item = items_.begin(); 0 < n; item = items_.begin()) {
       if (n < item->second.size()) {
+        #pragma omp unroll partial
         for (; 0 < n; --n) {
-          items.emplace_back(take(item));
+          samples.emplace_back(take_impl<Drop>(item));
         }
       } else {
+        #pragma omp unroll partial
         for (; 1 < item->second.size(); --n) {
-          items.emplace_back(take(item));
+          samples.emplace_back(take_impl<Drop>(item));
         }
-        items.emplace_back(take(item));
+        samples.emplace_back(take_impl<Drop>(item));
         --n;
       }
     }
 
-    return items;
+    size_ -= samples.size();
+
+    return samples;
   }
 
   // Dataset::size()
@@ -322,55 +327,100 @@ class Dataset {
   void on_train_end() const noexcept {}
 
  protected:
-  // Dataset::take()
+  // Dataset::insert_impl<>()
   //
-  // Takes a data sample from item at `position`.
-  value_type take(container_type::iterator position) {
-    // Take the last index from item and restore it to recycle bin. There are
-    // four possible cases for this:
-    //
-    // * If there is no equivalent size in recycle bin, create a new index slot
-    //   with the index and reserve its capacity as in the constructor to avoid
-    //   copying of the underlying array. Note that it is the same to check
-    //   whether the size and capacity of an index slot in items are equal to
-    //   each other as to search for the equivalent size in recycle bin, since
-    //   any index slots with the same size in items and recycle bin are
-    //   mutually exclusive.
-    // * A special case occurs when the capacity of the index slot is one, where
-    //   its node handle can be extracted from items and moved to recycle bin
-    //   without allocating a new index slot.
-    // * If the size already exists in recycle bin, then simply append the index
-    //   to the corresponding index slot.
-    // * Finally, if the index slot becomes empty, delete it from items.
+  // Depending on `Drop`, inserts the given data sample into the inverted index
+  // or recycle bin.
+  template <bool Drop>
+  void insert_impl(Size size, Index index) {
+    if constexpr (Drop) {
+      auto position = recyclebin_.find(size);
+      if (position == recyclebin_.end()) {
+        auto slot = std::vector<mapped_type>();
+        slot.reserve(items_.at(size).capacity());
+        slot.emplace_back(index);
+        recyclebin_.try_emplace(size, std::move(slot));
+      } else {
+        position->second.emplace_back(index);
+      }
+    } else {
+      auto position = items_.find(size);
+      if (position == items_.end()) {
+        position = recyclebin_.find(size);
+        if (position->second.empty()) {
+          auto handle = recyclebin_.extract(position);
+          handle.mapped().emplace_back(index);
+          items_.insert(std::move(handle));
+        } else {
+          auto slot = std::vector<mapped_type>();
+          slot.reserve(position->second.capacity());
+          slot.emplace_back(index);
+          items_.try_emplace(size, std::move(slot));
+        }
+      } else {
+        position->second.emplace_back(index);
+      }
+    }
+  }
+
+  // Dataset::take_impl<>()
+  //
+  // Takes a data sample from item at `position` without restoring the retrieved
+  // data sample to the recycle bin if `Drop` is evaluated to `true`.
+  template <bool Drop>
+  value_type take_impl(container_type::iterator position) {
     const auto size = position->first;
     const auto index = position->second.back();
 
-    if (position->second.capacity() == 1) {
-      recyclebin_.insert(std::move(items_.extract(position)));
-    } else if (position->second.size() == position->second.capacity()) {
-      position->second.pop_back();
-      auto slot = std::vector<mapped_type>();
-      slot.reserve(position->second.capacity());
-      slot.emplace_back(index);
-      recyclebin_.try_emplace(size, std::move(slot));
-    } else {
+    if constexpr (Drop) {
       position->second.pop_back();
       if (position->second.empty()) {
-        items_.erase(position);
+        recyclebin_.insert(std::move(items_.extract(position)));
       }
-      recyclebin_.at(size).emplace_back(index);
+    } else {
+      // Take the last index from item and restore it to recycle bin. There are
+      // four possible cases for this:
+      //
+      // * If there is no equivalent size in recycle bin, create a new index
+      //   slot with the index and reserve its capacity as in the constructor
+      //   to avoid copying of the underlying array. Note that it is the same
+      //   to check whether the size and capacity of an index slot in items are
+      //   equal to each other as to search for the equivalent size in recycle
+      //   bin, since any index slots with the same size in items and recycle
+      //   bin are mutually exclusive.
+      // * A special case occurs when the capacity of the index slot is one,
+      //   where its node handle can be extracted from items and moved to
+      //   recycle bin without allocating a new index slot.
+      // * If the size already exists in recycle bin, then simply append the
+      //   index to the corresponding index slot.
+      // * Finally, if the index slot becomes empty, delete it from items.
+      if (position->second.capacity() == 1) {
+        recyclebin_.insert(std::move(items_.extract(position)));
+      } else if (position->second.size() == position->second.capacity()) {
+        position->second.pop_back();
+        auto slot = std::vector<mapped_type>();
+        slot.reserve(position->second.capacity());
+        slot.emplace_back(index);
+        recyclebin_.try_emplace(size, std::move(slot));
+      } else {
+        position->second.pop_back();
+        if (position->second.empty()) {
+          items_.erase(position);
+        }
+        recyclebin_.at(size).emplace_back(index);
+      }
     }
-
-    --size_;
 
     return std::make_pair(size, index);
   }
 
-  // Dataset::take()
+  // Dataset::take_impl<>()
   //
-  // Takes a data sample from item at `position`.
-  inline value_type take(container_type::reverse_iterator position) {
-    return take(std::next(position).base());
+  // Takes a data sample from item at `position` without restoring the retrieved
+  // data sample to the recycle bin if `Drop` is evaluated to `true`.
+  template <bool Drop>
+  inline value_type take_impl(container_type::reverse_iterator position) {
+    return take_impl<Drop>(std::next(position).base());
   }
 
   size_type max_size_;
