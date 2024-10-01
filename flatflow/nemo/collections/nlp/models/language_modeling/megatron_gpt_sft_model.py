@@ -371,11 +371,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
         batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
         _, seq_length = batch['tokens'].shape
-        num_microbatches = 0
-        if self.use_flatflow:
-            num_microbatches = 1
-        else:
-            num_microbatches = get_num_microbatches()
+        num_microbatches = 1 if self.use_flatflow else get_num_microbatches()
+        micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
         assert num_microbatches > 0, "Invalid num_microbatches configuration"
         data_iter = get_iterator_k_split(batch, num_microbatches)
         if log_token_counts:
@@ -397,14 +394,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.param_sync_func = param_sync_func
 
         fwd_bwd_function = get_forward_backward_func()
-        num_microbatches = 0
-        micro_batch_size = 0
-        if self.use_flatflow:
-            num_microbatches = 1
-            micro_batch_size = 1
-        else:
-            num_microbatches = get_num_microbatches()
-            micro_batch_size = get_micro_batch_size()
+
         assert num_microbatches > 0 and micro_batch_size > 0, "Invalid microbatch configuration"
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
@@ -481,7 +471,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 # replace the last appended loss with the outputs dict
                 self.validation_step_outputs[-1] = outputs
         else:
-            if type(self.trainer.test_dataloaders) == list and len(self.trainer.test_dataloaders) > 1:
+            if isinstance(self.trainer.test_dataloaders, list) and len(self.trainer.test_dataloaders) > 1:
                 self.test_step_outputs[dataloader_idx][-1] = outputs
             else:
                 self.test_step_outputs[-1] = outputs
