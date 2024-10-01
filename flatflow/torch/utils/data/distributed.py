@@ -110,31 +110,36 @@ class DistributedSampler:
     self.data_parallel_rank: int = data_parallel_rank
     self.data_parallel_size: int = data_parallel_size
     self.drop_last: bool = drop_last
-    self.tensor_parallel_world_size = parallel_state.get_tensor_model_parallel_world_size()
-    self.pipeline_parallel_world_size = parallel_state.get_pipeline_model_parallel_world_size()
-    self.micro_batch_times_data_parallel_size = self.micro_batch_size * self.data_parallel_size
+    self.tensor_parallel_world_size: int = parallel_state.get_tensor_model_parallel_world_size()
+    self.tensor_parallel_rank: int = parallel_state.get_tensor_model_parallel_rank()
+    self.pipeline_parallel_rank: int = parallel_state.get_pipeline_model_parallel_rank()
+    self.pipeline_parallel_world_size: int = parallel_state.get_pipeline_model_parallel_world_size()
+    self.micro_batch_times_data_parallel_size: int = self.micro_batch_size * self.data_parallel_size
     self.dataset = dataset
 
     self.update_global_batch_size(global_batch_size)
 
-    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank
-
+    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank \
+                + self.pipeline_parallel_rank * self.tensor_parallel_world_size \
+                + self.tensor_parallel_rank
     self.epoch = 0
     self.indices = []
     self.last_batch_size = self.total_samples % self._global_batch_size
+    
     addr = os.getenv("MASTER_ADDR")
     channel = grpc.insecure_channel(f"{addr}:{port}")
 
+    if self.rank==0:
+        run(port, data_parallel_size)
+    
+    self.client = CommunicatorClient(channel)
+
     if self.rank == 0:
         sizes = [flatflow.sys.getsizeof(item) for item in self.dataset]
-        run(port, data_parallel_size)
-
-    self.client = CommunicatorClient(channel)
-    if self.rank == 0:
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes) #noqa E501
-    else:
+    elif self.rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0:
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size) #noqa E501
-
+    
   def update_global_batch_size(self, new_global_batch_size: int) -> None:
         """Update the global batch size."""
         self._global_batch_size = new_global_batch_size
@@ -157,17 +162,23 @@ class DistributedSampler:
     self.update_global_batch_size(new_global_batch_size=new_global_batch_size)
 
   def __iter__(self):
-    broadcast = self.client.Broadcast(epoch=self.epoch)
-    self.indices = list(broadcast.IndicesAsNumpy())
+    if(self.rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0):
+        broadcast = self.client.Broadcast(epoch=self.epoch)
+        self.indices = list(broadcast.IndicesAsNumpy())
     batch = []
-    for idx in range(len(self.indices)):
-        batch.append(self.indices[idx])
-        if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-            self.consumed_samples += self._global_batch_size
-            yield batch
+    for idx in range(self.consumed_samples, self.total_samples):
+        batch.append(idx)
+        if len(batch) == self._global_batch_size:
+            indices = [
+                batch[i] for i in range(self.data_parallel_rank, self._global_batch_size, self.data_parallel_size,)
+            ]
+            assert len(indices) == self._global_batch_size_on_this_data_parallel_rank
+            yield indices
             batch = []
+
     if len(batch) > 0 and not self.drop_last:
-        yield batch
+        indices = [batch[i] for i in range(self.data_parallel_rank, len(batch), self.data_parallel_size)]
+        yield indices
 
 
   def __len__(self) -> int:
