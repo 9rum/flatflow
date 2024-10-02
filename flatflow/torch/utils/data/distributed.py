@@ -204,5 +204,5 @@ class DistributedSampler:
     self.epoch = epoch
 
   def __del__(self) -> None:
-    if self.rank == 0:
+    if hasattr(self.client, 'rank') and self.client.rank == 0:
       self.client.Finalize()
