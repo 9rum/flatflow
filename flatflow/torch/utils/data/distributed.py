@@ -119,25 +119,24 @@ class DistributedSampler:
 
     self.update_global_batch_size(global_batch_size)
 
-    self.rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank \
+    self.global_rank = self.tensor_parallel_world_size * self.pipeline_parallel_world_size * self.data_parallel_rank \
                 + self.pipeline_parallel_rank * self.tensor_parallel_world_size \
                 + self.tensor_parallel_rank
+    self.rank = data_parallel_rank
     self.epoch = 0
     self.indices = []
     self.last_batch_size = self.total_samples % self._global_batch_size
-    
     addr = os.getenv("MASTER_ADDR")
     channel = grpc.insecure_channel(f"{addr}:{port}")
-
-    if self.rank==0:
+    if self.global_rank==0:
         run(port, data_parallel_size)
     
     self.client = CommunicatorClient(channel)
 
-    if self.rank == 0:
+    if self.global_rank == 0:
         sizes = [flatflow.sys.getsizeof(item) for item in self.dataset]
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes) #noqa E501
-    elif self.rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0:
+    elif self.global_rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0:
         self.client.Init(global_batch_size, micro_batch_size, order, self.rank, seed, heterogeneous, use_flat_shuffle, hidden_size) #noqa E501
     
   def update_global_batch_size(self, new_global_batch_size: int) -> None:
@@ -162,7 +161,7 @@ class DistributedSampler:
     self.update_global_batch_size(new_global_batch_size=new_global_batch_size)
 
   def __iter__(self):
-    if(self.rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0):
+    if(self.global_rank % (self.tensor_parallel_world_size * self.pipeline_parallel_world_size) == 0):
         broadcast = self.client.Broadcast(epoch=self.epoch)
         self.indices = list(broadcast.IndicesAsNumpy())
     batch = []
