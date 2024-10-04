@@ -196,6 +196,61 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         """Return the number of tokens of each text."""
         return self.indexed_dataset[idx]['token_count']
 
+    def _separate_template(self, prompt_template_values: List[str]):
+        """
+        Combine contexts and label based on prompt_template into a list of strings and a list of keys.
+
+        Args:
+            prompt_template_values (List[str]): the list of context and label strings extrated from jsonl file with prompt_template_keys.
+
+        Returns:
+            template_strings (List[str]): separated prompt_template with contexts/label placeholder filled with corresponding strings
+            template_strings_keys (List[str]): strings point to placeholder keys or <template>
+
+        Examples:
+            prompt_template = 'Context:  {context} Question: {question} Answer: {label}'
+            prompt_template_values = ['xxx', 'yyy', 'zzz']
+
+            # tokenizer.space_sensitive = True
+            template_strings = ['Context:', '  xxx', ' Question:', ' yyy', ' Answer:', ' zzz']
+
+            # tokenizer.space_sensitive = False
+            template_strings = ['Context:', ' xxx', 'Question:', 'yyy', 'Answer:', 'zzz']
+
+            template_strings_keys = ['<template>', 'context', '<template>', 'question', '<template>', 'label']
+        """
+        placeholders = [f'{{{k}}}' for k in self.prompt_template_keys]
+
+        # placeholder to string
+        ph_to_s = {ph: s for ph, s in zip(placeholders, prompt_template_values)}
+        # placeholder to key
+        ph_to_k = {ph: k for ph, k in zip(placeholders, self.prompt_template_keys)}
+
+        # separate prompt_template based on '<space>{placeholder}'
+        # examples:
+        #   self.prompt_template = "Context:{context}  Passage: {passage}\n\nQuestion:{question} {label}"
+        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}']
+        template_with_placeholder_separated = re.split('( *?{.+?})', self.prompt_template)
+        template_with_placeholder_separated = [s for s in template_with_placeholder_separated if len(s) > 0]
+
+        # remove space if we have leading space and tokenizer is not space_sensitive
+        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B')
+        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B')
+        space_sensitive = getattr(self.tokenizer, 'space_sensitive', False)
+        template_with_space_reduced = [
+            s[1:] if not space_sensitive and s[0] == ' ' else s for s in template_with_placeholder_separated
+        ]
+
+        # convert placeholder to the corresponding string (preserve left spaces) and key
+        template_strings, template_strings_keys = [], []
+        for t in template_with_space_reduced:
+            placeholder = t.lstrip(' ')
+            left_spaces = ' ' * (len(t) - len(placeholder))
+            template_strings.append(left_spaces + ph_to_s.get(placeholder, placeholder))
+            template_strings_keys.append(ph_to_k.get(placeholder, '<template>'))
+
+        return template_strings, template_strings_keys
+
     def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
         """
         Calculate total tokens and truncate multiple contexts in truncation_fields.
