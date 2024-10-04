@@ -379,3 +379,155 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
             'max_seqlen': torch.IntTensor(max_seqlen),
         }
         return processed_batch
+
+
+class GPTSFTPackedDataset(GPTSFTDataset):
+    def __init__(self, file_path: str, tokenizer: TokenizerSpec, return_cu_seqlen: bool = True, **kwargs):
+        np.random.seed(kwargs.get('seed', 1234))
+        super().__init__(file_path, tokenizer, **kwargs)
+        assert self.virtual_tokens == 0, "P-Tuning with packed sequence is not supported."
+
+        # Whether to return `cu_seqlen` to pass to model. This should be true for almost all use cases.
+        self.return_cu_seqlen = return_cu_seqlen
+
+    def __getitem__(self, idx):
+        if self.samples_mapping is not None:
+            # assert idx < len(self.samples_mapping)
+            idx = self.samples_mapping[idx]
+
+        input_ids = self.indexed_dataset[idx]['input_ids']
+        seq_boundaries = self.indexed_dataset[idx]['seq_start_id'] + [len(input_ids)]
+        loss_mask = self.indexed_dataset[idx]['loss_mask']
+        if idx < 0:
+            loss_mask = [0] * len(loss_mask)
+        return {'input_ids': input_ids, 'seq_boundaries': seq_boundaries, 'loss_mask': loss_mask}
+
+    def _load_dataset(self):
+        try:
+            self.indexed_dataset = np.load(self.file_path, allow_pickle=True)
+        except Exception as e:
+            logging.error(
+                f"Failed to load packed dataset. The dataset should be a `.npy` file. "
+                f"Please check if the packed dataset was prepared correctly. The original error was:\n {e}",
+            )
+            exit(1)
+
+    def _build_samples_mapping(self):
+        if self.max_num_samples is not None:
+            # custom samples mapping logic, following the format for unpacked sft dataset
+            # Note: this is epoch-level shuffling, i.e. sampling without replacement until end of epoch, then repeat.
+            # Unpacked dataset shuffles by sampling with replacement indefinitely.
+            dataset_len = len(self.indexed_dataset)
+            max_num_epochs = np.ceil(self.max_num_samples / dataset_len)
+            indices = np.arange(dataset_len)[None, :].repeat(max_num_epochs, axis=0)
+            [np.random.shuffle(x) for x in indices]
+            self.samples_mapping = indices.reshape(1, -1).squeeze()[: self.max_num_samples]
+        else:
+            self.samples_mapping = None
+
+    def _build_loss_mask(self, processed_example):
+        if self.answer_only_loss:
+            seq_boundaries = processed_example['seq_boundaries']
+            return np.concatenate(
+                [
+                    processed_example['loss_mask'][seq_boundaries[i] + 1 : seq_boundaries[i + 1]]
+                    for i in range(len(seq_boundaries) - 1)
+                ]
+            )
+        return [1.0] * (len(processed_example['input_ids']) - len(processed_example['seq_boundaries']) + 1)
+
+    def _maybe_cast_to_list(self, x):
+        return [item.tolist() if isinstance(item, np.ndarray) else item for item in x]
+
+    def collate_fn(self, batch):
+        input_ids = [
+            np.concatenate(
+                [
+                    item['input_ids'][item['seq_boundaries'][i] : item['seq_boundaries'][i + 1] - 1]
+                    for i in range(len(item['seq_boundaries']) - 1)
+                ]
+            )
+            for item in batch
+        ]
+        labels = [
+            np.concatenate(
+                [
+                    item['input_ids'][item['seq_boundaries'][i] + 1 : item['seq_boundaries'][i + 1]]
+                    for i in range(len(item['seq_boundaries']) - 1)
+                ]
+            )
+            for item in batch
+        ]
+
+        loss_mask = [self._build_loss_mask(item) for item in batch]
+
+        token_count = [item.shape[0] for item in input_ids]
+
+        if self.pad_to_max_length:
+            max_length = self.max_seq_length
+        else:
+            # pad to the nearest multiple of 16 for FP8 training
+            # for many datasets in practice, all packed sequence lengths are very close to the
+            # target length (2048, 4096, 8192), so there is very minimal padding
+            max_length = max(len(l) for l in input_ids)
+            max_length = min(self.max_seq_length, self._ceil_to_nearest(max_length, self.pad_seq_length_to_mult))
+        assert max_length <= self.max_seq_length
+
+        position_ids: List[List[int]] = []
+        cu_seqlens: List[List[int]] = []
+        for item in batch:
+            position_ids.append([])
+            cu_seqlens.append([0])
+            seqlens = np.array(item['seq_boundaries'][1:]) - np.array(item['seq_boundaries'][:-1])
+            for l in seqlens:
+                # length minus 1 because input_ids is truncated by 1 for labels
+                position_ids[-1].extend(list(range(l - 1)))
+                cu_seqlens[-1].append(cu_seqlens[-1][-1] + l - 1)
+            # set last seq to the max seq len because rope and attn kernels expect no padding
+            cu_seqlens[-1][-1] = max_length
+
+        assert len(input_ids[0]) == len(
+            position_ids[0]
+        ), "Dataset problem: input_ids and position_ids lengths don't match"
+
+        input_ids = self._collate_item(input_ids, max_length=max_length, pad_id=self.tokenizer.eos_id)
+        labels = self._collate_item(labels, max_length=max_length, pad_id=self.tokenizer.eos_id)
+        loss_mask = self._collate_item(loss_mask, max_length=max_length, pad_id=0)
+        position_ids = self._collate_item(position_ids, max_length=max_length, pad_id=0)
+
+        processed_batch = {
+            'tokens': torch.LongTensor(input_ids),
+            'labels': torch.LongTensor(labels),
+            'loss_mask': torch.LongTensor(loss_mask),
+            'position_ids': torch.LongTensor(position_ids),
+            'token_count': token_count,
+        }
+
+        if self.return_cu_seqlen:
+            cu_seqlens = self._collate_item(cu_seqlens, max_length=max(len(l) for l in cu_seqlens) + 1, pad_id=-1)
+
+            # Pre-generate `cu_seqlens_argmin` and `max_seqlen` as CPU tensor to avoid device-to-host copies.
+            cu_seqlens = torch.IntTensor(cu_seqlens)
+            cu_seqlens_argmin = torch.argmin(cu_seqlens, dim=1, keepdim=True)
+            seqlens = cu_seqlens[:, 1:] - cu_seqlens[:, :-1]
+            max_seqlen, _ = seqlens.max(dim=1, keepdim=True)
+
+            processed_batch.update(
+                {
+                    'attention_mask': torch.LongTensor(
+                        [1] * len(input_ids)
+                    ),  # no attention mask is needed for packed seq
+                    'cu_seqlens': torch.IntTensor(cu_seqlens),  # cu_seqlens_q must be in dtype torch.int32
+                    'cu_seqlens_argmin': cu_seqlens_argmin,  # only required for perf
+                    'max_seqlen': max_seqlen,  # only required for perf
+                }
+            )
+        else:
+            attention_mask = [self._create_attention_mask(max_length) for _ in batch]
+            processed_batch.update(
+                {
+                    'attention_mask': torch.stack(attention_mask),
+                }
+            )
+
+        return processed_batch
