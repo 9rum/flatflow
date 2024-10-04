@@ -358,8 +358,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             batch, _, _ = next(dataloader_iter)
         else:
             batch = next(dataloader_iter)
-        log_token_counts = self.cfg.get('log_token_counts', False)
 
+        log_token_counts = self.cfg.get('log_token_counts', False)
         if log_token_counts:
             token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
 
@@ -369,6 +369,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         num_microbatches = 1 if self.use_flatflow else get_num_microbatches()
         micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
         data_iter = get_iterator_k_split(batch, num_microbatches)
+
         if log_token_counts:
             self.log('seq_length_padded', seq_length, prog_bar=True, batch_size=1)
             self.log('tokens_avg', token_count_avg, prog_bar=True, sync_dist=True, batch_size=1)
