@@ -93,7 +93,7 @@ class GPTSFTDataset(Dataset):
         special_tokens: special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"}
         is_test: Whether this dataset is the test split.
         output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
-        """ # noqa: E501
+        """
         self.tokenizer = tokenizer
         self.file_path = file_path
         self.max_seq_length = max_seq_length
@@ -163,7 +163,7 @@ class GPTSFTDataset(Dataset):
         assert (
             self.prompt_template is not None
         ), f'we need prompt_template to combine contexts and label {self.label_key}'
-        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them. #noqa: E501
+        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them.
         self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
         self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
 
@@ -172,7 +172,7 @@ class GPTSFTDataset(Dataset):
             self.prompt_template[-len(label_placeholder) :] == label_placeholder
         ), f'{label_placeholder} must be at the end of prompt_template.'
 
-        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output'] #noqa: E501
+        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output']
         if len(self.truncation_fields) > 0:
             if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
                 self.truncation_fields[0] = self.prompt_template_keys[0]
@@ -258,7 +258,7 @@ class GPTSFTDataset(Dataset):
             template_strings = ['Context:', ' xxx', 'Question:', 'yyy', 'Answer:', 'zzz']
 
             template_strings_keys = ['<template>', 'context', '<template>', 'question', '<template>', 'label']
-        """ #noqa: E501
+        """
         placeholders = [f'{{{k}}}' for k in self.prompt_template_keys]
 
         # placeholder to string
@@ -269,13 +269,13 @@ class GPTSFTDataset(Dataset):
         # separate prompt_template based on '<space>{placeholder}'
         # examples:
         #   self.prompt_template = "Context:{context}  Passage: {passage}\n\nQuestion:{question} {label}"
-        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}'] #noqa: E501
+        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}']
         template_with_placeholder_separated = re.split('( *?{.+?})', self.prompt_template)
         template_with_placeholder_separated = [s for s in template_with_placeholder_separated if len(s) > 0]
 
         # remove space if we have leading space and tokenizer is not space_sensitive
-        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B') #noqa: E501
-        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B') #noqa: E501
+        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B')
+        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B')
         space_sensitive = getattr(self.tokenizer, 'space_sensitive', False)
         template_with_space_reduced = [
             s[1:] if not space_sensitive and s[0] == ' ' else s for s in template_with_placeholder_separated
@@ -302,7 +302,7 @@ class GPTSFTDataset(Dataset):
         Returns:
             context_ids (List[int]): all context ids.
             label_ids (List[int]): all label ids.
-        """ #noqa: E501
+        """
         context_ids = template_ids[:-1]
         label_ids = template_ids[-1]
         total_ids = (
