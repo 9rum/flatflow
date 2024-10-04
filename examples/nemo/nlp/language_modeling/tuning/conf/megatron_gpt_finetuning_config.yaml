@@ -83,6 +83,8 @@ model:
   fsdp_sharded_checkpoint: False # Store and load FSDP shared checkpoint.
   fsdp_use_orig_params: False # Set to True to use FSDP for specific peft scheme.
 
+  use_flatflow: True
+
   peft:
     peft_scheme: "adapter" # can be either adapter,ia3, or ptuning
     restore_from_path: null

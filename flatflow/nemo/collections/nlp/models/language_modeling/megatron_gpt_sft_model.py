@@ -40,6 +40,8 @@ from omegaconf import DictConfig, ListConfig
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
+import flatflow.nemo.collections.nlp.data.language_modeling.megatron
+
 try:
     from apex.transformer.pipeline_parallel.utils import (
         _reconfigure_microbatch_calculator,
@@ -102,6 +104,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.virtual_tokens = 0
         self.init_global_step = 0
 
+        self.use_flatflow = cfg.get("use_flatflow", True)
+
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
         if not hasattr(data_cfg, "metric"):
@@ -113,12 +117,12 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 return None, "loss"
             if data_cfg.metric.name not in MetricStringToTorchMetric:
                 raise KeyError(
-                    f"{data_cfg.metric.name} is not supported. List of supported metrics: {MetricStringToTorchMetric.keys()}" #noqa E501
+                    f"{data_cfg.metric.name} is not supported. List of supported metrics: {MetricStringToTorchMetric.keys()}"
                 )
             if data_cfg.metric.name in self._metrics_require_string2category_map:
                 if data_cfg.metric.average is None:
                     raise ValueError(
-                        f"{data_cfg.metric.name} requires specifying whether you want to compute a micro or macro average. Found None." #noqa E501
+                        f"{data_cfg.metric.name} requires specifying whether you want to compute a micro or macro average. Found None."
                     )
             if (
                 data_cfg.metric.get('labels_are_strings', False)
@@ -127,18 +131,18 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 if data_cfg.metric.num_classes is None:
                     raise ValueError(
                         "Number of classes is not provided in the metric section within the data config. "
-                        f"Please provide the number of classes in the data config to use the {data_cfg.metric.name} metric." #noqa E501
+                        f"Please provide the number of classes in the data config to use the {data_cfg.metric.name} metric."
                     )
                 if data_cfg.metric.get('class_labels', None) is None or not isinstance(
                     data_cfg.metric.get('class_labels', None), ListConfig
                 ):
                     raise ValueError(
                         "Class labels are not provided properly in the metric section witnin the data config. "
-                        f"Please provide the class labels as a list of strings in the data config to use the {data_cfg.metric.name} metric." #noqa E501
+                        f"Please provide the class labels as a list of strings in the data config to use the {data_cfg.metric.name} metric."
                     )
                 if len(data_cfg.metric.get('class_labels', None)) != data_cfg.metric.num_classes:
                     raise ValueError(
-                        f"Number of class labels {len(data_cfg.metric.get('class_labels', None))} does not match `num_classes` : {data_cfg.metric.num_classes}" #noqa E501
+                        f"Number of class labels {len(data_cfg.metric.get('class_labels', None))} does not match `num_classes` : {data_cfg.metric.num_classes}"
                     )
 
             metric_name = data_cfg.metric.name
@@ -218,7 +222,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             ):
                 raise ValueError(
                     (
-                        f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names." #noqa E501
+                        f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names."
                         f"Found: {data_cfg.concat_sampling_probabilities}"
                     )
                 )
@@ -227,7 +231,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 raise ValueError(
                     (
                         "concat_sampling_probabilities must be of the same size as file_names.",
-                        f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}", #noqa E501
+                        f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}",
                     )
                 )
 
@@ -252,7 +256,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             and data_cfg.max_seq_length > self.cfg.max_position_embeddings
         ):
             logging.warning(
-                f"Set dataset max_seq_length to max_position_embeddings {self.cfg.max_position_embeddings} if using learned_absolute position embedding" #noqa E501
+                f"Set dataset max_seq_length to max_position_embeddings {self.cfg.max_position_embeddings} if using learned_absolute position embedding"
             )
             data_cfg.max_seq_length = self.cfg.max_position_embeddings
 
@@ -266,7 +270,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         dataset_kwargs = {}
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
-            if self.cfg.data.get("chat", False):
+            if self.use_flatflow:
+                dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTDataset
+            elif self.cfg.data.get("chat", False):
                 dataset_cls = GPTSFTChatDataset
             elif packed_sequence:
                 dataset_cls = GPTSFTPackedDataset
@@ -302,7 +308,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 virtual_tokens=self.virtual_tokens,
                 tokens_to_generate=data_cfg.get(
                     'tokens_to_generate', 0
-                ),  # used at inference time to allocate tensor positions for tokens that will be generated by inf procedure. #noqa E501
+                ),  # used at inference time to allocate tensor positions for tokens that will be generated by inf procedure.
                 memmap_workers=data_cfg.get(
                     'memmap_workers', None
                 ),  # used to set num. of workers to create the memmap index files
@@ -315,13 +321,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 ),  # used to choose truncation method. Options: ['random', 'left', 'right']
                 special_tokens=self.cfg.data.get(
                     'chat_prompt_tokens', None
-                ),  # special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"} #noqa E501
+                ),  # special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"}
                 is_test=not is_train,
                 **dataset_kwargs,
             )
             datasets.append(dataset)
         if is_train:
-            if packed_sequence:
+            if self.use_flatflow or packed_sequence:
                 num_train_samples_after_blend = sum(len(dataset) for dataset in datasets)
             dataset = BlendableDataset(
                 datasets=datasets, weights=data_cfg.concat_sampling_probabilities, size=num_train_samples_after_blend
@@ -361,7 +367,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
         batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
         _, seq_length = batch['tokens'].shape
-        data_iter = get_iterator_k_split(batch, get_num_microbatches())
+        num_microbatches = 1 if self.use_flatflow else get_num_microbatches()
+        micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
+        data_iter = get_iterator_k_split(batch, num_microbatches)
 
         if log_token_counts:
             self.log('seq_length_padded', seq_length, prog_bar=True, batch_size=1)
@@ -387,10 +395,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
             model=self.model,
-            num_microbatches=get_num_microbatches(),
+            num_microbatches=num_microbatches,
             forward_only=forward_only,
             seq_length=seq_length,
-            micro_batch_size=get_micro_batch_size(),
+            micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
         )
 
@@ -573,7 +581,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             # Check if the user provided a prefix path to the file(s) they want to write.
             if not hasattr(data_cfg, "output_file_path_prefix") or data_cfg.output_file_path_prefix is None:
                 raise ValueError(
-                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file." #noqa E501
+                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
                 )
             filename_log_key = self._determine_log_key(data_cfg, dataloader_idx, None, mode)
             self.write_predictions_to_file(
@@ -858,7 +866,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             collate_fn=collate_fn,
             num_workers=data_cfg.num_workers,
             pin_memory=data_cfg.pin_memory,
-            persistent_workers=True if data_cfg.num_workers > 0 else False,
+            persistent_workers=0 < data_cfg.num_workers,
         )
 
     def setup_training_dataloader(self):
