@@ -184,17 +184,17 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
     def __len__(self):
         return len(self.indexed_dataset)
 
-    def __getitem__(self, index):
-        item = self.indexed_dataset[index]
+    def __getitem__(self, idx):
+        item = self.indexed_dataset[idx]
         input_ids = item['input_ids']
         labels = item['labels']
         seqlen = item['token_count']
-        loss_mask = self._build_loss_mask(item) if index >= 0 else [0] * seqlen
+        loss_mask = self._build_loss_mask(item) if 0 <= idx else [0] * seqlen
         return {'input_ids': input_ids, 'labels': labels, 'loss_mask': loss_mask, 'seqlen': seqlen}
 
-    def __sizeof__(self, index: int) -> int:
-        """Return the relative size of element for scheduling."""
-        return self.indexed_dataset[index]['token_count']
+    def __sizeof__(self, idx: int) -> int:
+        """Return the number of tokens of each text."""
+        return self.indexed_dataset[idx]['token_count']
 
     def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
         """
