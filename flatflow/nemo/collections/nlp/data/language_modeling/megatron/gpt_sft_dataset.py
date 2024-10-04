@@ -104,7 +104,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         self.seed = seed
         self.label_key = label_key
         self.answer_only_loss = answer_only_loss
-        self.truncation_fields = truncation_field.split(',')
+        self.truncation_fields = truncation_field.split(',') if truncation_field is not None else []
         self.pad_to_max_length = pad_to_max_length
         self.index_mapping_dir = index_mapping_dir
         self.prompt_template = prompt_template
@@ -112,6 +112,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         self.tokens_to_generate = tokens_to_generate
         self.memmap_workers = memmap_workers
         self.hf_dataset = hf_dataset
+        self.global_sample_mapping = global_sample_mapping
         self.truncation_method = truncation_method
         self.is_test = is_test
         self.output_original_text = output_original_text
@@ -130,12 +131,58 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
             self.special_tokens = special_tokens
 
         self._load_dataset()
+
         # Validate prompt template
         self._maybe_validate_prompt_template()
 
         # Will be None after this call if `max_num_samples` is None
         self._build_samples_mapping()
         self._process_dataset()
+
+    def _load_dataset(self):
+        if self.hf_dataset:
+            self.indexed_dataset = load_dataset(
+                'json',
+                data_files=self.file_path,
+                cache_dir=self.index_mapping_dir,
+                num_proc=self.memmap_workers,
+                split='train',
+            )
+        else:
+            self.indexed_dataset = JSONLMemMapDataset(
+                dataset_paths=[self.file_path],
+                tokenizer=None,
+                header_lines=0,
+                index_mapping_dir=self.index_mapping_dir,
+                workers=self.memmap_workers,
+            )
+
+    def _maybe_validate_prompt_template(self):
+        assert (
+            self.prompt_template is not None
+        ), f'we need prompt_template to combine contexts and label {self.label_key}'
+        # When providing things like newlines in the prompt template via the CLI, they are escaped.
+        # This line unescapes them.
+        self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
+        self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
+
+        label_placeholder = f'{{{self.label_key}}}'
+        assert (
+            self.prompt_template[-len(label_placeholder) :] == label_placeholder
+        ), f'{label_placeholder} must be at the end of prompt_template.'
+
+        # Legacy checkpoints has self.truncation_fields = ['context'] and
+        # self.prompt_template_keys = ['input', 'output']
+        if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
+            self.truncation_fields[0] = self.prompt_template_keys[0]
+
+        assert set(self.truncation_fields).issubset(
+            self.prompt_template_keys
+        ), f'truncation_fields {self.truncation_fields} must in {self.prompt_template_keys}'
+
+    def _build_samples_mapping(self):
+        self.samples_mapping = None
+
     def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
         """
         Calculate total tokens and truncate multiple contexts in truncation_fields.
@@ -263,47 +310,6 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         }
         return processed_example
 
-    def _load_dataset(self):
-        if self.hf_dataset:
-            self.indexed_dataset = load_dataset(
-                'json',
-                data_files=self.file_path,
-                cache_dir=self.index_mapping_dir,
-                num_proc=self.memmap_workers,
-                split='train',
-            )
-        else:
-            self.indexed_dataset = JSONLMemMapDataset(
-                dataset_paths=[self.file_path],
-                tokenizer=None,
-                header_lines=0,
-                index_mapping_dir=self.index_mapping_dir,
-                workers=self.memmap_workers,
-            )
-
-    def _maybe_validate_prompt_template(self):
-        assert (
-            self.prompt_template is not None
-        ), f'we need prompt_template to combine contexts and label {self.label_key}'
-        # When providing things like newlines in the prompt template via the CLI, they are escaped.
-        # This line unescapes them.
-        self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
-        self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
-
-        label_placeholder = f'{{{self.label_key}}}'
-        assert (
-            self.prompt_template[-len(label_placeholder) :] == label_placeholder
-        ), f'{label_placeholder} must be at the end of prompt_template.'
-
-        # Legacy checkpoints has self.truncation_fields = ['context'] and
-        # self.prompt_template_keys = ['input', 'output']
-        if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
-            self.truncation_fields[0] = self.prompt_template_keys[0]
-
-        assert set(self.truncation_fields).issubset(
-            self.prompt_template_keys
-        ), f'truncation_fields {self.truncation_fields} must in {self.prompt_template_keys}'
-
     def _process_dataset(self):
         """
         Process the loaded dataset.
@@ -325,14 +331,6 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
 
         self.indexed_dataset = processed_dataset
 
-    def _build_samples_mapping(self):
-        """Flatflow doesn't use a separate sample mapping, but a scheduler instead."""
-        self.samples_mapping = None
-
-    def __sizeof__(self, index: int) -> int:
-        """Return the relative size of element for scheduling."""
-        return self.indexed_dataset[index]['token_count']
-
     def __len__(self):
         return len(self.indexed_dataset)
 
@@ -343,6 +341,10 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         seqlen = item['token_count']
         loss_mask = self._build_loss_mask(item) if index >= 0 else [0] * seqlen
         return {'input_ids': input_ids, 'labels': labels, 'loss_mask': loss_mask, 'seqlen': seqlen}
+
+    def __sizeof__(self, index: int) -> int:
+        """Return the relative size of element for scheduling."""
+        return self.indexed_dataset[index]['token_count']
 
     def _collate_fn(self, batch):
         """Process & concatenate the batch of samples. Padding is not applied at all."""
