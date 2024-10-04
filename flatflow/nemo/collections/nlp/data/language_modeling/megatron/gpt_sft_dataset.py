@@ -182,10 +182,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         self.samples_mapping = None
 
     def __len__(self):
-        if self.max_num_samples is None:
-            return len(self.indexed_dataset)
-        else:
-            return len(self.samples_mapping)
+        return len(self.indexed_dataset)
 
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):
@@ -430,17 +427,11 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
 
         This procedure is highly dependent on `GPTSFTDataset._process_example`, check its update carefully.
         """
-        processed_dataset = []
-
-        # TODO: use multiprocessing for speedup.
-        for example in self.indexed_dataset:
-            example = self._process_example(example)
-            example['labels'] = example['input_ids'][1:]
-            example['input_ids'] = example['input_ids'][:-1]
-            example['token_count'] -= 1
-            processed_dataset.append(example)
-
-        self.indexed_dataset = processed_dataset
+        for index in range(len(self)):
+            self.indexed_dataset[index] = self._process_example(self.indexed_dataset[index])
+            self.indexed_dataset[index]['labels'] = self.indexed_dataset[index]['input_ids'][1:]
+            self.indexed_dataset[index]['input_ids'] = self.indexed_dataset[index]['input_ids'][:-1]
+            self.indexed_dataset[index]['token_count'] -= 1
 
     def _collate_fn(self, batch):
         # TODO: use torch.cat() instead of using lists of np.concatenate()
