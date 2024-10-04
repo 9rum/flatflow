@@ -101,9 +101,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             self._memory_profile_start_step = self.cfg.memory_profile.get('start_step', 0)
             self._memory_profile_end_step = self.cfg.memory_profile.get('end_step', 0)
 
-        self.use_flatflow = cfg.get("use_flatflow", False)
         self.virtual_tokens = 0
         self.init_global_step = 0
+
+        self.use_flatflow = cfg.get("use_flatflow", True)
 
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
