@@ -30,11 +30,12 @@ from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import JSONLMemMapDataset
 from nemo.utils import logging
 
-import flatflow.nemo.core.classes
+from flatflow.nemo.core.classes import Dataset
 
 __all__ = ['GPTSFTDataset']
 
-class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
+
+class GPTSFTDataset(Dataset):
     def __init__(
         self,
         file_path: str,
@@ -453,7 +454,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         cu_seqlens_argmin = np.argmin(cu_seqlens, axis=1, keepdims=True)
         max_seqlen = seqlens.max(keepdims=True)
 
-        processed_batch = {
+        return {
             'tokens': torch.LongTensor(input_ids),
             'labels': torch.LongTensor(labels),
             'loss_mask': torch.LongTensor(loss_mask),
@@ -464,4 +465,3 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
             'cu_seqlens_argmin': torch.IntTensor(cu_seqlens_argmin),
             'max_seqlen': torch.IntTensor(max_seqlen),
         }
-        return processed_batch
