@@ -430,8 +430,9 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
 
         This procedure is highly dependent on `GPTSFTDataset._process_example`, check its update carefully.
         """
-        # TODO: multiprocess it for speed-up.
         processed_dataset = []
+
+        # TODO: use multiprocessing for speedup.
         for example in self.indexed_dataset:
             example = self._process_example(example)
             example['labels'] = example['input_ids'][1:]
@@ -442,10 +443,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         self.indexed_dataset = processed_dataset
 
     def _collate_fn(self, batch):
-        """Process & concatenate the batch of samples. Padding is not applied at all."""
-
-        # TODO: use torch.concat() instead of list of np.concatenate()
-
+        # TODO: use torch.cat() instead of using lists of np.concatenate()
         input_ids = [np.concatenate([item['input_ids'] for item in batch])]
         labels = [np.concatenate([item['labels'] for item in batch])]
         loss_mask = [np.concatenate([item['loss_mask'] for item in batch])]
