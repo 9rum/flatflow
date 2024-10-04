@@ -161,8 +161,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
         assert (
             self.prompt_template is not None
         ), f'we need prompt_template to combine contexts and label {self.label_key}'
-        # When providing things like newlines in the prompt template via the CLI, they are escaped.
-        # This line unescapes them.
+        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them.
         self.prompt_template = self.prompt_template.encode('utf-8').decode('unicode_escape')
         self.prompt_template_keys = re.findall(r'{(.*?)}', self.prompt_template)
 
@@ -171,8 +170,7 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
             self.prompt_template[-len(label_placeholder) :] == label_placeholder
         ), f'{label_placeholder} must be at the end of prompt_template.'
 
-        # Legacy checkpoints has self.truncation_fields = ['context'] and
-        # self.prompt_template_keys = ['input', 'output']
+        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output']
         if self.prompt_template_keys[0] == 'input' and self.truncation_fields[0] == 'context':
             self.truncation_fields[0] = self.prompt_template_keys[0]
 
@@ -182,6 +180,21 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
 
     def _build_samples_mapping(self):
         self.samples_mapping = None
+
+    def __len__(self):
+        return len(self.indexed_dataset)
+
+    def __getitem__(self, index):
+        item = self.indexed_dataset[index]
+        input_ids = item['input_ids']
+        labels = item['labels']
+        seqlen = item['token_count']
+        loss_mask = self._build_loss_mask(item) if index >= 0 else [0] * seqlen
+        return {'input_ids': input_ids, 'labels': labels, 'loss_mask': loss_mask, 'seqlen': seqlen}
+
+    def __sizeof__(self, index: int) -> int:
+        """Return the relative size of element for scheduling."""
+        return self.indexed_dataset[index]['token_count']
 
     def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
         """
@@ -330,21 +343,6 @@ class GPTSFTDataset(flatflow.nemo.core.classes.Dataset):
             processed_dataset.append(example)
 
         self.indexed_dataset = processed_dataset
-
-    def __len__(self):
-        return len(self.indexed_dataset)
-
-    def __getitem__(self, index):
-        item = self.indexed_dataset[index]
-        input_ids = item['input_ids']
-        labels = item['labels']
-        seqlen = item['token_count']
-        loss_mask = self._build_loss_mask(item) if index >= 0 else [0] * seqlen
-        return {'input_ids': input_ids, 'labels': labels, 'loss_mask': loss_mask, 'seqlen': seqlen}
-
-    def __sizeof__(self, index: int) -> int:
-        """Return the relative size of element for scheduling."""
-        return self.indexed_dataset[index]['token_count']
 
     def _collate_fn(self, batch):
         """Process & concatenate the batch of samples. Padding is not applied at all."""
