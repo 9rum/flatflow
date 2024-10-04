@@ -40,7 +40,6 @@ from omegaconf import DictConfig, ListConfig
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
-import flatflow.torch
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 
 try:
@@ -360,6 +359,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         else:
             batch = next(dataloader_iter)
         log_token_counts = self.cfg.get('log_token_counts', False)
+
         if log_token_counts:
             token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
 
@@ -368,7 +368,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         _, seq_length = batch['tokens'].shape
         num_microbatches = 1 if self.use_flatflow else get_num_microbatches()
         micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
-        assert num_microbatches > 0, "Invalid num_microbatches configuration"
         data_iter = get_iterator_k_split(batch, num_microbatches)
         if log_token_counts:
             self.log('seq_length_padded', seq_length, prog_bar=True, batch_size=1)
@@ -390,7 +389,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         fwd_bwd_function = get_forward_backward_func()
 
-        assert num_microbatches > 0 and micro_batch_size > 0, "Invalid microbatch configuration"
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
@@ -860,35 +858,14 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             drop_last=data_cfg.drop_last,
             pad_samples_to_global_batch_size=not data_cfg.drop_last,
         )
-        if self.use_flatflow:
-            batch_sampler = flatflow.torch.utils.data.distributed.DistributedBatchSampler(
-                dataset=dataset,
-                total_samples=len(dataset),
-                consumed_samples=consumed_samples,
-                micro_batch_size=data_cfg.micro_batch_size,
-                global_batch_size=data_cfg.global_batch_size,
-                data_parallel_rank=parallel_state.get_data_parallel_rank(),
-                data_parallel_size=parallel_state.get_data_parallel_world_size(),
-                drop_last=data_cfg.drop_last,
-                pad_samples_to_global_batch_size=not data_cfg.drop_last,
-            )
-            return flatflow.torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                collate_fn=collate_fn,
-                num_workers=data_cfg.num_workers,
-                pin_memory=data_cfg.pin_memory,
-                persistent_workers=True if data_cfg.num_workers > 0 else False,
-            )
-        else:
-            return torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                collate_fn=collate_fn,
-                num_workers=data_cfg.num_workers,
-                pin_memory=data_cfg.pin_memory,
-                persistent_workers=True if data_cfg.num_workers > 0 else False,
-            )
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
+            collate_fn=collate_fn,
+            num_workers=data_cfg.num_workers,
+            pin_memory=data_cfg.pin_memory,
+            persistent_workers=0 < data_cfg.num_workers,
+        )
 
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
