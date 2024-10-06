@@ -1,7 +1,7 @@
 FROM quay.io/pypa/manylinux_2_28_x86_64
 
 # This should be consistent with the gRPC version in requirements.txt.
-ARG GRPC_VERSION=1.66.0
+ARG GRPC_VERSION=1.65.4
 
 RUN echo -e "[oneAPI]\n\
 name=Intel® oneAPI repository\n\

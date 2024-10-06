@@ -8,7 +8,7 @@ from typing import Any, Optional, TypeVar, Union
 
 import torch
 import torch.utils.data.graph_settings
-from torch.utils.data import _DatasetKind, default_convert, get_worker_info
+from torch.utils.data import _DatasetKind, default_convert
 from torch.utils.data.dataloader import _InfiniteConstantSampler
 from torch.utils.data.datapipes.datapipe import _IterDataPipeSerializationWrapper, _MapDataPipeSerializationWrapper
 
@@ -16,10 +16,7 @@ from flatflow.torch.utils.data._utils import default_collate
 
 __all__ = [
     "DataLoader",
-    "_DatasetKind",
     "default_collate",
-    "default_convert",
-    "get_worker_info",
 ]
 
 T = TypeVar("T")

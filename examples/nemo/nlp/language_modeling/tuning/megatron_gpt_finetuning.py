@@ -16,9 +16,10 @@
 
 import time
 
-import torch
+import torch.cuda
+import torch.distributed
 import torch.multiprocessing as mp
-from omegaconf.omegaconf import OmegaConf
+from omegaconf import OmegaConf
 
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_sft_model import MegatronGPTSFTModel
 from nemo.collections.nlp.parts.megatron_trainer_builder import MegatronLMPPTrainerBuilder
@@ -37,7 +38,7 @@ Adapters into each Transformer layer and will train/update only these adapters
 during training. The base GPT Model weights will remain frozen.
 
 During training this script will only save the newly trained Adapter weights
-in checkpoints. At the end of training a .nemo file of Adapter weights will 
+in checkpoints. At the end of training a .nemo file of Adapter weights will
 be saved.
 
 Usage:
@@ -58,8 +59,8 @@ Please see lora.ipynb for a step-by-step guide.
 
 @hydra_runner(config_path="conf", config_name="megatron_gpt_finetuning_config")
 def main(cfg) -> None:
-    logging.info("\n\n************** Experiment configuration ***********")
-    logging.info(f'\n{OmegaConf.to_yaml(cfg)}')
+    logging.info("\n\n************ Experiment configuration ************")
+    logging.info(f"\n{OmegaConf.to_yaml(cfg)}")
 
     trainer = MegatronLMPPTrainerBuilder(cfg).create_trainer()
     exp_manager(trainer, cfg.exp_manager)
@@ -71,7 +72,7 @@ def main(cfg) -> None:
     if cfg.model.peft.restore_from_path is not None:
         # initialize peft weights from a checkpoint instead of randomly
         # This is not the same as resume training because optimizer states are not restored.
-        logging.info("PEFT Weights will be loaded from", cfg.model.peft.restore_from_path)
+        logging.info(f"PEFT weights will be loaded from {cfg.model.peft.restore_from_path}")
         model.load_adapters(cfg.model.peft.restore_from_path, peft_cfg_cls(model_cfg))
     elif peft_cfg_cls is not None:
         logging.info("Adding adapter weights to the model for PEFT")
@@ -79,22 +80,31 @@ def main(cfg) -> None:
     else:
         logging.info(f"Running full finetuning since no peft scheme is given.\n{model.summarize()}")
 
-    gpu_rank = torch.distributed.get_rank()
-    print(f"[{gpu_rank=}] Before the training. {torch.cuda.max_memory_allocated()=:,} {torch.cuda.max_memory_reserved()=:,}")
-    start_time = time.monotonic()
+    num_samples = 15000
+    rank = torch.distributed.get_rank()
+    logging.info(
+        "Before training:\n"
+        f"  rank                             : {rank}\n"
+        f"  torch.cuda.max_memory_allocated(): {torch.cuda.max_memory_allocated():,}\n"
+        f"  torch.cuda.max_memory_reserved() : {torch.cuda.max_memory_reserved():,}"
+    )
+    now = time.monotonic()
 
     trainer.fit(model)
-    end_time = time.monotonic()
-    time_elapsed = end_time - start_time
-    num_total_samples = 15000
-    print(f"[{gpu_rank=}] After the training.  {torch.cuda.max_memory_allocated()=:,} {torch.cuda.max_memory_reserved()=:,}")
 
-    print(f"{'Number of data samples':>30}: {num_total_samples}\n"
-            f"{'Time':>30}: {time_elapsed}\n"
-            f"{'Throughput(samples/sec)':>30}: {num_total_samples/time_elapsed}")
-    print(f"Training is finished.")
+    makespan = time.monotonic() - now
+    logging.info(
+        "After training:\n"
+        f"  rank                             : {rank}\n"
+        f"  torch.cuda.max_memory_allocated(): {torch.cuda.max_memory_allocated():,}\n"
+        f"  torch.cuda.max_memory_reserved() : {torch.cuda.max_memory_reserved():,}"
+    )
+    logging.info(
+        f"Number of data samples  : {num_samples}\n"
+        f"Makespan                : {makespan}\n"
+        f"Throughput (samples/sec): {num_samples/makespan}"
+    )
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
