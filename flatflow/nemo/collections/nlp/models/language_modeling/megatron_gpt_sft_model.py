@@ -41,6 +41,7 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
+import flatflow.torch.utils.data
 
 try:
     from apex.transformer.pipeline_parallel.utils import (
@@ -849,6 +850,26 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             collate_fn = dataset.datasets[0].collate_fn
         else:
             collate_fn = dataset.collate_fn
+
+        if self.use_flatflow:
+            batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=data_cfg.micro_batch_size,
+                global_batch_size=data_cfg.global_batch_size,
+                data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                drop_last=data_cfg.drop_last,
+                pad_samples_to_global_batch_size=not data_cfg.drop_last,
+            )
+            return flatflow.torch.utils.data.DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                collate_fn=collate_fn,
+                num_workers=data_cfg.num_workers,
+                pin_memory=data_cfg.pin_memory,
+                persistent_workers=0 < data_cfg.num_workers,
+            )
 
         batch_sampler = MegatronPretrainingBatchSampler(
             total_samples=len(dataset),
