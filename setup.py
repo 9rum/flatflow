@@ -33,7 +33,7 @@ class CMakeExtension(Extension):
         cmake_args: Optional[Sequence[str]] = None,
         **kwargs,
     ) -> None:
-        Extension.__init__(self, name, sources=[], **kwargs)
+        super().__init__(name, sources=[], **kwargs)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
         self.cmake_build_type = cmake_build_type
         self.cmake_generator = cmake_generator
