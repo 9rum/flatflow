@@ -27,10 +27,10 @@ datasets.builder.has_sufficient_disk_space = lambda needed_bytes, directory='.':
 from datasets import load_dataset
 
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
-from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import JSONLMemMapDataset
+from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import get_samples_mapping
+from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import JSONLMemMapDataset, OnlineSampleMapping
+from nemo.core.classes import Dataset
 from nemo.utils import logging
-
-from flatflow.nemo.core.classes import Dataset
 
 __all__ = ['GPTSFTDataset']
 
@@ -59,7 +59,6 @@ class GPTSFTDataset(Dataset):
         tokens_to_generate: int = 0,
         memmap_workers: Optional[int] = None,
         hf_dataset: bool = False,
-        global_sample_mapping: bool = False,
         truncation_method: str = 'right',
         special_tokens: Optional[Mapping[str, str]] = None,  # special tokens, a dictory of {token_type: token}
         is_test: bool = False,
@@ -86,7 +85,6 @@ class GPTSFTDataset(Dataset):
         index_mapping_dir: Directory to save the index mapping to. If None, will write to the same folder as the dataset.
         prompt_template: Prompt template to inject via an fstring. Formatted like Q: {context_key}\n\nA: {label_key}
         hf_dataset: Whether to load the json file with the HuggingFace dataset. otherwise, will load the jsonl file with the JSONLMemMapDataset.
-        global_sample_mapping: Whether to shuffle all data together, or shuffle the dataset within each epoch
         truncation_method: Truncation from which position. Options: ['left', 'right']
         special_tokens: special tokens for the chat prompts, a dictionary of {token_type: token}. Default: {'system_turn_start': '<extra_id_0>', 'turn_start': '<extra_id_1>', 'label_start': '<extra_id_2>', 'end_of_turn': '\n', "end_of_name": "\n"}
         is_test: Whether this dataset is the test split.
@@ -105,7 +103,7 @@ class GPTSFTDataset(Dataset):
         self.seed = seed
         self.label_key = label_key
         self.answer_only_loss = answer_only_loss
-        self.truncation_fields = truncation_field.split(',') if truncation_field is not None else []
+        self.truncation_fields = truncation_field.split(',')
         self.pad_to_max_length = pad_to_max_length
         self.index_mapping_dir = index_mapping_dir
         self.prompt_template = prompt_template
@@ -113,7 +111,6 @@ class GPTSFTDataset(Dataset):
         self.tokens_to_generate = tokens_to_generate
         self.memmap_workers = memmap_workers
         self.hf_dataset = hf_dataset
-        self.global_sample_mapping = global_sample_mapping
         self.truncation_method = truncation_method
         self.is_test = is_test
         self.output_original_text = output_original_text
@@ -138,7 +135,6 @@ class GPTSFTDataset(Dataset):
 
         # Will be None after this call if `max_num_samples` is None
         self._build_samples_mapping()
-        self._process_dataset()
 
     def _load_dataset(self):
         if self.hf_dataset:
@@ -180,21 +176,55 @@ class GPTSFTDataset(Dataset):
         ), f'truncation_fields {self.truncation_fields} must in {self.prompt_template_keys}'
 
     def _build_samples_mapping(self):
-        self.samples_mapping = None
+        if self.max_num_samples is not None:
+            osm = OnlineSampleMapping(dataset_size=len(self.indexed_dataset), num_samples=self.max_num_samples)
+            self.samples_mapping = get_samples_mapping(
+                indexed_dataset=self.indexed_dataset,
+                data_prefix=self.file_path,
+                num_epochs=None,
+                max_num_samples=self.max_num_samples,
+                max_seq_length=self.max_seq_length - 2,
+                short_seq_prob=0,
+                seed=self.seed,
+                name=self.file_path.split('/')[-1],
+                binary_head=False,
+                index_mapping_dir=self.index_mapping_dir,
+                samples_mapping=osm,
+            )
+        else:
+            self.samples_mapping = None
 
     def __len__(self):
-        return len(self.indexed_dataset)
+        if self.max_num_samples is None:
+            return len(self.indexed_dataset)
+        else:
+            return len(self.samples_mapping)
 
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):
             idx = idx.item()
 
-        item = self.indexed_dataset[idx]
-        input_ids = item['input_ids']
-        labels = item['labels']
-        seqlen = item['token_count']
-        loss_mask = self._build_loss_mask(item) if 0 <= idx else [0] * seqlen
-        return {'input_ids': input_ids, 'labels': labels, 'loss_mask': loss_mask, 'seqlen': seqlen}
+        if self.samples_mapping is not None:
+            assert idx < len(self.samples_mapping)
+            idx, _, _ = self.samples_mapping[idx]
+            if isinstance(idx, np.uint32):
+                idx = idx.item()
+
+        assert idx < len(self.indexed_dataset)
+        # idx may < 0 because we pad_samples_to_global_batch_size, e.g. id = -1
+        if idx < 0:
+            idx = len(self) + idx
+            auto_gen_idx = True
+        else:
+            auto_gen_idx = False
+        try:
+            example = self.indexed_dataset[idx]
+            if auto_gen_idx:
+                example['__AUTOGENERATED__'] = True
+        except Exception as e:
+            logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
+            raise e
+        return self._process_example(example)
 
     def _separate_template(self, prompt_template_values: List[str]):
         """
@@ -308,16 +338,6 @@ class GPTSFTDataset(Dataset):
         label_ids = template_ids[-1]
         return context_ids, label_ids
 
-    def _truncation(self, ids, expect_length):
-        if expect_length == 0:
-            return []
-        elif self.truncation_method == 'left':
-            return ids[-expect_length:]
-        elif self.truncation_method == 'right':
-            return ids[:expect_length]
-        else:
-            raise ValueError(f'{self.truncation_method} is not supported')
-
     def _process_example(self, example):
         """
         Create an example by concatenating text and answer.
@@ -344,19 +364,31 @@ class GPTSFTDataset(Dataset):
             # these pad/eos tokens are placeholders for virtual tokens
             context_ids = [self.tokenizer.eos_id] * self.virtual_tokens + context_ids
 
+        input_ids = context_ids
+        answer_start_idx = len(input_ids)
+
         # Adds bos token in the start
         if self.add_bos:
             context_ids = [self.tokenizer.bos_id] + context_ids
+            input_ids = [self.tokenizer.bos_id] + input_ids
+            answer_start_idx += 1
 
         # Adds sep token between text/prompt and answer
         if self.add_sep:
             context_ids = context_ids + [self.sep_id]
+            input_ids = input_ids + [self.sep_id]
+            answer_start_idx += 1
 
-        input_ids = context_ids + answer_ids
+        input_ids = input_ids + answer_ids
 
         # Only training need to consider eos token
         if self.add_eos:
             input_ids = input_ids + [self.tokenizer.eos_id]
+
+        if len(input_ids) > self.max_seq_length:
+            logging.warning(f'Input ids length {len(input_ids)} exceed max sequence length {self.max_seq_length}')
+            input_ids = input_ids[: self.max_seq_length]
+            answer_ids = input_ids[answer_start_idx:]
 
         # store metadata in dataset, in case user may have keys required in the prediction json files
         metadata = {k: v for k, v in example.items() if k not in self.prompt_template_keys}
@@ -366,7 +398,7 @@ class GPTSFTDataset(Dataset):
 
         processed_example = {
             'input_ids': input_ids,
-            'answer_start_idx': len(context_ids),
+            'answer_start_idx': answer_start_idx,
             'context_ids': context_ids,
             'context_length': len(context_ids),
             'answer_ids': answer_ids,
@@ -396,7 +428,7 @@ class GPTSFTDataset(Dataset):
         return item
 
     def _build_loss_mask(self, processed_example):
-        """Pad input_ids in batch to max batch length while building loss mask"""
+        """ Pad input_ids in batch to max batch length while building loss mask """
         input_ids = processed_example['input_ids']
         answer_start_idx = processed_example['answer_start_idx']
         if self.answer_only_loss:
@@ -418,50 +450,200 @@ class GPTSFTDataset(Dataset):
         attention_mask = attention_mask < 0.5
         return attention_mask
 
-    def _process_dataset(self):
-        """
-        Process the loaded dataset.
+    def collate_fn(self, batch):
+        input_ids = [item['input_ids'][:-1] for item in batch]
+        labels = [item['input_ids'][1:] for item in batch]
+        contexts = [item['context_ids'] for item in batch]
+        context_lengths = torch.LongTensor([item['context_length'] for item in batch])
+        answers = [item['answer_ids'] for item in batch]
+        loss_mask = [self._build_loss_mask(item)[1:] for item in batch]
+        metadata = [item['metadata'] for item in batch]
+        token_count = [item['token_count'] for item in batch]
 
-        Apply processing of `GPTSFTDataset` first, then further prepare the examples for teacher-forcing
-        scheme in advance, not later inside `collate_fn` like `GPTSFTDataset` where you should substract 1
-        every time.
+        max_length = max(max([len(x) for x in input_ids]), max([len(x) for x in contexts]) + self.tokens_to_generate)
+        # increase max length to nearest multiple of 4 or 8
+        if self.pad_to_max_length:
+            max_length = self.max_seq_length
+        else:
+            max_length = min(self.max_seq_length, self._ceil_to_nearest(max_length, self.pad_seq_length_to_mult))
+        assert max_length <= self.max_seq_length
 
-        This procedure is highly dependent on `GPTSFTDataset._process_example`, check its update carefully.
-        """
-        for index in range(len(self)):
-            self.indexed_dataset[index] = self._process_example(self.indexed_dataset[index])
-            self.indexed_dataset[index]['labels'] = self.indexed_dataset[index]['input_ids'][1:]
-            self.indexed_dataset[index]['input_ids'] = self.indexed_dataset[index]['input_ids'][:-1]
-            self.indexed_dataset[index]['token_count'] -= 1
+        if not self.get_attention_mask_from_fusion:
+            attention_mask = [self._create_attention_mask(max_length) for _ in batch]
+            attention_mask = torch.stack(attention_mask)
+        position_ids = [list(range(max_length)) for _ in batch]
+        position_ids = torch.LongTensor(position_ids)
+        input_ids = torch.LongTensor(
+            self._collate_item(input_ids, max_length=max_length, pad_id=self.tokenizer.eos_id)
+        )
+        labels = torch.LongTensor(self._collate_item(labels, max_length=max_length, pad_id=self.tokenizer.eos_id))
+        loss_mask = torch.LongTensor(self._collate_item(loss_mask, max_length=max_length, pad_id=0))
+        contexts = torch.LongTensor(self._collate_item(contexts, max_length=max_length, pad_id=self.tokenizer.eos_id))
+        answers = torch.LongTensor(self._collate_item(answers, max_length=max_length, pad_id=self.tokenizer.eos_id))
 
-    def _collate_fn(self, batch):
-        # TODO: use torch.cat() instead of using lists of np.concatenate()
-        input_ids = [np.concatenate([item['input_ids'] for item in batch])]
-        labels = [np.concatenate([item['labels'] for item in batch])]
-        loss_mask = [np.concatenate([item['loss_mask'] for item in batch])]
-        position_ids = [np.concatenate([list(range(item['seqlen'])) for item in batch])]
-        token_count = [input_ids[0].shape[0]]
+        processed_batch = {
+            'tokens': input_ids,
+            'labels': labels,
+            'loss_mask': loss_mask,
+            'position_ids': position_ids,
+            'contexts': contexts,
+            'context_lengths': context_lengths,
+            'answers': answers,
+            'metadata': metadata,
+            'token_count': token_count,
+        }
 
-        if input_ids[0].shape[0] != position_ids[0].shape[0]:
-            raise ValueError("Dataset problem: input_ids and position_ids lengths don't match")
+        if not self.get_attention_mask_from_fusion:
+            processed_batch['attention_mask'] = attention_mask
 
-        # Process cu_seqlens-related values.
-        seqlens = np.array([[item['seqlen'] for item in batch]])
-        # Here, concatenating -1 at the end is for `cu_seqlens_argmin`-related operations in `MegatronGPTModel`.
-        # TBH, padding then removing -1(s) at the end later look unreasonable and error-prone.
-        # See a related PR: https://github.com/NVIDIA/NeMo/pull/8108/files
-        cu_seqlens = np.concatenate([[[0]], seqlens.cumsum(axis=1), [[-1]]], axis=1)
-        cu_seqlens_argmin = np.argmin(cu_seqlens, axis=1, keepdims=True)
-        max_seqlen = seqlens.max(keepdims=True)
+        return processed_batch
 
-        return {
+
+class GPTSFTPackedDataset(GPTSFTDataset):
+    def __init__(self, file_path: str, tokenizer: TokenizerSpec, return_cu_seqlen: bool = True, **kwargs):
+        np.random.seed(kwargs.get('seed', 1234))
+        super().__init__(file_path, tokenizer, **kwargs)
+        assert self.virtual_tokens == 0, "P-Tuning with packed sequence is not supported."
+
+        # Whether to return `cu_seqlen` to pass to model. This should be true for almost all use cases.
+        self.return_cu_seqlen = return_cu_seqlen
+
+    def __getitem__(self, idx):
+        if self.samples_mapping is not None:
+            # assert idx < len(self.samples_mapping)
+            idx = self.samples_mapping[idx]
+
+        input_ids = self.indexed_dataset[idx]['input_ids']
+        seq_boundaries = self.indexed_dataset[idx]['seq_start_id'] + [len(input_ids)]
+        loss_mask = self.indexed_dataset[idx]['loss_mask']
+        if idx < 0:
+            loss_mask = [0] * len(loss_mask)
+        return {'input_ids': input_ids, 'seq_boundaries': seq_boundaries, 'loss_mask': loss_mask}
+
+    def _load_dataset(self):
+        try:
+            self.indexed_dataset = np.load(self.file_path, allow_pickle=True)
+        except Exception as e:
+            logging.error(
+                f"Failed to load packed dataset. The dataset should be a `.npy` file. "
+                f"Please check if the packed dataset was prepared correctly. The original error was:\n {e}",
+            )
+            exit(1)
+
+    def _build_samples_mapping(self):
+        if self.max_num_samples is not None:
+            # custom samples mapping logic, following the format for unpacked sft dataset
+            # Note: this is epoch-level shuffling, i.e. sampling without replacement until end of epoch, then repeat.
+            # Unpacked dataset shuffles by sampling with replacement indefinitely.
+            dataset_len = len(self.indexed_dataset)
+            max_num_epochs = np.ceil(self.max_num_samples / dataset_len)
+            indices = np.arange(dataset_len)[None, :].repeat(max_num_epochs, axis=0)
+            [np.random.shuffle(x) for x in indices]
+            self.samples_mapping = indices.reshape(1, -1).squeeze()[: self.max_num_samples]
+        else:
+            self.samples_mapping = None
+
+    def _build_loss_mask(self, processed_example):
+        if self.answer_only_loss:
+            seq_boundaries = processed_example['seq_boundaries']
+            return np.concatenate(
+                [
+                    processed_example['loss_mask'][seq_boundaries[i] + 1 : seq_boundaries[i + 1]]
+                    for i in range(len(seq_boundaries) - 1)
+                ]
+            )
+        return [1.0] * (len(processed_example['input_ids']) - len(processed_example['seq_boundaries']) + 1)
+
+    def _maybe_cast_to_list(self, x):
+        return [item.tolist() if isinstance(item, np.ndarray) else item for item in x]
+
+    def collate_fn(self, batch):
+        input_ids = [
+            np.concatenate(
+                [
+                    item['input_ids'][item['seq_boundaries'][i] : item['seq_boundaries'][i + 1] - 1]
+                    for i in range(len(item['seq_boundaries']) - 1)
+                ]
+            )
+            for item in batch
+        ]
+        labels = [
+            np.concatenate(
+                [
+                    item['input_ids'][item['seq_boundaries'][i] + 1 : item['seq_boundaries'][i + 1]]
+                    for i in range(len(item['seq_boundaries']) - 1)
+                ]
+            )
+            for item in batch
+        ]
+
+        loss_mask = [self._build_loss_mask(item) for item in batch]
+
+        token_count = [item.shape[0] for item in input_ids]
+
+        if self.pad_to_max_length:
+            max_length = self.max_seq_length
+        else:
+            # pad to the nearest multiple of 16 for FP8 training
+            # for many datasets in practice, all packed sequence lengths are very close to the
+            # target length (2048, 4096, 8192), so there is very minimal padding
+            max_length = max(len(l) for l in input_ids)
+            max_length = min(self.max_seq_length, self._ceil_to_nearest(max_length, self.pad_seq_length_to_mult))
+        assert max_length <= self.max_seq_length
+
+        position_ids: List[List[int]] = []
+        cu_seqlens: List[List[int]] = []
+        for item in batch:
+            position_ids.append([])
+            cu_seqlens.append([0])
+            seqlens = np.array(item['seq_boundaries'][1:]) - np.array(item['seq_boundaries'][:-1])
+            for l in seqlens:
+                # length minus 1 because input_ids is truncated by 1 for labels
+                position_ids[-1].extend(list(range(l - 1)))
+                cu_seqlens[-1].append(cu_seqlens[-1][-1] + l - 1)
+            # set last seq to the max seq len because rope and attn kernels expect no padding
+            cu_seqlens[-1][-1] = max_length
+
+        assert len(input_ids[0]) == len(
+            position_ids[0]
+        ), "Dataset problem: input_ids and position_ids lengths don't match"
+
+        input_ids = self._collate_item(input_ids, max_length=max_length, pad_id=self.tokenizer.eos_id)
+        labels = self._collate_item(labels, max_length=max_length, pad_id=self.tokenizer.eos_id)
+        loss_mask = self._collate_item(loss_mask, max_length=max_length, pad_id=0)
+        position_ids = self._collate_item(position_ids, max_length=max_length, pad_id=0)
+
+        processed_batch = {
             'tokens': torch.LongTensor(input_ids),
             'labels': torch.LongTensor(labels),
             'loss_mask': torch.LongTensor(loss_mask),
             'position_ids': torch.LongTensor(position_ids),
             'token_count': token_count,
-            'attention_mask': torch.LongTensor([1] * len(input_ids)),  # no attention mask is needed for packed seq
-            'cu_seqlens': torch.IntTensor(cu_seqlens),  # cu_seqlens must be in dtype torch.int32
-            'cu_seqlens_argmin': torch.IntTensor(cu_seqlens_argmin),
-            'max_seqlen': torch.IntTensor(max_seqlen),
         }
+
+        if self.return_cu_seqlen:
+            cu_seqlens = self._collate_item(cu_seqlens, max_length=max(len(l) for l in cu_seqlens) + 1, pad_id=-1)
+
+            # Pre-generate `cu_seqlens_argmin` and `max_seqlen` as CPU tensor to avoid device-to-host copies.
+            cu_seqlens = torch.IntTensor(cu_seqlens)
+            cu_seqlens_argmin = torch.argmin(cu_seqlens, dim=1, keepdim=True)
+            seqlens = cu_seqlens[:, 1:] - cu_seqlens[:, :-1]
+            max_seqlen, _ = seqlens.max(dim=1, keepdim=True)
+
+            processed_batch.update(
+                {
+                    'attention_mask': torch.LongTensor(
+                        [1] * len(input_ids)
+                    ),  # no attention mask is needed for packed seq
+                    'cu_seqlens': torch.IntTensor(cu_seqlens),  # cu_seqlens_q must be in dtype torch.int32
+                    'cu_seqlens_argmin': cu_seqlens_argmin,  # only required for perf
+                    'max_seqlen': max_seqlen,  # only required for perf
+                }
+            )
+        else:
+            attention_mask = [self._create_attention_mask(max_length) for _ in batch]
+            processed_batch.update(
+                {'attention_mask': torch.stack(attention_mask),}
+            )
+
+        return processed_batch
