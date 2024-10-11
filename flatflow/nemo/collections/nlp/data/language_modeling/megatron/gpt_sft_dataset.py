@@ -14,28 +14,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import re
 from typing import List, Mapping, Optional
 
-import datasets
+import nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset
 import numpy as np
 import torch
-
-# hack to avoid the "not enough disk space" error in some slurm cluster
-datasets.builder.has_sufficient_disk_space = lambda needed_bytes, directory=".": True
-from datasets import load_dataset
-
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import get_samples_mapping
-from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import JSONLMemMapDataset, OnlineSampleMapping
-from nemo.core.classes import Dataset
+from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import OnlineSampleMapping
 from nemo.utils import logging
+
+from flatflow.nemo.core.classes import Dataset
 
 __all__ = ["GPTSFTDataset"]
 
 
-class GPTSFTDataset(Dataset):
+class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset.GPTSFTDataset):
     def __init__(
         self,
         file_path: str,
@@ -52,7 +47,7 @@ class GPTSFTDataset(Dataset):
         label_key: str = "answer",
         answer_only_loss: bool = True,
         truncation_field: str = "text",
-        pad_to_max_length: bool = False,  # (@adithyare) allows for much faster training especially in PEFT settings.
+        pad_to_max_length: bool = False,
         index_mapping_dir: str = None,
         prompt_template: str = None,
         virtual_tokens: int = 0,
@@ -60,7 +55,7 @@ class GPTSFTDataset(Dataset):
         memmap_workers: Optional[int] = None,
         hf_dataset: bool = False,
         truncation_method: str = "right",
-        special_tokens: Optional[Mapping[str, str]] = None,  # special tokens, a dictory of {token_type: token}
+        special_tokens: Optional[Mapping[str, str]] = None,
         is_test: bool = False,
         output_original_text: bool = False,
         ceil_to_power_2: bool = False,
@@ -136,24 +131,6 @@ class GPTSFTDataset(Dataset):
         # Will be None after this call if `max_num_samples` is None
         self._build_samples_mapping()
 
-    def _load_dataset(self):
-        if self.hf_dataset:
-            self.indexed_dataset = load_dataset(
-                "json",
-                data_files=self.file_path,
-                cache_dir=self.index_mapping_dir,
-                num_proc=self.memmap_workers,
-                split="train",
-            )
-        else:
-            self.indexed_dataset = JSONLMemMapDataset(
-                dataset_paths=[self.file_path],
-                tokenizer=None,
-                header_lines=0,
-                index_mapping_dir=self.index_mapping_dir,
-                workers=self.memmap_workers,
-            )
-
     def _maybe_validate_prompt_template(self):
         assert (
             self.prompt_template is not None
@@ -225,61 +202,6 @@ class GPTSFTDataset(Dataset):
             logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
             raise e
         return self._process_example(example)
-
-    def _separate_template(self, prompt_template_values: List[str]):
-        """
-        Combine contexts and label based on prompt_template into a list of strings and a list of keys.
-
-        Args:
-            prompt_template_values (List[str]): the list of context and label strings extrated from jsonl file with prompt_template_keys.
-
-        Returns:
-            template_strings (List[str]): separated prompt_template with contexts/label placeholder filled with corresponding strings
-            template_strings_keys (List[str]): strings point to placeholder keys or <template>
-
-        Examples:
-            prompt_template = 'Context:  {context} Question: {question} Answer: {label}'
-            prompt_template_values = ['xxx', 'yyy', 'zzz']
-
-            # tokenizer.space_sensitive = True
-            template_strings = ['Context:', '  xxx', ' Question:', ' yyy', ' Answer:', ' zzz']
-
-            # tokenizer.space_sensitive = False
-            template_strings = ['Context:', ' xxx', 'Question:', 'yyy', 'Answer:', 'zzz']
-
-            template_strings_keys = ['<template>', 'context', '<template>', 'question', '<template>', 'label']
-        """
-        placeholders = [f"{{{k}}}" for k in self.prompt_template_keys]
-
-        # placeholder to string
-        ph_to_s = {ph: s for ph, s in zip(placeholders, prompt_template_values)}
-        # placeholder to key
-        ph_to_k = {ph: k for ph, k in zip(placeholders, self.prompt_template_keys)}
-
-        # separate prompt_template based on '<space>{placeholder}'
-        # examples:
-        #   self.prompt_template = "Context:{context}  Passage: {passage}\n\nQuestion:{question} {label}"
-        #   template_with_placeholder_separated = ['Context:', '{context}', '  Passage:', ' {passage}', '\n\nQuestion:', '{question}', ' {label}']
-        template_with_placeholder_separated = re.split("( *?{.+?})", self.prompt_template)
-        template_with_placeholder_separated = [s for s in template_with_placeholder_separated if len(s) > 0]
-
-        # remove space if we have leading space and tokenizer is not space_sensitive
-        # space_sensitive = True : tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces}B')
-        # space_sensitive = False: tokenizer.text_to_tokens('A{num_spaces}B') = tokenizer.text_to_tokens('A') + tokenizer.text_to_tokens('{num_spaces-1}B')
-        space_sensitive = getattr(self.tokenizer, "space_sensitive", False)
-        template_with_space_reduced = [
-            s[1:] if not space_sensitive and s[0] == " " else s for s in template_with_placeholder_separated
-        ]
-
-        # convert placeholder to the corresponding string (preserve left spaces) and key
-        template_strings, template_strings_keys = [], []
-        for t in template_with_space_reduced:
-            placeholder = t.lstrip(" ")
-            left_spaces = " " * (len(t) - len(placeholder))
-            template_strings.append(left_spaces + ph_to_s.get(placeholder, placeholder))
-            template_strings_keys.append(ph_to_k.get(placeholder, "<template>"))
-
-        return template_strings, template_strings_keys
 
     def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
         """
@@ -407,48 +329,6 @@ class GPTSFTDataset(Dataset):
         }
 
         return processed_example
-
-    def _maybe_cast_to_list(self, x):
-        if isinstance(x, np.ndarray):
-            return [item.tolist() for item in x]
-        return x
-
-    def _ceil_to_nearest(self, n, m):
-        if self.ceil_to_power_2:
-            # Reccurent Gemma (AKA Griffin) requires seq length to be a power of 2 for parallel scan
-            return 2 ** math.ceil(math.log2(n))
-        else:
-            return (n + m - 1) // m * m
-
-    def _collate_item(self, item, max_length, pad_id):
-        item = self._maybe_cast_to_list(item)
-        # max_length = max([len(x) for x in item]) if item else 0
-        # here [0] should be tokenizer.pad_id
-        item = [x + [pad_id] * (max_length - len(x)) for x in item]
-        return item
-
-    def _build_loss_mask(self, processed_example):
-        """Pad input_ids in batch to max batch length while building loss mask"""
-        input_ids = processed_example["input_ids"]
-        answer_start_idx = processed_example["answer_start_idx"]
-        if self.answer_only_loss:
-            loss_mask = [float(idx >= answer_start_idx) for idx in range(len(input_ids))]
-        else:
-            loss_mask = [1.0] * len(input_ids)
-
-        return loss_mask
-
-    @torch.no_grad()
-    def _create_attention_mask(self, max_length):
-        """Create `attention_mask`.
-        Args:
-            input_ids: A 1D tensor that holds the indices of tokens.
-        """
-        # seq_length = len(input_ids)
-        # `attention_mask` has the shape of [1, seq_length, seq_length]
-        attention_mask = torch.tril(torch.ones((max_length, max_length))).unsqueeze(0)
-        attention_mask = attention_mask < 0.5
-        return attention_mask
 
     def collate_fn(self, batch):
         input_ids = [item["input_ids"][:-1] for item in batch]
