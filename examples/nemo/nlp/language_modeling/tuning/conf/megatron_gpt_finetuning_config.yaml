@@ -62,12 +62,12 @@ model:
   sequence_parallel: False
 
   ## Activation Checkpoint
-  activations_checkpoint_granularity: null # 'selective' or 'full'
-  activations_checkpoint_method: null # 'uniform', 'block', not used with 'selective'
-  # 'uniform' divides the total number of transformer layers and checkpoints the input activation
+  activations_checkpoint_granularity: null  # "selective" or "full"
+  activations_checkpoint_method: null  # "uniform", "block", not used with "selective"
+  # "uniform" divides the total number of transformer layers and checkpoints the input activation
   # of each chunk at the specified granularity
-  # 'block' checkpoints the specified number of layers per pipeline stage at the specified granularity
-  activations_checkpoint_num_layers: null # not used with 'selective'
+  # "block" checkpoints the specified number of layers per pipeline stage at the specified granularity
+  activations_checkpoint_num_layers: null  # not used with "selective"
   activations_checkpoint_layers_per_pipeline: null
   answer_only_loss: True
   gradient_as_bucket_view: False
@@ -78,7 +78,7 @@ model:
 
   # FSDP
   fsdp: False # Enable training with torch FSDP.
-  fsdp_sharding_strategy: "full" # Method to shard model states. Available options are 'full', 'hybrid', and 'grad'.
+  fsdp_sharding_strategy: "full"  # Method to shard model states. Available options are "full", "hybrid", and "grad".
   fsdp_grad_reduce_dtype: "fp32" # Gradient reduction data type.
   fsdp_sharded_checkpoint: False # Store and load FSDP shared checkpoint.
   fsdp_use_orig_params: False # Set to True to use FSDP for specific peft scheme.
@@ -86,25 +86,25 @@ model:
   use_flatflow: True
 
   peft:
-    peft_scheme: "adapter" # can be either adapter,ia3, or ptuning
+    peft_scheme: "adapter"  # can be either "adapter", "ia3", or "ptuning"
     restore_from_path: null
 
     # Used for adapter peft training
     adapter_tuning:
-      type: "parallel_adapter" # this should be either 'parallel_adapter' or 'linear_adapter'
+      type: "parallel_adapter"  # this should be either "parallel_adapter" or "linear_adapter"
       adapter_dim: 32
       adapter_dropout: 0.0
-      norm_position: "pre" # This can be set to 'pre', 'post' or null, 'pre' is normally what is used.
+      norm_position: "pre"  # This can be set to "pre", "post" or null, "pre" is normally what is used.
       column_init_method: "xavier" # IGNORED if linear_adapter is used, options: xavier, zero or normal
       row_init_method: "zero" # IGNORED if linear_adapter is used, options: xavier, zero or normal
-      norm_type: "mixedfusedlayernorm" # IGNORED if layer_adapter is used,  options are ['layernorm', 'mixedfusedlayernorm']
+      norm_type: "mixedfusedlayernorm"  # IGNORED if layer_adapter is used,  options are ["layernorm", "mixedfusedlayernorm"]
       layer_selection: null # selects in which layers to add adapters, e.g. [1,12] will add adapters to layer 1 (lowest) and 12. null will apply adapters to all layers
       weight_tying: False
       position_embedding_strategy: null # used only when weight_tying is True
 
     lora_tuning:
       variant: "nemo" # can be "nemo" or "canonical"
-      target_modules: ["attention_qkv"] # this can either be 'attention_qkv','attention_dense','mlp_fc1','mlp_fc2', attention (qkv & dense), mlp (fc1 & fc2)
+      target_modules: ["attention_qkv"]  # this can either be "attention_qkv", "attention_dense", "mlp_fc1", "mlp_fc2", attention (qkv & dense), mlp (fc1 & fc2)
       adapter_dim: 32
       alpha: ${model.peft.lora_tuning.adapter_dim}
       adapter_dropout: 0.0
@@ -125,7 +125,7 @@ model:
       layer_selection: null # selects in which layers to add ia3 adapters. e.g. [1,12] will add lora to layer 1 (lowest) and 12. null will apply adapters to all layers
 
     selective_tuning:
-      tunable_base_param_names: ["self_attention", "word_embeddings"] # TODO: regex support @adithyre
+      tunable_base_param_names: ["self_attention", "word_embeddings"]
 
   data:
     train_ds:
@@ -135,7 +135,7 @@ model:
       #   - /path/to/mnli.jsonl
       #   - /path/to/boolq.jsonl
       # Example of how each dataset is formatted
-      # {'input': 'John von Neumann\nVon Neumann made fundamental contributions .... Q: What did the math of artificial viscosity do?', 'output': 'smoothed the shock transition without sacrificing basic physics'}
+      # {"input": "John von Neumann\nVon Neumann made fundamental contributions .... Q: What did the math of artificial viscosity do?", "output": "smoothed the shock transition without sacrificing basic physics"}
       file_names: ??? # Path to a list of JSONL files corresponding to the source data.
       global_batch_size: ${model.global_batch_size}
       micro_batch_size: ${model.micro_batch_size}
@@ -151,15 +151,15 @@ model:
       #   - 0.5
       #   - 0.25
       #   - 0.25
-      concat_sampling_probabilities: null # When providing a list of datasets, this arg defines the sampling probabilities from each dataset when strategy='random'
+      concat_sampling_probabilities: null  # When providing a list of datasets, this arg defines the sampling probabilities from each dataset when strategy="random"
       label_key: "output"
       add_eos: True
       add_sep: False
       add_bos: False
-      truncation_field: "input" # # Can be multiple keys separated with ',' Options: keys in prompt_template
+      truncation_field: "input"  # Can be multiple keys separated with "," Options: keys in prompt_template
       index_mapping_dir: null # Path to a directory to write index mapping files.
       prompt_template: "{input} {output}" # fstring to use for assistant prompt. Example: "Q: {input}\nA: {output}"
-      truncation_method: "right" # Truncation from which position, Options: ['left', 'right']
+      truncation_method: "right"  # Truncation from which position, Options: ["left", "right"]
     validation_ds:
       file_names: ??? # Path to a list of JSONL files corresponding to the source data. Data format is identical to train_ds.
       names: null # Names of the corresponding datasets used to log metrics.
@@ -182,10 +182,10 @@ model:
       index_mapping_dir: null # Path to a directory to write index mapping files.
       prompt_template: ${model.data.train_ds.prompt_template} # fstring to use for assistant prompt. Example: "Q: {input}\nA: {output}"
       tokens_to_generate: 32 # decide how many tokens we want to generate to evaluate performance with string metrics
-      truncation_method: "right" # Truncation from which position, Options: ['left', 'right']
+      truncation_method: "right"  # Truncation from which position, Options: ["left", "right"]
       metric:
-        name: "loss" # Name of the evaluation metric to use. Options: ['exact_string_match', 'loss']
-        average: null # Average the metric over the dataset. Options: ['macro', 'micro']. Works only for 'F1', 'accuracy' etc. Refer to torchmetrics for metrics where this is supported.
+        name: "loss"  # Name of the evaluation metric to use. Options: ["exact_string_match", "loss"]
+        average: null  # Average the metric over the dataset. Options: ["macro", "micro"]. Works only for "F1", "accuracy" etc. Refer to torchmetrics for metrics where this is supported.
         num_classes: null
     test_ds:
       file_names: null # Path to a list of JSONL files corresponding to the source data. Data format is identical to train_ds.
@@ -209,10 +209,10 @@ model:
       index_mapping_dir: null # Path to a directory to write index mapping files.
       prompt_template: ${model.data.train_ds.prompt_template}
       tokens_to_generate: 32 # decide how many tokens we want to generate to evaluate performance with string metrics
-      truncation_method: "right" # Truncation from which position, Options: ['left', 'right']
+      truncation_method: "right"  # Truncation from which position, Options: ["left", "right"]
       metric:
-        name: "loss" # Name of the evaluation metric to use. Options: ['exact_string_match', 'loss']
-        average: null # Average the metric over the dataset. Options: ['macro', 'micro']. Works only for 'F1', 'accuracy' etc. Refer to torchmetrics for metrics where this is supported.
+        name: "loss"  # Name of the evaluation metric to use. Options: ["exact_string_match", "loss"]
+        average: null  # Average the metric over the dataset. Options: ["macro", "micro"]. Works only for "F1", "accuracy" etc. Refer to torchmetrics for metrics where this is supported.
         num_classes: null
 
   optim:
