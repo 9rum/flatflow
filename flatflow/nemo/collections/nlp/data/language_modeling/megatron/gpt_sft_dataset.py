@@ -14,15 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
-from typing import List, Mapping, Optional
+from collections.abc import Mapping
+from typing import Optional
 
 import nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset
 import numpy as np
 import torch
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
-from nemo.collections.nlp.data.language_modeling.megatron.dataset_utils import get_samples_mapping
-from nemo.collections.nlp.data.language_modeling.text_memmap_dataset import OnlineSampleMapping
 from nemo.utils import logging
 
 from flatflow.nemo.core.classes import Dataset
@@ -41,15 +39,15 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         add_bos: bool = False,
         add_eos: bool = True,
         add_sep: bool = False,
-        sep_id: int = None,
-        max_num_samples: int = None,
+        sep_id: Optional[int] = None,
+        max_num_samples: Optional[int] = None,
         seed: int = 1234,
         label_key: str = "answer",
         answer_only_loss: bool = True,
         truncation_field: str = "text",
         pad_to_max_length: bool = False,
-        index_mapping_dir: str = None,
-        prompt_template: str = None,
+        index_mapping_dir: Optional[str] = None,
+        prompt_template: Optional[str] = None,
         virtual_tokens: int = 0,
         tokens_to_generate: int = 0,
         memmap_workers: Optional[int] = None,
@@ -60,7 +58,7 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         output_original_text: bool = False,
         ceil_to_power_2: bool = False,
         get_attention_mask_from_fusion: bool = False,
-    ):
+    ) -> None:
         """
         file_path: Path to a JSONL GPT supervised fine-tuning dataset. Data is formatted as multiple JSON lines with each line formatted as follows. {'input': 'John von Neumann\nVon Neumann made fundamental contributions .... Q: What did the math of artificial viscosity do?', 'output': 'smoothed the shock transition without sacrificing basic physics'}
         tokenizer: Tokenizer for the dataset. Instance of a class that inherits TokenizerSpec (ex: SentencePiece).
@@ -85,115 +83,58 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         is_test: Whether this dataset is the test split.
         output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
         """
-        self.tokenizer = tokenizer
-        self.file_path = file_path
-        self.max_seq_length = max_seq_length
-        self.min_seq_length = min_seq_length
-        self.pad_seq_length_to_mult = pad_seq_length_to_mult
-        self.add_bos = add_bos
-        self.add_eos = add_eos
-        self.add_sep = add_sep
-        self.sep_id = sep_id
-        self.max_num_samples = max_num_samples
-        self.seed = seed
-        self.label_key = label_key
-        self.answer_only_loss = answer_only_loss
-        self.truncation_fields = truncation_field.split(",")
-        self.pad_to_max_length = pad_to_max_length
-        self.index_mapping_dir = index_mapping_dir
-        self.prompt_template = prompt_template
-        self.virtual_tokens = virtual_tokens
-        self.tokens_to_generate = tokens_to_generate
-        self.memmap_workers = memmap_workers
-        self.hf_dataset = hf_dataset
-        self.truncation_method = truncation_method
-        self.is_test = is_test
-        self.output_original_text = output_original_text
-        self.ceil_to_power_2 = ceil_to_power_2
-        self.get_attention_mask_from_fusion = get_attention_mask_from_fusion
+        nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset.GPTSFTDataset.__init__(
+            self,
+            file_path,
+            tokenizer,
+            max_seq_length,
+            min_seq_length,
+            pad_seq_length_to_mult,
+            add_bos,
+            add_eos,
+            add_sep,
+            sep_id,  # type: ignore[arg-type]
+            max_num_samples,  # type: ignore[arg-type]
+            seed,
+            label_key,
+            answer_only_loss,
+            truncation_field,
+            pad_to_max_length,
+            index_mapping_dir,  # type: ignore[arg-type]
+            prompt_template,  # type: ignore[arg-type]
+            virtual_tokens,
+            tokens_to_generate,
+            memmap_workers,
+            hf_dataset,
+            truncation_method,
+            special_tokens,
+            is_test,
+            output_original_text,
+            ceil_to_power_2,
+            get_attention_mask_from_fusion,
+        )
 
-        if special_tokens is None:
-            self.special_tokens = {
-                "system_turn_start": "<extra_id_0>",
-                "turn_start": "<extra_id_1>",
-                "label_start": "<extra_id_2>",
-                "end_of_turn": "\n",
-                "end_of_name": "\n",
-            }
-        else:
-            self.special_tokens = special_tokens
-
-        self._load_dataset()
-
-        # Validate prompt template
-        self._maybe_validate_prompt_template()
-
-        # Will be None after this call if `max_num_samples` is None
-        self._build_samples_mapping()
-
-    def _maybe_validate_prompt_template(self):
-        assert (
-            self.prompt_template is not None
-        ), f"we need prompt_template to combine contexts and label {self.label_key}"
-        # When providing things like newlines in the prompt template via the CLI, they are escaped. This line unescapes them.
-        self.prompt_template = self.prompt_template.encode("utf-8").decode("unicode_escape")
-        self.prompt_template_keys = re.findall(r"{(.*?)}", self.prompt_template)
-
-        label_placeholder = f"{{{self.label_key}}}"
-        assert (
-            self.prompt_template[-len(label_placeholder) :] == label_placeholder
-        ), f"{label_placeholder} must be at the end of prompt_template."
-
-        # Legacy checkpoints has self.truncation_fields = ['context'] and self.prompt_template_keys = ['input', 'output']
-        if self.prompt_template_keys[0] == "input" and self.truncation_fields[0] == "context":
-            self.truncation_fields[0] = self.prompt_template_keys[0]
-
-        assert set(self.truncation_fields).issubset(
-            self.prompt_template_keys
-        ), f"truncation_fields {self.truncation_fields} must in {self.prompt_template_keys}"
-
-    def _build_samples_mapping(self):
-        if self.max_num_samples is not None:
-            osm = OnlineSampleMapping(dataset_size=len(self.indexed_dataset), num_samples=self.max_num_samples)
-            self.samples_mapping = get_samples_mapping(
-                indexed_dataset=self.indexed_dataset,
-                data_prefix=self.file_path,
-                num_epochs=None,
-                max_num_samples=self.max_num_samples,
-                max_seq_length=self.max_seq_length - 2,
-                short_seq_prob=0,
-                seed=self.seed,
-                name=self.file_path.split("/")[-1],
-                binary_head=False,
-                index_mapping_dir=self.index_mapping_dir,
-                samples_mapping=osm,
-            )
-        else:
-            self.samples_mapping = None
-
-    def __len__(self):
-        if self.max_num_samples is None:
-            return len(self.indexed_dataset)
-        else:
-            return len(self.samples_mapping)
+        for index in range(len(self.indexed_dataset)):
+            self.indexed_dataset[index] = self._process_example(self.indexed_dataset[index])
+            self.indexed_dataset[index]["labels"] = self.indexed_dataset[index]["input_ids"][1:]
+            self.indexed_dataset[index]["input_ids"] = self.indexed_dataset[index]["input_ids"][:-1]
+            self.indexed_dataset[index]["token_count"] -= 1
 
     def __getitem__(self, idx):
-        if isinstance(idx, np.int64):
+        if isinstance(idx, np.int64):  # type: ignore[arg-type]
             idx = idx.item()
 
         if self.samples_mapping is not None:
             assert idx < len(self.samples_mapping)
             idx, _, _ = self.samples_mapping[idx]
-            if isinstance(idx, np.uint32):
+            if isinstance(idx, np.uint32):  # type: ignore[arg-type]
                 idx = idx.item()
 
         assert idx < len(self.indexed_dataset)
-        # idx may < 0 because we pad_samples_to_global_batch_size, e.g. id = -1
-        if idx < 0:
-            idx = len(self) + idx
-            auto_gen_idx = True
-        else:
-            auto_gen_idx = False
+        auto_gen_idx = idx < 0
+        if auto_gen_idx:
+            idx += len(self)
+
         try:
             example = self.indexed_dataset[idx]
             if auto_gen_idx:
@@ -201,177 +142,45 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         except Exception as e:
             logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
             raise e
-        return self._process_example(example)
 
-    def _multiple_truncation(self, template_ids: List[List[int]], template_ids_keys: List[str]):
-        """
-        Calculate total tokens and truncate multiple contexts in truncation_fields.
-
-        Args:
-            template_ids (List[List[int]]): the list of separate prompt_template ids.
-            template_ids_keys (List[str]): the list of placeholder keys or <template> (used to check key in truncation_fields).
-
-        Returns:
-            context_ids (List[int]): all context ids.
-            label_ids (List[int]): all label ids.
-        """
-        context_ids = template_ids[:-1]
-        label_ids = template_ids[-1]
-        total_ids = (
-            self.virtual_tokens
-            + sum(len(ids) for ids in context_ids)
-            + max(len(label_ids), self.tokens_to_generate)
-            + self.add_bos
-            + self.add_sep
-            + self.add_eos  # Only training need to consider eos token
-        )
-
-        if total_ids > self.max_seq_length:
-            truncation_length_total = total_ids - self.max_seq_length
-            num_fields = len(self.truncation_fields)
-            # sorted equal divide length to each field
-            # examples:
-            #   truncation_length_total = 3
-            #   num_fields = 11
-            #   truncation_length_list = [3,4,4]
-            truncation_length_list = [
-                truncation_length_total // num_fields + (1 if i < truncation_length_total % num_fields else 0)
-                for i in range(num_fields)[::-1]
-            ]
-
-            for i, (ids, key) in enumerate(zip(template_ids, template_ids_keys)):
-                if key in self.truncation_fields:
-                    truncation_length = truncation_length_list.pop()
-                    if len(ids) < truncation_length:
-                        logging.warning(f"{key} is not long enough to truncate.")
-                        truncation_length = len(ids)
-
-                    if self.truncation_method == "left":
-                        window_offset = truncation_length
-                    elif self.truncation_method == "right":
-                        window_offset = 0
-                    else:
-                        raise ValueError(f"{self.truncation_method} is not supported")
-
-                    window_length = len(ids) - truncation_length
-                    template_ids[i] = ids[window_offset : window_offset + window_length]
-
-        context_ids = [i for ids in template_ids[:-1] for i in ids]
-        label_ids = template_ids[-1]
-        return context_ids, label_ids
-
-    def _process_example(self, example):
-        """
-        Create an example by concatenating text and answer.
-        Truncation is carried out when needed, but it is performed only on the prompt side.
-        BOS, EOS, and SEP, are added if specified.
-        """
-        prompt_template_values = []
-        for c in self.prompt_template_keys:
-            try:
-                prompt_template_values.append(example[c].strip(" "))
-            except KeyError as e:
-                if c == self.label_key and self.is_test:
-                    # allow missing label during testing, if user only wants to do inference without calculating metrics
-                    prompt_template_values.append("")
-                else:
-                    raise e
-
-        template_strings, template_strings_keys = self._separate_template(prompt_template_values)
-        template_ids = [self.tokenizer.text_to_ids(s) for s in template_strings]
-        context_ids, answer_ids = self._multiple_truncation(template_ids, template_strings_keys)
-
-        if self.virtual_tokens:
-            # (@adithyare) we are going to insert "pad/eos" tokens in the beginning of the text and context
-            # these pad/eos tokens are placeholders for virtual tokens
-            context_ids = [self.tokenizer.eos_id] * self.virtual_tokens + context_ids
-
-        input_ids = context_ids
-        answer_start_idx = len(input_ids)
-
-        # Adds bos token in the start
-        if self.add_bos:
-            context_ids = [self.tokenizer.bos_id] + context_ids
-            input_ids = [self.tokenizer.bos_id] + input_ids
-            answer_start_idx += 1
-
-        # Adds sep token between text/prompt and answer
-        if self.add_sep:
-            context_ids = context_ids + [self.sep_id]
-            input_ids = input_ids + [self.sep_id]
-            answer_start_idx += 1
-
-        input_ids = input_ids + answer_ids
-
-        # Only training need to consider eos token
-        if self.add_eos:
-            input_ids = input_ids + [self.tokenizer.eos_id]
-
-        if len(input_ids) > self.max_seq_length:
-            logging.warning(f"Input ids length {len(input_ids)} exceed max sequence length {self.max_seq_length}")
-            input_ids = input_ids[: self.max_seq_length]
-            answer_ids = input_ids[answer_start_idx:]
-
-        # store metadata in dataset, in case user may have keys required in the prediction json files
-        metadata = {k: v for k, v in example.items() if k not in self.prompt_template_keys}
-        if self.output_original_text:
-            for orig_text, text_key in zip(template_strings, template_strings_keys):
-                metadata[text_key] = orig_text
-
-        processed_example = {
-            "input_ids": input_ids,
-            "answer_start_idx": answer_start_idx,
-            "context_ids": context_ids,
-            "context_length": len(context_ids),
-            "answer_ids": answer_ids,
-            "metadata": metadata,
-            "token_count": len(input_ids),
+        return {
+            "input_ids": example["input_ids"],
+            "labels": example["labels"],
+            "loss_mask": [0] * example["token_count"] if auto_gen_idx else self._build_loss_mask(example),
+            "seqlen": example["token_count"],
         }
 
-        return processed_example
+    def __sizeof__(self, idx):
+        return self.indexed_dataset[idx]["token_count"]
+
+    def _collate_fn(self, batch):
+        input_ids = [np.concatenate([item["input_ids"] for item in batch])]
+        labels = [np.concatenate([item["labels"] for item in batch])]
+        loss_mask = [np.concatenate([item["loss_mask"] for item in batch])]
+        position_ids = [np.concatenate([list(range(item["seqlen"])) for item in batch])]
+        token_count = [input_ids[0].shape[0]]
+
+        assert input_ids[0].shape[0] == position_ids[0].shape[0]
+
+        seqlens = np.array([[item["seqlen"] for item in batch]])
+        cu_seqlens = np.concatenate([[[0]], seqlens.cumsum(axis=1), [[-1]]], axis=1)
+        cu_seqlens_argmin = np.argmin(cu_seqlens, axis=1, keepdims=True)
+        max_seqlen = seqlens.max(keepdims=True)
+
+        return {
+            "tokens": torch.LongTensor(input_ids),
+            "labels": torch.LongTensor(labels),
+            "loss_mask": torch.LongTensor(loss_mask),
+            "position_ids": torch.LongTensor(position_ids),
+            "token_count": token_count,
+            "attention_mask": torch.LongTensor([1] * len(input_ids)),
+            "cu_seqlens": torch.IntTensor(cu_seqlens),
+            "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin),
+            "max_seqlen": torch.IntTensor(max_seqlen),
+        }
 
     def collate_fn(self, batch):
-        input_ids = [item["input_ids"][:-1] for item in batch]
-        labels = [item["input_ids"][1:] for item in batch]
-        contexts = [item["context_ids"] for item in batch]
-        context_lengths = torch.LongTensor([item["context_length"] for item in batch])
-        answers = [item["answer_ids"] for item in batch]
-        loss_mask = [self._build_loss_mask(item)[1:] for item in batch]
-        metadata = [item["metadata"] for item in batch]
-        token_count = [item["token_count"] for item in batch]
+        if self.input_types is not None:
+            raise TypeError("Datasets should not implement `input_types` as they are not checked")
 
-        max_length = max(max([len(x) for x in input_ids]), max([len(x) for x in contexts]) + self.tokens_to_generate)
-        # increase max length to nearest multiple of 4 or 8
-        if self.pad_to_max_length:
-            max_length = self.max_seq_length
-        else:
-            max_length = min(self.max_seq_length, self._ceil_to_nearest(max_length, self.pad_seq_length_to_mult))
-        assert max_length <= self.max_seq_length
-
-        if not self.get_attention_mask_from_fusion:
-            attention_mask = [self._create_attention_mask(max_length) for _ in batch]
-            attention_mask = torch.stack(attention_mask)
-        position_ids = [list(range(max_length)) for _ in batch]
-        position_ids = torch.LongTensor(position_ids)
-        input_ids = torch.LongTensor(self._collate_item(input_ids, max_length=max_length, pad_id=self.tokenizer.eos_id))
-        labels = torch.LongTensor(self._collate_item(labels, max_length=max_length, pad_id=self.tokenizer.eos_id))
-        loss_mask = torch.LongTensor(self._collate_item(loss_mask, max_length=max_length, pad_id=0))
-        contexts = torch.LongTensor(self._collate_item(contexts, max_length=max_length, pad_id=self.tokenizer.eos_id))
-        answers = torch.LongTensor(self._collate_item(answers, max_length=max_length, pad_id=self.tokenizer.eos_id))
-
-        processed_batch = {
-            "tokens": input_ids,
-            "labels": labels,
-            "loss_mask": loss_mask,
-            "position_ids": position_ids,
-            "contexts": contexts,
-            "context_lengths": context_lengths,
-            "answers": answers,
-            "metadata": metadata,
-            "token_count": token_count,
-        }
-
-        if not self.get_attention_mask_from_fusion:
-            processed_batch["attention_mask"] = attention_mask
-
-        return processed_batch
+        return self._collate_fn(batch)
