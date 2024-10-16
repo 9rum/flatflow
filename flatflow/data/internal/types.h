@@ -16,8 +16,6 @@
 #define FLATFLOW_DATA_INTERNAL_TYPES_H_
 
 #include <concepts>
-#include <cstdint>
-#include <limits>
 
 namespace flatflow {
 namespace data {
@@ -43,24 +41,6 @@ concept Integral =
 // and `std::same_as<T, bool>` are `false`.
 template <typename T>
 concept Numerical = Integral<T> || std::floating_point<T>;
-
-// Casts the given value under 32 bits to the corresponding 32-bit unsigned
-// integer to prevent overflow during scheduling.
-template <typename T>
-  requires(Unsigned<T> && std::numeric_limits<T>::digits <
-                              std::numeric_limits<uint32_t>::digits)
-constexpr uint32_t OverflowSafeCast(T operand) noexcept {
-  return static_cast<uint32_t>(operand);
-}
-
-// Casts the given value of 32 bits or more to the corresponding 64-bit unsigned
-// integer to prevent overflow during scheduling.
-template <typename T>
-  requires(Unsigned<T> && std::numeric_limits<uint32_t>::digits <=
-                              std::numeric_limits<T>::digits)
-constexpr uint64_t OverflowSafeCast(T operand) noexcept {
-  return static_cast<uint64_t>(operand);
-}
 
 }  // namespace internal
 }  // namespace data
