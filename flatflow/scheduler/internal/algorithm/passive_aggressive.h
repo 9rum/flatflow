@@ -48,6 +48,7 @@ class PassiveAggressiveRegressor {
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
     coef_ = 1.0;
     intercept_ = 0.0;
+    converged_ = false;
   }
 
   explicit PassiveAggressiveRegressor(const PassiveAggressiveRegressor &other) = default;
@@ -66,10 +67,10 @@ class PassiveAggressiveRegressor {
   template <typename T, typename U>
     requires(flatflow::data::internal::Numerical<T> &&
              flatflow::data::internal::Numerical<U>)
-  bool fit(const std::vector<T> &sizes, const std::vector<U> &costs) {
+  void fit(const std::vector<T> &sizes, const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
 
-    auto converged = true;
+    converged_ = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
       for (std::size_t index = 0; index < sizes.size(); ++index) {
@@ -91,12 +92,10 @@ class PassiveAggressiveRegressor {
             intercept_ -= update;
           }
 
-          converged = false;
+          converged_ = false;
         }
       }
     }
-
-    return converged;
   }
 
   // PassiveAggressiveRegressor::predict()
@@ -113,12 +112,18 @@ class PassiveAggressiveRegressor {
   // Returns the current model intercept.
   inline double intercept() const noexcept { return intercept_; }
 
+  // PassiveAggressiveRegressor::converged()
+  //
+  // Returns whether the model has converged.
+  inline bool converged() const noexcept { return converged_; }
+
  protected:
   std::size_t max_iter_;
   double C_;
   double coef_;
   double epsilon_;
   double intercept_;
+  bool converged_;
 };
 
 // PassiveAggressiveRegressor<>
@@ -141,9 +146,10 @@ class PassiveAggressiveRegressor</*Order=*/2> {
                                       double C = 1.0,
                                       std::size_t max_iter = 1000)
       : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
+    intercept_ = 0.0;
+    converged_ = false;
     coef_.front() = 1.0;
     coef_.back() = static_cast<double>(coefficient);
-    intercept_ = 0.0;
   }
 
   explicit PassiveAggressiveRegressor(const PassiveAggressiveRegressor &other) = default;
@@ -164,11 +170,11 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   template <typename T, typename U>
     requires(flatflow::data::internal::Numerical<T> &&
              flatflow::data::internal::Numerical<U>)
-  bool fit(const std::vector<std::vector<T>> &sizes,
+  void fit(const std::vector<std::vector<T>> &sizes,
            const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
 
-    auto converged = true;
+    converged_ = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
       for (std::size_t index = 0; index < sizes.size(); ++index) {
@@ -197,12 +203,10 @@ class PassiveAggressiveRegressor</*Order=*/2> {
             intercept_ -= update;
           }
 
-          converged = false;
+          converged_ = false;
         }
       }
     }
-
-    return converged;
   }
 
   // PassiveAggressiveRegressor::predict()
@@ -220,11 +224,17 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // Returns the current model intercept.
   inline double intercept() const noexcept { return intercept_; }
 
+  // PassiveAggressiveRegressor::converged()
+  //
+  // Returns whether the model has converged.
+  inline bool converged() const noexcept { return converged_; }
+
  protected:
   std::size_t max_iter_;
   double C_;
   double epsilon_;
   double intercept_;
+  bool converged_;
   std::array<double, 2> coef_;
 };
 

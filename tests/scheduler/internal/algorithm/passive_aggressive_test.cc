@@ -68,7 +68,8 @@ TEST_F(RegressorTest, Linear) {
   auto regressor =
       flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<1>(
           kEpsilon);
-  EXPECT_FALSE(regressor.fit(sums, costs));
+  regressor.fit(sums, costs);
+  EXPECT_FALSE(regressor.converged());
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
     const auto sum = sums[index];
@@ -94,7 +95,8 @@ TEST_F(RegressorTest, Quadratic) {
   auto regressor =
       flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<2>(
           kHiddenSize, kEpsilon);
-  EXPECT_FALSE(regressor.fit(sizes, costs));
+  regressor.fit(sizes, costs);
+  EXPECT_FALSE(regressor.converged());
 
   for (std::size_t index = 0; index < kNumMicroBatches; ++index) {
     const auto &_sizes = sizes[index];
