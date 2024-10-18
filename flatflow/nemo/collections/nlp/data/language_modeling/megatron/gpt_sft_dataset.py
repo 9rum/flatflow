@@ -161,8 +161,7 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
                 idx = idx.item()
 
         assert idx < len(self.indexed_dataset)
-        auto_gen_idx = idx < 0
-        if auto_gen_idx:
+        if idx < 0:
             idx += len(self)
 
         try:
