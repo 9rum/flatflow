@@ -151,32 +151,51 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         }
 
     def __sizeof__(self, idx):
-        return self.indexed_dataset[idx]["token_count"]
+        if isinstance(idx, np.int64):  # type: ignore[arg-type]
+            idx = idx.item()
+
+        if self.samples_mapping is not None:
+            assert idx < len(self.samples_mapping)
+            idx, _, _ = self.samples_mapping[idx]
+            if isinstance(idx, np.uint32):  # type: ignore[arg-type]
+                idx = idx.item()
+
+        assert idx < len(self.indexed_dataset)
+        if idx < 0:
+            idx += len(self)
+
+        try:
+            example = self.indexed_dataset[idx]
+        except Exception as e:
+            logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
+            raise e
+
+        return example["token_count"]
 
     def _collate_fn(self, batch):
-        input_ids = [np.concatenate([item["input_ids"] for item in batch])]
-        labels = [np.concatenate([item["labels"] for item in batch])]
-        loss_mask = [np.concatenate([item["loss_mask"] for item in batch])]
-        position_ids = [np.concatenate([list(range(item["seqlen"])) for item in batch])]
-        token_count = [input_ids[0].shape[0]]
+        input_ids = np.concatenate([item["input_ids"] for item in batch])
+        labels = np.concatenate([item["labels"] for item in batch])
+        loss_mask = np.concatenate([item["loss_mask"] for item in batch])
+        position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
+        token_count = input_ids.shape[0]
 
-        assert input_ids[0].shape[0] == position_ids[0].shape[0]
+        assert input_ids.shape[0] == position_ids.shape[0]
 
-        seqlens = np.array([[item["seqlen"] for item in batch]])
-        cu_seqlens = np.concatenate([[[0]], seqlens.cumsum(axis=1), [[-1]]], axis=1)
-        cu_seqlens_argmin = np.argmin(cu_seqlens, axis=1, keepdims=True)
+        seqlens = np.array([item["seqlen"] for item in batch])
+        cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]])
+        cu_seqlens_argmin = np.argmin(cu_seqlens, keepdims=True)
         max_seqlen = seqlens.max(keepdims=True)
 
         return {
-            "tokens": torch.LongTensor(input_ids),
-            "labels": torch.LongTensor(labels),
-            "loss_mask": torch.LongTensor(loss_mask),
-            "position_ids": torch.LongTensor(position_ids),
-            "token_count": token_count,
-            "attention_mask": torch.LongTensor([1] * len(input_ids)),
-            "cu_seqlens": torch.IntTensor(cu_seqlens),
-            "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin),
-            "max_seqlen": torch.IntTensor(max_seqlen),
+            "tokens": torch.LongTensor(input_ids).unsqueeze(0),
+            "labels": torch.LongTensor(labels).unsqueeze(0),
+            "loss_mask": torch.LongTensor(loss_mask).unsqueeze(0),
+            "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
+            "token_count": [token_count],
+            "attention_mask": torch.LongTensor([1]),
+            "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
+            "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
+            "max_seqlen": torch.IntTensor(max_seqlen).unsqueeze(0),
         }
 
     def collate_fn(self, batch):
