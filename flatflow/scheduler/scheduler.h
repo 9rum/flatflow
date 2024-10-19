@@ -18,7 +18,10 @@
 #include <omp.h>
 
 #include <cassert>
+#include <cstddef>
 #include <functional>
+#include <iterator>
+#include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -88,13 +91,13 @@ class Scheduler {
 
     LOG(INFO) << absl::StrFormat(
         "Initializing scheduler with the following arguments:\n"
-        "  world_size: %u\n"
+        "  world_size:        %u\n"
         "  global_batch_size: %u\n"
-        "  micro_batch_size: %u\n"
-        "  order: %d\n"
-        "  seed: %u\n"
-        "  heterogeneous: %v\n"
-        "  use_flat_shuffle: %v",
+        "  micro_batch_size:  %u\n"
+        "  order:             %d\n"
+        "  seed:              %u\n"
+        "  heterogeneous:     %v\n"
+        "  use_flat_shuffle:  %v",
         world_size, global_batch_size, micro_batch_size, 1, seed, false,
         use_flat_shuffle);
 
@@ -132,9 +135,9 @@ class Scheduler {
   // Generates the computation schedule for the next training epoch and then
   // shuffles it.
   //
-  // Note that this scheduler does not take the scheduling interval into
-  // account; scheduling for models with linear complexity on identical machines
-  // occurs at the granularity of epoch.
+  // Note that this kind of scheduler does not take the scheduling intervals
+  // into account; scheduling for models with linear complexity on identical
+  // machines occurs at the granularity of epoch.
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
@@ -162,8 +165,7 @@ class Scheduler {
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
         items, num_micro_batches_ - world_size_, std::identity);
 
-    const auto last_items = dataset_.take<false>(
-        static_cast<std::size_t>(last_micro_batch_size_ * world_size_));
+    const auto last_items = dataset_.take<false>(dataset_.size());
     const auto last_micro_batches = internal::algorithm::KarmarkarKarp(
         last_items, world_size_, std::identity);
 
@@ -204,12 +206,17 @@ class Scheduler {
     dataset_.on_batch_end(batch);
   }
 
+  // Scheduler::on_batch_end_sink()
+  //
+  // An extension point called after all batch callbacks invocation.
+  void on_batch_end_sink([[maybe_unused]] mapped_type batch) const noexcept {}
+
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
   inline void on_epoch_begin(mapped_type epoch) {
-    epoch_ = epoch;
     dataset_.on_epoch_begin(epoch);
+    epoch_ = epoch;
   }
 
   // Scheduler::on_epoch_end()
@@ -288,22 +295,27 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
     LOG(INFO) << absl::StrFormat(
         "Initializing scheduler with the following arguments:\n"
-        "  world_size: %u\n"
+        "  world_size:        %u\n"
         "  global_batch_size: %u\n"
-        "  hidden_size: %u\n"
-        "  micro_batch_size: %u\n"
-        "  order: %d\n"
-        "  seed: %u\n"
-        "  heterogeneous: %v\n"
-        "  use_flat_shuffle: %v",
+        "  hidden_size:       %u\n"
+        "  micro_batch_size:  %u\n"
+        "  order:             %d\n"
+        "  seed:              %u\n"
+        "  heterogeneous:     %v\n"
+        "  use_flat_shuffle:  %v",
         world_size, global_batch_size, hidden_size, micro_batch_size, 2, seed,
         false, use_flat_shuffle);
+
+    last_micro_batch_size_ =
+        (num_samples / world_size - 1) % micro_batch_size + 1;
 
     num_micro_batches_ =
         ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
 
-    last_micro_batch_size_ =
-        (num_samples / world_size - 1) % micro_batch_size + 1;
+    sizes_ = std::vector<std::vector<std::vector<key_type>>>(
+        static_cast<std::size_t>(world_size));
+    costs_ =
+        std::vector<std::vector<double>>(static_cast<std::size_t>(world_size));
 
     regressor_ = internal::algorithm::PassiveAggressiveRegressor</*Order=*/2>(
         hidden_size << 3);
@@ -326,8 +338,11 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Generates the computation schedule for the next training epoch and then
   // shuffles it.
   //
-  // Note that this naive implementation does not support profile-guided
-  // optimization and may change in the future.
+  // This scheduler implementation provides profile-guided optimization;
+  // it adaptively generates computation schedule based on the given feedback
+  // until the underlying cost model converges. Once the model converges,
+  // profile-guided optimization stops and switches to scheduling at the
+  // granularity of epoch.
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
@@ -397,17 +412,69 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
-                           [[maybe_unused]] const flatbuffers::Vector<double> *costs) const noexcept {
+  void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
+                    [[maybe_unused]] const flatbuffers::Vector<double> *costs) {
     dataset_.on_batch_end(batch);
+
+    // Store the feedback if given; it is later used to train the underlying
+    // cost model.
+    if (costs == nullptr || regressor_.converged()) {
+      return;
+    }
+
+    const auto _rank = static_cast<std::size_t>(rank);
+    costs_[_rank].reserve(static_cast<std::size_t>(costs->size()));
+    for (flatbuffers::uoffset_t index = 0; index < costs->size(); ++index) {
+      costs_[_rank].emplace_back(costs->Get(index));
+    }
+  }
+
+  // Scheduler::on_batch_end_sink()
+  //
+  // An extension point called after all batch callbacks invocation.
+  void on_batch_end_sink([[maybe_unused]] mapped_type batch) {
+    if (regressor_.converged()) {
+      return;
+    }
+
+    auto sizes = std::vector<std::vector<key_type>>();
+    auto costs = std::vector<double>();
+
+    std::size_t num_costs = 0;
+    const auto world_size = static_cast<std::size_t>(world_size_);
+    for (std::size_t rank = 0; rank < world_size; ++rank) {
+      num_costs += costs_[rank].size();
+    }
+
+    sizes.reserve(num_costs);
+    costs.reserve(num_costs);
+
+    for (std::size_t rank = 0; rank < world_size; ++rank) {
+      num_costs = costs_[rank].size();
+      for (std::size_t index = 0; index < num_costs; ++index) {
+        sizes.emplace_back(std::move(sizes_[rank][index]));
+        costs.emplace_back(costs_[rank][index]);
+      }
+    }
+
+    regressor_.fit(sizes, costs);
+
+    for (std::size_t rank = 0; rank < world_size; ++rank) {
+      sizes_[rank].erase(
+          sizes_[rank].cbegin(),
+          std::next(sizes_[rank].cbegin(),
+                    static_cast<std::ptrdiff_t>(costs_[rank].size())));
+      sizes_[rank].shrink_to_fit();
+      costs_[rank] = std::vector<double>();
+    }
   }
 
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
   inline void on_epoch_begin(mapped_type epoch) {
-    epoch_ = epoch;
     dataset_.on_epoch_begin(epoch);
+    epoch_ = epoch;
   }
 
   // Scheduler::on_epoch_end()
@@ -434,8 +501,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   mapped_type seed_;
   mapped_type world_size_;
   bool use_flat_shuffle_;
-  std::vector<std::vector<key_type>> sizes_;
-  std::vector<double> costs_;
+  std::vector<std::vector<std::vector<key_type>>> sizes_;
+  std::vector<std::vector<double>> costs_;
   internal::algorithm::PassiveAggressiveRegressor</*Order=*/2> regressor_;
   flatflow::data::Dataset<mapped_type, key_type> dataset_;
 };

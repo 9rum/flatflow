@@ -70,6 +70,10 @@ class PassiveAggressiveRegressor {
   void fit(const std::vector<T> &sizes, const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
 
+    if (costs.empty()) {
+      return;
+    }
+
     converged_ = true;
 
     for (std::size_t epoch = 0; epoch < max_iter_; ++epoch) {
@@ -173,6 +177,10 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   void fit(const std::vector<std::vector<T>> &sizes,
            const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
+
+    if (costs.empty()) {
+      return;
+    }
 
     converged_ = true;
 
