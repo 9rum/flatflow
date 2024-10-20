@@ -191,6 +191,12 @@ class Scheduler {
     return indices;
   }
 
+  // Scheduler::converged()
+  //
+  // Returns the convergence status of the underlying cost model if it exists,
+  // otherwise returns true.
+  inline bool converged() const noexcept { return true; }
+
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
@@ -201,15 +207,17 @@ class Scheduler {
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  inline void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
-                           [[maybe_unused]] const flatbuffers::Vector<double> *costs) const noexcept {
+  void on_batch_end([[maybe_unused]] mapped_type batch,
+                    [[maybe_unused]] mapped_type rank,
+                    [[maybe_unused]] const flatbuffers::Vector<double> *costs)
+      const noexcept {}
+
+  // Scheduler::on_batch_end()
+  //
+  // A callback to be called after all rank-wise batch callbacks invocation.
+  inline void on_batch_end(mapped_type batch) const noexcept {
     dataset_.on_batch_end(batch);
   }
-
-  // Scheduler::on_batch_end_sink()
-  //
-  // An extension point called after all batch callbacks invocation.
-  void on_batch_end_sink([[maybe_unused]] mapped_type batch) const noexcept {}
 
   // Scheduler::on_epoch_begin()
   //
@@ -402,6 +410,12 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     return indices;
   }
 
+  // Scheduler::converged()
+  //
+  // Returns the convergence status of the underlying cost model if it exists,
+  // otherwise returns true.
+  inline bool converged() const noexcept { return regressor_.converged(); }
+
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
@@ -412,10 +426,9 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Scheduler::on_batch_end()
   //
   // A callback to be called at the end of a training batch.
-  void on_batch_end(mapped_type batch, [[maybe_unused]] mapped_type rank,
+  void on_batch_end([[maybe_unused]] mapped_type batch,
+                    [[maybe_unused]] mapped_type rank,
                     [[maybe_unused]] const flatbuffers::Vector<double> *costs) {
-    dataset_.on_batch_end(batch);
-
     // Store the feedback if given; it is later used to train the underlying
     // cost model.
     if (costs == nullptr || regressor_.converged()) {
@@ -429,10 +442,12 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     }
   }
 
-  // Scheduler::on_batch_end_sink()
+  // Scheduler::on_batch_end()
   //
-  // An extension point called after all batch callbacks invocation.
-  void on_batch_end_sink([[maybe_unused]] mapped_type batch) {
+  // A callback to be called after all rank-wise batch callbacks invocation.
+  void on_batch_end(mapped_type batch) {
+    dataset_.on_batch_end(batch);
+
     if (regressor_.converged()) {
       return;
     }

@@ -193,6 +193,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       while (!fanin_.compare_exchange_weak(expected, 0)) {
         expected = world_size_;
       }
+      if (batch_ != 0 || num_scheduled_batches_ != 0) {
+        _call_callbacks_on_batch_end();
+      }
 
       batch_ += num_scheduled_batches_;
       if (batch_ == num_batches_) {
@@ -215,8 +218,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     }
 
     auto builder = flatbuffers::grpc::MessageBuilder();
-    auto indices = builder.CreateVector(fanout_.second[rank].get());
-    auto offset = CreateBroadcastResponse(builder, indices, true);
+    const auto indices = builder.CreateVector(fanout_.second[rank].get());
+    const auto converged = CheckConvergence();
+    const auto offset = CreateBroadcastResponse(builder, indices, converged);
     builder.Finish(offset);
     *response = builder.ReleaseMessage<BroadcastResponse>();
 
@@ -257,6 +261,17 @@ class CommunicatorServiceImpl final : public Communicator::Service {
     return std::get<2>(scheduler_).Schedule();
   }
 
+  // CommunicatorServiceImpl::CheckConvergence()
+  //
+  // Returns the convergence status of the underlying cost model of the
+  // scheduler.
+  inline bool CheckConvergence() const noexcept {
+    if (scheduler_.index() == 1) {
+      return std::get<1>(scheduler_).converged();
+    }
+    return std::get<2>(scheduler_).converged();
+  }
+
   // CommunicatorServiceImpl::_call_callbacks_on_batch_begin()
   //
   // Calls every callback's `on_batch_begin` hook.
@@ -270,14 +285,24 @@ class CommunicatorServiceImpl final : public Communicator::Service {
 
   // CommunicatorServiceImpl::_call_callbacks_on_batch_end()
   //
-  // Calls every callback's `on_batch_end` hook.
+  // Calls every callback's rank-wise `on_batch_end` hook.
   inline void _call_callbacks_on_batch_end(
-      mapped_type rank,
-      const flatbuffers::Vector<double> *costs) const noexcept {
+      mapped_type rank, const flatbuffers::Vector<double> *costs) {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
     } else if (scheduler_.index() == 2) {
       std::get<2>(scheduler_).on_batch_end(batch_, rank, costs);
+    }
+  }
+
+  // CommunicatorServiceImpl::_call_callbacks_on_batch_end()
+  //
+  // Calls every callback's `on_batch_end` hook.
+  inline void _call_callbacks_on_batch_end() {
+    if (scheduler_.index() == 1) {
+      std::get<1>(scheduler_).on_batch_end(batch_);
+    } else if (scheduler_.index() == 2) {
+      std::get<2>(scheduler_).on_batch_end(batch_);
     }
   }
 
@@ -363,7 +388,7 @@ void run(uint16_t port, CommunicatorServiceImpl::mapped_type world_size) {
 
   static auto server = builder.BuildAndStart();
   if (server == nullptr) {
-    LOG(FATAL) << absl::StrFormat("Failed to start server on %s", addr);
+    LOG(FATAL) << absl::StrFormat("Failed to start communicator runtime on %s", addr);
   }
 
   auto handler = [](int signal) { server->Shutdown(); };
@@ -371,7 +396,7 @@ void run(uint16_t port, CommunicatorServiceImpl::mapped_type world_size) {
     LOG(ERROR) << "Failed to change handling of SIGTERM";
   }
 
-  LOG(INFO) << absl::StrFormat("Server listening on %s", addr);
+  LOG(INFO) << absl::StrFormat("Communicator runtime started on %s", addr);
 }
 
 }  // namespace rpc
