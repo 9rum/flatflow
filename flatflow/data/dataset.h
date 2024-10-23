@@ -332,7 +332,7 @@ class Dataset {
   // Depending on `Drop`, inserts the given data sample into the inverted index
   // or recycle bin.
   template <bool Drop>
-  void insert_impl(Size size, Index index) {
+  void insert_impl(key_type size, mapped_type index) {
     if constexpr (Drop) {
       auto position = recyclebin_.find(size);
       if (position == recyclebin_.end()) {

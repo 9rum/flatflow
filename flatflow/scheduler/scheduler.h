@@ -317,6 +317,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     last_micro_batch_size_ =
         (num_samples / world_size - 1) % micro_batch_size + 1;
 
+    num_batches_ = 1;
+
     num_micro_batches_ =
         ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
 
@@ -354,20 +356,78 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   std::vector<std::vector<mapped_type>> Schedule() {
     auto now = omp_get_wtime();
 
-    const auto transform = std::bind(
+    const auto op = std::bind(
         &internal::algorithm::PassiveAggressiveRegressor<2>::predict<key_type>,
         regressor_, std::placeholders::_1);
 
-    if (micro_batch_size_ == last_micro_batch_size_) {
-      const auto items = dataset_.take(
-          static_cast<std::size_t>(micro_batch_size_ * num_micro_batches_));
-      const auto micro_batches = internal::algorithm::KarmarkarKarp(
-          items, num_micro_batches_, transform);
+    if (regressor_.converged()) {
+      if (micro_batch_size_ == last_micro_batch_size_) {
+        const auto num_micro_batches =
+            static_cast<mapped_type>(dataset_.size()) / micro_batch_size_;
+        const auto items = dataset_.take<false>(dataset_.size());
+        const auto micro_batches =
+            internal::algorithm::KarmarkarKarp(items, num_micro_batches, op);
 
-      LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+        LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches, omp_get_wtime() - now);
+        now = omp_get_wtime();
+
+        const auto [indices, sizes] =
+            internal::algorithm::extract(internal::algorithm::reshape(
+                internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                             use_flat_shuffle_),
+                world_size_, global_batch_size_));
+
+        LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
+
+        return indices;
+      }
+
+      const auto num_micro_batches = static_cast<mapped_type>(dataset_.size()) /
+                                         world_size_ / micro_batch_size_ *
+                                         world_size_ +
+                                     world_size_;
+      const auto items = dataset_.take<false>(static_cast<std::size_t>(
+          micro_batch_size_ * (num_micro_batches - world_size_)));
+      const auto micro_batches = internal::algorithm::KarmarkarKarp(
+          items, num_micro_batches - world_size_, op);
+
+      const auto last_items = dataset_.take<false>(dataset_.size());
+      const auto last_micro_batches =
+          internal::algorithm::KarmarkarKarp(last_items, world_size_, op);
+
+      LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches, omp_get_wtime() - now);
       now = omp_get_wtime();
 
-      const auto [indices, sizes] =
+      auto [indices, sizes] =
+          internal::algorithm::extract(internal::algorithm::reshape(
+              internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
+                                           use_flat_shuffle_),
+              world_size_, global_batch_size_));
+
+      const auto [last_indices, last_sizes] =
+          internal::algorithm::extract(internal::algorithm::reshape(
+              internal::algorithm::shuffle(last_micro_batches, epoch_ + seed_,
+                                           use_flat_shuffle_),
+              world_size_, global_batch_size_));
+
+      internal::algorithm::concat(indices, last_indices);
+
+      LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
+
+      return indices;
+    }
+
+    if (micro_batch_size_ == last_micro_batch_size_) {
+      const auto num_micro_batches =
+          static_cast<mapped_type>(dataset_.size()) / micro_batch_size_;
+      const auto items = dataset_.take<true>(dataset_.size());
+      const auto micro_batches =
+          internal::algorithm::KarmarkarKarp(items, num_micro_batches, op);
+
+      LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches, omp_get_wtime() - now);
+      now = omp_get_wtime();
+
+      auto [indices, sizes] =
           internal::algorithm::extract(internal::algorithm::reshape(
               internal::algorithm::shuffle(micro_batches, epoch_ + seed_,
                                            use_flat_shuffle_),
@@ -375,20 +435,61 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
+      const auto reversion_threshold = static_cast<std::size_t>(
+          num_batches_ * global_batch_size_ / world_size_);
+      const auto world_size = static_cast<std::size_t>(world_size_);
+      if (reversion_threshold < indices.first().size()) {
+        for (std::size_t rank = 0; rank < world_size; ++rank) {
+          for (std::size_t index = reversion_threshold;
+               index < indices[rank].size(); ++index) {
+            dataset_.insert<false>(
+                std::make_pair(sizes[rank][index], indices[rank][index]));
+          }
+          indices[rank].erase(
+              std::next(indices[rank].cbegin(),
+                        static_cast<std::ptrdiff_t>(reversion_threshold)),
+              indices[rank].cend());
+          indices[rank].shrink_to_fit();
+        }
+      }
+
+      for (std::size_t rank = 0; rank < world_size; ++rank) {
+        for (std::size_t index = 0; index < indices[rank].size(); ++index) {
+          dataset_.insert<true>(
+              std::make_pair(sizes[rank][index], indices[rank][index]));
+        }
+        for (std::size_t offset = 0; offset < indices[rank].size();
+             offset += micro_batch_size_) {
+          // move sizes[rank][index : min(indices[rank].size(), index +
+          // microbatchsize)]
+          meta.reserve(micro_batch_size_);
+          for (std::size_t index = offset; index < offset + micro_batch_size_;
+               ++index) {
+            meta.emplace_back(sizes[rank][index]);
+          }
+          sizes_[rank].emplace_back(std::move(meta));
+        }
+      }
+
+      num_batches_ <<= 1;
+
       return indices;
     }
 
-    const auto items = dataset_.take(static_cast<std::size_t>(
-        micro_batch_size_ * (num_micro_batches_ - world_size_)));
+    const auto num_micro_batches = static_cast<mapped_type>(dataset_.size()) /
+                                       world_size_ / micro_batch_size_ *
+                                       world_size_ +
+                                   world_size_;
+    const auto items = dataset_.take<true>(static_cast<std::size_t>(
+        micro_batch_size_ * (num_micro_batches - world_size_)));
     const auto micro_batches = internal::algorithm::KarmarkarKarp(
-        items, num_micro_batches_ - world_size_, transform);
+        items, num_micro_batches - world_size_, op);
 
-    const auto last_items = dataset_.take(
-        static_cast<std::size_t>(last_micro_batch_size_ * world_size_));
+    const auto last_items = dataset_.take<true>(dataset_.size());
     const auto last_micro_batches =
-        internal::algorithm::KarmarkarKarp(last_items, world_size_, transform);
+        internal::algorithm::KarmarkarKarp(last_items, world_size_, op);
 
-    LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
+    LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches, omp_get_wtime() - now);
     now = omp_get_wtime();
 
     auto [indices, sizes] =
@@ -404,8 +505,46 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
             world_size_, global_batch_size_));
 
     internal::algorithm::concat(indices, last_indices);
+    internal::algorithm::concat(sizes, last_sizes);
 
     LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
+
+    const auto reversion_threshold = static_cast<std::size_t>(
+        num_batches_ * global_batch_size_ / world_size_);
+    const auto world_size = static_cast<std::size_t>(world_size_);
+    if (reversion_threshold < indices.first().size()) {
+      for (std::size_t rank = 0; rank < world_size; ++rank) {
+        for (std::size_t index = reversion_threshold;
+             index < indices[rank].size(); ++index) {
+          dataset_.insert<false>(
+              std::make_pair(sizes[rank][index], indices[rank][index]));
+        }
+        indices[rank].erase(
+            std::next(indices[rank].cbegin(),
+                      static_cast<std::ptrdiff_t>(reversion_threshold)),
+            indices[rank].cend());
+        indices[rank].shrink_to_fit();
+      }
+    }
+
+    for (std::size_t rank = 0; rank < world_size; ++rank) {
+      for (std::size_t index = 0; index < indices[rank].size(); ++index) {
+        dataset_.insert<true>(
+            std::make_pair(sizes[rank][index], indices[rank][index]));
+      }
+      for (std::size_t offset = 0; offset < indices[rank].size();
+           offset += micro_batch_size_) {
+        meta.reserve(micro_batch_size_);
+        for (std::size_t index = offset;
+             index < std::min(offset + micro_batch_size_, indices[rank].size());
+             ++index) {
+          meta.emplace_back(sizes[rank][index]);
+        }
+        sizes_[rank].emplace_back(std::move(meta));
+      }
+    }
+
+    num_batches_ <<= 1;
 
     return indices;
   }
@@ -512,6 +651,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   mapped_type global_batch_size_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
+  mapped_type num_batches_;
   mapped_type num_micro_batches_;
   mapped_type seed_;
   mapped_type world_size_;
