@@ -135,9 +135,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         channel = grpc.insecure_channel(f"{addr}:{port}")
         self.client = CommunicatorClient(channel)
 
-        if self.global_rank == 0:
-            run(port, data_parallel_size)
-
         # TODO calculate self.pipeline_parallel_group_index
         if self.global_rank == 0:
             run(port, data_parallel_size)
