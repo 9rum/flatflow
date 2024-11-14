@@ -18,10 +18,10 @@ import os
 from typing import Optional
 
 import grpc
+import torch
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 from nemo.utils import AppState
-import torch, logging
 
 import flatflow
 from flatflow.rpc import CommunicatorClient, run
@@ -64,6 +64,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             This is given only when order is 2.
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
+        profiler (Profiler, optional): Profiler object to be used for profiling the training loop.
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
@@ -129,7 +130,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.costs = []
         sizes = [flatflow.sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length[0] = len(sizes)
-   
+
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
         self.client = CommunicatorClient(channel)
@@ -137,7 +138,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         if self.global_rank == 0:
             run(port, data_parallel_size)
 
-        # TODO calculate self.pipeline_parallel_group_index 
+        # TODO calculate self.pipeline_parallel_group_index
         if self.global_rank == 0:
             run(port, data_parallel_size)
             self.client.Init(
@@ -173,7 +174,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        
         end = False
         while not end:
             if self.current_samples > self.total_length[0]//2:
@@ -188,7 +188,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                         if self.converged:
                             for hook in self.profiler.hook_handles:
                                 hook.remove()
-                            logging.info("All hooks are removed")
 
                     self.indices = list(broadcast.IndicesAsNumpy())
                     self.indices_size = [len(self.indices)]
@@ -196,12 +195,20 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 except Exception as e:
                     print(f"Rank {self.global_rank} - Error getting scheduler data: {e}")
                     raise
-             
-            torch.distributed.broadcast_object_list(self.indices_size, src=self.pipeline_src_local_rank, group=self.mp_group)
+
+            torch.distributed.broadcast_object_list(
+                self.indices_size, 
+                src = self.pipeline_src_local_rank, 
+                group = self.mp_group
+            )
             if self.global_rank != self.pipeline_src_local_rank:
                 self.indices = [0] * self.indices_size[0]
 
-            torch.distributed.broadcast_object_list(self.indices, src=self.pipeline_src_local_rank, group=self.mp_group)
+            torch.distributed.broadcast_object_list(
+                self.indices, 
+                src = self.pipeline_src_local_rank, 
+                group = self.mp_group
+            )
             self.current_samples += len(self.indices)
 
             batch = []
