@@ -127,17 +127,21 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.current_samples = 0
         self.mp_group = parallel_state.get_model_parallel_group()
         self.pipeline_parallel_group_index = self.global_rank // self.pipeline_parallel_world_size
+        self.world_size = torch.distributed.get_world_size()
+        self.num_data_parallel_group = self.world_size // (self.tensor_parallel_world_size * self.pipeline_parallel_world_size)
+        self.pipeline_src_rank = parallel_state.get_pipeline_model_parallel_first_rank()
         self.costs = []
         sizes = [flatflow.sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length[0] = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
+        if self.global_rank == 0:
+            run(port, data_parallel_size)
         self.client = CommunicatorClient(channel)
 
         # TODO calculate self.pipeline_parallel_group_index
         if self.global_rank == 0:
-            run(port, data_parallel_size)
             self.client.Init(
                 global_batch_size,
                 micro_batch_size,
@@ -173,7 +177,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         end = False
         while not end:
-            if self.current_samples > self.total_length[0]//2:
+            if self.current_samples > self.total_length[0] // self.num_data_parallel_group:
                 end = True
                 break
             if self.pipeline_parallel_rank == 0:
