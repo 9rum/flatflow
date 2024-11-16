@@ -178,35 +178,15 @@ class Dataset {
   // Depending on `Drop`, inserts the given data sample into the inverted index
   // or recycle bin with bounds checking.
   template <bool Drop>
-  inline void insert(const value_type &sample) {
+  inline void insert(key_type size, mapped_type index) {
     if constexpr (!Drop) {
       assert(size_ < max_size_);
     }
 
-    insert_impl<Drop>(sample.first, sample.second);
+    insert_impl<Drop>(size, index);
 
     if constexpr (!Drop) {
       ++size_;
-    }
-  }
-
-  // Dataset::insert_range<>()
-  //
-  // Depending on `Drop`, inserts the given data samples into the inverted index
-  // or recycle bin with bounds checking.
-  template <bool Drop>
-  void insert_range(const std::vector<value_type> &samples) {
-    if constexpr (!Drop) {
-      assert(size_ + samples.size() <= max_size_);
-    }
-
-    std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
-                  [&](const auto &sample) {
-                    insert_impl<Drop>(sample.first, sample.second);
-                  });
-
-    if constexpr (!Drop) {
-      size_ += samples.size();
     }
   }
 
