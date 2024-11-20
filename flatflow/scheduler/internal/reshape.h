@@ -88,14 +88,14 @@ std::vector<std::vector<std::pair<Size, Index>>> reshape(
       const auto index =
           (offset / stride / world_size * stride + offset % stride) *
           micro_batch_size;
-      std::move(micro_batch.cbegin(), micro_batch.cend(),
+      std::move(micro_batch.begin(), micro_batch.end(),
                 std::next(reshaped[rank].begin(), index));
     } else {
       const auto rank = (offset - last_batch_offset) / last_stride % world_size;
       const auto index = (last_batch_offset / world_size +
                           (offset - last_batch_offset) % last_stride) *
                          micro_batch_size;
-      std::move(micro_batch.cbegin(), micro_batch.cend(),
+      std::move(micro_batch.begin(), micro_batch.end(),
                 std::next(reshaped[rank].begin(), index));
     }
   }

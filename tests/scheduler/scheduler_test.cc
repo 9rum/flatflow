@@ -50,66 +50,62 @@ class SchedulerTest : public testing::Test {
     while (data_.size() < data_.capacity()) {
       const auto size = distribution(generator);
       if (0.5 <= size && size < 8192.5) {
-        data_.emplace_back(static_cast<uint16_t>(std::lround(size)));
+        data_.emplace_back(std::lround(size));
       }
     }
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
-    constexpr std::size_t kNumSteps = 1 << 11;
+    constexpr auto kNumSteps = static_cast<std::size_t>(1 << 11);
 
-    auto sums = std::vector<std::string>(static_cast<std::size_t>(kWorldSize));
+    auto sums = std::vector<std::string>(kWorldSize);
 
     if (linear) {
       for (std::size_t step = 0; step < kNumSteps; ++step) {
-        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-        const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
+        const auto begin = step * kMicroBatchSize;
+        const auto end = (step + 1) * kMicroBatchSize;
 
-        for (std::size_t rank = 0; rank < static_cast<std::size_t>(kWorldSize);
-             ++rank) {
-          uint16_t sum = 0;
+        for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+          auto sum = static_cast<uint16_t>(0);
           for (std::size_t index = begin; index < end; ++index) {
-            sum += data_[static_cast<std::size_t>(indices[rank][index])];
+            sum += data_[indices[rank][index]];
           }
           sums[rank] = absl::StrFormat("%4u", sum);
         }
 
-        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                     absl::StrJoin(sums, " "));
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step, absl::StrJoin(sums, " "));
       }
     } else {
       for (std::size_t step = 0; step < kNumSteps; ++step) {
-        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
-        const auto end = (step + 1) * static_cast<std::size_t>(kMicroBatchSize);
+        const auto begin = step * kMicroBatchSize;
+        const auto end = (step + 1) * kMicroBatchSize;
 
-        for (std::size_t rank = 0; rank < static_cast<std::size_t>(kWorldSize);
-             ++rank) {
-          uint64_t sum = 0;
+        for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+          auto sum = static_cast<uint64_t>(0);
           for (std::size_t index = begin; index < end; ++index) {
-            const auto size = static_cast<uint64_t>(
-                data_[static_cast<std::size_t>(indices[rank][index])]);
+            const auto size =
+                static_cast<uint64_t>(data_[indices[rank][index]]);
             sum += size * (size + 8 * kHiddenSize);
           }
           sums[rank] = absl::StrFormat("%7u", sum);
         }
 
-        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                     absl::StrJoin(sums, " "));
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step, absl::StrJoin(sums, " "));
       }
     }
   }
 
-  static constexpr std::size_t kDatasetSize = 1 << 16;
-  static constexpr uint64_t kGlobalBatchSize = 1 << 8;
-  static constexpr uint64_t kHiddenSize = 1 << 8;
-  static constexpr uint64_t kMicroBatchSize = 1 << 2;
-  static constexpr uint64_t kNumEpochs = 1 << 3;
-  static constexpr uint64_t kWorldSize = 1 << 3;
+  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 16);
+  static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(1 << 8);
+  static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
+  static constexpr auto kMicroBatchSize = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
   std::variant<std::monostate,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>
+               flatflow::Scheduler<uint64_t, uint16_t, 1, false>,
+               flatflow::Scheduler<uint64_t, uint16_t, 2, false>>
       scheduler_;
 };
 
@@ -120,11 +116,10 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, true);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -146,11 +141,10 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, false);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -172,12 +166,11 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, true);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -199,12 +192,11 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, false);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -235,70 +227,64 @@ class SchedulerWithRemainderTest : public testing::Test {
     while (data_.size() < data_.capacity()) {
       const auto size = distribution(generator);
       if (0.5 <= size && size < 8192.5) {
-        data_.emplace_back(static_cast<uint16_t>(std::lround(size)));
+        data_.emplace_back(std::lround(size));
       }
     }
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
-    constexpr std::size_t kNumSteps = 1366;
+    constexpr auto kNumSteps = static_cast<std::size_t>(1366);
 
-    auto sums = std::vector<std::string>(static_cast<std::size_t>(kWorldSize));
+    auto sums = std::vector<std::string>(kWorldSize);
 
     if (linear) {
       for (std::size_t step = 0; step < kNumSteps; ++step) {
-        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto begin = step * kMicroBatchSize;
         const auto end =
-            std::min((step + 1) * static_cast<std::size_t>(kMicroBatchSize),
-                     kDatasetSize / static_cast<std::size_t>(kWorldSize));
+            std::min((step + 1) * kMicroBatchSize, kDatasetSize / kWorldSize);
 
-        for (std::size_t rank = 0; rank < static_cast<std::size_t>(kWorldSize);
-             ++rank) {
-          uint16_t sum = 0;
+        for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+          auto sum = static_cast<uint16_t>(0);
           for (std::size_t index = begin; index < end; ++index) {
-            sum += data_[static_cast<std::size_t>(indices[rank][index])];
+            sum += data_[indices[rank][index]];
           }
           sums[rank] = absl::StrFormat("%4u", sum);
         }
 
-        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                     absl::StrJoin(sums, " "));
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step, absl::StrJoin(sums, " "));
       }
     } else {
       for (std::size_t step = 0; step < kNumSteps; ++step) {
-        const auto begin = step * static_cast<std::size_t>(kMicroBatchSize);
+        const auto begin = step * kMicroBatchSize;
         const auto end =
-            std::min((step + 1) * static_cast<std::size_t>(kMicroBatchSize),
-                     kDatasetSize / static_cast<std::size_t>(kWorldSize));
+            std::min((step + 1) * kMicroBatchSize, kDatasetSize / kWorldSize);
 
-        for (std::size_t rank = 0; rank < static_cast<std::size_t>(kWorldSize);
-             ++rank) {
-          uint64_t sum = 0;
+        for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+          auto sum = static_cast<uint64_t>(0);
           for (std::size_t index = begin; index < end; ++index) {
-            const auto size = static_cast<uint64_t>(
-                data_[static_cast<std::size_t>(indices[rank][index])]);
+            const auto size =
+                static_cast<uint64_t>(data_[indices[rank][index]]);
             sum += size * (size + 8 * kHiddenSize);
           }
           sums[rank] = absl::StrFormat("%7u", sum);
         }
 
-        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step,
-                                     absl::StrJoin(sums, " "));
+        LOG(INFO) << absl::StrFormat("Step: %4u got: [%s]", step, absl::StrJoin(sums, " "));
       }
     }
   }
 
-  static constexpr std::size_t kDatasetSize = 1 << 16;
-  static constexpr uint64_t kGlobalBatchSize = 3 << 6;
-  static constexpr uint64_t kHiddenSize = 1 << 8;
-  static constexpr uint64_t kMicroBatchSize = 3 << 1;
-  static constexpr uint64_t kNumEpochs = 1 << 3;
-  static constexpr uint64_t kWorldSize = 1 << 3;
+  static constexpr auto kDatasetSize = static_cast<std::size_t>(1 << 16);
+  static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(3 << 6);
+  static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
+  static constexpr auto kMicroBatchSize = static_cast<uint64_t>(3 << 1);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
   std::variant<std::monostate,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>,
-               flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>
+               flatflow::Scheduler<uint64_t, uint16_t, 1, false>,
+               flatflow::Scheduler<uint64_t, uint16_t, 2, false>>
       scheduler_;
 };
 
@@ -309,11 +295,10 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, true);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -335,11 +320,10 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithoutFlatShuf
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, false);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 1, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -361,12 +345,11 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, true);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -388,12 +371,11 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
   builder.Finish(offset);
 
   auto sizes = GetSizes(builder.GetBufferPointer());
-  scheduler_ = flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>(
+  scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, false);
   auto scheduler =
-      std::get<flatflow::scheduler::Scheduler<uint64_t, uint16_t, 2, false>>(
-          scheduler_);
+      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
