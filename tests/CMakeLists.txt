@@ -14,3 +14,4 @@
 
 add_subdirectory(data)
 add_subdirectory(scheduler)
+add_subdirectory(sklearn/linear_model)

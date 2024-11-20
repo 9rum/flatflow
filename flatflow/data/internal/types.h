@@ -18,7 +18,6 @@
 #include <concepts>
 
 namespace flatflow {
-namespace data {
 namespace internal {
 
 // The concept `Unsigned<T>` is satisfied if and only if `T` is an unsigned
@@ -43,7 +42,6 @@ template <typename T>
 concept Numerical = Integral<T> || std::floating_point<T>;
 
 }  // namespace internal
-}  // namespace data
 }  // namespace flatflow
 
 #endif  // FLATFLOW_DATA_INTERNAL_TYPES_H_

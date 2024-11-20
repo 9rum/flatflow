@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/shuffle.h"
+#include "flatflow/scheduler/internal/shuffle.h"
 
 #include <utility>
 #include <vector>
@@ -42,8 +42,7 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
-      micro_batches, 0UL, false);
+  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), kNumMicroBatches);
 
@@ -59,8 +58,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
       std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.emplace_back(0, std::move(micro_batch));
 
-  auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
-      micro_batches, 0UL, false);
+  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), 1);
   EXPECT_EQ(shuffled.front().size(), 1);
@@ -87,8 +85,7 @@ TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
-      micro_batches, 0UL, false);
+  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), kNumMicroBatches);
 
@@ -104,8 +101,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
       std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
   micro_batches.emplace_back(0.0, std::move(micro_batch));
 
-  auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
-      micro_batches, 0UL, false);
+  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
 
   EXPECT_EQ(shuffled.size(), 1);
   EXPECT_EQ(shuffled.front().size(), 1);
@@ -132,8 +128,7 @@ TEST(ShuffleTest, InterBatchShufflingWithFlatShuffle) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  auto shuffled = flatflow::scheduler::internal::algorithm::shuffle(
-      micro_batches, 0UL, true);
+  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, true);
 
   EXPECT_EQ(shuffled.size(), kNumMicroBatches);
 

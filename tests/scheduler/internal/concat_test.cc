@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/concat.h"
+#include "flatflow/scheduler/internal/concat.h"
 
 #include <algorithm>
 #include <vector>
@@ -40,7 +40,7 @@ TEST(ConcatTest, HandleRegularMatrices) {
        {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 50, 51, 52, 53, 54},
        {30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 55, 56, 57, 58, 59}});
 
-  flatflow::scheduler::internal::algorithm::concat(lhs, rhs);
+  flatflow::internal::concat(lhs, rhs);
 
   EXPECT_EQ(lhs.size(), concatenated.size());
   for (std::size_t rank = 0; rank < concatenated.size(); ++rank) {
@@ -69,7 +69,7 @@ TEST(ConcatTest, HandleRegularMatrixWithIrregularMatrix) {
        {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 51, 52, 53, 54, 55},
        {30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 56, 57, 58, 59}});
 
-  flatflow::scheduler::internal::algorithm::concat(lhs, rhs);
+  flatflow::internal::concat(lhs, rhs);
 
   EXPECT_EQ(lhs.size(), concatenated.size());
   for (std::size_t rank = 0; rank < concatenated.size(); ++rank) {
@@ -98,7 +98,7 @@ TEST(ConcatTest, HandleIrregularMatrixWithRegularMatrix) {
        {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 50, 51, 52, 53, 54},
        {31, 32, 33, 34, 35, 36, 37, 38, 39, 55, 56, 57, 58, 59}});
 
-  flatflow::scheduler::internal::algorithm::concat(lhs, rhs);
+  flatflow::internal::concat(lhs, rhs);
 
   EXPECT_EQ(lhs.size(), concatenated.size());
   for (std::size_t rank = 0; rank < concatenated.size(); ++rank) {
@@ -127,7 +127,7 @@ TEST(ConcatTest, HandleIrregularMatrices) {
        {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 51, 52, 53, 54, 55},
        {31, 32, 33, 34, 35, 36, 37, 38, 39, 56, 57, 58, 59}});
 
-  flatflow::scheduler::internal::algorithm::concat(lhs, rhs);
+  flatflow::internal::concat(lhs, rhs);
 
   EXPECT_EQ(lhs.size(), concatenated.size());
   for (std::size_t rank = 0; rank < concatenated.size(); ++rank) {

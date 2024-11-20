@@ -34,8 +34,8 @@
 namespace {
 
 // A read-only data set used only for testing purpose.
-class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
-  using super_type = flatflow::data::Dataset<uint64_t, uint16_t>;
+class Dataset : public flatflow::Dataset<uint64_t, uint16_t> {
+  using super_type = flatflow::Dataset<uint64_t, uint16_t>;
 
  public:
   using super_type::super_type;

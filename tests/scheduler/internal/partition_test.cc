@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/partition.h"
+#include "flatflow/scheduler/internal/partition.h"
 
 #include <algorithm>
 #include <random>
@@ -62,10 +62,9 @@ TEST_F(PartitionTest, KarmarkarKarpWithGaltonIntegerDistribution) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches =
-      flatflow::scheduler::internal::algorithm::KarmarkarKarp(
-          items, static_cast<uint64_t>(kNumMicroBatches),
-          [](const auto &size) { return static_cast<uint32_t>(size); });
+  const auto micro_batches = flatflow::internal::KarmarkarKarp(
+      items, static_cast<uint64_t>(kNumMicroBatches),
+      [](const auto &size) { return static_cast<uint32_t>(size); });
 
   auto makespans = std::vector<uint32_t>();
   makespans.reserve(kNumMicroBatches);
@@ -98,10 +97,9 @@ TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches =
-      flatflow::scheduler::internal::algorithm::KarmarkarKarp(
-          items, static_cast<uint64_t>(kNumMicroBatches),
-          [](const auto &size) { return static_cast<double>(size); });
+  const auto micro_batches = flatflow::internal::KarmarkarKarp(
+      items, static_cast<uint64_t>(kNumMicroBatches),
+      [](const auto &size) { return static_cast<double>(size); });
 
   auto makespans = std::vector<double>();
   makespans.reserve(kNumMicroBatches);

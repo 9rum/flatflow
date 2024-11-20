@@ -3,8 +3,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_PASSIVE_AGGRESSIVE_H_
-#define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_PASSIVE_AGGRESSIVE_H_
+#ifndef FLATFLOW_SKLEARN_LINEAR_MODEL_PASSIVE_AGGRESSIVE_H_
+#define FLATFLOW_SKLEARN_LINEAR_MODEL_PASSIVE_AGGRESSIVE_H_
 
 #include <algorithm>
 #include <array>
@@ -15,9 +15,8 @@
 #include "flatflow/data/internal/types.h"
 
 namespace flatflow {
-namespace scheduler {
-namespace internal {
-namespace algorithm {
+namespace sklearn {
+namespace linear_model {
 
 // PassiveAggressiveRegressor<>
 //
@@ -65,8 +64,8 @@ class PassiveAggressiveRegressor {
   // This uses epsilon-insensitive loss, which is equivalent to PA-I
   // in the reference paper.
   template <typename T, typename U>
-    requires(flatflow::data::internal::Numerical<T> &&
-             flatflow::data::internal::Numerical<U>)
+    requires(flatflow::internal::Numerical<T> &&
+             flatflow::internal::Numerical<U>)
   void fit(const std::vector<T> &sizes, const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
 
@@ -106,7 +105,7 @@ class PassiveAggressiveRegressor {
   //
   // Predicts cost for the given size.
   template <typename T>
-    requires flatflow::data::internal::Numerical<T>
+    requires flatflow::internal::Numerical<T>
   inline double predict(T size) const noexcept {
     return coef_ * static_cast<double>(size);
   }
@@ -145,7 +144,7 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // of the linear term.
   // For typical Transformers, this is eight times the hidden dimension size.
   template <typename T>
-    requires flatflow::data::internal::Numerical<T>
+    requires flatflow::internal::Numerical<T>
   explicit PassiveAggressiveRegressor(T coefficient, double epsilon = 0.1,
                                       double C = 1.0,
                                       std::size_t max_iter = 1000)
@@ -172,8 +171,8 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // For this reason, a dot product-based regression is used instead of the
   // canonical regression.
   template <typename T, typename U>
-    requires(flatflow::data::internal::Numerical<T> &&
-             flatflow::data::internal::Numerical<U>)
+    requires(flatflow::internal::Numerical<T> &&
+             flatflow::internal::Numerical<U>)
   void fit(const std::vector<std::vector<T>> &sizes,
            const std::vector<U> &costs) {
     assert(sizes.size() == costs.size());
@@ -221,7 +220,7 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   //
   // Predicts cost for the given size.
   template <typename T>
-    requires flatflow::data::internal::Numerical<T>
+    requires flatflow::internal::Numerical<T>
   inline double predict(T size) const noexcept {
     return static_cast<double>(size) *
            (coef_.front() * static_cast<double>(size) + coef_.back());
@@ -246,9 +245,8 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   std::array<double, 2> coef_;
 };
 
-}  // namespace algorithm
-}  // namespace internal
-}  // namespace scheduler
+}  // namespace linear_model
+}  // namespace sklearn
 }  // namespace flatflow
 
-#endif  // FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_PASSIVE_AGGRESSIVE_H_
+#endif  // FLATFLOW_SKLEARN_LINEAR_MODEL_PASSIVE_AGGRESSIVE_H_

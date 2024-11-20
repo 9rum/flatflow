@@ -13,27 +13,13 @@
 # limitations under the License.
 
 add_executable(
-  algorithm_test
-  concat_test.cc
-  extract_test.cc
-  partition_test.cc
-  passive_aggressive_test.cc
-  reshape_test.cc
-  shuffle_test.cc)
+  passive_aggressive_test
+  passive_aggressive_test.cc)
 target_include_directories(
-  algorithm_test
+  passive_aggressive_test
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
-  algorithm_test
-  PRIVATE absl::log
-  PRIVATE absl::log_initialize
-  PRIVATE absl::str_format
-  PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  target_link_libraries(
-    algorithm_test
-    PRIVATE TBB::tbb)
-endif()
+  passive_aggressive_test
+  PRIVATE GTest::gtest_main)
 gtest_add_tests(
-  TARGET algorithm_test)
+  TARGET passive_aggressive_test)

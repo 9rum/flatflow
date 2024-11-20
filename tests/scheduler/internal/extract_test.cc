@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/extract.h"
+#include "flatflow/scheduler/internal/extract.h"
 
 #include <utility>
 #include <vector>
@@ -22,8 +22,8 @@
 namespace {
 
 TEST(ExtractTest, HandleRegularMatrices) {
-  constexpr std::size_t kNumSamples = 32;
-  constexpr std::size_t kWorldSize = 4;
+  constexpr auto kNumSamples = static_cast<std::size_t>(32);
+  constexpr auto kWorldSize = static_cast<std::size_t>(4);
 
   const auto items = std::vector<std::vector<std::pair<uint16_t, uint64_t>>>(
       {{{0, 0},   {1, 1},   {2, 2},   {3, 3},   {4, 4},   {5, 5},   {6, 6},
@@ -48,8 +48,7 @@ TEST(ExtractTest, HandleRegularMatrices) {
         {120, 120}, {121, 121}, {122, 122}, {123, 123}, {124, 124}, {125, 125},
         {126, 126}, {127, 127}}});
 
-  const auto [indices, sizes] =
-      flatflow::scheduler::internal::algorithm::extract(items);
+  const auto [indices, sizes] = flatflow::internal::extract(items);
 
   EXPECT_EQ(indices.size(), kWorldSize);
   EXPECT_EQ(sizes.size(), kWorldSize);

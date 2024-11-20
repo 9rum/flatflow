@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/reshape.h"
+#include "flatflow/scheduler/internal/reshape.h"
 
 #include <algorithm>
 #include <numeric>
@@ -45,8 +45,8 @@ TEST(ReshapeTest, ReshapeWithoutRemainder) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kWorldSize, kGlobalBatchSize);
+  const auto reshaped =
+      flatflow::internal::reshape(micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0,  1,  2,  3,  4,  5,  6,  7,  32, 33, 34, 35, 36,  37,  38,  39,
@@ -90,8 +90,8 @@ TEST(ReshapeTest, ReshapeWithRemainder) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kWorldSize, kGlobalBatchSize);
+  const auto reshaped =
+      flatflow::internal::reshape(micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 48,  49,  50,  51,
@@ -135,8 +135,8 @@ TEST(ReshapeTest, ReshapeWithRemainderOnly) {
     micro_batches.emplace_back(std::move(micro_batch));
   }
 
-  const auto reshaped = flatflow::scheduler::internal::algorithm::reshape(
-      micro_batches, kWorldSize, kGlobalBatchSize);
+  const auto reshaped =
+      flatflow::internal::reshape(micro_batches, kWorldSize, kGlobalBatchSize);
 
   const auto indices = std::vector<std::vector<std::size_t>>(
       {{0, 1, 2, 3}, {4, 5, 6, 7}, {8, 9, 10, 11}, {12, 13, 14, 15}});

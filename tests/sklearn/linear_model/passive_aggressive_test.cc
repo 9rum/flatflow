@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/scheduler/internal/algorithm/passive_aggressive.h"
+#include "flatflow/sklearn/linear_model/passive_aggressive.h"
 
 #include <functional>
 #include <numeric>
@@ -66,8 +66,7 @@ TEST_F(RegressorTest, Linear) {
   }
 
   auto regressor =
-      flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<1>(
-          kEpsilon);
+      flatflow::sklearn::linear_model::PassiveAggressiveRegressor<1>(kEpsilon);
   regressor.fit(sums, costs);
   EXPECT_FALSE(regressor.converged());
 
@@ -93,7 +92,7 @@ TEST_F(RegressorTest, Quadratic) {
   }
 
   auto regressor =
-      flatflow::scheduler::internal::algorithm::PassiveAggressiveRegressor<2>(
+      flatflow::sklearn::linear_model::PassiveAggressiveRegressor<2>(
           kHiddenSize, kEpsilon);
   regressor.fit(sizes, costs);
   EXPECT_FALSE(regressor.converged());
