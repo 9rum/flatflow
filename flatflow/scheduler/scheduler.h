@@ -319,9 +319,6 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
     num_batches_ = 1;
 
-    num_micro_batches_ =
-        ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
-
     sizes_ = std::vector<std::vector<std::vector<key_type>>>(
         static_cast<std::size_t>(world_size));
     costs_ =
@@ -568,16 +565,15 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   void on_batch_end([[maybe_unused]] mapped_type batch,
                     [[maybe_unused]] mapped_type rank,
                     [[maybe_unused]] const flatbuffers::Vector<double> *costs) {
-    // Store the feedback if given; it is later used to train the underlying
+    // Store the feedback if given; it is later used to fit the underlying
     // cost model.
     if (costs == nullptr || regressor_.converged()) {
       return;
     }
 
-    const auto _rank = static_cast<std::size_t>(rank);
-    costs_[_rank].reserve(static_cast<std::size_t>(costs->size()));
+    costs_[rank].reserve(costs->size());
     for (flatbuffers::uoffset_t index = 0; index < costs->size(); ++index) {
-      costs_[_rank].emplace_back(costs->Get(index));
+      costs_[rank].emplace_back(costs->Get(index));
     }
   }
 
@@ -591,36 +587,31 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
       return;
     }
 
-    auto sizes = std::vector<std::vector<key_type>>();
-    auto costs = std::vector<double>();
-
     std::size_t num_costs = 0;
-    const auto world_size = static_cast<std::size_t>(world_size_);
-    for (std::size_t rank = 0; rank < world_size; ++rank) {
-      num_costs += costs_[rank].size();
+    for (const auto &costs : costs_) {
+      num_costs += costs.size();
     }
 
+    auto sizes = std::vector<std::vector<key_type>>();
     sizes.reserve(num_costs);
+    auto costs = std::vector<double>();
     costs.reserve(num_costs);
 
-    for (std::size_t rank = 0; rank < world_size; ++rank) {
+    for (mapped_type rank = 0; rank < world_size_; ++rank) {
       num_costs = costs_[rank].size();
+
       for (std::size_t index = 0; index < num_costs; ++index) {
         sizes.emplace_back(std::move(sizes_[rank][index]));
         costs.emplace_back(costs_[rank][index]);
       }
-    }
 
-    regressor_.fit(sizes, costs);
-
-    for (std::size_t rank = 0; rank < world_size; ++rank) {
-      sizes_[rank].erase(
-          sizes_[rank].cbegin(),
-          std::next(sizes_[rank].cbegin(),
-                    static_cast<std::ptrdiff_t>(costs_[rank].size())));
+      sizes_[rank].erase(sizes_[rank].cbegin(),
+                         std::next(sizes_[rank].cbegin(), num_costs));
       sizes_[rank].shrink_to_fit();
       costs_[rank] = std::vector<double>();
     }
+
+    regressor_.fit(sizes, costs);
   }
 
   // Scheduler::on_epoch_begin()
@@ -652,7 +643,6 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
   mapped_type num_batches_;
-  mapped_type num_micro_batches_;
   mapped_type seed_;
   mapped_type world_size_;
   bool use_flat_shuffle_;
