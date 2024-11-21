@@ -41,6 +41,14 @@ concept Integral =
 template <typename T>
 concept Numerical = Integral<T> || std::floating_point<T>;
 
+// Returns the given argument unchanged. This is intended to be a drop-in
+// replacement for `std::forward` when template argument deduction fails if
+// `std::forward` is used as a template parameter.
+template <typename T>
+constexpr decltype(auto) forward(T operand) noexcept {
+  return operand;
+}
+
 }  // namespace internal
 }  // namespace flatflow
 

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <execution>
 #include <functional>
 #include <iterator>
 #include <utility>
@@ -141,9 +142,10 @@ class Scheduler {
     auto now = omp_get_wtime();
 
     if (micro_batch_size_ == last_micro_batch_size_) {
-      const auto items = dataset_.take</*Drop=*/false>(dataset_.size());
-      const auto micro_batches =
-          internal::KarmarkarKarp(items, num_micro_batches_, std::identity);
+      const auto items =
+          dataset_.template take</*Drop=*/false>(dataset_.size());
+      const auto micro_batches = internal::KarmarkarKarp(
+          items, num_micro_batches_, internal::forward<key_type>);
 
       LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
       now = omp_get_wtime();
@@ -157,14 +159,15 @@ class Scheduler {
       return indices;
     }
 
-    const auto items = dataset_.take</*Drop=*/false>(
+    const auto items = dataset_.template take</*Drop=*/false>(
         micro_batch_size_ * (num_micro_batches_ - world_size_));
     const auto micro_batches = internal::KarmarkarKarp(
-        items, num_micro_batches_ - world_size_, std::identity);
+        items, num_micro_batches_ - world_size_, internal::forward<key_type>);
 
-    const auto last_items = dataset_.take</*Drop=*/false>(dataset_.size());
-    const auto last_micro_batches =
-        internal::KarmarkarKarp(last_items, world_size_, std::identity);
+    const auto last_items =
+        dataset_.template take</*Drop=*/false>(dataset_.size());
+    const auto last_micro_batches = internal::KarmarkarKarp(
+        last_items, world_size_, internal::forward<key_type>);
 
     LOG(INFO) << absl::StrFormat("Partitioning into %u micro-batches took %fs", num_micro_batches_, omp_get_wtime() - now);
     now = omp_get_wtime();
@@ -556,9 +559,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     }
 
     auto num_costs = static_cast<std::size_t>(0);
-    for (const auto &costs : costs_) {
-      num_costs += costs.size();
-    }
+    std::for_each(std::execution::seq, costs_.cbegin(), costs_.cend(),
+                  [&](const auto &costs) { num_costs += costs.size(); });
 
     auto sizes = std::vector<std::vector<key_type>>();
     sizes.reserve(num_costs);

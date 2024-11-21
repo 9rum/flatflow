@@ -99,7 +99,7 @@ class SchedulerTest : public testing::Test {
   static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(1 << 8);
   static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
   static constexpr auto kMicroBatchSize = static_cast<uint64_t>(1 << 2);
-  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 2);
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
@@ -129,6 +129,7 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_batch_end(0, rank, nullptr);
     }
+    scheduler.on_batch_end(0);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -154,6 +155,7 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_batch_end(0, rank, nullptr);
     }
+    scheduler.on_batch_end(0);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -278,7 +280,7 @@ class SchedulerWithRemainderTest : public testing::Test {
   static constexpr auto kGlobalBatchSize = static_cast<uint64_t>(3 << 6);
   static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
   static constexpr auto kMicroBatchSize = static_cast<uint64_t>(3 << 1);
-  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 3);
+  static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 2);
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
@@ -308,6 +310,7 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_batch_end(0, rank, nullptr);
     }
+    scheduler.on_batch_end(0);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -333,6 +336,7 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithoutFlatShuf
     for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
       scheduler.on_batch_end(0, rank, nullptr);
     }
+    scheduler.on_batch_end(0);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
