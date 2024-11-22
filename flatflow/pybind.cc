@@ -17,6 +17,5 @@
 #include "flatflow/rpc/communicator.h"
 
 PYBIND11_MODULE(_C, m) {
-  auto rpc = m.def_submodule("rpc");
-  rpc.def("run", &flatflow::rpc::run);
+  m.def("run", &flatflow::run);
 }

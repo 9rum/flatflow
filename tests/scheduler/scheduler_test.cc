@@ -118,8 +118,7 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachines) {
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, true);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
+  auto scheduler = std::get<1>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -144,8 +143,7 @@ TEST_F(SchedulerTest, LinearModelOnIdenticalMachinesWithoutFlatShuffle) {
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, false);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
+  auto scheduler = std::get<1>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -171,8 +169,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, true);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
+  auto scheduler = std::get<2>(scheduler_);
 
   auto stride = static_cast<uint64_t>(1);
 
@@ -211,8 +208,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, false);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
+  auto scheduler = std::get<2>(scheduler_);
 
   auto stride = static_cast<uint64_t>(1);
 
@@ -326,8 +322,7 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachines) {
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, true);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
+  auto scheduler = std::get<1>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -352,8 +347,7 @@ TEST_F(SchedulerWithRemainderTest, LinearModelOnIdenticalMachinesWithoutFlatShuf
   auto sizes = GetSizes(builder.GetBufferPointer());
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 1, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, 0, false);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 1, false>>(scheduler_);
+  auto scheduler = std::get<1>(scheduler_);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -379,8 +373,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, true);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
+  auto scheduler = std::get<2>(scheduler_);
 
   auto stride = static_cast<uint64_t>(1);
 
@@ -419,8 +412,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
   scheduler_ = flatflow::Scheduler<uint64_t, uint16_t, 2, false>(
       sizes->data(), kWorldSize, kGlobalBatchSize, kMicroBatchSize, kHiddenSize,
       0, false);
-  auto scheduler =
-      std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
+  auto scheduler = std::get<2>(scheduler_);
 
   auto stride = static_cast<uint64_t>(1);
 

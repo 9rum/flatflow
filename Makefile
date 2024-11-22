@@ -20,9 +20,8 @@ all:
 		$(MAKE)
 
 generate:
-	@mkdir -p tmp/rpc && \
+	@mkdir -p tmp && \
 		mv flatflow/__init__.py tmp && \
-		mv flatflow/rpc/__init__.py tmp/rpc && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix flatflow/rpc/communicator.fbs && \
 		./build/third_party/flatbuffers/flatc -p flatflow/rpc/empty.fbs && \
@@ -30,8 +29,12 @@ generate:
 		./build/third_party/flatbuffers/flatc -c -o tests/data tests/data/dataset_test.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs && \
 		mv tmp/__init__.py flatflow && \
-		mv tmp/rpc/__init__.py flatflow/rpc && \
-		rm -r tmp
+		mv flatflow/BroadcastRequest.py flatflow/rpc && \
+		mv flatflow/BroadcastResponse.py flatflow/rpc && \
+		mv flatflow/Empty.py flatflow/rpc && \
+		mv flatflow/InitRequest.py flatflow/rpc && \
+		mv flatflow/communicator_grpc_fb.py flatflow/rpc && \
+		rmdir tmp
 
 test:
 	@ctest --test-dir build

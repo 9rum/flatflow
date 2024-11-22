@@ -14,12 +14,11 @@
 #include <grpcpp/impl/codegen/service_type.h>
 #include <grpcpp/impl/codegen/sync_stream.h>
 namespace flatflow {
-namespace rpc {
 
 static const char* Communicator_method_names[] = {
-  "/flatflow.rpc.Communicator/Init",
-  "/flatflow.rpc.Communicator/Broadcast",
-  "/flatflow.rpc.Communicator/Finalize",
+  "/flatflow.Communicator/Init",
+  "/flatflow.Communicator/Broadcast",
+  "/flatflow.Communicator/Finalize",
 };
 
 std::unique_ptr< Communicator::Stub> Communicator::NewStub(const std::shared_ptr< ::grpc::ChannelInterface>& channel, const ::grpc::StubOptions& /*options*/) {
@@ -104,5 +103,4 @@ Communicator::Service::~Service() {
 
 
 }  // namespace flatflow
-}  // namespace rpc
 

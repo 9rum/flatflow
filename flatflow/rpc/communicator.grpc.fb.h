@@ -25,12 +25,11 @@ class ServerContext;
 }  // namespace grpc
 
 namespace flatflow {
-namespace rpc {
 
 class Communicator final {
  public:
   static constexpr char const* service_full_name() {
-    return "flatflow.rpc.Communicator";
+    return "flatflow.Communicator";
   }
   class StubInterface {
    public:
@@ -288,7 +287,6 @@ class Communicator final {
   typedef   WithStreamedUnaryMethod_Init<  WithStreamedUnaryMethod_Broadcast<  WithStreamedUnaryMethod_Finalize<  Service   >   >   >   StreamedService;
 };
 
-}  // namespace rpc
 }  // namespace flatflow
 
 
