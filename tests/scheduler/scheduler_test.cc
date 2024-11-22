@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <random>
 #include <string>
 #include <variant>
@@ -56,8 +57,6 @@ class SchedulerTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
-    constexpr auto kNumSteps = static_cast<std::size_t>(1 << 11);
-
     auto sums = std::vector<std::string>(kWorldSize);
 
     if (linear) {
@@ -100,6 +99,7 @@ class SchedulerTest : public testing::Test {
   static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
   static constexpr auto kMicroBatchSize = static_cast<uint64_t>(1 << 2);
   static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kNumSteps = static_cast<std::size_t>(1 << 11);
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
@@ -174,14 +174,28 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
   auto scheduler =
       std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
+  auto stride = static_cast<uint64_t>(1);
+
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     scheduler.on_epoch_begin(epoch);
-    scheduler.on_batch_begin(0);
-    print(scheduler.Schedule(), false);
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_batch_end(0, rank, nullptr);
+    auto indices = std::vector<std::vector<uint64_t>>(kWorldSize);
+    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+      indices[rank].reserve(kNumSteps);
     }
+    for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
+         batch += stride, stride <<= 1) {
+      scheduler.on_batch_begin(batch);
+      auto schedule = scheduler.Schedule();
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        indices[rank].insert(indices[rank].cend(),
+                             std::move_iterator(schedule[rank].begin()),
+                             std::move_iterator(schedule[rank].end()));
+        scheduler.on_batch_end(batch, rank, nullptr);
+      }
+      scheduler.on_batch_end(batch);
+    }
+    print(indices, false);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -200,14 +214,28 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
   auto scheduler =
       std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
+  auto stride = static_cast<uint64_t>(1);
+
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     scheduler.on_epoch_begin(epoch);
-    scheduler.on_batch_begin(0);
-    print(scheduler.Schedule(), false);
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_batch_end(0, rank, nullptr);
+    auto indices = std::vector<std::vector<uint64_t>>(kWorldSize);
+    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+      indices[rank].reserve(kNumSteps);
     }
+    for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
+         batch += stride, stride <<= 1) {
+      scheduler.on_batch_begin(batch);
+      auto schedule = scheduler.Schedule();
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        indices[rank].insert(indices[rank].cend(),
+                             std::move_iterator(schedule[rank].begin()),
+                             std::move_iterator(schedule[rank].end()));
+        scheduler.on_batch_end(batch, rank, nullptr);
+      }
+      scheduler.on_batch_end(batch);
+    }
+    print(indices, false);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -235,8 +263,6 @@ class SchedulerWithRemainderTest : public testing::Test {
   }
 
   void print(const std::vector<std::vector<uint64_t>> &indices, bool linear) {
-    constexpr auto kNumSteps = static_cast<std::size_t>(1366);
-
     auto sums = std::vector<std::string>(kWorldSize);
 
     if (linear) {
@@ -281,6 +307,7 @@ class SchedulerWithRemainderTest : public testing::Test {
   static constexpr auto kHiddenSize = static_cast<uint64_t>(1 << 8);
   static constexpr auto kMicroBatchSize = static_cast<uint64_t>(3 << 1);
   static constexpr auto kNumEpochs = static_cast<uint64_t>(1 << 2);
+  static constexpr auto kNumSteps = static_cast<std::size_t>(1366);
   static constexpr auto kWorldSize = static_cast<uint64_t>(1 << 3);
 
   std::vector<uint16_t> data_;
@@ -355,14 +382,28 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
   auto scheduler =
       std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
+  auto stride = static_cast<uint64_t>(1);
+
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     scheduler.on_epoch_begin(epoch);
-    scheduler.on_batch_begin(0);
-    print(scheduler.Schedule(), false);
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_batch_end(0, rank, nullptr);
+    auto indices = std::vector<std::vector<uint64_t>>(kWorldSize);
+    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+      indices[rank].reserve(kNumSteps);
     }
+    for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
+         batch += stride, stride <<= 1) {
+      scheduler.on_batch_begin(batch);
+      auto schedule = scheduler.Schedule();
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        indices[rank].insert(indices[rank].cend(),
+                             std::move_iterator(schedule[rank].begin()),
+                             std::move_iterator(schedule[rank].end()));
+        scheduler.on_batch_end(batch, rank, nullptr);
+      }
+      scheduler.on_batch_end(batch);
+    }
+    print(indices, false);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();
@@ -381,14 +422,28 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
   auto scheduler =
       std::get<flatflow::Scheduler<uint64_t, uint16_t, 2, false>>(scheduler_);
 
+  auto stride = static_cast<uint64_t>(1);
+
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     scheduler.on_epoch_begin(epoch);
-    scheduler.on_batch_begin(0);
-    print(scheduler.Schedule(), false);
-    for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
-      scheduler.on_batch_end(0, rank, nullptr);
+    auto indices = std::vector<std::vector<uint64_t>>(kWorldSize);
+    for (std::size_t rank = 0; rank < kWorldSize; ++rank) {
+      indices[rank].reserve(kNumSteps);
     }
+    for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
+         batch += stride, stride <<= 1) {
+      scheduler.on_batch_begin(batch);
+      auto schedule = scheduler.Schedule();
+      for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
+        indices[rank].insert(indices[rank].cend(),
+                             std::move_iterator(schedule[rank].begin()),
+                             std::move_iterator(schedule[rank].end()));
+        scheduler.on_batch_end(batch, rank, nullptr);
+      }
+      scheduler.on_batch_end(batch);
+    }
+    print(indices, false);
     scheduler.on_epoch_end(epoch);
   }
   scheduler.on_train_end();

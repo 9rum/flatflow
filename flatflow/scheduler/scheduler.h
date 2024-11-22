@@ -355,7 +355,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     if (regressor_.converged()) {
       if (micro_batch_size_ == last_micro_batch_size_) {
         const auto num_micro_batches = dataset_.size() / micro_batch_size_;
-        const auto items = dataset_.take</*Drop=*/false>(dataset_.size());
+        const auto items =
+            dataset_.template take</*Drop=*/false>(dataset_.size());
         const auto micro_batches =
             internal::KarmarkarKarp(items, num_micro_batches, op);
 
@@ -374,12 +375,13 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
       const auto num_micro_batches =
           dataset_.size() / world_size_ / micro_batch_size_ * world_size_ +
           world_size_;
-      const auto items = dataset_.take</*Drop=*/false>(
+      const auto items = dataset_.template take</*Drop=*/false>(
           micro_batch_size_ * (num_micro_batches - world_size_));
       const auto micro_batches =
           internal::KarmarkarKarp(items, num_micro_batches - world_size_, op);
 
-      const auto last_items = dataset_.take</*Drop=*/false>(dataset_.size());
+      const auto last_items =
+          dataset_.template take</*Drop=*/false>(dataset_.size());
       const auto last_micro_batches =
           internal::KarmarkarKarp(last_items, world_size_, op);
 
@@ -405,7 +407,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
     if (micro_batch_size_ == last_micro_batch_size_) {
       const auto num_micro_batches = dataset_.size() / micro_batch_size_;
-      const auto items = dataset_.take</*Drop=*/true>(dataset_.size());
+      const auto items = dataset_.template take</*Drop=*/true>(dataset_.size());
       const auto micro_batches =
           internal::KarmarkarKarp(items, num_micro_batches, op);
 
@@ -420,18 +422,18 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
       const auto threshold =
           std::min(global_batch_size_ / world_size_ * num_batches_,
-                   sizes.first().size());
+                   sizes.front().size());
 
       for (mapped_type rank = 0; rank < world_size_; ++rank) {
         for (std::size_t index = 0; index < threshold; ++index) {
-          dataset_.insert</*Drop=*/true>(sizes[rank][index],
-                                         indices[rank][index]);
+          dataset_.template insert</*Drop=*/true>(sizes[rank][index],
+                                                  indices[rank][index]);
         }
 
-        for (std::size_t index = threshold; index < sizes.first().size();
+        for (std::size_t index = threshold; index < sizes.front().size();
              ++index) {
-          dataset_.insert</*Drop=*/false>(sizes[rank][index],
-                                          indices[rank][index]);
+          dataset_.template insert</*Drop=*/false>(sizes[rank][index],
+                                                   indices[rank][index]);
         }
 
         indices[rank].erase(std::next(indices[rank].begin(), threshold),
@@ -456,12 +458,13 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     const auto num_micro_batches =
         dataset_.size() / world_size_ / micro_batch_size_ * world_size_ +
         world_size_;
-    const auto items = dataset_.take</*Drop=*/true>(
+    const auto items = dataset_.template take</*Drop=*/true>(
         micro_batch_size_ * (num_micro_batches - world_size_));
     const auto micro_batches =
         internal::KarmarkarKarp(items, num_micro_batches - world_size_, op);
 
-    const auto last_items = dataset_.take</*Drop=*/true>(dataset_.size());
+    const auto last_items =
+        dataset_.template take</*Drop=*/true>(dataset_.size());
     const auto last_micro_batches =
         internal::KarmarkarKarp(last_items, world_size_, op);
 
@@ -483,18 +486,18 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
     const auto threshold = std::min(
-        global_batch_size_ / world_size_ * num_batches_, sizes.first().size());
+        global_batch_size_ / world_size_ * num_batches_, sizes.front().size());
 
     for (mapped_type rank = 0; rank < world_size_; ++rank) {
       for (std::size_t index = 0; index < threshold; ++index) {
-        dataset_.insert</*Drop=*/true>(sizes[rank][index],
-                                       indices[rank][index]);
+        dataset_.template insert</*Drop=*/true>(sizes[rank][index],
+                                                indices[rank][index]);
       }
 
-      for (std::size_t index = threshold; index < sizes.first().size();
+      for (std::size_t index = threshold; index < sizes.front().size();
            ++index) {
-        dataset_.insert</*Drop=*/false>(sizes[rank][index],
-                                        indices[rank][index]);
+        dataset_.template insert</*Drop=*/false>(sizes[rank][index],
+                                                 indices[rank][index]);
       }
 
       indices[rank].erase(std::next(indices[rank].begin(), threshold),
@@ -570,10 +573,11 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     for (mapped_type rank = 0; rank < world_size_; ++rank) {
       num_costs = costs_[rank].size();
 
-      for (std::size_t index = 0; index < num_costs; ++index) {
-        sizes.emplace_back(std::move(sizes_[rank][index]));
-        costs.emplace_back(costs_[rank][index]);
-      }
+      sizes.insert(
+          sizes.cend(), std::move_iterator(sizes_[rank].begin()),
+          std::move_iterator(std::next(sizes_[rank].begin(), num_costs)));
+      costs.insert(costs.cend(), std::move_iterator(costs_[rank].begin()),
+                   std::move_iterator(costs_[rank].end()));
 
       sizes_[rank].erase(sizes_[rank].cbegin(),
                          std::next(sizes_[rank].cbegin(), num_costs));
