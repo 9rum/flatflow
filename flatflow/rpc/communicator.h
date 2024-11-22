@@ -17,9 +17,11 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstdint>
+#include <execution>
 #include <future>
 #include <utility>
 #include <variant>
@@ -145,9 +147,10 @@ class CommunicatorServiceImpl final : public Communicator::Service {
         expected = world_size_;
       }
 
-      for (auto &producer : fanout_.first) {
-        producer.set_value(std::move(std::vector<mapped_type>()));
-      }
+      std::for_each(std::execution::par, fanout_.first.begin(),
+                    fanout_.first.end(), [](auto &producer) {
+                      producer.set_value(std::move(std::vector<mapped_type>()));
+                    });
     }
 
     auto builder = flatbuffers::grpc::MessageBuilder();
@@ -207,7 +210,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
           (schedule.front().size() - 1) / per_replica_batch_size_ + 1;
       _call_callbacks_on_batch_begin();
 
-      for (std::size_t _rank = 0; _rank < world_size_; ++_rank) {
+      #pragma omp parallel for
+      for (mapped_type _rank = 0; _rank < world_size_; ++_rank) {
         fanout_.first[_rank].set_value(std::move(schedule[_rank]));
       }
     }
