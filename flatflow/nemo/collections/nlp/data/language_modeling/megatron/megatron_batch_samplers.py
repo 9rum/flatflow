@@ -140,7 +140,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             run(port, data_parallel_size)
         self.client = CommunicatorClient(channel)
 
-        # TODO calculate self.pipeline_parallel_group_index
         if self.global_rank == 0:
             self.client.Init(
                 global_batch_size,
@@ -176,11 +175,18 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
     def __iter__(self):
         end = False
+        indices = []
+        pp_group_idx = self.pipeline_parallel_group_index 
+        last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
+        pipeline_group = parallel_state.get_pipeline_model_parallel_group()
+        tensor_parallel_group = parallel_state.get_tensor_model_parallel_group()
+
         while not end:
             if self.current_samples > self.total_length[0] // self.num_data_parallel_group:
                 end = True
                 break
-            if self.pipeline_parallel_rank == 0:
+            indices_size = [0]
+            if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 try:
                     if not self.converged:
                         broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
@@ -189,38 +195,55 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                         if self.converged:
                             for hook in self.profiler.hook_handles:
                                 hook.remove()
-
-                    self.indices = list(broadcast.IndicesAsNumpy())
-                    self.indices_size = [len(self.indices)]
+                                
+                    indices = list(broadcast.IndicesAsNumpy())
+                    indices_size = [len(indices)]
+                    
+                    torch.distributed.broadcast_object_list(
+                        indices_size,
+                        src=self.global_rank,
+                        group=parallel_state.get_tensor_model_parallel_group()
+                    )
 
                 except Exception as e:
                     print(f"Rank {self.global_rank} - Error getting scheduler data: {e}")
                     raise
+            if self.pipeline_parallel_rank != 0 or self.tensor_parallel_rank != 0:
+                indices = [0] * indices_size[0]
+
+            if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
+                torch.distributed.broadcast_object_list(
+                    indices, 
+                    src=self.global_rank,
+                    group=parallel_state.get_tensor_model_parallel_group()
+                )
 
             torch.distributed.broadcast_object_list(
-                self.indices_size, 
-                src = self.pipeline_src_local_rank, 
-                group = self.mp_group
+                indices_size, 
+                src=self.pipeline_src_rank,
+                group=self.pipeline_parallel_group
             )
-            if self.global_rank != self.pipeline_src_local_rank:
-                self.indices = [0] * self.indices_size[0]
+
+            if self.global_rank != self.pipeline_src_rank:
+                indices = [0] * indices_size[0]
 
             torch.distributed.broadcast_object_list(
-                self.indices, 
-                src = self.pipeline_src_local_rank, 
-                group = self.mp_group
+                indices, 
+                src=self.pipeline_src_rank,
+                group=self.pipeline_parallel_group
             )
-            self.current_samples += len(self.indices)
+
+            self.consumed_samples += indices_size[0]
 
             batch = []
-            for idx in range(len(self.indices)):
-                batch.append(self.indices[idx])
+            for idx in range(len(indices)):
+                batch.append(indices[idx])
                 if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
                     yield batch
                     batch = []
 
             if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-                num_pad = self._global_batch_size // self.data_parallel_size - len(batch)
+                num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
                 batch = batch + [-1] * num_pad
                 yield batch
 
