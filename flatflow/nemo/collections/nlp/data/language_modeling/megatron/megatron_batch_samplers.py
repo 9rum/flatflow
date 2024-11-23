@@ -113,7 +113,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.tensor_parallel_rank: int = parallel_state.get_tensor_model_parallel_rank()
         self.pipeline_parallel_rank: int = parallel_state.get_pipeline_model_parallel_rank()
         self.pipeline_parallel_world_size: int = parallel_state.get_pipeline_model_parallel_world_size()
-        self.pipeline_src_local_rank = parallel_state.get_pipeline_model_parallel_first_rank()
         self.micro_batch_times_data_parallel_size: int = self.micro_batch_size * self.data_parallel_size
         self.dataset = dataset
         self.global_rank = app_state.global_rank
@@ -122,47 +121,41 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.last_batch_size = self.total_samples % self._global_batch_size
         self.profiler = profiler
         self.converged = False
-        self.indices_size = [0]
-        self.total_length = [0]
-        self.current_samples = 0
-        self.mp_group = parallel_state.get_model_parallel_group()
-        self.pipeline_parallel_group_index = self.global_rank // self.pipeline_parallel_world_size
         self.world_size = torch.distributed.get_world_size()
         self.num_data_parallel_group = self.world_size // (self.tensor_parallel_world_size * self.pipeline_parallel_world_size)
-        self.pipeline_src_rank = parallel_state.get_pipeline_model_parallel_first_rank()
         self.costs = []
         sizes = [flatflow.sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-        self.total_length[0] = len(sizes)
+        self.total_length = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
         if self.global_rank == 0:
             run(port, data_parallel_size)
         self.client = CommunicatorClient(channel)
-
-        if self.global_rank == 0:
-            self.client.Init(
-                global_batch_size,
-                micro_batch_size,
-                order,
-                self.global_rank,
-                seed,
-                heterogeneous,
-                use_flat_shuffle,
-                hidden_size,
-                sizes,
-            )
-        elif self.pipeline_parallel_rank == 0:
-            self.client.Init(
-                global_batch_size,
-                micro_batch_size,
-                order,
-                self.global_rank,
-                seed,
-                heterogeneous,
-                use_flat_shuffle,
-                hidden_size,
-            )
+        if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
+            if self.global_rank == 0:
+                self.client.Init(
+                    global_batch_size,
+                    micro_batch_size,
+                    order,
+                    self.data_parallel_rank,
+                    seed,
+                    heterogeneous,
+                    use_flat_shuffle,
+                    hidden_size,
+                    sizes,
+                )
+            else:
+                self.client.Init(
+                    global_batch_size,
+                    micro_batch_size,
+                    order,
+                    self.data_parallel_rank,
+                    seed,
+                    heterogeneous,
+                    use_flat_shuffle,
+                    hidden_size,
+                )
 
     def set_epoch(self, epoch: int) -> None:
         r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -174,69 +167,60 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        end = False
         indices = []
-        pp_group_idx = self.pipeline_parallel_group_index 
-        last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
-        pipeline_group = parallel_state.get_pipeline_model_parallel_group()
-        tensor_parallel_group = parallel_state.get_tensor_model_parallel_group()
+        end = False
+        model_group = parallel_state.get_model_parallel_group()
+        model_src_rank = parallel_state.get_model_parallel_src_rank()
 
         while not end:
-            if self.current_samples > self.total_length[0] // self.num_data_parallel_group:
+            if self.consumed_samples > self.total_length // self.num_data_parallel_group:
                 end = True
                 break
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-                try:
-                    if not self.converged:
-                        broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                        self.costs = None
-                        self.converged = broadcast.Converged()
-                        if self.converged:
-                            for hook in self.profiler.hook_handles:
-                                hook.remove()
-                                
-                    indices = list(broadcast.IndicesAsNumpy())
-                    indices_size = [len(indices)]
-                    
-                    torch.distributed.broadcast_object_list(
-                        indices_size,
-                        src=self.global_rank,
-                        group=parallel_state.get_tensor_model_parallel_group()
-                    )
+                if not self.converged:
+                    broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                    self.costs = None
+                    self.converged = broadcast.Converged()
+                    if self.converged:
+                        for hook in self.profiler.hook_handles:
+                            hook.remove()
 
-                except Exception as e:
-                    print(f"Rank {self.global_rank} - Error getting scheduler data: {e}")
-                    raise
-            if self.pipeline_parallel_rank != 0 or self.tensor_parallel_rank != 0:
-                indices = [0] * indices_size[0]
+                indices = list(broadcast.IndicesAsNumpy())
+                indices_size = [len(indices)]
+
+                torch.distributed.broadcast_object_list(
+                    indices_size,
+                    src=self.global_rank,
+                    group=parallel_state.get_tensor_model_parallel_group()
+                )
 
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 torch.distributed.broadcast_object_list(
-                    indices, 
+                    indices,
                     src=self.global_rank,
                     group=parallel_state.get_tensor_model_parallel_group()
                 )
 
             torch.distributed.broadcast_object_list(
-                indices_size, 
-                src=self.pipeline_src_rank,
-                group=self.pipeline_parallel_group
+                indices_size,
+                src=model_src_rank,
+                group=model_group
             )
 
-            if self.global_rank != self.pipeline_src_rank:
+            if self.pipeline_parallel_rank != 0 or self.tensor_parallel_rank != 0:
                 indices = [0] * indices_size[0]
 
             torch.distributed.broadcast_object_list(
-                indices, 
-                src=self.pipeline_src_rank,
-                group=self.pipeline_parallel_group
+                indices,
+                src=model_src_rank,
+                group=model_group
             )
 
             self.consumed_samples += indices_size[0]
 
             batch = []
-            for idx in range(len(indices)):
+            for idx in range(indices_size[0]):
                 batch.append(indices[idx])
                 if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
                     yield batch
