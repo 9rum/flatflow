@@ -43,7 +43,7 @@ WORKDIR /workspace/flatflow
 COPY . .
 
 RUN source /opt/intel/oneapi/setvars.sh && \
-    for PYTHON_VERSION in 3.9 3.10 3.11 3.12; \
+    for PYTHON_VERSION in 3.9 3.10 3.11 3.12 3.13; \
     do \
       python$PYTHON_VERSION -m build -w && \
       rm -rf build flatflow.egg-info; \
