@@ -313,7 +313,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     last_micro_batch_size_ =
         (num_samples / world_size - 1) % micro_batch_size + 1;
 
-    num_batches_ = 1;
+    interval_ = 1;
 
     sizes_ = std::vector<std::vector<std::vector<key_type>>>(world_size);
     costs_ = std::vector<std::vector<double>>(world_size);
@@ -420,9 +420,8 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
 
       LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
-      const auto threshold =
-          std::min(global_batch_size_ / world_size_ * num_batches_,
-                   sizes.front().size());
+      const auto threshold = std::min(
+          global_batch_size_ / world_size_ * interval_, sizes.front().size());
 
       for (mapped_type rank = 0; rank < world_size_; ++rank) {
         for (std::size_t index = 0; index < threshold; ++index) {
@@ -450,7 +449,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
         }
       }
 
-      num_batches_ <<= 1;
+      interval_ <<= 1;
 
       return indices;
     }
@@ -486,7 +485,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
     LOG(INFO) << absl::StrFormat("Epoch: %u inter-batch shuffling took %fs", epoch_, omp_get_wtime() - now);
 
     const auto threshold = std::min(
-        global_batch_size_ / world_size_ * num_batches_, sizes.front().size());
+        global_batch_size_ / world_size_ * interval_, sizes.front().size());
 
     for (mapped_type rank = 0; rank < world_size_; ++rank) {
       for (std::size_t index = 0; index < threshold; ++index) {
@@ -515,7 +514,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
       }
     }
 
-    num_batches_ <<= 1;
+    interval_ <<= 1;
 
     return indices;
   }
@@ -614,9 +613,9 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
  protected:
   mapped_type epoch_;
   mapped_type global_batch_size_;
+  mapped_type interval_;
   mapped_type last_micro_batch_size_;
   mapped_type micro_batch_size_;
-  mapped_type num_batches_;
   mapped_type seed_;
   mapped_type world_size_;
   bool use_flat_shuffle_;

@@ -171,7 +171,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
       0, true);
   auto scheduler = std::get<2>(scheduler_);
 
-  auto stride = static_cast<uint64_t>(1);
+  auto interval = static_cast<uint64_t>(1);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -181,7 +181,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachines) {
       indices[rank].reserve(kNumSteps);
     }
     for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
-         batch += stride, stride <<= 1) {
+         batch += interval, interval <<= 1) {
       scheduler.on_batch_begin(batch);
       auto schedule = scheduler.Schedule();
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
@@ -210,7 +210,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
       0, false);
   auto scheduler = std::get<2>(scheduler_);
 
-  auto stride = static_cast<uint64_t>(1);
+  auto interval = static_cast<uint64_t>(1);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -220,7 +220,7 @@ TEST_F(SchedulerTest, QuadraticModelOnIdenticalMachinesWithoutFlatShuffle) {
       indices[rank].reserve(kNumSteps);
     }
     for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
-         batch += stride, stride <<= 1) {
+         batch += interval, interval <<= 1) {
       scheduler.on_batch_begin(batch);
       auto schedule = scheduler.Schedule();
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
@@ -375,7 +375,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
       0, true);
   auto scheduler = std::get<2>(scheduler_);
 
-  auto stride = static_cast<uint64_t>(1);
+  auto interval = static_cast<uint64_t>(1);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -385,7 +385,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachines) {
       indices[rank].reserve(kNumSteps);
     }
     for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
-         batch += stride, stride <<= 1) {
+         batch += interval, interval <<= 1) {
       scheduler.on_batch_begin(batch);
       auto schedule = scheduler.Schedule();
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
@@ -414,7 +414,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
       0, false);
   auto scheduler = std::get<2>(scheduler_);
 
-  auto stride = static_cast<uint64_t>(1);
+  auto interval = static_cast<uint64_t>(1);
 
   scheduler.on_train_begin();
   for (uint64_t epoch = 0; epoch < kNumEpochs; ++epoch) {
@@ -424,7 +424,7 @@ TEST_F(SchedulerWithRemainderTest, QuadraticModelOnIdenticalMachinesWithoutFlatS
       indices[rank].reserve(kNumSteps);
     }
     for (uint64_t batch = 0; batch < kDatasetSize / kGlobalBatchSize;
-         batch += stride, stride <<= 1) {
+         batch += interval, interval <<= 1) {
       scheduler.on_batch_begin(batch);
       auto schedule = scheduler.Schedule();
       for (uint64_t rank = 0; rank < kWorldSize; ++rank) {
