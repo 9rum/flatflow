@@ -133,29 +133,17 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             run(port, data_parallel_size)
         self.client = CommunicatorClient(channel)
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            if self.global_rank == 0:
-                self.client.Init(
-                    global_batch_size,
-                    micro_batch_size,
-                    order,
-                    self.data_parallel_rank,
-                    seed,
-                    heterogeneous,
-                    use_flat_shuffle,
-                    hidden_size,
-                    sizes,
-                )
-            else:
-                self.client.Init(
-                    global_batch_size,
-                    micro_batch_size,
-                    order,
-                    self.data_parallel_rank,
-                    seed,
-                    heterogeneous,
-                    use_flat_shuffle,
-                    hidden_size,
-                )
+            self.client.Init(
+                global_batch_size,
+                micro_batch_size,
+                order,
+                self.data_parallel_rank,
+                seed,
+                heterogeneous,
+                use_flat_shuffle,
+                hidden_size,
+                sizes if self.global_rank == 0 else None,
+            )
 
     def set_epoch(self, epoch: int) -> None:
         r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -172,9 +160,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         model_group = parallel_state.get_model_parallel_group()
         model_src_rank = parallel_state.get_model_parallel_src_rank()
 
-        while not end:
+        while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
-                end = True
                 break
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:

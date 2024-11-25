@@ -332,9 +332,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 num_train_samples_after_blend = sum(len(dataset) for dataset in datasets)
             if self.use_flatflow:
                 dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset(
-                    datasets = datasets, 
-                    weights = data_cfg.concat_sampling_probabilities, 
-                    size = num_train_samples_after_blend
+                    datasets=datasets, weights=data_cfg.concat_sampling_probabilities, size=num_train_samples_after_blend
                 )
                 return dataset
             dataset = BlendableDataset(

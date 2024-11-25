@@ -14,12 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from flatflow import sys
+
 import nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset
 
 __all__ = ["BlendableDataset"]
 
 class BlendableDataset(nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset):
-    def __sizeof__(self,idx):
+    def __sizeof__(self, idx):
         dataset_idx = self.dataset_index[idx]
         sample_idx = self.dataset_sample_index[idx]
-        return self.datasets[dataset_idx].__sizeof__(sample_idx)
+        return sys.getsizeof(self.datasets[dataset_idx], sample_idx)
