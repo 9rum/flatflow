@@ -88,7 +88,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         heterogeneous: bool = False,
         hidden_size: Optional[int] = False,
         port: int = 50051,
-        profiler = None,
+        profiler=None,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -122,7 +122,9 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.profiler = profiler
         self.converged = False
         self.world_size = torch.distributed.get_world_size()
-        self.num_data_parallel_group = self.world_size // (self.tensor_parallel_world_size * self.pipeline_parallel_world_size)
+        self.num_data_parallel_group = self.world_size // (
+            self.tensor_parallel_world_size * self.pipeline_parallel_world_size
+        )
         self.costs = []
         sizes = [flatflow.sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
@@ -176,32 +178,20 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 indices_size = [len(indices)]
 
                 torch.distributed.broadcast_object_list(
-                    indices_size,
-                    src=self.global_rank,
-                    group=parallel_state.get_tensor_model_parallel_group()
+                    indices_size, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
                 )
 
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 torch.distributed.broadcast_object_list(
-                    indices,
-                    src=self.global_rank,
-                    group=parallel_state.get_tensor_model_parallel_group()
+                    indices, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
                 )
 
-            torch.distributed.broadcast_object_list(
-                indices_size,
-                src=model_src_rank,
-                group=model_group
-            )
+            torch.distributed.broadcast_object_list(indices_size, src=model_src_rank, group=model_group)
 
             if self.pipeline_parallel_rank != 0 or self.tensor_parallel_rank != 0:
                 indices = [0] * indices_size[0]
 
-            torch.distributed.broadcast_object_list(
-                indices,
-                src=model_src_rank,
-                group=model_group
-            )
+            torch.distributed.broadcast_object_list(indices, src=model_src_rank, group=model_group)
 
             self.consumed_samples += indices_size[0]
 
