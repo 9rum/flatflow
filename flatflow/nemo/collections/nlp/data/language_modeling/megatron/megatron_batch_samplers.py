@@ -156,7 +156,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
     def __iter__(self):
         indices = []
-        end = False
         model_group = parallel_state.get_model_parallel_group()
         model_src_rank = parallel_state.get_model_parallel_src_rank()
 
