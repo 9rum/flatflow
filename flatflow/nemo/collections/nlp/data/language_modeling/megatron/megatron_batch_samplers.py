@@ -18,13 +18,13 @@ import os
 from typing import Optional
 
 import grpc
-import numpy as np
 import torch
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 from nemo.utils import AppState
 
 import flatflow
+import flatflow.megatron.core.parallel_state
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset
 
@@ -148,18 +148,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 sizes if self.global_rank == 0 else None,
             )
 
-    @staticmethod
-    def get_model_parallel_src_rank() -> int:
-        r"""Calculate the global rank corresponding to the first local rank
-        in the model parallel group.
-        """
-        world_size = torch.distributed.get_world_size()
-        total_rank = np.arange(world_size)
-        pipeline_parallel_size = parallel_state.get_pipeline_model_parallel_world_size()
-        tensor_parallel_size = parallel_state.get_tensor_model_parallel_world_size()
-        total_rank = total_rank.reshape(pipeline_parallel_size, -1, tensor_parallel_size)
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        return total_rank[:, data_parallel_rank, :].min()
 
     def set_epoch(self, epoch: int) -> None:
         r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -173,7 +161,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         indices = []
         model_group = parallel_state.get_model_parallel_group()
-        model_src_rank = self.get_model_parallel_src_rank()
+        model_src_rank = flatflow.megatron.core.parallel_state.get_model_parallel_src_rank()
 
         while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
@@ -181,14 +169,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                    broadcast_response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
                     self.costs = None
-                    self.converged = broadcast.Converged()
+                    self.converged = broadcast_response.Converged()
                     if self.converged:
                         for hook in self.profiler.hook_handles:
                             hook.remove()
 
-                indices = list(broadcast.IndicesAsNumpy())
+                indices = list(broadcast_response.IndicesAsNumpy())
                 indices_size = [len(indices)]
 
                 torch.distributed.broadcast_object_list(
