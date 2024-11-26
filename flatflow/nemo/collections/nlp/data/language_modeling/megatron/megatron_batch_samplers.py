@@ -1,4 +1,4 @@
-# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/collections/nlp/data/language_modeling/megatron/megatron_batch_samplers.py
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/data/language_modeling/megatron/megatron_batch_samplers.py
 # Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -18,12 +18,12 @@ import os
 from typing import Optional
 
 import grpc
-import torch
+import torch.distributed
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 from nemo.utils import AppState
 
-import flatflow
+from flatflow import sys
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset
 
@@ -126,7 +126,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
         self.costs = []
-        sizes = [flatflow.sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
+        sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")

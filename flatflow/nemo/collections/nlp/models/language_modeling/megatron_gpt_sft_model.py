@@ -1,4 +1,4 @@
-# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
 # Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
