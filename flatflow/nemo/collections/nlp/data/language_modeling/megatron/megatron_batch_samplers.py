@@ -173,7 +173,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         indices = []
         model_group = parallel_state.get_model_parallel_group()
-        model_src_rank = parallel_state.get_model_parallel_src_rank()
+        model_src_rank = self.get_model_parallel_src_rank()
 
         while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
