@@ -18,6 +18,7 @@ import os
 from typing import Optional
 
 import grpc
+import numpy as np
 import torch
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
@@ -146,6 +147,18 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 hidden_size,
                 sizes if self.global_rank == 0 else None,
             )
+
+    @staticmethod
+    def get_model_parallel_src_rank():
+        """Calculate the global rank corresponding to the first local rank
+        in the model parallel group."""
+        world_size = torch.distributed.get_world_size()
+        all_ranks = np.arange(world_size)
+        tp_size = parallel_state.get_tensor_model_parallel_world_size()
+        pp_size = parallel_state.get_pipeline_model_parallel_world_size()
+        all_ranks = all_ranks.reshape(pp_size, -1, tp_size)
+        dp_rank = parallel_state.get_data_parallel_rank()
+        return all_ranks[:, dp_rank, :].min()
 
     def set_epoch(self, epoch: int) -> None:
         r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
