@@ -277,7 +277,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_batch_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_begin(batch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_begin(batch_);
     }
   }
@@ -289,7 +289,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       mapped_type rank, const flatbuffers::Vector<double> *costs) {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_end(batch_, rank, costs);
     }
   }
@@ -300,7 +300,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_batch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_end(batch_);
     }
   }
@@ -311,7 +311,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_epoch_begin() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_begin(epoch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_epoch_begin(epoch_);
     }
   }
@@ -322,7 +322,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_epoch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_end(epoch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_epoch_end(epoch_);
     }
   }
@@ -333,7 +333,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_train_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_begin();
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_train_begin();
     }
   }
@@ -344,7 +344,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_train_end() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_end();
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_train_end();
     }
   }
