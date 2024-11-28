@@ -1,4 +1,4 @@
-# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/core/classes/dataset.py
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/core/classes/dataset.py
 # Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
