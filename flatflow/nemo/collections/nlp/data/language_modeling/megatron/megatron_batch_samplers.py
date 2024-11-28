@@ -32,7 +32,7 @@ __all__ = ["MegatronPretrainingBatchSampler"]
 
 
 class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
-    r"""Sampler that restricts data loading to a subset of the dataset.
+    """Sampler that restricts data loading to a subset of the dataset.
       This Sampler is adopted from nemo's megatron_batch_samplers.
       Planning to apply Torch based support later if necessary.
 
@@ -148,9 +148,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 sizes if self.global_rank == 0 else None,
             )
 
-
     def set_epoch(self, epoch: int) -> None:
-        r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
+        """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
         Otherwise, the next iteration of this sampler will yield the same ordering.
 
         Args:
@@ -169,14 +168,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    broadcast_response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                    response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
                     self.costs = None
-                    self.converged = broadcast_response.Converged()
+                    self.converged = response.Converged()
                     if self.converged:
                         for hook in self.profiler.hook_handles:
                             hook.remove()
 
-                indices = list(broadcast_response.IndicesAsNumpy())
+                indices = list(response.IndicesAsNumpy())
                 indices_size = [len(indices)]
 
                 torch.distributed.broadcast_object_list(
