@@ -1,4 +1,4 @@
-# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0rc0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
 # Copyright (c) 2024, The FlatFlow Authors.
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
@@ -330,6 +330,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if is_train:
             if self.use_flatflow or packed_sequence:
                 num_train_samples_after_blend = sum(len(dataset) for dataset in datasets)
+            if self.use_flatflow:
+                dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset(
+                    datasets=datasets, weights=data_cfg.concat_sampling_probabilities, size=num_train_samples_after_blend
+                )
+                return dataset
             dataset = BlendableDataset(
                 datasets=datasets, weights=data_cfg.concat_sampling_probabilities, size=num_train_samples_after_blend
             )

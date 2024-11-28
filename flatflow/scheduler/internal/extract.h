@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_EXTRACT_H_
-#define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_EXTRACT_H_
+#ifndef FLATFLOW_SCHEDULER_INTERNAL_EXTRACT_H_
+#define FLATFLOW_SCHEDULER_INTERNAL_EXTRACT_H_
 
 #include <cassert>
 #include <utility>
 #include <vector>
 
 namespace flatflow {
-namespace scheduler {
 namespace internal {
-namespace algorithm {
 
 // extract()
 //
@@ -60,9 +58,7 @@ extract(const std::vector<std::vector<std::pair<Size, Index>>> &items) {
   return std::make_pair(indices, sizes);
 }
 
-}  // namespace algorithm
 }  // namespace internal
-}  // namespace scheduler
 }  // namespace flatflow
 
-#endif  // FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_EXTRACT_H_
+#endif  // FLATFLOW_SCHEDULER_INTERNAL_EXTRACT_H_

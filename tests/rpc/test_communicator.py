@@ -15,7 +15,6 @@
 import random
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 
 import grpc
 import numpy as np
@@ -46,7 +45,6 @@ def launch(
     seed: int,
     heterogeneous: bool,
     use_flat_shuffle: bool,
-    hidden_size: Optional[int],
     num_samples: int,
 ) -> None:
     if rank == 0:
@@ -59,11 +57,9 @@ def launch(
     channel = grpc.insecure_channel(f"localhost:{port}")
     client = CommunicatorClient(channel)
 
-    client.Init(
-        global_batch_size, micro_batch_size, order, rank, seed, heterogeneous, use_flat_shuffle, hidden_size, sizes
-    )
+    client.Init(global_batch_size, micro_batch_size, order, rank, seed, heterogeneous, use_flat_shuffle, sizes=sizes)
 
-    for epoch in range(world_size):
+    for epoch in range(4):
         response = client.Broadcast(epoch)
         assert response.Converged()
         assert response.IndicesLength() == num_samples // world_size
@@ -76,11 +72,10 @@ def launch(
 @pytest.mark.parametrize("world_size", [8])
 @pytest.mark.parametrize("global_batch_size", [128])
 @pytest.mark.parametrize("micro_batch_size", [4])
-@pytest.mark.parametrize("order", [2])
+@pytest.mark.parametrize("order", [1])
 @pytest.mark.parametrize("seed", [0])
 @pytest.mark.parametrize("heterogeneous", [False])
 @pytest.mark.parametrize("use_flat_shuffle", [True])
-@pytest.mark.parametrize("hidden_size", [4096])
 @pytest.mark.parametrize("num_samples", [65536])
 def test_communicator(
     port,
@@ -91,7 +86,6 @@ def test_communicator(
     seed,
     heterogeneous,
     use_flat_shuffle,
-    hidden_size,
     num_samples,
 ):
     executor = ThreadPoolExecutor(max_workers=world_size)
@@ -107,7 +101,6 @@ def test_communicator(
             seed,
             heterogeneous,
             use_flat_shuffle,
-            hidden_size,
             num_samples,
         )
         for rank in range(world_size)

@@ -12,24 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_CONCAT_H_
-#define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_CONCAT_H_
+#ifndef FLATFLOW_SCHEDULER_INTERNAL_CONCAT_H_
+#define FLATFLOW_SCHEDULER_INTERNAL_CONCAT_H_
 
 #include <cassert>
 #include <iterator>
 #include <vector>
 
 namespace flatflow {
-namespace scheduler {
 namespace internal {
-namespace algorithm {
 
 // concat()
 //
 // Concatenates each row of the given two matrices.
 template <typename T>
-inline void concat(std::vector<std::vector<T>> &lhs,
-                   const std::vector<std::vector<T>> &rhs) {
+void concat(std::vector<std::vector<T>> &lhs,
+            const std::vector<std::vector<T>> &rhs) {
   const auto world_size = lhs.size();
   assert(world_size == rhs.size());
 
@@ -42,9 +40,7 @@ inline void concat(std::vector<std::vector<T>> &lhs,
   }
 }
 
-}  // namespace algorithm
 }  // namespace internal
-}  // namespace scheduler
 }  // namespace flatflow
 
-#endif  // FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_CONCAT_H_
+#endif  // FLATFLOW_SCHEDULER_INTERNAL_CONCAT_H_

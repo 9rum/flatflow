@@ -62,18 +62,13 @@ class BuildExtension(build_ext):
         logging.info(f"-- Configuring: {cmd}")
         subprocess.check_call(args, cwd=self.build_temp)
 
-        try:
-            num_jobs = len(os.sched_getaffinity(0))
-        except AttributeError:
-            num_jobs = os.cpu_count()
-
         args = [
             "cmake",
             "--build",
             os.curdir,
             "--config",
             ext.cmake_build_type,
-            f"-j{num_jobs}",
+            "-j",
         ]
         cmd = " ".join(args)
         logging.info(f"-- Building: {cmd}")
@@ -130,6 +125,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     license="Apache-2.0",

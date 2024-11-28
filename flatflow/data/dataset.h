@@ -34,18 +34,17 @@
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
+#include "flatflow/abseil/btree_map.h"
 #include "flatflow/aten/generator.h"
-#include "flatflow/data/internal/container/btree_map.h"
 #include "flatflow/data/internal/types.h"
 
 namespace flatflow {
-namespace data {
 
-// flatflow::data::Dataset<>
+// flatflow::Dataset<>
 //
-// A `flatflow::data::Dataset<I, S>` stores metadata about the index and size of
+// A `flatflow::Dataset<I, S>` stores metadata about the index and size of
 // data samples in a given data set. For fast execution of scheduling, a
-// `flatflow::data::Dataset<I, S>` constructs an inverted index in a form of
+// `flatflow::Dataset<I, S>` constructs an inverted index in a form of
 // `btree_map<S, std::vector<I>>` and stores the scheduled data samples in
 // another inverted index; the two inverted indices are swapped at the end of
 // each training epoch so that the data samples are recovered without any data
@@ -61,7 +60,7 @@ template <typename Index, typename Size>
   requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
 class Dataset {
  public:
-  using container_type = internal::container::btree_map<
+  using container_type = flatflow::abseil::btree_map<
       Size, std::vector<Index>, std::less<Size>,
       std::allocator<std::pair<const Size, std::vector<Index>>>,
       /*TargetNodeSize=*/512>;
@@ -73,9 +72,8 @@ class Dataset {
   // Constructors and assignment operators
   //
   // In addition to a constructor to build an inverted index,
-  // a `flatflow::data::Dataset<>` supports a default constructor for
-  // declaration, as well as copy and move constructors and assignment
-  // operators.
+  // a `flatflow::Dataset<>` supports a default constructor for declaration,
+  // as well as copy and move constructors and assignment operators.
   //
   // Note that even if a copy/move constructor or assignment operator is called,
   // the data set is actually direct-initialized by copy elision.
@@ -115,13 +113,12 @@ class Dataset {
     auto counts = std::vector<double>(kIndexSlotSpace, 0.0);
 
     #pragma omp declare reduction(vadd : std::vector<double> : cblas_daxpy( \
-            static_cast<int>(omp_in.size()), 1.0, omp_in.data(), 1,         \
-                omp_out.data(), 1)) initializer(omp_priv = omp_orig)
+            omp_in.size(), 1.0, omp_in.data(), 1, omp_out.data(), 1))       \
+        initializer(omp_priv = omp_orig)
 
     #pragma omp parallel for reduction(vadd : counts)
     for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
-      const auto size = static_cast<std::size_t>(sizes->Get(index));
-      ++counts[size];
+      ++counts[sizes->Get(index)];
     }
 
     auto slots = absl::InlinedVector<std::vector<mapped_type>, kIndexSlotSpace>(
@@ -147,20 +144,19 @@ class Dataset {
     // unrolling macros.
     #pragma omp unroll partial
     for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
-      const auto size = static_cast<std::size_t>(sizes->Get(index));
-      slots[size].emplace_back(static_cast<mapped_type>(index));
+      slots[sizes->Get(index)].emplace_back(index);
     }
 
     #pragma omp unroll full
     for (std::size_t size = 0; size < slots.size(); ++size) {
       auto &slot = slots[size];
       if (0 < slot.size()) {
-        items_.try_emplace(static_cast<key_type>(size), std::move(slot));
+        items_.try_emplace(size, std::move(slot));
       }
     }
 
-    max_size_ = static_cast<size_type>(sizes->size());
-    size_ = static_cast<size_type>(sizes->size());
+    max_size_ = sizes->size();
+    size_ = sizes->size();
 
     LOG(INFO) << absl::StrFormat("Construction of inverted index took %fs", omp_get_wtime() - now);
   }
@@ -178,35 +174,15 @@ class Dataset {
   // Depending on `Drop`, inserts the given data sample into the inverted index
   // or recycle bin with bounds checking.
   template <bool Drop>
-  inline void insert(const value_type &sample) {
+  inline void insert(key_type size, mapped_type index) {
     if constexpr (!Drop) {
       assert(size_ < max_size_);
     }
 
-    insert_impl<Drop>(sample.first, sample.second);
+    insert_impl<Drop>(size, index);
 
     if constexpr (!Drop) {
       ++size_;
-    }
-  }
-
-  // Dataset::insert_range<>()
-  //
-  // Depending on `Drop`, inserts the given data samples into the inverted index
-  // or recycle bin with bounds checking.
-  template <bool Drop>
-  void insert_range(const std::vector<value_type> &samples) {
-    if constexpr (!Drop) {
-      assert(size_ + samples.size() <= max_size_);
-    }
-
-    std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
-                  [&](const auto &sample) {
-                    insert_impl<Drop>(sample.first, sample.second);
-                  });
-
-    if constexpr (!Drop) {
-      size_ += samples.size();
     }
   }
 
@@ -271,9 +247,9 @@ class Dataset {
   inline void on_epoch_begin(mapped_type epoch) {
     const auto now = omp_get_wtime();
 
-    // At the beginning of each epoch, a `flatflow::data::Dataset<>`
-    // shuffles between data samples with the same size, which we call
-    // intra-batch shuffling. The details are as follows:
+    // At the beginning of each epoch, a `flatflow::Dataset<>` shuffles between
+    // data samples with the same size, which we call intra-batch shuffling.
+    // The details are as follows:
     //
     // * First, access each index slot in the inverted index. This can be
     //   parallelized since there is no data dependency between any couple of
@@ -283,12 +259,9 @@ class Dataset {
     //   set the random seed to the sum of seed and epoch. A pseudo-random
     //   number generator based on 32-bit Mersenne Twister algorithm is adopted,
     //   just like in PyTorch.
-    const auto _seed =
-        static_cast<flatflow::aten::Generator::result_type>(seed_ + epoch);
-
     std::for_each(
         std::execution::par, items_.begin(), items_.end(), [&](auto &item) {
-          auto generator = flatflow::aten::Generator(_seed);
+          auto generator = flatflow::aten::Generator(seed_ + epoch);
           std::shuffle(item.second.begin(), item.second.end(), generator);
         });
 
@@ -304,7 +277,7 @@ class Dataset {
     // At the end of an epoch, the inverted index must be empty.
     assert(size_ == 0);
 
-    internal::container::swap(items_, recyclebin_);
+    flatflow::abseil::swap(items_, recyclebin_);
     size_ = max_size_;
 
     std::for_each(std::execution::par, items_.begin(), items_.end(),
@@ -430,7 +403,6 @@ class Dataset {
   container_type recyclebin_;
 };
 
-}  // namespace data
 }  // namespace flatflow
 
 #endif  // FLATFLOW_DATA_DATASET_H_

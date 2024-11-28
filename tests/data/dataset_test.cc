@@ -34,8 +34,8 @@
 namespace {
 
 // A read-only data set used only for testing purpose.
-class Dataset : public flatflow::data::Dataset<uint64_t, uint16_t> {
-  using super_type = flatflow::data::Dataset<uint64_t, uint16_t>;
+class Dataset : public flatflow::Dataset<uint64_t, uint16_t> {
+  using super_type = flatflow::Dataset<uint64_t, uint16_t>;
 
  public:
   using super_type::super_type;
@@ -175,7 +175,7 @@ TEST_F(DatasetTest, Insert) {
   EXPECT_FALSE(dataset_.empty(false));
   std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
                 [&](const auto &sample) {
-                  dataset_.insert<false>(sample);
+                  dataset_.insert<false>(sample.first, sample.second);
                   ++count;
                   EXPECT_EQ(dataset_.size(), count);
                 });
@@ -200,50 +200,9 @@ TEST_F(DatasetTest, InsertIntoRecycleBin) {
   EXPECT_FALSE(dataset_.empty(false));
   std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
                 [&](const auto &sample) {
-                  dataset_.insert<true>(sample);
+                  dataset_.insert<true>(sample.first, sample.second);
                   EXPECT_TRUE(dataset_.empty(true));
                 });
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-
-  for (const auto [size, count] : counts_) {
-    if (0 < count) {
-      EXPECT_EQ(dataset_.size(size, false), count);
-      EXPECT_EQ(dataset_.capacity(size, false), count);
-    } else {
-      EXPECT_FALSE(dataset_.contains(size, false));
-    }
-  }
-}
-
-// This test checks whether the bulk insertion routine works as intended.
-TEST_F(DatasetTest, InsertRange) {
-  const auto samples = dataset_.take<true>(dataset_.size());
-  EXPECT_EQ(samples.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-  dataset_.insert_range<false>(samples);
-  EXPECT_EQ(dataset_.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(false));
-
-  for (const auto [size, count] : counts_) {
-    if (0 < count) {
-      EXPECT_EQ(dataset_.size(size), count);
-      EXPECT_EQ(dataset_.capacity(size), count);
-    } else {
-      EXPECT_FALSE(dataset_.contains(size));
-    }
-  }
-}
-
-// This test checks whether the reverse bulk insertion routine works as
-// intended.
-TEST_F(DatasetTest, InsertRangeIntoRecycleBin) {
-  const auto samples = dataset_.take<true>(dataset_.size());
-  EXPECT_EQ(samples.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-  dataset_.insert_range<true>(samples);
   EXPECT_TRUE(dataset_.empty(true));
   EXPECT_FALSE(dataset_.empty(false));
 
@@ -325,7 +284,10 @@ TEST_F(DatasetTest, TakeWithoutRestoration) {
     }
   }
 
-  dataset_.insert_range<false>(samples);
+  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
+                [&](const auto &sample) {
+                  dataset_.insert<false>(sample.first, sample.second);
+                });
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
   EXPECT_FALSE(dataset_.empty(true));
   EXPECT_TRUE(dataset_.empty(false));

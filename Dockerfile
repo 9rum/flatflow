@@ -1,7 +1,7 @@
 FROM quay.io/pypa/manylinux_2_28_x86_64
 
 # This should be consistent with the gRPC version in requirements.txt.
-ARG GRPC_VERSION=1.65.4
+ARG GRPC_VERSION=1.67.1
 
 RUN echo -e "[oneAPI]\n\
 name=Intel® oneAPI repository\n\
@@ -43,7 +43,7 @@ WORKDIR /workspace/flatflow
 COPY . .
 
 RUN source /opt/intel/oneapi/setvars.sh && \
-    for PYTHON_VERSION in 3.9 3.10 3.11 3.12; \
+    for PYTHON_VERSION in 3.9 3.10 3.11 3.12 3.13; \
     do \
       python$PYTHON_VERSION -m build -w && \
       rm -rf build flatflow.egg-info; \

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
-#define FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
+#ifndef FLATFLOW_SCHEDULER_INTERNAL_SHUFFLE_H_
+#define FLATFLOW_SCHEDULER_INTERNAL_SHUFFLE_H_
 
 #include <algorithm>
 #include <cassert>
@@ -27,29 +27,22 @@
 #include "flatflow/data/internal/types.h"
 
 namespace flatflow {
-namespace scheduler {
 namespace internal {
-namespace algorithm {
 
 // shuffle()
 //
-// After scheduling, a `flatflow::scheduler::Scheduler<>` shuffles between
-// batches, which we call inter-batch shuffling. This enables shuffling not
-// only between data samples with the same size but also between scheduled
-// batches. It uses the same pseudo-random number generator and random seed
-// as `flatflow::data::Dataset<>` for deterministic shuffling.
+// After scheduling, a `flatflow::Scheduler<>` shuffles between batches, which
+// we call inter-batch shuffling. This enables shuffling not only between data
+// samples with the same size but also between scheduled batches. It uses the
+// same pseudo-random number generator and random seed as `flatflow::Dataset<>`
+// for deterministic shuffling.
 template <typename R, typename Index, typename Size>
-  requires(flatflow::data::internal::Numerical<R> &&
-           flatflow::data::internal::Unsigned<Index> &&
-           flatflow::data::internal::Unsigned<Size>)
+  requires(Numerical<R> && Unsigned<Index> && Unsigned<Size>)
 std::vector<std::vector<std::pair<Size, Index>>> shuffle(
     const std::vector<std::pair<R, std::vector<std::pair<Size, Index>>>> &micro_batches,
     Index seed, bool use_flat_shuffle) {
   const auto num_micro_batches = micro_batches.size();
   assert(num_micro_batches != 0);
-
-  const auto _seed = static_cast<flatflow::aten::Generator::result_type>(seed);
-  assert(static_cast<Index>(_seed) == seed);
 
   // The inter-batch shuffling is carried out as follows:
   //
@@ -80,11 +73,9 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   ranges.reserve(offsets.size());
 
   for (std::size_t index = 0; index < offsets.size(); ++index) {
-    const auto begin =
-        std::next(indices.begin(), static_cast<std::ptrdiff_t>(offsets[index]));
+    const auto begin = std::next(indices.begin(), offsets[index]);
     if (index < offsets.size() - 1) {
-      const auto end = std::next(
-          indices.begin(), static_cast<std::ptrdiff_t>(offsets[index + 1]));
+      const auto end = std::next(indices.begin(), offsets[index + 1]);
       ranges.emplace_back(begin, end);
     } else {
       const auto end = indices.end();
@@ -93,7 +84,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   }
 
   if (!use_flat_shuffle) {
-    auto generator = flatflow::aten::Generator(_seed);
+    auto generator = flatflow::aten::Generator(seed);
     std::shuffle(ranges.begin(), ranges.end(), generator);
   }
 
@@ -101,7 +92,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
                 [&](const auto &range) {
                   const auto begin = range.first;
                   const auto end = range.second;
-                  auto generator = flatflow::aten::Generator(_seed);
+                  auto generator = flatflow::aten::Generator(seed);
                   std::shuffle(begin, end, generator);
                 });
 
@@ -109,7 +100,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   shuffled.reserve(num_micro_batches);
 
   std::for_each(std::execution::seq, ranges.cbegin(), ranges.cend(),
-                [](const auto &range) {
+                [&](const auto &range) {
                   std::for_each(std::execution::seq, range.first, range.second,
                                 [&](const auto index) {
                                   shuffled.emplace_back(
@@ -120,9 +111,7 @@ std::vector<std::vector<std::pair<Size, Index>>> shuffle(
   return shuffled;
 }
 
-}  // namespace algorithm
 }  // namespace internal
-}  // namespace scheduler
 }  // namespace flatflow
 
-#endif  // FLATFLOW_SCHEDULER_INTERNAL_ALGORITHM_SHUFFLE_H_
+#endif  // FLATFLOW_SCHEDULER_INTERNAL_SHUFFLE_H_

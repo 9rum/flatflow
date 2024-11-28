@@ -14,7 +14,7 @@
 
 include "flatflow/rpc/empty.fbs";
 
-namespace flatflow.rpc;
+namespace flatflow;
 
 table InitRequest {
   global_batch_size: ulong;

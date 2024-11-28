@@ -17,9 +17,11 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstdint>
+#include <execution>
 #include <future>
 #include <utility>
 #include <variant>
@@ -38,11 +40,10 @@
 #include "flatflow/scheduler/scheduler.h"
 
 namespace flatflow {
-namespace rpc {
 
-// flatflow::rpc::CommunicatorServiceImpl
+// flatflow::CommunicatorServiceImpl
 //
-// A `flatflow::rpc::CommunicatorServiceImpl` is an intermediary to communicate
+// A `flatflow::CommunicatorServiceImpl` is an intermediary to communicate
 // between the scheduler and workers. It is responsible for invoking the
 // callbacks exposed by the scheduler and exchanging schedules and costs between
 // the scheduler and workers.
@@ -68,10 +69,9 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       : world_size_(world_size) {
     fanin_ = 0;
 
-    const auto _world_size = static_cast<std::size_t>(world_size);
-    fanout_.first.reserve(_world_size);
-    fanout_.second.reserve(_world_size);
-    for (std::size_t rank = 0; rank < _world_size; ++rank) {
+    fanout_.first.reserve(world_size);
+    fanout_.second.reserve(world_size);
+    for (mapped_type rank = 0; rank < world_size; ++rank) {
       fanout_.first.emplace_back();
       fanout_.second.emplace_back(std::move(fanout_.first[rank].get_future()));
     }
@@ -117,22 +117,19 @@ class CommunicatorServiceImpl final : public Communicator::Service {
               grpc::StatusCode::UNIMPLEMENTED,
               "Support for heterogeneous clusters is not yet implemented");
         }
-        scheduler_ =
-            flatflow::scheduler::Scheduler<mapped_type, key_type, 1, false>(
-                args->sizes(), world_size_, args->global_batch_size(),
-                args->micro_batch_size(), args->seed(),
-                args->use_flat_shuffle());
+        scheduler_ = Scheduler<mapped_type, key_type, 1, false>(
+            args->sizes(), world_size_, args->global_batch_size(),
+            args->micro_batch_size(), args->seed(), args->use_flat_shuffle());
       } else if (order == 2) {
         if (args->heterogeneous()) {
           return grpc::Status(
               grpc::StatusCode::UNIMPLEMENTED,
               "Support for heterogeneous clusters is not yet implemented");
         }
-        scheduler_ =
-            flatflow::scheduler::Scheduler<mapped_type, key_type, 2, false>(
-                args->sizes(), world_size_, args->global_batch_size(),
-                args->micro_batch_size(), args->hidden_size(), args->seed(),
-                args->use_flat_shuffle());
+        scheduler_ = Scheduler<mapped_type, key_type, 2, false>(
+            args->sizes(), world_size_, args->global_batch_size(),
+            args->micro_batch_size(), args->hidden_size(), args->seed(),
+            args->use_flat_shuffle());
       } else {
         return grpc::Status(
             grpc::StatusCode::INVALID_ARGUMENT,
@@ -150,9 +147,10 @@ class CommunicatorServiceImpl final : public Communicator::Service {
         expected = world_size_;
       }
 
-      for (auto &producer : fanout_.first) {
-        producer.set_value(std::move(std::vector<mapped_type>()));
-      }
+      std::for_each(std::execution::par, fanout_.first.begin(),
+                    fanout_.first.end(), [](auto &producer) {
+                      producer.set_value(std::move(std::vector<mapped_type>()));
+                    });
     }
 
     auto builder = flatbuffers::grpc::MessageBuilder();
@@ -212,7 +210,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
           (schedule.front().size() - 1) / per_replica_batch_size_ + 1;
       _call_callbacks_on_batch_begin();
 
-      for (std::size_t _rank = 0; _rank < world_size_; ++_rank) {
+      #pragma omp parallel for
+      for (mapped_type _rank = 0; _rank < world_size_; ++_rank) {
         fanout_.first[_rank].set_value(std::move(schedule[_rank]));
       }
     }
@@ -278,7 +277,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_batch_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_begin(batch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_begin(batch_);
     }
   }
@@ -290,7 +289,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
       mapped_type rank, const flatbuffers::Vector<double> *costs) {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_end(batch_, rank, costs);
     }
   }
@@ -301,7 +300,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_batch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_batch_end(batch_);
     }
   }
@@ -312,7 +311,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_epoch_begin() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_begin(epoch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_epoch_begin(epoch_);
     }
   }
@@ -323,7 +322,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_epoch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_end(epoch_);
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_epoch_end(epoch_);
     }
   }
@@ -334,7 +333,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_train_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_begin();
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_train_begin();
     }
   }
@@ -345,7 +344,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   inline void _call_callbacks_on_train_end() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_end();
-    } else if (scheduler_.index() == 2) {
+    } else {
       std::get<2>(scheduler_).on_train_end();
     }
   }
@@ -361,13 +360,12 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   std::pair<std::vector<std::promise<std::vector<mapped_type>>>,
             std::vector<std::future<std::vector<mapped_type>>>>
       fanout_;
-  std::variant<std::monostate,
-               flatflow::scheduler::Scheduler<mapped_type, key_type, 1, false>,
-               flatflow::scheduler::Scheduler<mapped_type, key_type, 2, false>>
+  std::variant<std::monostate, Scheduler<mapped_type, key_type, 1, false>,
+               Scheduler<mapped_type, key_type, 2, false>>
       scheduler_;
 };
 
-// flatflow::rpc::run()
+// flatflow::run()
 //
 // Executes the communicator runtime. This routine is invoked from the Python
 // frontend via foreign function interface (FFI); that is, there is no direct
@@ -399,7 +397,6 @@ void run(uint16_t port, CommunicatorServiceImpl::mapped_type world_size) {
   LOG(INFO) << absl::StrFormat("Communicator runtime started on %s", addr);
 }
 
-}  // namespace rpc
 }  // namespace flatflow
 
 #endif  // FLATFLOW_RPC_COMMUNICATOR_H_
