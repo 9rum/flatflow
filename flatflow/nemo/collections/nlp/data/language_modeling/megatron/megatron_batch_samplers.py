@@ -23,6 +23,7 @@ from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 from nemo.utils import AppState
 
+import flatflow.megatron.core.parallel_state
 from flatflow import sys
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset
@@ -147,6 +148,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 sizes if self.global_rank == 0 else None,
             )
 
+
     def set_epoch(self, epoch: int) -> None:
         r"""Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
         Otherwise, the next iteration of this sampler will yield the same ordering.
@@ -159,7 +161,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         indices = []
         model_group = parallel_state.get_model_parallel_group()
-        model_src_rank = parallel_state.get_model_parallel_src_rank()
+        model_src_rank = flatflow.megatron.core.parallel_state.get_model_parallel_src_rank()
 
         while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
@@ -167,14 +169,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                    broadcast_response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
                     self.costs = None
-                    self.converged = broadcast.Converged()
+                    self.converged = broadcast_response.Converged()
                     if self.converged:
                         for hook in self.profiler.hook_handles:
                             hook.remove()
 
-                indices = list(broadcast.IndicesAsNumpy())
+                indices = list(broadcast_response.IndicesAsNumpy())
                 indices_size = [len(indices)]
 
                 torch.distributed.broadcast_object_list(
