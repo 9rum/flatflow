@@ -35,3 +35,6 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     _C
     PRIVATE TBB::tbb)
 endif()
+target_compile_options(
+  _C
+  PRIVATE -Wall -Wextra -Wpedantic)

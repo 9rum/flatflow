@@ -21,6 +21,41 @@ target_include_directories(
 target_link_libraries(
   concat_test
   PRIVATE GTest::gtest_main)
+target_compile_options(
+  concat_test
+  PRIVATE -Wall -Wextra -Wpedantic)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_TSAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=thread)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=thread)
+endif()
+if(FLATFLOW_ENABLE_MSAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=memory)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=memory)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET concat_test)
 
@@ -33,6 +68,41 @@ target_include_directories(
 target_link_libraries(
   extract_test
   PRIVATE GTest::gtest_main)
+target_compile_options(
+  extract_test
+  PRIVATE -Wall -Wextra -Wpedantic)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_TSAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=thread)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=thread)
+endif()
+if(FLATFLOW_ENABLE_MSAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=memory)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=memory)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET extract_test)
 
@@ -53,6 +123,41 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     partition_test
     PRIVATE TBB::tbb)
 endif()
+target_compile_options(
+  partition_test
+  PRIVATE -Wall -Wextra -Wpedantic)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_TSAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=thread)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=thread)
+endif()
+if(FLATFLOW_ENABLE_MSAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=memory)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=memory)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET partition_test)
 
@@ -65,6 +170,41 @@ target_include_directories(
 target_link_libraries(
   reshape_test
   PRIVATE GTest::gtest_main)
+target_compile_options(
+  reshape_test
+  PRIVATE -Wall -Wextra -Wpedantic)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_TSAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=thread)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=thread)
+endif()
+if(FLATFLOW_ENABLE_MSAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=memory)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=memory)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET reshape_test)
 
@@ -81,6 +221,41 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   target_link_libraries(
     shuffle_test
     PRIVATE TBB::tbb)
+endif()
+target_compile_options(
+  shuffle_test
+  PRIVATE -Wall -Wextra -Wpedantic)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_TSAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=thread)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=thread)
+endif()
+if(FLATFLOW_ENABLE_MSAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=memory)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=memory)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=undefined)
 endif()
 gtest_add_tests(
   TARGET shuffle_test)
