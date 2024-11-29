@@ -98,6 +98,8 @@ ext_modules = [
         cmake_args=[
             "-DCMAKE_CXX_STANDARD=20",
             "-DFLATFLOW_BUILD_TESTS=ON",
+            "-DFLATFLOW_ENABLE_ASAN=ON",
+            "-DFLATFLOW_ENABLE_UBSAN=ON",
         ],
         py_limited_api=True,
     ),
