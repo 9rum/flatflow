@@ -23,7 +23,7 @@ target_link_libraries(
   PRIVATE GTest::gtest_main)
 target_compile_options(
   passive_aggressive_test
-  PRIVATE -Wall -Wextra -Wpedantic)
+  PRIVATE -Wall -Wextra)
 if(FLATFLOW_ENABLE_ASAN)
   target_compile_options(
     passive_aggressive_test

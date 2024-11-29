@@ -37,4 +37,4 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 endif()
 target_compile_options(
   _C
-  PRIVATE -Wall -Wextra -Wpedantic)
+  PRIVATE -Wall -Wextra)
