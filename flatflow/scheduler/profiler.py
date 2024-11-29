@@ -19,6 +19,8 @@ from typing import Any
 
 import torch
 
+import flatflow.megatron.core.parallel_state
+
 try:
     from megatron.core import parallel_state
 
@@ -37,18 +39,10 @@ class LatencyProfiler:
         self.current_batch_id = 0
         self.hook_handles = hook_handles
         self.last_layer = None
-        self.pp_rank = parallel_state.get_pipeline_model_parallel_rank()
-        self.pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-        self.mp_src_rank = parallel_state.get_model_parallel_src_rank()
-
-    def get_last_layer(self, model):
-        """extract last """
-
-        last_layer = None
-        for name, _ in model():
-            last_layer = name
-        if parallel_state.is_pipeline_last_stage():
-            self.last_layer = last_layer
+        self.mp_src_rank = flatflow.megatron.core.parallel_state.get_model_parallel_src_rank()
+        self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
+        self.mp_group = parallel_state.get_model_parallel_group()
+        self.pp_group = parallel_state.get_pipeline_model_parallel_group()
 
     def _generate_batch_key(self, microbatch_id: int) -> str:
         return f"dp{parallel_state.get_data_parallel_rank()}_pp{parallel_state.get_pipeline_model_parallel_rank()}_tp{parallel_state.get_tensor_model_parallel_rank()}_batch{microbatch_id}"
@@ -84,7 +78,7 @@ class LatencyProfiler:
 
         if parallel_state.is_pipeline_last_stage():
             latest_microbatch_id = [-1]
-            for key in self.forward_times.keys():
+            for key in self.buffer.keys():
                 latest_microbatch_id[0] = max(latest_microbatch_id[0], int(key.split('batch')[1]))
         else:
             latest_microbatch_id = [-1]
@@ -95,32 +89,24 @@ class LatencyProfiler:
             group=self.pp_group
         )
 
-        if self.rank == self.mp_src_rank:
-            all_gathered_data = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
-        else:
-            all_gathered_data = None
+        all_gathered_data = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
 
-        torch.distributed.gather_object(
-            self.buffer,
+        torch.distributed.all_gather_object(
             all_gathered_data,
-            dst=self.mp_src_rank,
+            self.buffer,
             group=self.mp_group
         )
 
-        # remove old forward times
-        self._cleanup_old_data(latest_microbatch_id[0])
-
         if self.rank == self.mp_src_rank:
-
             pp_summed_times = defaultdict(float)
-            for key, value in self.forward_times.items():
-
-                base_key = re.sub(r'_pp\d+', '', key)
-                pp_summed_times[base_key] += value
+            for data in all_gathered_data:
+                if data:
+                    for key, value in data.items():
+                        base_key = re.sub(r'_pp\d+', '', key)
+                        pp_summed_times[base_key] += value
 
             grouped_keys = defaultdict(list)
             for key in pp_summed_times.keys():
-
                 match = re.match(r'(.*?)(?:_tp_\d+)?$', key)
                 if match:
                     base_key = match.group(1)
@@ -128,27 +114,28 @@ class LatencyProfiler:
 
             processed_times = {}
             for base_key, variant_keys in grouped_keys.items():
-                # If multiple tensor groups
-                if len(variant_keys) > 1:
+                if len(variant_keys) > 1:  # tensor parallel variants
                     max_key = max(variant_keys, key=lambda k: pp_summed_times[k])
                     processed_times[base_key] = pp_summed_times[max_key]
-                else:
+                else:  # No tensor parallel variants
                     processed_times[base_key] = pp_summed_times[variant_keys[0]]
 
             def get_batch_id(key):
                 match = re.search(r'batch(\d+)', key)
                 return int(match.group(1)) if match else -1
 
-            sorted_times = dict(sorted(processed_times.items(), key=lambda x: get_batch_id(x[0])))
+            sorted_times = [value for _, value in sorted(processed_times.items(), key=lambda x: get_batch_id(x[0]))]
 
             self.forward_times = sorted_times
 
+        self._cleanup_old_data(latest_microbatch_id[0])
 
     def _cleanup_old_data(self, latest_microbatch_id: int):
         keys_to_remove = []
-        for key in self.buffers.keys():
-            batch_id = int(key.split('batch')[1])
-            if latest_microbatch_id > batch_id:
+
+        for key in self.buffer.keys():
+            batch_id = int(key.split('batch')[1]) if not isinstance(key, int) else int(key)
+            if latest_microbatch_id >= batch_id:
                 keys_to_remove.append(key)
 
         for key in keys_to_remove:

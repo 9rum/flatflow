@@ -168,16 +168,18 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                    self.costs = None
-                    self.converged = response.Converged()
-                    if self.converged:
-                        for hook in self.profiler.hook_handles:
-                            hook.remove()
+                    self.costs = self.profiler.forward_times
+                    self.profiler.forward_times.clear()
 
-                indices = list(response.IndicesAsNumpy())
-                indices_size = [len(indices)]
+                response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                self.costs = None
+                self.converged = response.Converged()
+                if self.converged:
+                    for hook in self.profiler.hook_handles:
+                        hook.remove()
 
+                    indices_local = list(response.IndicesAsNumpy())
+                    indices_size = [len(indices_local)]
                 torch.distributed.broadcast_object_list(
                     indices_size, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
                 )
