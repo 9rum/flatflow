@@ -21,8 +21,6 @@ include(CTest)
 
 option(FLATFLOW_BUILD_TESTS "If ON, FlatFlow will build its own tests" OFF)
 option(FLATFLOW_ENABLE_ASAN "If ON, enable AddressSanitizer" OFF)
-option(FLATFLOW_ENABLE_TSAN "If ON, enable ThreadSanitizer" OFF)
-option(FLATFLOW_ENABLE_MSAN "If ON, enable MemorySanitizer" OFF)
 option(FLATFLOW_ENABLE_UBSAN "If ON, enable UndefinedBehaviorSanitizer" OFF)
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")

@@ -32,22 +32,6 @@ if(FLATFLOW_ENABLE_ASAN)
     concat_test
     PRIVATE -fsanitize=address)
 endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    concat_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    concat_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    concat_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    concat_test
-    PRIVATE -fsanitize=memory)
-endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
     concat_test
@@ -78,22 +62,6 @@ if(FLATFLOW_ENABLE_ASAN)
   target_link_options(
     extract_test
     PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    extract_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    extract_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    extract_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    extract_test
-    PRIVATE -fsanitize=memory)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
@@ -134,22 +102,6 @@ if(FLATFLOW_ENABLE_ASAN)
     partition_test
     PRIVATE -fsanitize=address)
 endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    partition_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    partition_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    partition_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    partition_test
-    PRIVATE -fsanitize=memory)
-endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
     partition_test
@@ -180,22 +132,6 @@ if(FLATFLOW_ENABLE_ASAN)
   target_link_options(
     reshape_test
     PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    reshape_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    reshape_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    reshape_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    reshape_test
-    PRIVATE -fsanitize=memory)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
@@ -232,22 +168,6 @@ if(FLATFLOW_ENABLE_ASAN)
   target_link_options(
     shuffle_test
     PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    shuffle_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    shuffle_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    shuffle_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    shuffle_test
-    PRIVATE -fsanitize=memory)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(

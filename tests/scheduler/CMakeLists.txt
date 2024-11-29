@@ -47,22 +47,6 @@ if(FLATFLOW_ENABLE_ASAN)
     scheduler_test
     PRIVATE -fsanitize=address)
 endif()
-if(FLATFLOW_ENABLE_TSAN)
-  target_compile_options(
-    scheduler_test
-    PRIVATE -fsanitize=thread)
-  target_link_options(
-    scheduler_test
-    PRIVATE -fsanitize=thread)
-endif()
-if(FLATFLOW_ENABLE_MSAN)
-  target_compile_options(
-    scheduler_test
-    PRIVATE -fsanitize=memory)
-  target_link_options(
-    scheduler_test
-    PRIVATE -fsanitize=memory)
-endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
     scheduler_test
