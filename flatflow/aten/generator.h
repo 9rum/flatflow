@@ -38,9 +38,7 @@ class Generator {
   // Note that we use `std::mt19937` instead of using `at::mt19937` because
   // `std::mt19937` turns out to be faster than the ATen counterpart when used
   // with `std::shuffle`.
-  explicit Generator(result_type seed = 5489) {
-    engine_ = std::mt19937(static_cast<uint_fast32_t>(seed));
-  }
+  explicit Generator(result_type seed = 5489) { engine_ = std::mt19937(seed); }
 
   explicit Generator(const Generator &other) = default;
 
@@ -64,9 +62,7 @@ class Generator {
   //
   // Advances the state of the underlying engine, and generates a pseudo-random
   // number from the new state.
-  inline result_type operator()() {
-    return static_cast<result_type>(engine_());
-  }
+  result_type operator()() { return engine_(); }
 
  protected:
   std::mt19937 engine_;
