@@ -58,14 +58,12 @@ class Subset {
 
   Subset &operator=(Subset &&other) = default;
 
-  inline bool operator<(const Subset &other) const noexcept {
-    return sum < other.sum;
-  }
+  bool operator<(const Subset &other) const noexcept { return sum < other.sum; }
 
   // Subset::Join()
   //
   // Merges the given two partitions.
-  inline void Join(const Subset &other) {
+  void Join(const Subset &other) {
     sum += other.sum;
     items.reserve(items.size() + other.items.size());
     items.insert(items.cend(), std::make_move_iterator(other.items.begin()),
@@ -107,7 +105,7 @@ class Solution {
 
   Solution &operator=(Solution &&other) = default;
 
-  inline bool operator<(const Solution &other) const noexcept {
+  bool operator<(const Solution &other) const noexcept {
     return difference < other.difference;
   }
 

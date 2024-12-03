@@ -174,7 +174,7 @@ class Dataset {
   // Depending on `Drop`, inserts the given data sample into the inverted index
   // or recycle bin with bounds checking.
   template <bool Drop>
-  inline void insert(key_type size, mapped_type index) {
+  void insert(key_type size, mapped_type index) {
     if constexpr (!Drop) {
       assert(size_ < max_size_);
     }
@@ -224,12 +224,12 @@ class Dataset {
   // Dataset::size()
   //
   // Returns the number of data samples in the inverted index.
-  inline size_type size() const noexcept { return size_; }
+  size_type size() const noexcept { return size_; }
 
   // Dataset::max_size()
   //
   // Returns the maximum possible number of data samples in the inverted index.
-  inline size_type max_size() const noexcept { return max_size_; }
+  size_type max_size() const noexcept { return max_size_; }
 
   // Dataset::on_batch_begin()
   //
@@ -244,7 +244,7 @@ class Dataset {
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(mapped_type epoch) {
+  void on_epoch_begin(mapped_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::Dataset<>` shuffles between
@@ -271,7 +271,7 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] mapped_type epoch) {
+  void on_epoch_end([[maybe_unused]] mapped_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the end of an epoch, the inverted index must be empty.
@@ -392,7 +392,7 @@ class Dataset {
   // Takes a data sample from item at `position` without restoring the retrieved
   // data sample to the recycle bin if `Drop` is evaluated to `true`.
   template <bool Drop>
-  inline value_type take_impl(container_type::reverse_iterator position) {
+  value_type take_impl(container_type::reverse_iterator position) {
     return take_impl<Drop>(std::next(position).base());
   }
 
