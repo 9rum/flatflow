@@ -40,38 +40,38 @@ class Dataset : public flatflow::Dataset<uint64_t, uint16_t> {
  public:
   using super_type::super_type;
 
-  inline bool empty(bool items = true) const {
+  bool empty(bool items = true) const {
     return items ? items_.empty() : recyclebin_.empty();
   }
 
-  inline std::size_t size() const noexcept { return size_; }
+  std::size_t size() const noexcept { return size_; }
 
-  inline std::size_t size(uint16_t size, bool items = true) const {
+  std::size_t size(uint16_t size, bool items = true) const {
     return items ? items_.at(size).size() : recyclebin_.at(size).size();
   }
 
-  inline std::size_t capacity(uint16_t size, bool items = true) const {
+  std::size_t capacity(uint16_t size, bool items = true) const {
     return items ? items_.at(size).capacity() : recyclebin_.at(size).capacity();
   }
 
-  inline bool contains(uint16_t size, bool items = true) const {
+  bool contains(uint16_t size, bool items = true) const {
     return items ? items_.contains(size) : recyclebin_.contains(size);
   }
 
-  inline bool is_sorted(uint16_t size, bool items = true) const {
+  bool is_sorted(uint16_t size, bool items = true) const {
     return items ? std::is_sorted(items_.at(size).cbegin(),
                                   items_.at(size).cend())
                  : std::is_sorted(recyclebin_.at(size).crbegin(),
                                   recyclebin_.at(size).crend());
   }
 
-  inline std::vector<uint64_t> copy(uint16_t size) const {
+  std::vector<uint64_t> copy(uint16_t size) const {
     auto slot = std::vector<uint64_t>(items_.at(size).size());
     std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
     return slot;
   }
 
-  inline bool equal(uint16_t size, const std::vector<uint64_t> &slot) const {
+  bool equal(uint16_t size, const std::vector<uint64_t> &slot) const {
     return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
   }
 };

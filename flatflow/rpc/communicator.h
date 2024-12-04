@@ -253,7 +253,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::GetSchedule()
   //
   // Gets computation schedule from the scheduler.
-  inline std::vector<std::vector<mapped_type>> GetSchedule() {
+  std::vector<std::vector<mapped_type>> GetSchedule() {
     if (scheduler_.index() == 1) {
       return std::get<1>(scheduler_).Schedule();
     }
@@ -264,7 +264,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   //
   // Returns the convergence status of the underlying cost model of the
   // scheduler.
-  inline bool CheckConvergence() const noexcept {
+  bool CheckConvergence() const noexcept {
     if (scheduler_.index() == 1) {
       return std::get<1>(scheduler_).converged();
     }
@@ -274,7 +274,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_batch_begin()
   //
   // Calls every callback's `on_batch_begin` hook.
-  inline void _call_callbacks_on_batch_begin() const noexcept {
+  void _call_callbacks_on_batch_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_begin(batch_);
     } else {
@@ -285,8 +285,8 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_batch_end()
   //
   // Calls every callback's rank-wise `on_batch_end` hook.
-  inline void _call_callbacks_on_batch_end(
-      mapped_type rank, const flatbuffers::Vector<double> *costs) {
+  void _call_callbacks_on_batch_end(mapped_type rank,
+                                    const flatbuffers::Vector<double> *costs) {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_, rank, costs);
     } else {
@@ -297,7 +297,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_batch_end()
   //
   // Calls every callback's `on_batch_end` hook.
-  inline void _call_callbacks_on_batch_end() {
+  void _call_callbacks_on_batch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_batch_end(batch_);
     } else {
@@ -308,7 +308,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_epoch_begin()
   //
   // Calls every callback's `on_epoch_begin` hook.
-  inline void _call_callbacks_on_epoch_begin() {
+  void _call_callbacks_on_epoch_begin() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_begin(epoch_);
     } else {
@@ -319,7 +319,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_epoch_end()
   //
   // Calls every callback's `on_epoch_end` hook.
-  inline void _call_callbacks_on_epoch_end() {
+  void _call_callbacks_on_epoch_end() {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_epoch_end(epoch_);
     } else {
@@ -330,7 +330,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_train_begin()
   //
   // Calls every callback's `on_train_begin` hook.
-  inline void _call_callbacks_on_train_begin() const noexcept {
+  void _call_callbacks_on_train_begin() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_begin();
     } else {
@@ -341,7 +341,7 @@ class CommunicatorServiceImpl final : public Communicator::Service {
   // CommunicatorServiceImpl::_call_callbacks_on_train_end()
   //
   // Calls every callback's `on_train_end` hook.
-  inline void _call_callbacks_on_train_end() const noexcept {
+  void _call_callbacks_on_train_end() const noexcept {
     if (scheduler_.index() == 1) {
       std::get<1>(scheduler_).on_train_end();
     } else {
