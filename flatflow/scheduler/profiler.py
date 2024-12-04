@@ -60,9 +60,6 @@ class LatencyProfiler:
             elapsed_time = (time.perf_counter() - self.start_times[batch_key]) * 1000
             self.buffer[batch_key] += elapsed_time
 
-    def get_timing_data(self):
-        return self.forward_times
-
     def _sync_and_collect_times(self):
         """synchronize time in pipeline group and model parallel group
         Broadcast recent microbatch id from last stage.
@@ -128,9 +125,9 @@ class LatencyProfiler:
 
             self.forward_times = sorted_times
 
-        self._cleanup_old_data(latest_microbatch_id[0])
+        self.cleanup_old_data(latest_microbatch_id[0])
 
-    def _cleanup_old_data(self, latest_microbatch_id: int):
+    def cleanup_old_data(self, latest_microbatch_id: int):
         keys_to_remove = []
 
         for key in self.buffer.keys():
