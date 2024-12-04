@@ -23,11 +23,13 @@
 #include <execution>
 #include <functional>
 #include <iterator>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "flatbuffers/vector.h"
 
 #include "flatflow/data/dataset.h"
@@ -538,6 +540,19 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   void on_batch_end([[maybe_unused]] mapped_type batch,
                     [[maybe_unused]] mapped_type rank,
                     [[maybe_unused]] const flatbuffers::Vector<double> *costs) {
+    auto __costs = std::vector<std::string>();
+    if (costs != nullptr) {
+      __costs.reserve(costs->size());
+      for (flatbuffers::uoffset_t index = 0; index < costs->size(); ++index) {
+        __costs.emplace_back(std::to_string(costs->Get(index)));
+      }
+    }
+    LOG(INFO) << absl::StrFormat(
+        "on_batch_end called after batch %u (rank %u)\n"
+        "len(costs): %u\n"
+        "costs: [%s]",
+        batch, rank, __costs.size(), absl::StrJoin(__costs, ", "));
+
     // Store the feedback if given; it is later used to fit the underlying
     // cost model.
     if (costs == nullptr || regressor_.converged()) {
