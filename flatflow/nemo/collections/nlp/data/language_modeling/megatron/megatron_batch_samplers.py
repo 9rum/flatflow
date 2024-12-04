@@ -116,7 +116,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.pipeline_parallel_world_size: int = parallel_state.get_pipeline_model_parallel_world_size()
         self.micro_batch_times_data_parallel_size: int = self.micro_batch_size * self.data_parallel_size
         self.dataset = dataset
-        self.global_rank = app_state.global_rank
+        self.global_rank = torch.distributed.get_rank()
         self.epoch = 0
         self.indices = []
         self.last_batch_size = self.total_samples % self._global_batch_size
