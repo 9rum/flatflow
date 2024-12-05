@@ -178,8 +178,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                     for hook in self.profiler.hook_handles:
                         hook.remove()
 
-                    indices_local = list(response.IndicesAsNumpy())
-                    indices_size = [len(indices_local)]
+                indices_local = list(response.IndicesAsNumpy())
+                indices_size = [len(indices_local)]
                 torch.distributed.broadcast_object_list(
                     indices_size, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
                 )
