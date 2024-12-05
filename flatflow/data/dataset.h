@@ -142,13 +142,13 @@ class Dataset {
     // unknown pragma warning on compilation, regardless of whether its clause
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
-    #pragma omp unroll partial
+    #pragma omp unroll
     for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
       slots[sizes->Get(index)].emplace_back(index);
     }
 
     #pragma omp unroll full
-    for (std::size_t size = 0; size < slots.size(); ++size) {
+    for (std::size_t size = 0; size < kIndexSlotSpace; ++size) {
       auto &slot = slots[size];
       if (0 < slot.size()) {
         items_.try_emplace(size, std::move(slot));
@@ -199,15 +199,15 @@ class Dataset {
     auto samples = std::vector<value_type>();
     samples.reserve(n);
 
-    #pragma omp unroll partial
+    #pragma omp unroll
     for (auto item = items_.begin(); 0 < n; item = items_.begin()) {
       if (n < item->second.size()) {
-        #pragma omp unroll partial
+        #pragma omp unroll
         for (; 0 < n; --n) {
           samples.emplace_back(take_impl<Drop>(item));
         }
       } else {
-        #pragma omp unroll partial
+        #pragma omp unroll
         for (; 1 < item->second.size(); --n) {
           samples.emplace_back(take_impl<Drop>(item));
         }
