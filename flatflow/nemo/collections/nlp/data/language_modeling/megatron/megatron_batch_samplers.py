@@ -167,34 +167,49 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 break
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-                if not self.converged:
-                    self.costs = self.profiler.forward_times
-                    self.profiler.forward_times.clear()
+                try:
+                    if not self.converged:
+                        print(f"Inside sampler {self.global_rank=}, {self.profiler.forward_times=}")
+                        self.costs = list(self.profiler.forward_times)
+                        self.profiler.forward_times.clear()
+                    broadcast = self.client.Broadcast(epoch=self.epoch, costs=self.profiler.forward_times)
+                    self.costs = None
+                    self.converged = broadcast.Converged()
+                    
+                    if self.converged:
+                        for hook in self.profiler.hook_handles:
+                            hook.remove()
 
-                response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                self.costs = None
-                self.converged = response.Converged()
-                if self.converged:
-                    for hook in self.profiler.hook_handles:
-                        hook.remove()
+                    indices = list(broadcast.IndicesAsNumpy())
+                    indices_size = [len(indices)]
+                    print(f"{self.global_rank=},{self.converged=}, {len(indices)=}")
 
-                indices_local = list(response.IndicesAsNumpy())
-                indices_size = [len(indices_local)]
-                torch.distributed.broadcast_object_list(
-                    indices_size, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
-                )
+
+                except Exception as e:
+                    print(f"Rank {self.global_rank} - Error getting scheduler data: {e}")
+                    raise
 
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 torch.distributed.broadcast_object_list(
-                    indices, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
+                    indices,
+                    src=self.global_rank,
+                    group=parallel_state.get_tensor_model_parallel_group()
                 )
 
-            torch.distributed.broadcast_object_list(indices_size, src=model_src_rank, group=model_group)
+            torch.distributed.broadcast_object_list(
+                indices_size,
+                src=model_src_rank,
+                group=model_group
+            )
 
             if self.pipeline_parallel_rank != 0 or self.tensor_parallel_rank != 0:
                 indices = [0] * indices_size[0]
 
-            torch.distributed.broadcast_object_list(indices, src=model_src_rank, group=model_group)
+            torch.distributed.broadcast_object_list(
+                indices,
+                src=model_src_rank,
+                group=model_group
+            )
 
             self.consumed_samples += indices_size[0]
 
@@ -202,14 +217,15 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             for idx in range(indices_size[0]):
                 batch.append(indices[idx])
                 if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
+                    print(f"not remainder {self.global_rank=}, {batch=}")
                     yield batch
                     batch = []
 
             if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
                 num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
                 batch = batch + [-1] * num_pad
+                print(f"remainder {self.global_rank=}, {batch=}")
                 yield batch
-
     def __del__(self) -> None:
         if hasattr(self.client, "rank") and self.client.rank == 0:
             self.client.Finalize()
