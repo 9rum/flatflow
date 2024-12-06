@@ -21,9 +21,7 @@ import grpc
 import torch.distributed
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
-from nemo.utils import AppState
 
-import flatflow.megatron.core.parallel_state
 from flatflow import sys
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset
@@ -101,7 +99,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             drop_last=drop_last,
             pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
         )
-        app_state = AppState()
         self.order = order
         self.use_flat_shuffle = use_flat_shuffle
         self.total_samples: int = total_samples
@@ -116,7 +113,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.pipeline_parallel_world_size: int = parallel_state.get_pipeline_model_parallel_world_size()
         self.micro_batch_times_data_parallel_size: int = self.micro_batch_size * self.data_parallel_size
         self.dataset = dataset
-        self.global_rank = app_state.global_rank
+        self.global_rank = torch.distributed.get_rank()
         self.epoch = 0
         self.indices = []
         self.last_batch_size = self.total_samples % self._global_batch_size
@@ -160,7 +157,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         indices = []
         model_group = parallel_state.get_model_parallel_group()
-        model_src_rank = flatflow.megatron.core.parallel_state.get_model_parallel_src_rank()
+        model_src_rank = torch.distributed.get_process_group_ranks(model_group)[0]
 
         while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
@@ -168,12 +165,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                    self.costs = None
-                    self.converged = response.Converged()
-                    if self.converged:
-                        for hook in self.profiler.hook_handles:
-                            hook.remove()
+                    self.profiler.wait()
+                    self.costs = self.profiler.extract()
+                response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
+                self.costs = None
+                self.converged = response.Converged()
+                if self.converged:
+                    for hook in self.profiler.hook_handles:
+                        hook.remove()
 
                 indices = list(response.IndicesAsNumpy())
                 indices_size = [len(indices)]
