@@ -23,11 +23,13 @@
 #include <execution>
 #include <functional>
 #include <iterator>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "flatbuffers/vector.h"
 
 #include "flatflow/data/dataset.h"
@@ -73,10 +75,10 @@ class Scheduler {
   Scheduler(const flatbuffers::Vector<key_type> *sizes, mapped_type world_size,
             mapped_type global_batch_size, mapped_type micro_batch_size,
             mapped_type seed, bool use_flat_shuffle)
-      : world_size_(world_size),
-        global_batch_size_(global_batch_size),
+      : global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
         seed_(seed),
+        world_size_(world_size),
         use_flat_shuffle_(use_flat_shuffle) {
     assert(world_size != 0);
     assert(global_batch_size != 0);
@@ -101,11 +103,6 @@ class Scheduler {
         world_size, global_batch_size, micro_batch_size, 1, seed, false,
         use_flat_shuffle);
 
-    // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
-    // any branch instructions.
-    num_micro_batches_ =
-        ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
-
     // The last micro-batch size must be calculated since the total number of
     // data samples is guaranteed to be a multiple of data parallel size, but
     // may not be divisible by the micro-batch size.
@@ -114,6 +111,11 @@ class Scheduler {
     // branch instructions.
     last_micro_batch_size_ =
         (num_samples / world_size - 1) % micro_batch_size + 1;
+
+    // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
+    // any branch instructions.
+    num_micro_batches_ =
+        ((num_samples / world_size - 1) / micro_batch_size + 1) * world_size;
 
     // The below copy assignment is actually not copied but direct-initialized
     // by copy elision.
@@ -192,12 +194,12 @@ class Scheduler {
   //
   // Returns the convergence status of the underlying cost model if it exists,
   // otherwise returns true.
-  inline bool converged() const noexcept { return true; }
+  bool converged() const noexcept { return true; }
 
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(mapped_type batch) const noexcept {
+  void on_batch_begin(mapped_type batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
@@ -212,14 +214,14 @@ class Scheduler {
   // Scheduler::on_batch_end()
   //
   // A callback to be called after all rank-wise batch callbacks invocation.
-  inline void on_batch_end(mapped_type batch) const noexcept {
+  void on_batch_end(mapped_type batch) const noexcept {
     dataset_.on_batch_end(batch);
   }
 
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(mapped_type epoch) {
+  void on_epoch_begin(mapped_type epoch) {
     dataset_.on_epoch_begin(epoch);
     epoch_ = epoch;
   }
@@ -227,17 +229,17 @@ class Scheduler {
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
+  void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
 
   // Scheduler::on_train_begin()
   //
   // A callback to be called at the beginning of training.
-  inline void on_train_begin() const noexcept { dataset_.on_train_begin(); }
+  void on_train_begin() const noexcept { dataset_.on_train_begin(); }
 
   // Scheduler::on_train_end()
   //
   // A callback to be called at the end of training.
-  inline void on_train_end() const noexcept { dataset_.on_train_end(); }
+  void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
   mapped_type epoch_;
@@ -280,10 +282,10 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   Scheduler(const flatbuffers::Vector<key_type> *sizes, mapped_type world_size,
             mapped_type global_batch_size, mapped_type micro_batch_size,
             mapped_type hidden_size, mapped_type seed, bool use_flat_shuffle)
-      : world_size_(world_size),
-        global_batch_size_(global_batch_size),
+      : global_batch_size_(global_batch_size),
         micro_batch_size_(micro_batch_size),
         seed_(seed),
+        world_size_(world_size),
         use_flat_shuffle_(use_flat_shuffle) {
     assert(world_size != 0);
     assert(global_batch_size != 0);
@@ -310,10 +312,10 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
         world_size, global_batch_size, hidden_size, micro_batch_size, 2, seed,
         false, use_flat_shuffle);
 
+    interval_ = 1;
+
     last_micro_batch_size_ =
         (num_samples / world_size - 1) % micro_batch_size + 1;
-
-    interval_ = 1;
 
     sizes_ = std::vector<std::vector<std::vector<key_type>>>(world_size);
     costs_ = std::vector<std::vector<double>>(world_size);
@@ -523,12 +525,12 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   //
   // Returns the convergence status of the underlying cost model if it exists,
   // otherwise returns true.
-  inline bool converged() const noexcept { return regressor_.converged(); }
+  bool converged() const noexcept { return regressor_.converged(); }
 
   // Scheduler::on_batch_begin()
   //
   // A callback to be called at the beginning of a training batch.
-  inline void on_batch_begin(mapped_type batch) const noexcept {
+  void on_batch_begin(mapped_type batch) const noexcept {
     dataset_.on_batch_begin(batch);
   }
 
@@ -538,6 +540,19 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   void on_batch_end([[maybe_unused]] mapped_type batch,
                     [[maybe_unused]] mapped_type rank,
                     [[maybe_unused]] const flatbuffers::Vector<double> *costs) {
+    auto __costs = std::vector<std::string>();
+    if (costs != nullptr) {
+      __costs.reserve(costs->size());
+      for (flatbuffers::uoffset_t index = 0; index < costs->size(); ++index) {
+        __costs.emplace_back(std::to_string(costs->Get(index)));
+      }
+    }
+    LOG(INFO) << absl::StrFormat(
+        "on_batch_end called after batch %u (rank %u)\n"
+        "len(costs): %u\n"
+        "costs: [%s]",
+        batch, rank, __costs.size(), absl::StrJoin(__costs, ", "));
+
     // Store the feedback if given; it is later used to fit the underlying
     // cost model.
     if (costs == nullptr || regressor_.converged()) {
@@ -590,7 +605,7 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(mapped_type epoch) {
+  void on_epoch_begin(mapped_type epoch) {
     dataset_.on_epoch_begin(epoch);
     epoch_ = epoch;
   }
@@ -598,17 +613,17 @@ class Scheduler<Index, Size, /*Order=*/2, /*Heterogeneous=*/false> {
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
+  void on_epoch_end(mapped_type epoch) { dataset_.on_epoch_end(epoch); }
 
   // Scheduler::on_train_begin()
   //
   // A callback to be called at the beginning of training.
-  inline void on_train_begin() const noexcept { dataset_.on_train_begin(); }
+  void on_train_begin() const noexcept { dataset_.on_train_begin(); }
 
   // Scheduler::on_train_end()
   //
   // A callback to be called at the end of training.
-  inline void on_train_end() const noexcept { dataset_.on_train_end(); }
+  void on_train_end() const noexcept { dataset_.on_train_end(); }
 
  protected:
   mapped_type epoch_;

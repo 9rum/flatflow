@@ -66,7 +66,8 @@ TEST_F(RegressorTest, Linear) {
   }
 
   auto regressor =
-      flatflow::sklearn::linear_model::PassiveAggressiveRegressor<1>(kEpsilon);
+      flatflow::sklearn::linear_model::PassiveAggressiveRegressor<1>(1.0, 1000,
+                                                                     kEpsilon);
   regressor.fit(sums, costs);
   EXPECT_FALSE(regressor.converged());
 
@@ -93,7 +94,7 @@ TEST_F(RegressorTest, Quadratic) {
 
   auto regressor =
       flatflow::sklearn::linear_model::PassiveAggressiveRegressor<2>(
-          kHiddenSize, kEpsilon);
+          kHiddenSize, 1.0, 1000, kEpsilon);
   regressor.fit(sizes, costs);
   EXPECT_FALSE(regressor.converged());
 

@@ -20,7 +20,27 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   concat_test
-  PRIVATE GTest::gtest_main)
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  concat_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    concat_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    concat_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET concat_test)
 
@@ -32,7 +52,27 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   extract_test
-  PRIVATE GTest::gtest_main)
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  extract_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    extract_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    extract_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET extract_test)
 
@@ -47,11 +87,31 @@ target_link_libraries(
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
-  PRIVATE GTest::gtest_main)
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   target_link_libraries(
     partition_test
     PRIVATE TBB::tbb)
+endif()
+target_compile_options(
+  partition_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    partition_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    partition_test
+    PRIVATE -fsanitize=undefined)
 endif()
 gtest_add_tests(
   TARGET partition_test)
@@ -64,7 +124,27 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   reshape_test
-  PRIVATE GTest::gtest_main)
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  reshape_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    reshape_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    reshape_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET reshape_test)
 
@@ -81,6 +161,25 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   target_link_libraries(
     shuffle_test
     PRIVATE TBB::tbb)
+endif()
+target_compile_options(
+  shuffle_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    shuffle_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    shuffle_test
+    PRIVATE -fsanitize=undefined)
 endif()
 gtest_add_tests(
   TARGET shuffle_test)

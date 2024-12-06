@@ -34,5 +34,24 @@ if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     dataset_test
     PRIVATE TBB::tbb)
 endif()
+target_compile_options(
+  dataset_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    dataset_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    dataset_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    dataset_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    dataset_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET dataset_test)

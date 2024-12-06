@@ -21,5 +21,24 @@ target_include_directories(
 target_link_libraries(
   passive_aggressive_test
   PRIVATE GTest::gtest_main)
+target_compile_options(
+  passive_aggressive_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    passive_aggressive_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    passive_aggressive_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    passive_aggressive_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    passive_aggressive_test
+    PRIVATE -fsanitize=undefined)
+endif()
 gtest_add_tests(
   TARGET passive_aggressive_test)

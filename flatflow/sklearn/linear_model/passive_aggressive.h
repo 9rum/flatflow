@@ -42,9 +42,10 @@ class PassiveAggressiveRegressor {
   // `epsilon` denotes the threshold for prediction loss, which defaults to 0.1.
   // If the difference between the current prediction and the correct label is
   // below this threshold, the model is not updated.
-  explicit PassiveAggressiveRegressor(double epsilon = 0.1, double C = 1.0,
-                                      std::size_t max_iter = 1000)
-      : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
+  explicit PassiveAggressiveRegressor(double C = 1.0,
+                                      std::size_t max_iter = 1000,
+                                      double epsilon = 0.1)
+      : max_iter_(max_iter), C_(C), epsilon_(epsilon) {
     coef_ = 1.0;
     intercept_ = 0.0;
     converged_ = false;
@@ -106,19 +107,19 @@ class PassiveAggressiveRegressor {
   // Predicts cost for the given size.
   template <typename T>
     requires flatflow::internal::Numerical<T>
-  inline double predict(T size) const noexcept {
+  double predict(T size) const noexcept {
     return coef_ * static_cast<double>(size);
   }
 
   // PassiveAggressiveRegressor::intercept()
   //
   // Returns the current model intercept.
-  inline double intercept() const noexcept { return intercept_; }
+  double intercept() const noexcept { return intercept_; }
 
   // PassiveAggressiveRegressor::converged()
   //
   // Returns whether the model has converged.
-  inline bool converged() const noexcept { return converged_; }
+  bool converged() const noexcept { return converged_; }
 
  protected:
   std::size_t max_iter_;
@@ -145,14 +146,14 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // For typical Transformers, this is eight times the hidden dimension size.
   template <typename T>
     requires flatflow::internal::Numerical<T>
-  explicit PassiveAggressiveRegressor(T coefficient, double epsilon = 0.1,
-                                      double C = 1.0,
-                                      std::size_t max_iter = 1000)
-      : epsilon_(epsilon), C_(C), max_iter_(max_iter) {
+  explicit PassiveAggressiveRegressor(T coefficient, double C = 1.0,
+                                      std::size_t max_iter = 1000,
+                                      double epsilon = 0.1)
+      : max_iter_(max_iter), C_(C), epsilon_(epsilon) {
     intercept_ = 0.0;
     converged_ = false;
     coef_.front() = 1.0;
-    coef_.back() = static_cast<double>(coefficient);
+    coef_.back() = coefficient;
   }
 
   explicit PassiveAggressiveRegressor(const PassiveAggressiveRegressor &other) = default;
@@ -221,20 +222,20 @@ class PassiveAggressiveRegressor</*Order=*/2> {
   // Predicts cost for the given size.
   template <typename T>
     requires flatflow::internal::Numerical<T>
-  inline double predict(T size) const noexcept {
-    return static_cast<double>(size) *
-           (coef_.front() * static_cast<double>(size) + coef_.back());
+  double predict(T size) const noexcept {
+    const auto operand = static_cast<double>(size);
+    return operand * (coef_.front() * operand + coef_.back());
   }
 
   // PassiveAggressiveRegressor::intercept()
   //
   // Returns the current model intercept.
-  inline double intercept() const noexcept { return intercept_; }
+  double intercept() const noexcept { return intercept_; }
 
   // PassiveAggressiveRegressor::converged()
   //
   // Returns whether the model has converged.
-  inline bool converged() const noexcept { return converged_; }
+  bool converged() const noexcept { return converged_; }
 
  protected:
   std::size_t max_iter_;

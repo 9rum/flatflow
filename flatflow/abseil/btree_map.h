@@ -511,7 +511,7 @@ class btree_map
 //
 // Swaps the contents of two `btree_map` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other) {
+void swap(btree_map<K, V, C, A, S> &map, btree_map<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
@@ -869,7 +869,7 @@ class btree_multimap
 //
 // Swaps the contents of two `btree_multimap` containers.
 template <typename K, typename V, typename C, typename A, int S>
-inline void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
+void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &other) {
   map.swap(other);
 }
 
@@ -891,18 +891,18 @@ struct map_params : absl::container_internal::common_params<Key, Compare, Alloc,
   using init_type = typename super_type::init_type;
 
   template <typename V>
-  static inline auto key(const V &value ABSL_ATTRIBUTE_LIFETIME_BOUND)
+  static auto key(const V &value ABSL_ATTRIBUTE_LIFETIME_BOUND)
       -> decltype((value.first)) {
     return value.first;
   }
-  static inline const Key &key(const slot_type *s) { return slot_policy::key(s); }
-  static inline const Key &key(slot_type *s) { return slot_policy::key(s); }
+  static const Key &key(const slot_type *s) { return slot_policy::key(s); }
+  static const Key &key(slot_type *s) { return slot_policy::key(s); }
   // For use in node handle.
-  static inline auto mutable_key(slot_type *s)
+  static auto mutable_key(slot_type *s)
       -> decltype(slot_policy::mutable_key(s)) {
     return slot_policy::mutable_key(s);
   }
-  static inline mapped_type &value(value_type *value) { return value->second; }
+  static mapped_type &value(value_type *value) { return value->second; }
 };
 
 }  // namespace internal

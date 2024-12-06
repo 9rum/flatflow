@@ -142,13 +142,13 @@ class Dataset {
     // unknown pragma warning on compilation, regardless of whether its clause
     // is full or partial. That is, we have to define our own portable loop
     // unrolling macros.
-    #pragma omp unroll partial
+    #pragma omp unroll
     for (flatbuffers::uoffset_t index = 0; index < sizes->size(); ++index) {
       slots[sizes->Get(index)].emplace_back(index);
     }
 
     #pragma omp unroll full
-    for (std::size_t size = 0; size < slots.size(); ++size) {
+    for (std::size_t size = 0; size < kIndexSlotSpace; ++size) {
       auto &slot = slots[size];
       if (0 < slot.size()) {
         items_.try_emplace(size, std::move(slot));
@@ -174,7 +174,7 @@ class Dataset {
   // Depending on `Drop`, inserts the given data sample into the inverted index
   // or recycle bin with bounds checking.
   template <bool Drop>
-  inline void insert(key_type size, mapped_type index) {
+  void insert(key_type size, mapped_type index) {
     if constexpr (!Drop) {
       assert(size_ < max_size_);
     }
@@ -199,15 +199,15 @@ class Dataset {
     auto samples = std::vector<value_type>();
     samples.reserve(n);
 
-    #pragma omp unroll partial
+    #pragma omp unroll
     for (auto item = items_.begin(); 0 < n; item = items_.begin()) {
       if (n < item->second.size()) {
-        #pragma omp unroll partial
+        #pragma omp unroll
         for (; 0 < n; --n) {
           samples.emplace_back(take_impl<Drop>(item));
         }
       } else {
-        #pragma omp unroll partial
+        #pragma omp unroll
         for (; 1 < item->second.size(); --n) {
           samples.emplace_back(take_impl<Drop>(item));
         }
@@ -224,12 +224,12 @@ class Dataset {
   // Dataset::size()
   //
   // Returns the number of data samples in the inverted index.
-  inline size_type size() const noexcept { return size_; }
+  size_type size() const noexcept { return size_; }
 
   // Dataset::max_size()
   //
   // Returns the maximum possible number of data samples in the inverted index.
-  inline size_type max_size() const noexcept { return max_size_; }
+  size_type max_size() const noexcept { return max_size_; }
 
   // Dataset::on_batch_begin()
   //
@@ -244,7 +244,7 @@ class Dataset {
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  inline void on_epoch_begin(mapped_type epoch) {
+  void on_epoch_begin(mapped_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::Dataset<>` shuffles between
@@ -271,7 +271,7 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  inline void on_epoch_end([[maybe_unused]] mapped_type epoch) {
+  void on_epoch_end([[maybe_unused]] mapped_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the end of an epoch, the inverted index must be empty.
@@ -392,7 +392,7 @@ class Dataset {
   // Takes a data sample from item at `position` without restoring the retrieved
   // data sample to the recycle bin if `Drop` is evaluated to `true`.
   template <bool Drop>
-  inline value_type take_impl(container_type::reverse_iterator position) {
+  value_type take_impl(container_type::reverse_iterator position) {
     return take_impl<Drop>(std::next(position).base());
   }
 
