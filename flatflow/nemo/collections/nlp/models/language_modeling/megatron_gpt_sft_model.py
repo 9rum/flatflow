@@ -41,8 +41,8 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
-import flatflow.torch.utils.data
 import flatflow.scheduler.profiler
+import flatflow.torch.utils.data
 
 try:
     from apex.transformer.pipeline_parallel.utils import (
@@ -414,7 +414,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()   
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"]._sync_and_collect_times()
 
         non_loss_tensors = {}
@@ -596,7 +596,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             # Check if the user provided a prefix path to the file(s) they want to write.
             if not hasattr(data_cfg, "output_file_path_prefix") or data_cfg.output_file_path_prefix is None:
                 raise ValueError(
-                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
+                    "Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
                 )
             filename_log_key = self._determine_log_key(data_cfg, dataloader_idx, None, mode)
             self.write_predictions_to_file(

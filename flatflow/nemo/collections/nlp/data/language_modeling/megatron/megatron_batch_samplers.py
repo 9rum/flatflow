@@ -23,7 +23,6 @@ from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 from nemo.utils import AppState
 
-import flatflow.megatron.core.parallel_state
 from flatflow import sys
 from flatflow.rpc import CommunicatorClient, run
 from flatflow.torch.utils.data.dataset import Dataset

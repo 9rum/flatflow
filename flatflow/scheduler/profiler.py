@@ -20,8 +20,6 @@ from typing import Any
 
 import torch
 
-import flatflow.megatron.core.parallel_state
-
 try:
     from megatron.core import parallel_state
 
@@ -40,9 +38,9 @@ class LatencyProfiler:
         self.current_batch_id = 0
         self.hook_handles = hook_handles
         self.last_layer = None
-        self.mp_src_rank = flatflow.megatron.core.parallel_state.get_model_parallel_src_rank()
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
         self.mp_group = parallel_state.get_model_parallel_group()
+        self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
         self.pp_group = parallel_state.get_pipeline_model_parallel_group()
         self.event = mp.Event()
         self.event.set()
