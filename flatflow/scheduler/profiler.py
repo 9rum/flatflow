@@ -31,13 +31,12 @@ except (ImportError, ModuleNotFoundError):
 class LatencyProfiler:
     def __init__(self, rank ,hook_handles=[]):
         self.start_times = {}
-        self.forward_times = defaultdict(float)
+        self.forward_times = list()
         self.buffer = defaultdict(float)
         self.rank = rank
         self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
         self.current_batch_id = 0
         self.hook_handles = hook_handles
-        self.last_layer = None
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
         self.mp_group = parallel_state.get_model_parallel_group()
         self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
@@ -61,7 +60,7 @@ class LatencyProfiler:
             elapsed_time = (time.perf_counter() - self.start_times[batch_key]) * 1000
             self.buffer[batch_key] += elapsed_time
 
-    def _sync_and_collect_times(self):
+    def gather_times(self):
         """synchronize time in pipeline group and model parallel group
         Broadcast recent microbatch id from last stage.
         In model parallel source rank, perpare data list as size of model parallel world size.
@@ -85,15 +84,15 @@ class LatencyProfiler:
             latest_microbatch_id, src=self.last_stage_rank, group=self.pp_group
         )
 
-        profile_time = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
+        profile_times = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
 
         torch.distributed.all_gather_object(
-            profile_time, self.buffer, group=self.mp_group
+            profile_times, self.buffer, group=self.mp_group
         )
 
         if self.rank == self.mp_src_rank:
             tp_max_times = defaultdict(float)
-            for data in profile_time:
+            for data in profile_times:
                 if data:
                     for key, value in data.items():
                         base_key = re.sub(r'_tp_\d+', '', key)
@@ -107,6 +106,7 @@ class LatencyProfiler:
             sorted_times = [value for _, value in sorted(processed_times.items(), key=lambda x: self.get_batch_id(x[0]))]
 
             self.forward_times = sorted_times
+            self.event.set()
 
         self.update(latest_microbatch_id[0])
 

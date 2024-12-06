@@ -415,7 +415,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"]._sync_and_collect_times()
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].gather_times()
 
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses

@@ -21,7 +21,6 @@ import grpc
 import torch.distributed
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
-from nemo.utils import AppState
 
 from flatflow import sys
 from flatflow.rpc import CommunicatorClient, run
@@ -100,7 +99,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             drop_last=drop_last,
             pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
         )
-        app_state = AppState()
         self.order = order
         self.use_flat_shuffle = use_flat_shuffle
         self.total_samples: int = total_samples
@@ -176,8 +174,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                     for hook in self.profiler.hook_handles:
                         hook.remove()
 
-                    indices = list(response.IndicesAsNumpy())
-                    indices_size = [len(indices)]
+                indices = list(response.IndicesAsNumpy())
+                indices_size = [len(indices)]
 
                 torch.distributed.broadcast_object_list(
                     indices_size, src=self.global_rank, group=parallel_state.get_tensor_model_parallel_group()
