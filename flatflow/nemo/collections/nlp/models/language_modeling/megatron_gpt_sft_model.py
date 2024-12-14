@@ -41,6 +41,7 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
+import flatflow.torch.profiler
 import flatflow.torch.utils.data
 
 try:
@@ -106,6 +107,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.init_global_step = 0
 
         self.use_flatflow = cfg.get("use_flatflow", True)
+        self.profilers = {}
 
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
@@ -195,6 +197,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.build_train_valid_test_datasets(stage=stage)
         if hasattr(self, '_train_ds'):
             self.setup_training_dataloader()
+            self.setup_profiler()
         if hasattr(self, '_validation_ds'):
             self._validation_dl = self.setup_eval_dataloader(self._validation_ds, self.cfg.data.validation_ds)
         self.maybe_setup_test()
@@ -408,6 +411,12 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             first_val_step=first_val_step,
         )
 
+        data_parallel_rank = parallel_state.get_data_parallel_rank()
+        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].gather_times()
+
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses
         if losses_reduced_per_micro_batch:
@@ -587,7 +596,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             # Check if the user provided a prefix path to the file(s) they want to write.
             if not hasattr(data_cfg, "output_file_path_prefix") or data_cfg.output_file_path_prefix is None:
                 raise ValueError(
-                    f"Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
+                    "Cannot write predictions to file when output_file_path_prefix is not set or present in the yaml config file."
                 )
             filename_log_key = self._determine_log_key(data_cfg, dataloader_idx, None, mode)
             self.write_predictions_to_file(
@@ -857,6 +866,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             collate_fn = dataset.collate_fn
 
         if self.use_flatflow:
+            data_parallel_rank = parallel_state.get_data_parallel_rank()
+            tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+            pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+
             batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
                 total_samples=len(dataset),
                 consumed_samples=consumed_samples,
@@ -866,6 +879,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 data_parallel_size=parallel_state.get_data_parallel_world_size(),
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
+                dataset=dataset,
+                profiler=self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"],
             )
             return flatflow.torch.utils.data.DataLoader(
                 dataset,
@@ -894,6 +909,25 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             pin_memory=data_cfg.pin_memory,
             persistent_workers=0 < data_cfg.num_workers,
         )
+
+    def setup_profiler(self):
+        data_parallel_rank = parallel_state.get_data_parallel_rank()
+        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        global_rank = AppState().global_rank
+        profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] = profiler
+        self.register_debug_hooks(profiler)
+
+    def register_debug_hooks(self, profiler):
+        def forward_pre_hook(module, input):
+            profiler.record_start(module, input)
+        def forward_hook(module, input, output):
+            profiler.record_end(module, input, output)
+        for _, module in self.model.named_modules():
+            pre_handle = module.register_forward_pre_hook(forward_pre_hook)
+            post_handle = module.register_forward_hook(forward_hook)
+            profiler.hook_handles.extend([pre_handle, post_handle])
 
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
