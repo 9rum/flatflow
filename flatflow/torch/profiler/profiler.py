@@ -1,4 +1,4 @@
-# Copyright (c) 2024, The FlatFlow Authors.
+# Copyright (c) 2024, The FlatFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     HAVE_MEGATRON_CORE = False
 
-class LatencyProfiler:
+class ComputeProfiler:
     def __init__(self, rank ,hook_handles=[]):
         self.start_times = {}
         self.forward_times = list()
@@ -61,7 +61,7 @@ class LatencyProfiler:
             self.buffer[batch_key] += elapsed_time
 
     def gather_times(self):
-        """synchronize time in pipeline group and model parallel group
+        """Synchronize time in pipeline group and model parallel group
         Broadcast recent microbatch id from last stage.
         In model parallel source rank, perpare data list as size of model parallel world size.
         gather self.buffer to accumulate all forward times based on unique key.
@@ -70,9 +70,7 @@ class LatencyProfiler:
                 dict(dp0_pp0_tp0_batch0: 1.0, dp0_pp0_tp0_batch1: 2.0, ...),
                 dict(dp1_pp0_tp0_batch0: 1.0, dp1_pp0_tp0_batch1: 2.0, ...),
                 ...
-
         """
-
         if parallel_state.is_pipeline_last_stage():
             latest_microbatch_id = [-1]
             for key in self.buffer.keys():

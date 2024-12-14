@@ -41,7 +41,7 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
-import flatflow.scheduler.profiler
+import flatflow.torch.profiler
 import flatflow.torch.utils.data
 
 try:
@@ -915,7 +915,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
         global_rank = AppState().global_rank
-        profiler = flatflow.scheduler.profiler.LatencyProfiler(rank=global_rank)
+        profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] = profiler
         self.register_debug_hooks(profiler)
 
