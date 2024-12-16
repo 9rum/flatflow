@@ -17,5 +17,6 @@
 #include "flatflow/rpc/communicator.h"
 
 PYBIND11_MODULE(_C, m) {
+  // This may bind `flatflow::run` to `flatflow._C.run` in the Python frontend.
   m.def("run", &flatflow::run);
 }
