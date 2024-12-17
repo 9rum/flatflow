@@ -165,10 +165,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             indices_size = [0]
             if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
                 if not self.converged:
-                    self.profiler.wait()
-                    self.costs = self.profiler.extract()
+                    self.costs = self.profiler.extract() if self.profiler.event.is_set() else None
                 response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                self.costs = None
                 self.converged = response.Converged()
                 if self.converged:
                     for hook in self.profiler.hook_handles:
