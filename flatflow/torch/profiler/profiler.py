@@ -18,20 +18,16 @@ import time
 from collections import defaultdict
 from typing import Any
 
-import torch
+import torch.distributed
+from megatron.core import parallel_state
 
-try:
-    from megatron.core import parallel_state
+__all__ = ["ComputeProfiler"]
 
-    HAVE_MEGATRON_CORE = True
-
-except (ImportError, ModuleNotFoundError):
-    HAVE_MEGATRON_CORE = False
 
 class ComputeProfiler:
-    def __init__(self, rank ,hook_handles=[]):
+    def __init__(self, rank, hook_handles=[]):
         self.start_times = {}
-        self.forward_times = list()
+        self.forward_times = []
         self.buffer = defaultdict(float)
         self.rank = rank
         self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
@@ -48,7 +44,7 @@ class ComputeProfiler:
         return f"dp{parallel_state.get_data_parallel_rank()}_pp{parallel_state.get_pipeline_model_parallel_rank()}_tp{parallel_state.get_tensor_model_parallel_rank()}_batch{microbatch_id}"
 
     def update_microbatch_id(self):
-        self.current_batch_id+=1
+        self.current_batch_id += 1
 
     def record_start(self, module: Any, input: Any) -> None:
         batch_key = self._generate_batch_key(self.current_batch_id)
@@ -74,49 +70,51 @@ class ComputeProfiler:
         if parallel_state.is_pipeline_last_stage():
             latest_microbatch_id = [-1]
             for key in self.buffer.keys():
-                latest_microbatch_id[0] = max(latest_microbatch_id[0], int(key.split('batch')[1]))
+                latest_microbatch_id[0] = max(latest_microbatch_id[0], int(key.split("batch")[1]))
         else:
             latest_microbatch_id = [-1]
 
-        torch.distributed.broadcast_object_list(
-            latest_microbatch_id, src=self.last_stage_rank, group=self.pp_group
+        torch.distributed.broadcast_object_list(latest_microbatch_id, src=self.last_stage_rank, group=self.pp_group)
+
+        profile_times = (
+            [None]
+            * parallel_state.get_pipeline_model_parallel_world_size()
+            * parallel_state.get_tensor_model_parallel_world_size()
         )
 
-        profile_times = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
-
-        torch.distributed.all_gather_object(
-            profile_times, self.buffer, group=self.mp_group
-        )
+        torch.distributed.all_gather_object(profile_times, self.buffer, group=self.mp_group)
 
         if self.rank == self.mp_src_rank:
             tp_max_times = defaultdict(float)
             for data in profile_times:
                 if data:
                     for key, value in data.items():
-                        base_key = re.sub(r'_tp_\d+', '', key)
+                        base_key = re.sub(r"_tp_\d+", "", key)
                         tp_max_times[base_key] = max(tp_max_times[base_key], value)
 
             processed_times = defaultdict(float)
             for key, value in tp_max_times.items():
-                base_key = re.sub(r'_pp\d+', '', key)
+                base_key = re.sub(r"_pp\d+", "", key)
                 processed_times[base_key] += value
 
-            sorted_times = [value for _, value in sorted(processed_times.items(), key=lambda x: self.get_batch_id(x[0]))]
+            sorted_times = [
+                value for _, value in sorted(processed_times.items(), key=lambda x: self.get_batch_id(x[0]))
+            ]
 
             self.forward_times = sorted_times
             self.event.set()
 
         self.update(latest_microbatch_id[0])
 
-    def get_batch_id(self,key):
-        match = re.search(r'batch(\d+)', key)
+    def get_batch_id(self, key):
+        match = re.search(r"batch(\d+)", key)
         return int(match.group(1)) if match else -1
 
     def update(self, latest_microbatch_id: int):
         keys_to_remove = []
 
         for key in self.buffer.keys():
-            batch_id = int(key.split('batch')[1]) if not isinstance(key, int) else int(key)
+            batch_id = int(key.split("batch")[1]) if not isinstance(key, int) else int(key)
             if latest_microbatch_id >= batch_id:
                 keys_to_remove.append(key)
 

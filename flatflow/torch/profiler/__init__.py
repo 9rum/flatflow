@@ -1,3 +1,3 @@
-from flatflow.torch.profiler import ComputeProfiler
+from flatflow.torch.profiler.profiler import ComputeProfiler
 
 __all__ = ["ComputeProfiler"]
