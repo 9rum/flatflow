@@ -108,7 +108,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.init_global_step = 0
 
         self.use_flatflow = cfg.get("use_flatflow", True)
-        self.profilers = {}
+        self.use_memory_profile = cfg.get("use_memory_profile", True)
+        self.use_compute_profile = cfg.get("use_compute_profile", True)
+        self.compute_profilers = {}
+        self.memory_profilers = {}
         self.variable_seq_lengths = False
         if self.cfg.get('virtual_pipeline_model_parallel_size', None) > 0 and isinstance(self.model, list):
             config = get_model_config(self.model[0])
@@ -206,8 +209,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             return
         self.build_train_valid_test_datasets(stage=stage)
         if hasattr(self, '_train_ds'):
-            self.setup_training_dataloader()
             self.setup_profiler()
+            self.setup_training_dataloader()
         if hasattr(self, '_validation_ds'):
             self._validation_dl = self.setup_eval_dataloader(self._validation_ds, self.cfg.data.validation_ds)
         self.maybe_setup_test()
@@ -439,9 +442,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].set_event()
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].gather_times()
+        profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
+        if self.use_memory_profile:
+            self.memory_profilers[profile_key].update_microbatch_id()
+        if self.use_compute_profile:
+            self.compute_profilers[profile_key].update_microbatch_id()
+            self.compute_profilers[profile_key].event.set()
+            self.compute_profilers[profile_key].gather_times()
 
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses
@@ -882,7 +889,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self._train_ds = self._build_dataset(self.cfg.data.train_ds)
         logging.info(f'Length of train dataset: {len(self._train_ds)}')
 
-    def build_data_loader(self, dataset, data_cfg, consumed_samples=0):
+    def build_data_loader(self, dataset, data_cfg, consumed_samples=0, is_train=False):
         """Buld dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
@@ -891,7 +898,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         else:
             collate_fn = dataset.collate_fn
 
-        if self.use_flatflow:
+        if self.use_flatflow and is_train:
             data_parallel_rank = parallel_state.get_data_parallel_rank()
             tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
             pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
@@ -906,7 +913,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                profiler=self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"],
+                profiler=self.compute_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] if self.use_compute_profile else None,
             )
             return flatflow.torch.utils.data.DataLoader(
                 dataset,
@@ -940,10 +947,16 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
         global_rank = torch.distributed.get_rank()
-        profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
-        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] = profiler
-        self.register_debug_hooks(profiler)
+        if self.use_compute_profile:
+            profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
+            self.compute_profilers[profile_key] = profiler
+            self.register_debug_hooks(profiler)
+        if self.use_memory_profile:
+            profiler = flatflow.torch.profiler.MemoryProfiler(rank=global_rank)
+            self.memory_profilers[profile_key] = profiler
+            self.register_debug_hooks(profiler)
 
     def register_debug_hooks(self, profiler):
         def forward_pre_hook(module, input):
@@ -959,7 +972,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if hasattr(self, '_train_ds'):
             consumed_samples = self.compute_consumed_samples(0)
             self._train_dl = self.build_data_loader(
-                dataset=self._train_ds, data_cfg=self.cfg.data.train_ds, consumed_samples=consumed_samples,
+                dataset=self._train_ds, data_cfg=self.cfg.data.train_ds, consumed_samples=consumed_samples,is_train=True
             )
 
     def setup_eval_dataloader(self, datasets, data_cfg):
