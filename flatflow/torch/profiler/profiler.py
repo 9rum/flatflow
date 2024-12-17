@@ -38,7 +38,6 @@ class ComputeProfiler:
         self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
         self.pp_group = parallel_state.get_pipeline_model_parallel_group()
         self.event = mp.Event()
-        self.event.set()
 
     def _generate_batch_key(self, microbatch_id: int) -> str:
         return f"dp{parallel_state.get_data_parallel_rank()}_pp{parallel_state.get_pipeline_model_parallel_rank()}_tp{parallel_state.get_tensor_model_parallel_rank()}_batch{microbatch_id}"
@@ -109,6 +108,9 @@ class ComputeProfiler:
     def get_batch_id(self, key):
         match = re.search(r"batch(\d+)", key)
         return int(match.group(1)) if match else -1
+
+    def set_event(self):
+        self.event.set()
 
     def update(self, latest_microbatch_id: int):
         keys_to_remove = []
