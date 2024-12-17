@@ -60,7 +60,7 @@ except (ImportError, ModuleNotFoundError):
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
-
+    from megatron.core.utils import get_model_config
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):
@@ -108,7 +108,16 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         self.use_flatflow = cfg.get("use_flatflow", True)
         self.profilers = {}
-
+        self.variable_seq_lengths = False
+        if self.cfg.get('virtual_pipeline_model_parallel_size', None) > 0 and isinstance(self.model, list):
+            config = get_model_config(self.model[0])
+            config.variable_seq_lengths = True
+            self.variable_seq_lengths = True
+        elif self.cfg.get('virtual_pipeline_model_parallel_size', None) > 0:
+            config = get_model_config(self.model)
+            config.variable_seq_lengths = True
+            self.variable_seq_lengths = True
+        
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
         if not hasattr(data_cfg, "metric"):
@@ -364,21 +373,36 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # Return only batch if batch, batch_idx, dataloder_idx are extracted as a tuple in the previous func
         # call like validation_step otherwise return tuple
         # (in which case dataloader_iter is still a PTL _DataFetcherWrapper object)
-        if isinstance(dataloader_iter, _DataFetcherWrapper):
-            batch, _, _ = next(dataloader_iter)
-        else:
-            batch = next(dataloader_iter)
-
-        log_token_counts = self.cfg.get('log_token_counts', False)
-        if log_token_counts:
-            token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
-
-        # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
-        batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
-        _, seq_length = batch['tokens'].shape
-        num_microbatches = 1 if self.use_flatflow else get_num_microbatches()
+        num_microbatches = get_num_microbatches()
         micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
-        data_iter = get_iterator_k_split(batch, num_microbatches)
+        if not self.use_flatflow:
+            if isinstance(dataloader_iter, _DataFetcherWrapper):
+                batch, _, _ = next(dataloader_iter)
+            else:
+                batch = next(dataloader_iter)
+
+            log_token_counts = self.cfg.get('log_token_counts', False)
+            if log_token_counts:
+                token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
+
+            # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
+            batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
+            _, seq_length = batch['tokens'].shape
+            data_iter = get_iterator_k_split(batch, num_microbatches)
+        else:
+            batch = []
+            iter_count = num_microbatches if self.variable_seq_lengths else 1
+            while len(batch) < iter_count:
+                if isinstance(dataloader_iter, _DataFetcherWrapper):
+                    microbatch, _, _ = next(dataloader_iter)
+                else:
+                    microbatch = next(dataloader_iter)
+                batch.append(microbatch)
+            log_token_counts = self.cfg.get('log_token_counts', False)
+            if log_token_counts:
+                token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
+            seq_length = sum([batch[i]['tokens'].shape[1] for i in range(num_microbatches)])
+            data_iter = itertools.chain(batch)
 
         if log_token_counts:
             self.log('seq_length_padded', seq_length, prog_bar=True, batch_size=1)
@@ -399,7 +423,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.param_sync_func = param_sync_func
 
         fwd_bwd_function = get_forward_backward_func()
-
+        # todo config 설정에 
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
@@ -415,6 +439,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].update_microbatch_id()
+        self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].set_event()
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].gather_times()
 
         non_loss_tensors = {}
@@ -914,7 +939,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        global_rank = AppState().global_rank
+        global_rank = torch.distributed.get_rank()
         profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
         self.profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] = profiler
         self.register_debug_hooks(profiler)
