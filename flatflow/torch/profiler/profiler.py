@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json 
 import multiprocessing as mp
 import re
 import time
@@ -21,8 +22,7 @@ from typing import Any
 import torch.distributed
 from megatron.core import parallel_state
 
-__all__ = ["ComputeProfiler"]
-
+__all__ = ["ComputeProfiler, MemoryProfiler"]
 
 class ComputeProfiler:
     def __init__(self, rank, hook_handles=[]):
@@ -131,3 +131,66 @@ class ComputeProfiler:
         self.forward_times = []
         self.event.clear()
         return times
+
+class MemoryProfiler:
+    def __init__(self, rank ,hook_handles=[]):
+        self.rank = rank
+        self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
+        self.current_batch_id = 0
+        self.hook_handles = hook_handles
+        self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
+        self.mp_group = parallel_state.get_model_parallel_group()
+        self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
+        self.pp_group = parallel_state.get_pipeline_model_parallel_group()
+        self.memory_tracker = defaultdict(float)
+        self.memory_buffer = {}
+
+    def _generate_batch_key(self, microbatch_id: int) -> str:
+        return f"dp{parallel_state.get_data_parallel_rank()}_pp{parallel_state.get_pipeline_model_parallel_rank()}_tp{parallel_state.get_tensor_model_parallel_rank()}_batch{microbatch_id}"
+
+    def update_microbatch_id(self):
+        self.current_batch_id+=1
+
+    def record_start(self, module: Any, input: Any) -> None:
+        batch_key = self._generate_batch_key(self.current_batch_id)
+        self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
+
+    def record_end(self, module: Any, input: Any, output: Any) -> None:
+        batch_key = self._generate_batch_key(self.current_batch_id)
+        if batch_key in self.memory_buffer:
+            self.memory_tracker[batch_key] += torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
+
+    def save_memory_log(self):
+        memory_gather_object = [None] * parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
+
+        torch.distributed.all_gather_object(memory_gather_object, self.memory_tracker, group=self.mp_group)
+
+        if self.rank == self.mp_src_rank:
+            tp_max_memory = defaultdict(float)
+            for data in memory_gather_object:
+                if data:
+                    for key, value in data.items():
+                        base_key = re.sub(r'_tp_\d+', '', key)
+                        tp_max_memory[base_key] = max(tp_max_memory[base_key], value)
+
+            processed_memory = defaultdict(float)
+            for key, value in tp_max_memory.items():
+                base_key = re.sub(r'_pp\d+', '', key)
+                processed_memory[base_key] += value
+
+            group_size = parallel_state.get_pipeline_model_parallel_world_size() * parallel_state.get_tensor_model_parallel_world_size()
+            num_groups = self.world_size // group_size
+
+            memory_object = [None] * num_groups
+        else:
+            processed_memory = None
+            memory_object = None
+
+        if self.rank == 0:
+            memory_object = [None] * self.world_size
+
+        torch.distributed.gather_object(obj=processed_memory,object_gather_list=memory_object,dst=0)
+        if self.rank == 0:
+            revised = [memory for memory in memory_object if memory is not None]
+            with open("memory_profile.json", "w") as f:
+                json.dump(revised, f, indent=4)
