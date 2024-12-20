@@ -120,6 +120,7 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
             self.processed_dataset[index]["labels"] = self.processed_dataset[index]["input_ids"][1:]
             self.processed_dataset[index]["input_ids"] = self.processed_dataset[index]["input_ids"][:-1]
             self.processed_dataset[index]["token_count"] -= 1
+
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):  # type: ignore[arg-type]
             idx = idx.item()
@@ -130,7 +131,7 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
             if isinstance(idx, np.uint32):  # type: ignore[arg-type]
                 idx = idx.item()
 
-        assert idx < len(self.processed_dataset) , f"{idx} {len(self.processed_dataset)}"
+        assert idx < len(self.processed_dataset)
         auto_gen_idx = idx < 0
         if auto_gen_idx:
             idx += len(self)
