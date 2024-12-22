@@ -34,7 +34,7 @@ from megatron.core.utils import (
 
 # Types
 Shape = Union[List[int], torch.Size]
-
+total_microbatch_id = 0
 
 def get_forward_backward_func():
     """Retrieves the appropriate forward_backward function given the
@@ -562,6 +562,7 @@ def forward_backward_pipelining_with_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    profiler=None,
 ):
     """Run interleaved 1F1B schedule (model split into model chunks), with
     communication between pipeline stages as needed.
@@ -573,6 +574,7 @@ def forward_backward_pipelining_with_interleaving(
         data_iterator, list
     ), "interleaved pipeline parallelism expected each model chunk to have a data iterator"
 
+    global total_microbatch_id
     config = get_model_config(model[0])
     if config.overlap_p2p_comm and config.batch_p2p_comm:
         raise ValueError("Can not use both overlap_p2p_comm and batch_p2p_comm")
@@ -739,7 +741,7 @@ def forward_backward_pipelining_with_interleaving(
         else:
             return False
 
-    def forward_step_helper(microbatch_id, current_microbatch, checkpoint_activations_microbatch):
+    def forward_step_helper(microbatch_id, current_microbatch, checkpoint_activations_microbatch, profiler=None, global_microbatch_id = None):
         """Helper method to run forward step with model split into chunks
         (run set_virtual_pipeline_model_parallel_rank() before calling
         forward_step())."""
@@ -783,6 +785,8 @@ def forward_backward_pipelining_with_interleaving(
                 first_val_step, forward_only, is_first_microbatch_for_model_chunk(microbatch_id)
             ),
             current_microbatch=current_microbatch,
+            profiler=profiler,
+            global_microbatch_id=global_microbatch_id,
         )
         output_tensors[model_chunk_id].append(output_tensor)
 
@@ -860,7 +864,7 @@ def forward_backward_pipelining_with_interleaving(
 
         current_microbatch = get_microbatch_id_in_model_chunk(k, forward=True)
         output_tensor = forward_step_helper(
-            k, current_microbatch, checkpoint_activations_microbatch
+            k, current_microbatch, checkpoint_activations_microbatch, profiler=profiler, global_microbatch_id=total_microbatch_id + current_microbatch
         )
 
         # Determine if tensor should be received from previous stage.
@@ -961,7 +965,7 @@ def forward_backward_pipelining_with_interleaving(
             deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
 
             output_tensor = forward_step_helper(
-                forward_k, current_microbatch, checkpoint_activations_microbatch
+                forward_k, current_microbatch, checkpoint_activations_microbatch, profiler=profiler, global_microbatch_id=total_microbatch_id + current_microbatch
             )
 
             # Determine if current stage has anything to send in either direction,
@@ -1149,6 +1153,7 @@ def forward_backward_pipelining_with_interleaving(
                     config.grad_sync_func[model_chunk_id](model[model_chunk_id].parameters())
                     synchronized_model_chunks.add(model_chunk_id)
 
+    total_microbatch_id += num_microbatches
     if config.finalize_model_grads_func is not None and not forward_only:
 
         # If defer_embedding_wgrad_compute is enabled we need to do the
