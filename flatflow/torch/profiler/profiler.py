@@ -156,8 +156,8 @@ class MemoryProfiler:
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         return f"dp{data_parallel_rank}_pp{pipeline_parallel_rank}_tp{tensor_parallel_rank}_batch{microbatch_id}"
 
-    def update_microbatch_id(self):
-        self.current_batch_id += 1
+    def set_microbatch_id(self, microbatch_id: int):
+        self.current_batch_id = microbatch_id
 
     def record_start(self, module: Any, input: Any) -> None:
         batch_key = self._generate_batch_key(self.current_batch_id)
