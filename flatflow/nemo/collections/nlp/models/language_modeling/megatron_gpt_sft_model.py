@@ -963,10 +963,18 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             profiler.record_start(module, input)
         def forward_hook(module, input, output):
             profiler.record_end(module, input, output)
-        for _, module in self.model.named_modules():
-            pre_handle = module.register_forward_pre_hook(forward_pre_hook)
-            post_handle = module.register_forward_hook(forward_hook)
-            profiler.hook_handles.extend([pre_handle, post_handle])
+        
+        if isinstance(self.model, list):
+            for model in self.model:
+                for _, module in model.named_modules():
+                    pre_handle = module.register_forward_pre_hook(forward_pre_hook)
+                    post_handle = module.register_forward_hook(forward_hook)
+                    profiler.hook_handles.extend([pre_handle, post_handle]) 
+        else:
+            for _, module in self.model.named_modules():
+                pre_handle = module.register_forward_pre_hook(forward_pre_hook)
+                post_handle = module.register_forward_hook(forward_hook)
+                profiler.hook_handles.extend([pre_handle, post_handle])
 
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
@@ -1024,3 +1032,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # on_validation_epoch_end()
         self.on_validation_epoch_end()
         return super().on_train_epoch_start()
+
+    def on_train_end(self) -> None:
+        if self.use_memory_profile:
+            data_parallel_rank = parallel_state.get_data_parallel_rank()
+            tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+            pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+            self.memory_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].save_memory_log()
