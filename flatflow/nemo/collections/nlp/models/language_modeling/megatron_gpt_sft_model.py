@@ -1036,7 +1036,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
     def on_train_end(self) -> None:
         if self.use_memory_profile:
             data_parallel_rank = parallel_state.get_data_parallel_rank()
-            data_parallel_size = parallel_state.get_data_parallel_world_size()
             tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
             pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
             self.memory_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].save_memory_log()
