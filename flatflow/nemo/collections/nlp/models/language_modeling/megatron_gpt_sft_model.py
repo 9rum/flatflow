@@ -32,8 +32,8 @@ from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_sampler
 )
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
 from nemo.collections.nlp.modules.common.megatron.utils import (
-    get_iterator_k_split,
     average_losses_across_data_parallel_group,
+    get_iterator_k_split,
 )
 from nemo.collections.nlp.modules.common.text_generation_utils import generate, get_computeprob_response
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
@@ -124,7 +124,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             config = get_model_config(self.model)
             config.variable_seq_lengths = True
             self.variable_seq_lengths = True
-        
+
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
         if not hasattr(data_cfg, "metric"):
@@ -966,13 +966,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             profiler.record_start(module, input)
         def forward_hook(module, input, output):
             profiler.record_end(module, input, output)
-        
+
         if isinstance(self.model, list):
             for model in self.model:
                 for _, module in model.named_modules():
                     pre_handle = module.register_forward_pre_hook(forward_pre_hook)
                     post_handle = module.register_forward_hook(forward_hook)
-                    profiler.hook_handles.extend([pre_handle, post_handle]) 
+                    profiler.hook_handles.extend([pre_handle, post_handle])
         else:
             for _, module in self.model.named_modules():
                 pre_handle = module.register_forward_pre_hook(forward_pre_hook)
