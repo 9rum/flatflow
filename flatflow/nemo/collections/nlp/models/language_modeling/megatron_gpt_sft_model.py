@@ -1116,7 +1116,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         max_seqlen_kv=max_seqlen,
                         qkv_format='thd',
                     )
-
+            if profiler is not None and global_microbatch_id is not None:
+                profiler.set_microbatch_id(global_microbatch_id)
             output_tensor = model(**forward_args)
 
             def loss_func(output_tensor):
