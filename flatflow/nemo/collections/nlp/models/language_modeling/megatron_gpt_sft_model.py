@@ -31,7 +31,10 @@ from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_sampler
     MegatronPretrainingBatchSampler,
 )
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
-from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_split
+from nemo.collections.nlp.modules.common.megatron.utils import (
+    get_iterator_k_split,
+    average_losses_across_data_parallel_group,
+)
 from nemo.collections.nlp.modules.common.text_generation_utils import generate, get_computeprob_response
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
@@ -1039,3 +1042,154 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
             pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
             self.memory_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].save_memory_log()
+
+    def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
+        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, profiler=None, global_microbatch_id=None):
+
+            # Get data batch
+            batch = self.get_batch(dataloader_iter, tuning)
+
+            # Transfer needed data to GPU
+            required_keys = set()
+            max_seqlen = batch['max_seqlen'].squeeze() if 'max_seqlen' in batch else None
+            cu_seqlens_argmin = batch['cu_seqlens_argmin'] if 'cu_seqlens_argmin' in batch else None
+            if parallel_state.get_pipeline_model_parallel_world_size() == 1:
+                required_keys.update(batch.keys())
+            else:
+                required_keys.add('attention_mask')
+                if 'cu_seqlens' in batch:
+                    required_keys.add('cu_seqlens')
+                if parallel_state.is_pipeline_first_stage():
+                    required_keys.update(('tokens', 'position_ids'))
+                if parallel_state.is_pipeline_last_stage():
+                    required_keys.update(('labels', 'loss_mask'))
+            if self.get_attention_mask_from_fusion and 'attention_mask' in required_keys:
+                required_keys.remove('attention_mask')
+            batch = {
+                key: val.cuda(non_blocking=True) if key in required_keys and isinstance(val, torch.Tensor) else None
+                for key, val in batch.items()
+            }
+
+            # slice batch along sequence dimension for context parallelism
+            batch = self.get_batch_on_this_context_parallel_rank(batch)
+
+            # Model forward pass
+            forward_args = {
+                'input_ids': batch['tokens'],
+                'position_ids': batch['position_ids'],
+                'attention_mask': None if self.get_attention_mask_from_fusion else batch['attention_mask'],
+                'labels': batch['labels'] if 'labels' in batch else None,
+                'loss_mask': batch['loss_mask'],
+            }
+
+            if not self.mcore_gpt:
+                forward_args['checkpoint_activations_all_layers'] = checkpoint_activations_all_layers
+                if not self.use_loss_mask:
+                    forward_args.pop('loss_mask')
+            else:
+                # TODO: @eharper can we add this to mcore?
+                forward_args.pop('loss_mask')
+
+                if 'cu_seqlens' in batch:  # packed sequence from GPTSFTPackedDataset
+                    # these args are passed eventually into TEDotProductAttention.forward()
+                    cu_seqlens = batch['cu_seqlens'].squeeze()  # remove batch size dimension (mbs=1)
+                    # remove -1 "paddings" added in collate_fn
+                    if cu_seqlens_argmin is not None:
+                        cu_seqlens = cu_seqlens[: cu_seqlens_argmin.item()]
+                    else:
+                        cu_seqlens = cu_seqlens[: torch.argmin(cu_seqlens)]
+
+                    try:
+                        from megatron.core.packed_seq_params import PackedSeqParams
+                    except (ImportError, ModuleNotFoundError) as e:
+                        mcore_version = packaging.version.Version(version('megatron-core'))
+                        logging.error(
+                            f"megatron-core v{mcore_version} does not support training with packed sequence. "
+                            "Please use megatron-core >= 0.5.0, or set model.data.train_ds.packed_sequence=False"
+                        )
+                        raise e
+
+                    forward_args['packed_seq_params'] = PackedSeqParams(
+                        cu_seqlens_q=cu_seqlens,
+                        cu_seqlens_kv=cu_seqlens,
+                        max_seqlen_q=max_seqlen,
+                        max_seqlen_kv=max_seqlen,
+                        qkv_format='thd',
+                    )
+
+            output_tensor = model(**forward_args)
+
+            def loss_func(output_tensor):
+                # Loss for a micro-batch (ub)
+                loss_for_ub = self.loss_func(batch['loss_mask'], batch['num_valid_tokens_in_ub'], output_tensor)
+                cp_size = parallel_state.get_context_parallel_world_size()
+                if isinstance(loss_for_ub, dict):
+                    # TODO: need a better way to check if loss_func is returning more stuff than just loss... (@adithyare)
+
+                    if set(loss_for_ub.keys()) == set(
+                        ["loss", "query_hs", "pos_doc_hs", "pos_cs", "neg_cs", "diff_cs"]
+                    ):  # (adithyare) this check will be True for GPT Embedding models
+                        loss = loss_for_ub['loss']
+                        reduced_loss = average_losses_across_data_parallel_group([loss])
+                        pos_cs = average_losses_across_data_parallel_group([loss_for_ub['pos_cs']])
+                        neg_cs = average_losses_across_data_parallel_group([loss_for_ub['neg_cs']])
+                        diff_cs = average_losses_across_data_parallel_group([loss_for_ub['diff_cs']])
+                        return (
+                            loss * cp_size,
+                            {
+                                'avg': reduced_loss,
+                                'query_hs': loss_for_ub['query_hs'],
+                                'doc_hs': loss_for_ub['pos_doc_hs'],
+                                'avg_pos_cs': pos_cs,
+                                'avg_neg_cs': neg_cs,
+                                'diff_cs': diff_cs,
+                            },
+                        )
+                    elif set(loss_for_ub.keys()) == set(
+                        ["loss", "query_pos_doc_logit", "query_neg_doc_logit", "logit_diff"]
+                    ):  # (adithyare) this check will be True for GPT Reranker models
+
+                        loss = loss_for_ub['loss']
+                        reduced_loss = average_losses_across_data_parallel_group([loss])
+                        logit_diff = average_losses_across_data_parallel_group([loss_for_ub['logit_diff']])
+                        return (
+                            loss * cp_size,
+                            {
+                                'avg': reduced_loss,
+                                'query_pos_doc_logit': loss_for_ub['query_pos_doc_logit'],
+                                'query_neg_doc_logit': loss_for_ub['query_neg_doc_logit'],
+                                'logit_diff': logit_diff,
+                            },
+                        )
+                    else:
+                        raise RuntimeError(f"Dict loss_for_ub has unknown key set {loss_for_ub.keys()}")
+
+                elif validation_step and not self.validation_drop_last:
+                    num_valid_tokens_in_ub = batch['num_valid_tokens_in_ub']
+                    if loss_for_ub.isnan():
+                        assert batch['loss_mask'].count_nonzero() == 0, 'Got NaN loss with non-empty input'
+                        loss_sum_for_ub = torch.zeros_like(loss_for_ub)
+                        num_valid_tokens_in_ub = 0
+                    else:
+                        if self.sample_weight == 'constant':
+                            num_valid_tokens_in_ub = 1
+                        loss_sum_for_ub = num_valid_tokens_in_ub * loss_for_ub
+
+                    loss_sum_and_ub_size_all_gpu = torch.cat(
+                        [
+                            loss_sum_for_ub.clone().detach().view(1),
+                            torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
+                        ]
+                    )
+                    # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
+                    torch.distributed.all_reduce(
+                        loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                    )
+                    return loss_for_ub * cp_size, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
+                else:
+                    reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
+                    return loss_for_ub * cp_size, {'avg': reduced_loss}
+
+            return output_tensor, loss_func
+
+        return fwd_output_and_loss_func
