@@ -436,6 +436,8 @@ def forward_backward_no_pipelining(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    compute_profiler=None,
+    memory_profiler=None,
 ):
     """Run forward and backward passes with no pipeline parallelism
     (no inter-stage communication).
@@ -445,6 +447,8 @@ def forward_backward_no_pipelining(
 
     See get_forward_backward_func() for argument details
     """
+
+    global total_microbatch_id
 
     if isinstance(model, list):
         assert len(model) == 1, "non-pipeline-parallel schedule does not support model chunking"
@@ -481,6 +485,9 @@ def forward_backward_no_pipelining(
                 collect_non_loss_data,
                 is_first_microbatch=check_first_val_step(first_val_step, forward_only, i == 0),
                 current_microbatch=i,
+                compute_profiler=compute_profiler,
+                memory_profiler=memory_profiler,
+                global_microbatch_id=i,
             )
             total_num_tokens += num_tokens.item()
             if not forward_only:
@@ -501,6 +508,9 @@ def forward_backward_no_pipelining(
             first_val_step, forward_only, num_microbatches == 1
         ),
         current_microbatch=num_microbatches - 1,
+        compute_profiler=compute_profiler,
+        memory_profiler=memory_profiler,
+        global_microbatch_id=num_microbatches - 1,
     )
     total_num_tokens += num_tokens.item()
 
@@ -516,6 +526,8 @@ def forward_backward_no_pipelining(
 
     if config.timers is not None:
         config.timers('forward-backward').stop()
+
+    total_microbatch_id += num_microbatches
 
     return forward_data_store
 
@@ -1313,9 +1325,13 @@ def forward_backward_pipelining_without_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    compute_profiler=None,
+    memory_profiler=None,
 ):
     """Run non-interleaved 1F1B schedule, with communication between pipeline
     stages. Returns dictionary with losses if the last stage, empty dict otherwise."""
+
+    global total_microbatch_id
 
     if isinstance(model, list):
         assert (
@@ -1442,6 +1458,9 @@ def forward_backward_pipelining_without_interleaving(
             check_first_val_step(first_val_step, forward_only, i == 0),
             current_microbatch=i,
             encoder_decoder_xattn=encoder_decoder_xattn,
+            compute_profiler=compute_profiler,
+            memory_profiler=memory_profiler,
+            global_microbatch_id=total_microbatch_id + i,
         )
         send_forward(output_tensor, send_tensor_shapes, config)
         total_num_tokens += num_tokens.item()
@@ -1484,6 +1503,9 @@ def forward_backward_pipelining_without_interleaving(
             ),
             current_microbatch=i + num_warmup_microbatches,
             encoder_decoder_xattn=encoder_decoder_xattn,
+            compute_profiler=compute_profiler,
+            memory_profiler=memory_profiler,
+            global_microbatch_id=total_microbatch_id + num_warmup_microbatches + i,
         )
         total_num_tokens += num_tokens.item()
 
@@ -1571,5 +1593,7 @@ def forward_backward_pipelining_without_interleaving(
 
     if config.timers is not None:
         config.timers('forward-backward').stop()
+
+    total_microbatch_id += num_microbatches
 
     return forward_data_store
