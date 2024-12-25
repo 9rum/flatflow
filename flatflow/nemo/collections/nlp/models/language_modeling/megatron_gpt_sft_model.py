@@ -125,6 +125,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             config.variable_seq_lengths = True
             self.variable_seq_lengths = True
 
+        data_parallel_rank = parallel_state.get_data_parallel_rank()
+        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        self.profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
+
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
         if not hasattr(data_cfg, "metric"):
@@ -440,18 +445,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
+            compute_profiler=self.compute_profilers[self.profile_key] if self.use_compute_profile else None,
+            memory_profiler=self.memory_profilers[self.profile_key] if self.use_memory_profile else None,
         )
 
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
-        if self.use_memory_profile:
-            self.memory_profilers[profile_key].update_microbatch_id()
         if self.use_compute_profile:
-            self.compute_profilers[profile_key].update_microbatch_id()
-            self.compute_profilers[profile_key].event.set()
-            self.compute_profilers[profile_key].gather_times()
+            self.compute_profilers[self.profile_key].event.set()
+            self.compute_profilers[self.profile_key].gather_times()
 
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses
@@ -947,18 +947,14 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         )
 
     def setup_profiler(self):
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
         global_rank = torch.distributed.get_rank()
         if self.use_compute_profile:
             profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
-            self.compute_profilers[profile_key] = profiler
+            self.compute_profilers[self.profile_key] = profiler
             self.register_debug_hooks(profiler)
         if self.use_memory_profile:
             profiler = flatflow.torch.profiler.MemoryProfiler(rank=global_rank)
-            self.memory_profilers[profile_key] = profiler
+            self.memory_profilers[self.profile_key] = profiler
             self.register_debug_hooks(profiler)
 
     def register_debug_hooks(self, profiler):
@@ -1044,7 +1040,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             self.memory_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].save_memory_log()
 
     def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
-        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, profiler=None, global_microbatch_id=None):
+        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, compute_profiler=None, memory_profiler=None, global_microbatch_id=None):
 
             # Get data batch
             batch = self.get_batch(dataloader_iter, tuning)
@@ -1116,8 +1112,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         max_seqlen_kv=max_seqlen,
                         qkv_format='thd',
                     )
-            if profiler is not None and global_microbatch_id is not None:
-                profiler.set_microbatch_id(global_microbatch_id)
+            if compute_profiler is not None and global_microbatch_id is not None:
+                compute_profiler.set_microbatch_id(global_microbatch_id)
+            if memory_profiler is not None and global_microbatch_id is not None:
+                memory_profiler.set_microbatch_id(global_microbatch_id)
+
             output_tensor = model(**forward_args)
 
             def loss_func(output_tensor):

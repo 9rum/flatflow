@@ -73,7 +73,7 @@ class ComputeProfiler:
                 dict(dp1_pp0_tp0_batch0: 1.0, dp1_pp0_tp0_batch1: 2.0, ...),
                 ...
         """
-        if parallel_state.is_pipeline_last_stage():
+        if parallel_state.get_pipeline_model_parallel_rank() == self.last_stage_rank:
             latest_microbatch_id = [-1]
             for key in self.buffer.keys():
                 latest_microbatch_id[0] = max(latest_microbatch_id[0], int(key.split("batch")[1]))
