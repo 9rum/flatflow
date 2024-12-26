@@ -42,6 +42,7 @@ torchrun --nproc-per-node 8 --nnodes ${NNODES} --node-rank ${RANK} \
        trainer.num_nodes=${NNODES} \
        trainer.max_steps=-1 \
        trainer.max_epochs=1 \
+       trainer.num_sanity_val_steps=0 \
        trainer.val_check_interval=1.0 \
        model.use_compute_profile=${RUN_PROFILE} \
        model.use_memory_profile=${RUN_PROFILE} \
