@@ -46,6 +46,9 @@ class ComputeProfiler:
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         return f"dp{data_parallel_rank}_pp{pipeline_parallel_rank}_tp{tensor_parallel_rank}_batch{microbatch_id}"
 
+    def set_microbatch_id(self, microbatch_id: int):
+        self.current_batch_id = microbatch_id
+
     def update_microbatch_id(self):
         self.current_batch_id += 1
 
@@ -70,7 +73,7 @@ class ComputeProfiler:
                 dict(dp1_pp0_tp0_batch0: 1.0, dp1_pp0_tp0_batch1: 2.0, ...),
                 ...
         """
-        if parallel_state.is_pipeline_last_stage():
+        if parallel_state.get_pipeline_model_parallel_rank() == self.last_stage_rank:
             latest_microbatch_id = [-1]
             for key in self.buffer.keys():
                 latest_microbatch_id[0] = max(latest_microbatch_id[0], int(key.split("batch")[1]))
@@ -104,7 +107,7 @@ class ComputeProfiler:
                 value for _, value in sorted(processed_times.items(), key=lambda x: self.get_batch_id(x[0]))
             ]
 
-            self.forward_times = sorted_times
+            self.forward_times.extend(sorted_times)
             self.event.set()
 
         self.update(latest_microbatch_id[0])
@@ -156,8 +159,8 @@ class MemoryProfiler:
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         return f"dp{data_parallel_rank}_pp{pipeline_parallel_rank}_tp{tensor_parallel_rank}_batch{microbatch_id}"
 
-    def update_microbatch_id(self):
-        self.current_batch_id += 1
+    def set_microbatch_id(self, microbatch_id: int):
+        self.current_batch_id = microbatch_id
 
     def record_start(self, module: Any, input: Any) -> None:
         batch_key = self._generate_batch_key(self.current_batch_id)
