@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <execution>
 #include <map>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -28,8 +29,6 @@
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 #include "tests/data/dataset_test_generated.h"
-
-#include "flatflow/aten/generator.h"
 
 namespace {
 
@@ -87,11 +86,11 @@ class DatasetTest : public testing::Test {
       absl::SetStderrThreshold(absl::LogSeverity::kInfo);
     }
 
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    std::srand(std::time(nullptr));
 
     auto capacity = static_cast<std::size_t>(0);
     for (uint16_t size = 1; size <= kMaxSize; ++size) {
-      const auto count = static_cast<std::size_t>(std::rand() % kMaxCount);
+      const auto count = static_cast<std::size_t>(std::rand()) % kMaxCount;
       capacity += count;
       counts_.try_emplace(size, count);
     }
@@ -109,7 +108,7 @@ class DatasetTest : public testing::Test {
     auto offset = CreateSizes(builder, data__);
     builder.Finish(offset);
 
-    auto sizes = GetSizes(builder.GetBufferPointer());
+    auto sizes = flatbuffers::GetRoot<Sizes>(builder.GetBufferPointer());
     dataset_ = Dataset(sizes->data(), 0);
   }
 
@@ -154,7 +153,8 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
 
   std::for_each(
       std::execution::par, slots.begin(), slots.end(), [&](auto &slot) {
-        auto generator = flatflow::aten::Generator(epoch);
+        auto generator = std::mt19937();
+        generator.seed(epoch);
         std::shuffle(slot.second.begin(), slot.second.end(), generator);
       });
 
@@ -165,62 +165,11 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
   }
 }
 
-// This test checks whether the basic insertion routine works as intended.
-TEST_F(DatasetTest, Insert) {
-  std::size_t count = 0;
-
-  const auto samples = dataset_.take<true>(dataset_.size());
-  EXPECT_EQ(samples.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
-                [&](const auto &sample) {
-                  dataset_.insert<false>(sample.first, sample.second);
-                  ++count;
-                  EXPECT_EQ(dataset_.size(), count);
-                });
-  EXPECT_EQ(dataset_.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(false));
-
-  for (const auto [size, count] : counts_) {
-    if (0 < count) {
-      EXPECT_EQ(dataset_.size(size), count);
-      EXPECT_EQ(dataset_.capacity(size), count);
-    } else {
-      EXPECT_FALSE(dataset_.contains(size));
-    }
-  }
-}
-
-// This test checks whether the reverse insertion routine works as intended.
-TEST_F(DatasetTest, InsertIntoRecycleBin) {
-  const auto samples = dataset_.take<true>(dataset_.size());
-  EXPECT_EQ(samples.size(), dataset_.max_size());
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
-                [&](const auto &sample) {
-                  dataset_.insert<true>(sample.first, sample.second);
-                  EXPECT_TRUE(dataset_.empty(true));
-                });
-  EXPECT_TRUE(dataset_.empty(true));
-  EXPECT_FALSE(dataset_.empty(false));
-
-  for (const auto [size, count] : counts_) {
-    if (0 < count) {
-      EXPECT_EQ(dataset_.size(size, false), count);
-      EXPECT_EQ(dataset_.capacity(size, false), count);
-    } else {
-      EXPECT_FALSE(dataset_.contains(size, false));
-    }
-  }
-}
-
 // This test checks whether the bulk loading routine retrieves data samples as
 // intended. It also verifies that the retrieved data samples are properly
 // recovered in the recycle bin.
 TEST_F(DatasetTest, Take) {
-  auto samples = dataset_.take<false>(dataset_.size());
+  auto samples = dataset_.take(dataset_.size());
   EXPECT_EQ(samples.size(), dataset_.max_size());
   EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
                              [](const auto &sample, const auto &other) {
@@ -244,7 +193,7 @@ TEST_F(DatasetTest, Take) {
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
   dataset_.on_epoch_begin(epoch);
 
-  samples = dataset_.take<false>(dataset_.size());
+  samples = dataset_.take(dataset_.size());
   EXPECT_EQ(samples.size(), dataset_.max_size());
   EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
                              [](const auto &sample, const auto &other) {
@@ -263,10 +212,132 @@ TEST_F(DatasetTest, Take) {
   }
 }
 
-// This test checks whether the reverse bulk loading routine retrieves data
-// samples as intended.
-TEST_F(DatasetTest, TakeWithoutRestoration) {
-  auto samples = dataset_.take<true>(dataset_.size());
+// A read-only data set used only for testing purpose.
+class Dataset32 : public flatflow::Dataset<uint64_t, uint32_t> {
+  using super_type = flatflow::Dataset<uint64_t, uint32_t>;
+
+ public:
+  using super_type::super_type;
+
+  bool empty(bool items = true) const {
+    return items ? items_.empty() : recyclebin_.empty();
+  }
+
+  std::size_t size() const noexcept { return size_; }
+
+  std::size_t size(uint32_t size, bool items = true) const {
+    return items ? items_.at(size).size() : recyclebin_.at(size).size();
+  }
+
+  std::size_t capacity(uint32_t size, bool items = true) const {
+    return items ? items_.at(size).capacity() : recyclebin_.at(size).capacity();
+  }
+
+  bool contains(uint32_t size, bool items = true) const {
+    return items ? items_.contains(size) : recyclebin_.contains(size);
+  }
+
+  bool is_sorted(uint32_t size, bool items = true) const {
+    return items ? std::is_sorted(items_.at(size).cbegin(),
+                                  items_.at(size).cend())
+                 : std::is_sorted(recyclebin_.at(size).crbegin(),
+                                  recyclebin_.at(size).crend());
+  }
+
+  std::vector<uint64_t> copy(uint32_t size) const {
+    auto slot = std::vector<uint64_t>(items_.at(size).size());
+    std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
+    return slot;
+  }
+
+  bool equal(uint32_t size, const std::vector<uint64_t> &slot) const {
+    return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
+  }
+};
+
+class Dataset32Test : public testing::Test {
+ protected:
+  void SetUp() override {
+    constexpr auto kMaxSize = static_cast<uint32_t>(1 << 12);
+    constexpr auto kMaxCount = static_cast<std::size_t>(1 << 15);
+
+    if (!absl::log_internal::IsInitialized()) {
+      absl::InitializeLog();
+      absl::SetStderrThreshold(absl::LogSeverity::kInfo);
+    }
+
+    std::srand(std::time(nullptr));
+
+    auto capacity = static_cast<std::size_t>(0);
+    for (uint32_t size = 1; size <= kMaxSize; ++size) {
+      const auto count = static_cast<std::size_t>(std::rand()) % kMaxCount;
+      capacity += count;
+      counts_.try_emplace(size, count);
+    }
+
+    auto data = std::vector<uint32_t>();
+    data.reserve(capacity);
+    for (auto [size, count] : counts_) {
+      for (; 0 < count; --count) {
+        data.emplace_back(size);
+      }
+    }
+
+    auto builder = flatbuffers::FlatBufferBuilder();
+    auto data__ = builder.CreateVector(data);
+    auto offset = CreateSizes32(builder, data__);
+    builder.Finish(offset);
+
+    auto sizes = flatbuffers::GetRoot<Sizes32>(builder.GetBufferPointer());
+    dataset_ = Dataset32(sizes->data(), 0);
+  }
+
+  std::map<uint32_t, std::size_t> counts_;
+  Dataset32 dataset_;
+};
+
+TEST_F(Dataset32Test, Constructor) {
+  EXPECT_TRUE(dataset_.empty(false));
+
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      EXPECT_EQ(dataset_.size(size), count);
+      EXPECT_EQ(dataset_.capacity(size), count);
+      EXPECT_TRUE(dataset_.is_sorted(size));
+    } else {
+      EXPECT_FALSE(dataset_.contains(size));
+    }
+  }
+
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+}
+
+TEST_F(Dataset32Test, IntraBatchShuffling) {
+  const auto epoch = static_cast<uint64_t>(std::rand());
+
+  auto slots = std::map<uint32_t, std::vector<uint64_t>>();
+  for (const auto [size, count] : counts_) {
+    if (0 < count) {
+      slots.try_emplace(size, std::move(dataset_.copy(size)));
+    }
+  }
+
+  std::for_each(
+      std::execution::par, slots.begin(), slots.end(), [&](auto &slot) {
+        auto generator = std::mt19937();
+        generator.seed(epoch);
+        std::shuffle(slot.second.begin(), slot.second.end(), generator);
+      });
+
+  dataset_.on_epoch_begin(epoch);
+
+  for (const auto &[size, slot] : slots) {
+    EXPECT_TRUE(dataset_.equal(size, slot));
+  }
+}
+
+TEST_F(Dataset32Test, Take) {
+  auto samples = dataset_.take(dataset_.size());
   EXPECT_EQ(samples.size(), dataset_.max_size());
   EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
                              [](const auto &sample, const auto &other) {
@@ -277,22 +348,20 @@ TEST_F(DatasetTest, TakeWithoutRestoration) {
 
   for (const auto [size, count] : counts_) {
     if (0 < count) {
-      EXPECT_EQ(dataset_.size(size, false), 0);
+      EXPECT_EQ(dataset_.size(size, false), count);
       EXPECT_EQ(dataset_.capacity(size, false), count);
     } else {
       EXPECT_FALSE(dataset_.contains(size, false));
     }
   }
 
-  std::for_each(std::execution::seq, samples.cbegin(), samples.cend(),
-                [&](const auto &sample) {
-                  dataset_.insert<false>(sample.first, sample.second);
-                });
-  EXPECT_EQ(dataset_.size(), dataset_.max_size());
-  EXPECT_FALSE(dataset_.empty(true));
-  EXPECT_TRUE(dataset_.empty(false));
+  const auto epoch = static_cast<uint64_t>(std::rand());
 
-  samples = dataset_.take<true>(dataset_.size());
+  dataset_.on_epoch_end(epoch);
+  EXPECT_EQ(dataset_.size(), dataset_.max_size());
+  dataset_.on_epoch_begin(epoch);
+
+  samples = dataset_.take(dataset_.size());
   EXPECT_EQ(samples.size(), dataset_.max_size());
   EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
                              [](const auto &sample, const auto &other) {
@@ -303,7 +372,7 @@ TEST_F(DatasetTest, TakeWithoutRestoration) {
 
   for (const auto [size, count] : counts_) {
     if (0 < count) {
-      EXPECT_EQ(dataset_.size(size, false), 0);
+      EXPECT_EQ(dataset_.size(size, false), count);
       EXPECT_EQ(dataset_.capacity(size, false), count);
     } else {
       EXPECT_FALSE(dataset_.contains(size, false));

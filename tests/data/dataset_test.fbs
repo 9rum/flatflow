@@ -16,4 +16,6 @@ table Sizes {
   data: [ushort];
 }
 
-root_type Sizes;
+table Sizes32 {
+  data: [uint];
+}

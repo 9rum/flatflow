@@ -21,6 +21,7 @@ target_include_directories(
 target_link_libraries(
   dataset_test
   PRIVATE absl::btree
+  PRIVATE absl::check
   PRIVATE absl::inlined_vector
   PRIVATE absl::log
   PRIVATE absl::log_initialize

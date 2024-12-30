@@ -48,23 +48,19 @@
 // Another API difference is that B-tree iterators can be subtracted, and this
 // is faster than using std::distance.
 
-#ifndef FLATFLOW_ABSEIL_BTREE_MAP_H_
-#define FLATFLOW_ABSEIL_BTREE_MAP_H_
+#ifndef FLATFLOW_DATA_INTERNAL_CONTAINER_BTREE_MAP_H_
+#define FLATFLOW_DATA_INTERNAL_CONTAINER_BTREE_MAP_H_
 
 #include "absl/base/attributes.h"
 #include "absl/container/internal/btree.h"            // IWYU pragma: export
 #include "absl/container/internal/btree_container.h"  // IWYU pragma: export
 
 namespace flatflow {
-namespace abseil {
-
 namespace internal {
 
 template <typename Key, typename Data, typename Compare, typename Alloc,
           int TargetNodeSize, bool IsMulti>
 struct map_params;
-
-}  // namespace internal
 
 // btree_map<>
 //
@@ -91,7 +87,7 @@ template <typename Key, typename Value, typename Compare = std::less<Key>,
           int TargetNodeSize = 256>
 class btree_map
     : public absl::container_internal::btree_map_container<
-          absl::container_internal::btree<internal::map_params<
+          absl::container_internal::btree<map_params<
               Key, Value, Compare, Alloc, TargetNodeSize, /*IsMulti=*/false>>> {
   using Base = typename btree_map::btree_map_container;
 
@@ -541,7 +537,7 @@ template <typename Key, typename Value, typename Compare = std::less<Key>,
           int TargetNodeSize = 256>
 class btree_multimap
     : public absl::container_internal::btree_multimap_container<
-          absl::container_internal::btree<internal::map_params<
+          absl::container_internal::btree<map_params<
               Key, Value, Compare, Alloc, TargetNodeSize, /*IsMulti=*/true>>> {
   using Base = typename btree_multimap::btree_multimap_container;
 
@@ -873,8 +869,6 @@ void swap(btree_multimap<K, V, C, A, S> &map, btree_multimap<K, V, C, A, S> &oth
   map.swap(other);
 }
 
-namespace internal {
-
 // A parameters structure for holding the type parameters for a B-tree map.
 // Compare and Alloc should be nothrow copy-constructible.
 template <typename Key, typename Data, typename Compare, typename Alloc,
@@ -906,8 +900,6 @@ struct map_params : absl::container_internal::common_params<Key, Compare, Alloc,
 };
 
 }  // namespace internal
-
-}  // namespace abseil
 }  // namespace flatflow
 
-#endif  // FLATFLOW_ABSEIL_BTREE_MAP_H_
+#endif  // FLATFLOW_DATA_INTERNAL_CONTAINER_BTREE_MAP_H_
