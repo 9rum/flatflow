@@ -12,8 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-table Sizes {
-  data: [uint];
-}
+namespace flatflow;
 
-root_type Sizes;
+/// This table defines the operator set to identify operations in the
+/// computational graph of a given model. It is based on ATen operator set,
+/// so that each entry corresponds to the basic building block in the
+/// computational graph while ensuring compatibility with PyTorch.
+///
+/// The latest version of ATen operator set can be found at
+/// https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml
+///
+/// Note that this operator set is under development and more operators
+/// will be added in the future.
+enum Operator: ushort {
+}

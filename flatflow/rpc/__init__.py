@@ -1,7 +1,7 @@
 from flatflow._C import run
-from flatflow.rpc.BroadcastResponse import BroadcastResponse
 from flatflow.rpc.communicator import CommunicatorClient
-from flatflow.rpc.Empty import Empty
+from flatflow.rpc.controlplane_generated import BroadcastResponse
+from flatflow.rpc.empty_generated import Empty
 
 __all__ = [
     "BroadcastResponse",
