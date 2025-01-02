@@ -14,10 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
-import torch.cuda
-import torch.distributed
 import torch.multiprocessing as mp
 from nemo.collections.nlp.parts.megatron_trainer_builder import MegatronLMPPTrainerBuilder
 from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP
@@ -79,30 +75,7 @@ def main(cfg) -> None:
     else:
         logging.info(f"Running full finetuning since no peft scheme is given.\n{model.summarize()}")
 
-    num_samples = 15000
-    rank = torch.distributed.get_rank()
-    logging.info(
-        "Before training:\n"
-        f"  rank                             : {rank}\n"
-        f"  torch.cuda.max_memory_allocated(): {torch.cuda.max_memory_allocated():,}\n"
-        f"  torch.cuda.max_memory_reserved() : {torch.cuda.max_memory_reserved():,}"
-    )
-    now = time.monotonic()
-
     trainer.fit(model)
-
-    makespan = time.monotonic() - now
-    logging.info(
-        "After training:\n"
-        f"  rank                             : {rank}\n"
-        f"  torch.cuda.max_memory_allocated(): {torch.cuda.max_memory_allocated():,}\n"
-        f"  torch.cuda.max_memory_reserved() : {torch.cuda.max_memory_reserved():,}"
-    )
-    logging.info(
-        f"Number of data samples  : {num_samples}\n"
-        f"Makespan                : {makespan}\n"
-        f"Throughput (samples/sec): {num_samples/makespan}"
-    )
 
 
 if __name__ == "__main__":

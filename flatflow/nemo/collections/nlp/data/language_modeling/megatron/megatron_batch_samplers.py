@@ -166,11 +166,11 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 break
             indices_size = [0]
             if is_model_parallel_src:
-                if self.profiler is not None and not self.converged:
+                if not self.converged:
                     self.costs = self.profiler.extract() if self.profiler.event.is_set() else None
                 response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
                 self.converged = response.Converged()
-                if self.profiler is not None and self.converged:
+                if self.converged:
                     for hook in self.profiler.hook_handles:
                         hook.remove()
 
@@ -191,10 +191,10 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                     yield batch
                     batch = []
 
-        if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-            num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
-            batch = batch + [-1] * num_pad
-            yield batch
+            if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
+                num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
+                batch = batch + [-1] * num_pad
+                yield batch
 
     def __del__(self) -> None:
         if hasattr(self.client, "rank") and self.client.rank == 0:

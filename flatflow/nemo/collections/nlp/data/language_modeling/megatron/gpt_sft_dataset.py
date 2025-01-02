@@ -87,31 +87,31 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
             self,
             file_path,
             tokenizer,
-            max_seq_length,
-            min_seq_length,
-            pad_seq_length_to_mult,
-            add_bos,
-            add_eos,
-            add_sep,
-            sep_id,  # type: ignore[arg-type]
-            max_num_samples,  # type: ignore[arg-type]
-            seed,
-            label_key,
-            answer_only_loss,
-            truncation_field,
-            pad_to_max_length,
-            index_mapping_dir,  # type: ignore[arg-type]
-            prompt_template,  # type: ignore[arg-type]
-            virtual_tokens,
-            tokens_to_generate,
-            memmap_workers,
-            hf_dataset,
-            truncation_method,
-            special_tokens,
-            is_test,
-            output_original_text,
-            ceil_to_power_2,
-            get_attention_mask_from_fusion,
+            max_seq_length=max_seq_length,
+            min_seq_length=min_seq_length,
+            pad_seq_length_to_mult=pad_seq_length_to_mult,
+            add_bos=add_bos,
+            add_eos=add_eos,
+            add_sep=add_sep,
+            sep_id=sep_id,  # type: ignore[arg-type]
+            max_num_samples=max_num_samples,  # type: ignore[arg-type]
+            seed=seed,
+            label_key=label_key,
+            answer_only_loss=answer_only_loss,
+            truncation_field=truncation_field,
+            pad_to_max_length=pad_to_max_length,
+            index_mapping_dir=index_mapping_dir,  # type: ignore[arg-type]
+            prompt_template=prompt_template,  # type: ignore[arg-type]
+            virtual_tokens=virtual_tokens,
+            tokens_to_generate=tokens_to_generate,
+            memmap_workers=memmap_workers,
+            hf_dataset=hf_dataset,
+            truncation_method=truncation_method,
+            special_tokens=special_tokens,
+            is_test=is_test,
+            output_original_text=output_original_text,
+            ceil_to_power_2=ceil_to_power_2,
+            get_attention_mask_from_fusion=get_attention_mask_from_fusion,
         )
 
         self.processed_dataset = [None] * len(self.indexed_dataset)

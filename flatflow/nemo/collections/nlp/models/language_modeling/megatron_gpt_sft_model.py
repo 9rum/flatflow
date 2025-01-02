@@ -290,7 +290,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         dataset_kwargs = {}
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
-            if self.use_flatflow:
+            # flatflow is applied only for training
+            if self.use_flatflow and is_train:
                 dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTDataset
             elif self.cfg.data.get("chat", False):
                 dataset_cls = GPTSFTChatDataset
@@ -905,12 +906,12 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         else:
             collate_fn = dataset.collate_fn
 
-        if self.use_flatflow:
+        if self.use_flatflow and is_train:
             data_parallel_rank = parallel_state.get_data_parallel_rank()
             tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
             pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
             profiler = None
-            if is_train and self.use_compute_profile:
+            if self.use_compute_profile:
                 profiler = self.compute_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"]
 
             batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
