@@ -48,17 +48,20 @@ import flatflow.torch.profiler
 import flatflow.torch.utils.data
 
 try:
+    from megatron.core.num_microbatches_calculator import (
+        reconfigure_num_microbatches_calculator as _reconfigure_microbatch_calculator,
+        get_current_global_batch_size,
+        get_micro_batch_size,
+        get_num_microbatches,
+    )
+
+except (ImportError, ModuleNotFoundError):
     from apex.transformer.pipeline_parallel.utils import (
         _reconfigure_microbatch_calculator,
         get_current_global_batch_size,
         get_micro_batch_size,
         get_num_microbatches,
     )
-
-    HAVE_APEX = True
-
-except (ImportError, ModuleNotFoundError):
-    HAVE_APEX = False
 
 try:
     from megatron.core import parallel_state
@@ -79,10 +82,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
     """
 
     def __init__(self, cfg: DictConfig, trainer: Trainer):
-        if not HAVE_APEX:
-            raise ImportError(
-                "Apex was not found. Please see the NeMo README for installation instructions: https://github.com/NVIDIA/NeMo#megatron-gpt."
-            )
         super().__init__(cfg, trainer=trainer)
         self.sep_id = cfg.get('sep_id', 49704)
         if hasattr(self.cfg.data, "validation_ds"):
@@ -115,15 +114,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.use_compute_profile = cfg.get("use_compute_profile", True)
         self.compute_profilers = {}
         self.memory_profilers = {}
-        self.variable_seq_lengths = False
-        if self.cfg.get('virtual_pipeline_model_parallel_size', None) > 0 and isinstance(self.model, list):
-            config = get_model_config(self.model[0])
+
+        if self.use_flatflow:
+            if isinstance(self.model, list):
+                config = get_model_config(self.model[0])
+            else:
+                config = get_model_config(self.model)
             config.variable_seq_lengths = True
-            self.variable_seq_lengths = True
-        elif self.cfg.get('virtual_pipeline_model_parallel_size', None) > 0:
-            config = get_model_config(self.model)
-            config.variable_seq_lengths = True
-            self.variable_seq_lengths = True
 
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
@@ -240,38 +237,44 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             raise ValueError("SFT train/validation datasets must be provided as a list of individual JSONL files.")
 
         if is_train:
-            # Construct the data prefix list for `get_datasets_weights_and_num_samples()`
-            # that is of the format [weight1,file_name1,weight2,file_name2,...]
-            if data_cfg.concat_sampling_probabilities is None or not isinstance(
-                data_cfg.concat_sampling_probabilities, ListConfig
-            ):
-                raise ValueError(
-                    (
-                        f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names."
-                        f"Found: {data_cfg.concat_sampling_probabilities}"
+            # Calculate num_train_samples_per_dataset for blending different dataset files.
+            # For a single file, calculate num_samples following NeMo-Aligner.build_sft_dataset(from nemo:24.09).
+            if len(data_cfg.file_names) > 1 or self.trainer.max_steps > 0:
+                # Construct the data prefix list for `get_datasets_weights_and_num_samples()`
+                # that is of the format [weight1,file_name1,weight2,file_name2,...]
+                if data_cfg.concat_sampling_probabilities is None or not isinstance(
+                    data_cfg.concat_sampling_probabilities, ListConfig
+                ):
+                    raise ValueError(
+                        (
+                            f"concat_sampling_probabilities must be a ListConfig with the same number of files in file_names."
+                            f"Found: {data_cfg.concat_sampling_probabilities}"
+                        )
                     )
-                )
 
-            if len(data_cfg.get('concat_sampling_probabilities', None)) != len(data_cfg.file_names):
-                raise ValueError(
-                    (
-                        "concat_sampling_probabilities must be of the same size as file_names.",
-                        f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}",
+                if len(data_cfg.get('concat_sampling_probabilities', None)) != len(data_cfg.file_names):
+                    raise ValueError(
+                        (
+                            "concat_sampling_probabilities must be of the same size as file_names.",
+                            f"Provided size {len(data_cfg.concat_sampling_probabilities)}, number of datasets {len(data_cfg.file_names)}",
+                        )
                     )
-                )
 
-            data_prefix = []
-            for weight, prefix in zip(data_cfg.concat_sampling_probabilities, data_cfg.file_names):
-                data_prefix.append(weight)
-                data_prefix.append(prefix)
+                data_prefix = []
+                for weight, prefix in zip(data_cfg.concat_sampling_probabilities, data_cfg.file_names):
+                    data_prefix.append(weight)
+                    data_prefix.append(prefix)
 
-            if self.trainer.max_steps is None or self.trainer.max_steps <= 0:
-                raise ValueError(
-                    f'Trainer max_steps must be set to a positive integer. Found {self.trainer.max_steps}'
-                )
-            num_train_samples = [self.trainer.max_steps * data_cfg.global_batch_size]
-            _, _, num_train_samples_per_dataset = get_datasets_weights_and_num_samples(data_prefix, num_train_samples)
-            num_train_samples_after_blend = sum([x[0] for x in num_train_samples_per_dataset])
+                if self.trainer.max_steps is None or self.trainer.max_steps <= 0:
+                    raise ValueError(
+                        f'Trainer max_steps must be set to a positive integer. Found {self.trainer.max_steps}'
+                    )
+                num_train_samples = [self.trainer.max_steps * data_cfg.global_batch_size]
+                _, _, num_train_samples_per_dataset = get_datasets_weights_and_num_samples(data_prefix, num_train_samples)
+                num_train_samples_after_blend = sum([x[0] for x in num_train_samples_per_dataset])
+            else:
+                num_train_samples_per_dataset = [[None]]
+                num_train_samples_after_blend = None
         else:
             num_train_samples_per_dataset = [[None]] * len(data_cfg.file_names)
 
@@ -295,7 +298,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         dataset_kwargs = {}
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
-            if self.use_flatflow:
+            # flatflow is applied only for training
+            if self.use_flatflow and is_train:
                 dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTDataset
             elif self.cfg.data.get("chat", False):
                 dataset_cls = GPTSFTChatDataset
@@ -352,7 +356,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             )
             datasets.append(dataset)
         if is_train:
-            if self.use_flatflow or packed_sequence:
+            if self.use_flatflow or packed_sequence or num_train_samples_after_blend is None:
                 num_train_samples_after_blend = sum(len(dataset) for dataset in datasets)
             if self.use_flatflow:
                 dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset(
@@ -386,8 +390,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         # call like validation_step otherwise return tuple
         # (in which case dataloader_iter is still a PTL _DataFetcherWrapper object)
         num_microbatches = get_num_microbatches()
-        micro_batch_size = 1 if self.use_flatflow else get_micro_batch_size()
         if not self.use_flatflow:
+            micro_batch_size = get_micro_batch_size()
             if isinstance(dataloader_iter, _DataFetcherWrapper):
                 batch, _, _ = next(dataloader_iter)
             else:
@@ -402,8 +406,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             _, seq_length = batch['tokens'].shape
             data_iter = get_iterator_k_split(batch, num_microbatches)
         else:
+            # Using flatflow, the 'stack-dim' batch size is always 1 for a microbatch. Instead, the `get_micro_batch_size()` 
+            # corresponds to the 'concat-dim' batch size of microbatches, processed in `flatflow...GPTSFTDataset`.
+            micro_batch_size = 1    
             batch = []
-            iter_count = num_microbatches if self.variable_seq_lengths else 1
+            iter_count = num_microbatches
             while len(batch) < iter_count:
                 if isinstance(dataloader_iter, _DataFetcherWrapper):
                     microbatch, _, _ = next(dataloader_iter)
@@ -412,8 +419,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 batch.append(microbatch)
             log_token_counts = self.cfg.get('log_token_counts', False)
             if log_token_counts:
-                token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
-            seq_length = sum([batch[i]['tokens'].shape[1] for i in range(num_microbatches)])
+                token_count_avg = sum([mb['token_count'] for mb in batch]) / (len(batch) * get_micro_batch_size())
+            # seq_length is required but will be ignored. See megatron...schedules.get_forward_backword_func's comment(docstring).
+            seq_length = sum([mb['tokens'].shape[1] for mb in batch])
             data_iter = itertools.chain(batch)
 
         if log_token_counts:
@@ -905,6 +913,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             data_parallel_rank = parallel_state.get_data_parallel_rank()
             tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
             pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+            profiler = None
+            if self.use_compute_profile:
+                profiler = self.compute_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"]
 
             batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
                 total_samples=len(dataset),
@@ -916,28 +927,23 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                profiler=self.compute_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"] if self.use_compute_profile else None,
+                profiler=profiler,
             )
-            return flatflow.torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                collate_fn=collate_fn,
-                num_workers=data_cfg.num_workers,
-                pin_memory=data_cfg.pin_memory,
-                persistent_workers=0 < data_cfg.num_workers,
+            data_loader_cls = flatflow.torch.utils.data.DataLoader
+        else:
+            batch_sampler = MegatronPretrainingBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=data_cfg.micro_batch_size,
+                global_batch_size=data_cfg.global_batch_size,
+                data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                drop_last=data_cfg.drop_last,
+                pad_samples_to_global_batch_size=not data_cfg.drop_last,
             )
+            data_loader_cls = torch.utils.data.DataLoader
 
-        batch_sampler = MegatronPretrainingBatchSampler(
-            total_samples=len(dataset),
-            consumed_samples=consumed_samples,
-            micro_batch_size=data_cfg.micro_batch_size,
-            global_batch_size=data_cfg.global_batch_size,
-            data_parallel_rank=parallel_state.get_data_parallel_rank(),
-            data_parallel_size=parallel_state.get_data_parallel_world_size(),
-            drop_last=data_cfg.drop_last,
-            pad_samples_to_global_batch_size=not data_cfg.drop_last,
-        )
-        return torch.utils.data.DataLoader(
+        return data_loader_cls(
             dataset,
             batch_sampler=batch_sampler,
             collate_fn=collate_fn,
@@ -979,7 +985,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if hasattr(self, '_train_ds'):
             consumed_samples = self.compute_consumed_samples(0)
             self._train_dl = self.build_data_loader(
-                dataset=self._train_ds, data_cfg=self.cfg.data.train_ds, consumed_samples=consumed_samples,is_train=True
+                dataset=self._train_ds, data_cfg=self.cfg.data.train_ds, consumed_samples=consumed_samples, is_train=True
             )
 
     def setup_eval_dataloader(self, datasets, data_cfg):
