@@ -21,8 +21,37 @@ namespace flatflow;
 ///
 /// The latest version of ATen operator set can be found at
 /// https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml
+/// or by running `python3 -c "import torch; print(dir(torch.ops.aten))"`.
 ///
 /// Note that this operator set is under development and more operators
 /// will be added in the future.
 enum Operator: ushort {
+  _SOFTMAX,           // _softmax
+  _TO_COPY,           // _to_copy
+  _UNSAFE_VIEW,       // _unsafe_view
+  ADD_TENSOR,         // add.Tensor
+  ARANGE_START,       // arange.start
+  BMM,                // bmm
+  CAT,                // cat
+  CLONE,              // clone
+  COS,                // cos
+  EMBEDDING,          // embedding
+  EXPAND,             // expand
+  INDEX_TENSOR,       // index.Tensor
+  MEAN_DIM,           // mean.dim
+  MM,                 // mm
+  MUL_SCALAR,         // mul.Scalar
+  MUL_TENSOR,         // mul.Tensor
+  NEG,                // neg
+  POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
+  REPEAT,             // repeat
+  RSQRT,              // rsqrt
+  SILU,               // silu
+  SIN,                // sin
+  SLICE_TENSOR,       // slice.Tensor
+  SYM_SIZE_INT,       // sym_size.int
+  T,                  // t
+  TRANSPOSE_INT,      // transpose.int
+  UNSQUEEZE,          // unsqueeze
+  VIEW,               // view
 }
