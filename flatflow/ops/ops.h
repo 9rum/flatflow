@@ -25,25 +25,26 @@
 
 namespace flatflow {
 
-class OpProf {
+class OpFLOPs {
  public:
   using value_type = uint64_t;
 
-  OpProf() {}
+  OpFLOPs() {}
 
-  OpProf(value_type coef0, value_type coef1, value_type coef2, value_type coef3)
+  OpFLOPs(value_type coef0, value_type coef1, value_type coef2,
+          value_type coef3)
       : coef0_(coef0), coef1_(coef1), coef2_(coef2), coef3_(coef3) {}
 
-  OpProf(const OpProf &other) = default;
+  OpFLOPs(const OpFLOPs &other) = default;
 
-  OpProf &operator=(const OpProf &other) = default;
+  OpFLOPs &operator=(const OpFLOPs &other) = default;
 
-  OpProf(OpProf &&other) = default;
+  OpFLOPs(OpFLOPs &&other) = default;
 
-  OpProf &operator=(OpProf &&other) = default;
+  OpFLOPs &operator=(OpFLOPs &&other) = default;
 
-  OpProf &operator+(const OpProf &other) {
-    auto prof = OpProf();
+  OpFLOPs &operator+(const OpFLOPs &other) {
+    auto prof = OpFLOPs();
     prof.coef0_ = coef0_ + other.coef0_;
     prof.coef1_ = coef1_ + other.coef1_;
     prof.coef2_ = coef2_ + other.coef2_;
@@ -57,316 +58,316 @@ class OpProf {
   value_type coef3_;
 };
 
-class OpProfRegistry {
+class OpFLOPsRegistry {
  public:
-  using value_type = OpProf::value_type;
+  using value_type = OpFLOPs::value_type;
 
-  OpProfRegistry(value_type hidden_size) {
+  OpFLOPsRegistry(value_type hidden_size) {
     constexpr auto kOpTableSpace =
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
-    RegisterOpProf<Operator::_SOFTMAX>(hidden_size);
-    RegisterOpProf<Operator::_TO_COPY>(hidden_size);
-    RegisterOpProf<Operator::_UNSAFE_VIEW>(hidden_size);
-    RegisterOpProf<Operator::ADD_TENSOR>(hidden_size);
-    RegisterOpProf<Operator::ARANGE_START>(hidden_size);
-    RegisterOpProf<Operator::BMM>(hidden_size);
-    RegisterOpProf<Operator::CAT>(hidden_size);
-    RegisterOpProf<Operator::CLONE>(hidden_size);
-    RegisterOpProf<Operator::COS>(hidden_size);
-    RegisterOpProf<Operator::EMBEDDING>(hidden_size);
-    RegisterOpProf<Operator::EXPAND>(hidden_size);
-    RegisterOpProf<Operator::INDEX_TENSOR>(hidden_size);
-    RegisterOpProf<Operator::MEAN_DIM>(hidden_size);
-    RegisterOpProf<Operator::MM>(hidden_size);
-    RegisterOpProf<Operator::MUL_SCALAR>(hidden_size);
-    RegisterOpProf<Operator::MUL_TENSOR>(hidden_size);
-    RegisterOpProf<Operator::NEG>(hidden_size);
-    RegisterOpProf<Operator::POW_TENSOR_SCALAR>(hidden_size);
-    RegisterOpProf<Operator::REPEAT>(hidden_size);
-    RegisterOpProf<Operator::RSQRT>(hidden_size);
-    RegisterOpProf<Operator::SILU>(hidden_size);
-    RegisterOpProf<Operator::SIN>(hidden_size);
-    RegisterOpProf<Operator::SLICE_TENSOR>(hidden_size);
-    RegisterOpProf<Operator::SYM_SIZE_INT>(hidden_size);
-    RegisterOpProf<Operator::T>(hidden_size);
-    RegisterOpProf<Operator::TRANSPOSE_INT>(hidden_size);
-    RegisterOpProf<Operator::UNSQUEEZE>(hidden_size);
-    RegisterOpProf<Operator::VIEW>(hidden_size);
+    RegisterOpFLOPs<Operator::_SOFTMAX>(hidden_size);
+    RegisterOpFLOPs<Operator::_TO_COPY>(hidden_size);
+    RegisterOpFLOPs<Operator::_UNSAFE_VIEW>(hidden_size);
+    RegisterOpFLOPs<Operator::ADD_TENSOR>(hidden_size);
+    RegisterOpFLOPs<Operator::ARANGE_START>(hidden_size);
+    RegisterOpFLOPs<Operator::BMM>(hidden_size);
+    RegisterOpFLOPs<Operator::CAT>(hidden_size);
+    RegisterOpFLOPs<Operator::CLONE>(hidden_size);
+    RegisterOpFLOPs<Operator::COS>(hidden_size);
+    RegisterOpFLOPs<Operator::EMBEDDING>(hidden_size);
+    RegisterOpFLOPs<Operator::EXPAND>(hidden_size);
+    RegisterOpFLOPs<Operator::INDEX_TENSOR>(hidden_size);
+    RegisterOpFLOPs<Operator::MEAN_DIM>(hidden_size);
+    RegisterOpFLOPs<Operator::MM>(hidden_size);
+    RegisterOpFLOPs<Operator::MUL_SCALAR>(hidden_size);
+    RegisterOpFLOPs<Operator::MUL_TENSOR>(hidden_size);
+    RegisterOpFLOPs<Operator::NEG>(hidden_size);
+    RegisterOpFLOPs<Operator::POW_TENSOR_SCALAR>(hidden_size);
+    RegisterOpFLOPs<Operator::REPEAT>(hidden_size);
+    RegisterOpFLOPs<Operator::RSQRT>(hidden_size);
+    RegisterOpFLOPs<Operator::SILU>(hidden_size);
+    RegisterOpFLOPs<Operator::SIN>(hidden_size);
+    RegisterOpFLOPs<Operator::SLICE_TENSOR>(hidden_size);
+    RegisterOpFLOPs<Operator::SYM_SIZE_INT>(hidden_size);
+    RegisterOpFLOPs<Operator::T>(hidden_size);
+    RegisterOpFLOPs<Operator::TRANSPOSE_INT>(hidden_size);
+    RegisterOpFLOPs<Operator::UNSQUEEZE>(hidden_size);
+    RegisterOpFLOPs<Operator::VIEW>(hidden_size);
   }
 
-  // OpProfRegistry::RegisterOpProf<>()
+  // OpFLOPsRegistry::RegisterOpFLOPs<>()
   //
-  // This is a base template for operator profile registration; calling this
-  // means that the program is ill-formed and should fail to compile.
+  // This is a base template for operator FLOPs registration; calling this means
+  // that the program is ill-formed and should fail to compile.
   template <Operator>
-  void RegisterOpProf(value_type hidden_size) {
+  void RegisterOpFLOPs(value_type hidden_size) {
     static_assert(std::false_type::value);
   }
 
-  absl::flat_hash_map<Operator, OpProf> table_;
+  absl::flat_hash_map<Operator, OpFLOPs> table_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-///////////////// OPERATOR PROFILE REGISTRATION SECTION BEGIN /////////////////
+////////////////// OPERATOR FLOPS REGISTRATION SECTION BEGIN //////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-// OpProfRegistry::RegisterOpProf<_SOFTMAX>()
+// OpFLOPsRegistry::RegisterOpFLOPs<_SOFTMAX>()
 //
-// Registers operator profile for `_softmax`.
+// Registers operator FLOPs for `_softmax`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::_SOFTMAX>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::_SOFTMAX, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_SOFTMAX>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_SOFTMAX, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<_TO_COPY>()
+// OpFLOPsRegistry::RegisterOpFLOPs<_TO_COPY>()
 //
-// Registers operator profile for `_to_copy`.
+// Registers operator FLOPs for `_to_copy`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::_TO_COPY>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::_TO_COPY, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_TO_COPY>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_TO_COPY, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<_UNSAFE_VIEW>()
+// OpFLOPsRegistry::RegisterOpFLOPs<_UNSAFE_VIEW>()
 //
-// Registers operator profile for `_unsafe_view`.
+// Registers operator FLOPs for `_unsafe_view`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::_UNSAFE_VIEW>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::_UNSAFE_VIEW, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_UNSAFE_VIEW>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_UNSAFE_VIEW, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<ADD_TENSOR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<ADD_TENSOR>()
 //
-// Registers operator profile for `add.Tensor`.
+// Registers operator FLOPs for `add.Tensor`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::ADD_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::ADD_TENSOR, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ADD_TENSOR>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::ADD_TENSOR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<ARANGE_START>()
+// OpFLOPsRegistry::RegisterOpFLOPs<ARANGE_START>()
 //
-// Registers operator profile for `arange.start`.
+// Registers operator FLOPs for `arange.start`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::ARANGE_START>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::ARANGE_START, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ARANGE_START>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::ARANGE_START, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<BMM>()
+// OpFLOPsRegistry::RegisterOpFLOPs<BMM>()
 //
-// Registers operator profile for `bmm`.
+// Registers operator FLOPs for `bmm`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::BMM>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::BMM, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::BMM>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::BMM, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<CAT>()
+// OpFLOPsRegistry::RegisterOpFLOPs<CAT>()
 //
-// Registers operator profile for `cat`.
+// Registers operator FLOPs for `cat`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::CAT>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::CAT, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CAT>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::CAT, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<CLONE>()
+// OpFLOPsRegistry::RegisterOpFLOPs<CLONE>()
 //
-// Registers operator profile for `clone`.
+// Registers operator FLOPs for `clone`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::CLONE>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::CLONE, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CLONE>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::CLONE, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<COS>()
+// OpFLOPsRegistry::RegisterOpFLOPs<COS>()
 //
-// Registers operator profile for `cos`.
+// Registers operator FLOPs for `cos`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::COS>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::COS, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::COS>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::COS, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<EMBEDDING>()
+// OpFLOPsRegistry::RegisterOpFLOPs<EMBEDDING>()
 //
-// Registers operator profile for `embedding`.
+// Registers operator FLOPs for `embedding`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::EMBEDDING>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::EMBEDDING, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EMBEDDING>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::EMBEDDING, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<EXPAND>()
+// OpFLOPsRegistry::RegisterOpFLOPs<EXPAND>()
 //
-// Registers operator profile for `expand`.
+// Registers operator FLOPs for `expand`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::EXPAND>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::EXPAND, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EXPAND>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::EXPAND, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<INDEX_TENSOR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<INDEX_TENSOR>()
 //
-// Registers operator profile for `index.Tensor`.
+// Registers operator FLOPs for `index.Tensor`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::INDEX_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::INDEX_TENSOR, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::INDEX_TENSOR>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::INDEX_TENSOR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<MEAN_DIM>()
+// OpFLOPsRegistry::RegisterOpFLOPs<MEAN_DIM>()
 //
-// Registers operator profile for `mean.dim`.
+// Registers operator FLOPs for `mean.dim`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::MEAN_DIM>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::MEAN_DIM, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MEAN_DIM>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MEAN_DIM, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<MM>()
+// OpFLOPsRegistry::RegisterOpFLOPs<MM>()
 //
-// Registers operator profile for `mm`.
+// Registers operator FLOPs for `mm`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::MM>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::MM, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MM>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MM, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<MUL_SCALAR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<MUL_SCALAR>()
 //
-// Registers operator profile for `mul.Scalar`.
+// Registers operator FLOPs for `mul.Scalar`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::MUL_SCALAR>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::MUL_SCALAR, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_SCALAR>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MUL_SCALAR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<MUL_TENSOR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<MUL_TENSOR>()
 //
-// Registers operator profile for `mul.Tensor`.
+// Registers operator FLOPs for `mul.Tensor`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::MUL_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::MUL_TENSOR, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_TENSOR>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MUL_TENSOR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<NEG>()
+// OpFLOPsRegistry::RegisterOpFLOPs<NEG>()
 //
-// Registers operator profile for `neg`.
+// Registers operator FLOPs for `neg`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::NEG>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::NEG, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::NEG>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::NEG, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<POW_TENSOR_SCALAR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<POW_TENSOR_SCALAR>()
 //
-// Registers operator profile for `pow.Tensor_Scalar`.
+// Registers operator FLOPs for `pow.Tensor_Scalar`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::POW_TENSOR_SCALAR>(
-    OpProfRegistry::value_type hidden_size) {
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::POW_TENSOR_SCALAR>(
+    OpFLOPsRegistry::value_type hidden_size) {
   table_.insert(
-      std::make_pair(Operator::POW_TENSOR_SCALAR, OpProf(0, 0, 0, 0)));
+      std::make_pair(Operator::POW_TENSOR_SCALAR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<REPEAT>()
+// OpFLOPsRegistry::RegisterOpFLOPs<REPEAT>()
 //
-// Registers operator profile for `repeat`.
+// Registers operator FLOPs for `repeat`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::REPEAT>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::REPEAT, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::REPEAT>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::REPEAT, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<RSQRT>()
+// OpFLOPsRegistry::RegisterOpFLOPs<RSQRT>()
 //
-// Registers operator profile for `rsqrt`.
+// Registers operator FLOPs for `rsqrt`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::RSQRT>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::RSQRT, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::RSQRT>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::RSQRT, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<SILU>()
+// OpFLOPsRegistry::RegisterOpFLOPs<SILU>()
 //
-// Registers operator profile for `silu`.
+// Registers operator FLOPs for `silu`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::SILU>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::SILU, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SILU>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SILU, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<SIN>()
+// OpFLOPsRegistry::RegisterOpFLOPs<SIN>()
 //
-// Registers operator profile for `sin`.
+// Registers operator FLOPs for `sin`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::SIN>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::SIN, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SIN>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SIN, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<SLICE_TENSOR>()
+// OpFLOPsRegistry::RegisterOpFLOPs<SLICE_TENSOR>()
 //
-// Registers operator profile for `slice.Tensor`.
+// Registers operator FLOPs for `slice.Tensor`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::SLICE_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::SLICE_TENSOR, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SLICE_TENSOR>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SLICE_TENSOR, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<SYM_SIZE_INT>()
+// OpFLOPsRegistry::RegisterOpFLOPs<SYM_SIZE_INT>()
 //
-// Registers operator profile for `sym_size.int`.
+// Registers operator FLOPs for `sym_size.int`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::SYM_SIZE_INT>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::SYM_SIZE_INT, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SYM_SIZE_INT>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SYM_SIZE_INT, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<T>()
+// OpFLOPsRegistry::RegisterOpFLOPs<T>()
 //
-// Registers operator profile for `t`.
+// Registers operator FLOPs for `t`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::T>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::T, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::T>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::T, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<TRANSPOSE_INT>()
+// OpFLOPsRegistry::RegisterOpFLOPs<TRANSPOSE_INT>()
 //
-// Registers operator profile for `transpose.int`.
+// Registers operator FLOPs for `transpose.int`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::TRANSPOSE_INT>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::TRANSPOSE_INT, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::TRANSPOSE_INT>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::TRANSPOSE_INT, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<UNSQUEEZE>()
+// OpFLOPsRegistry::RegisterOpFLOPs<UNSQUEEZE>()
 //
-// Registers operator profile for `unsqueeze`.
+// Registers operator FLOPs for `unsqueeze`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::UNSQUEEZE>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::UNSQUEEZE, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::UNSQUEEZE>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::UNSQUEEZE, OpFLOPs(0, 0, 0, 0)));
 }
 
-// OpProfRegistry::RegisterOpProf<VIEW>()
+// OpFLOPsRegistry::RegisterOpFLOPs<VIEW>()
 //
-// Registers operator profile for `view`.
+// Registers operator FLOPs for `view`.
 template <>
-void OpProfRegistry::RegisterOpProf<Operator::VIEW>(
-    OpProfRegistry::value_type hidden_size) {
-  table_.insert(std::make_pair(Operator::VIEW, OpProf(0, 0, 0, 0)));
+void OpFLOPsRegistry::RegisterOpFLOPs<Operator::VIEW>(
+    OpFLOPsRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::VIEW, OpFLOPs(0, 0, 0, 0)));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-////////////////// OPERATOR PROFILE REGISTRATION SECTION END //////////////////
+/////////////////// OPERATOR FLOPS REGISTRATION SECTION END ///////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
 }  // namespace flatflow
