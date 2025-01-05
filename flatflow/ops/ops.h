@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <type_traits>
+#include <utility>
 
 #include "absl/container/flat_hash_map.h"
 
@@ -107,173 +108,266 @@ class OpProfRegistry {
   absl::flat_hash_map<Operator, OpProf> table_;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////// OPERATOR PROFILE REGISTRATION SECTION BEGIN /////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 // OpProfRegistry::RegisterOpProf<_SOFTMAX>()
 //
+// Registers operator profile for `_softmax`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::_SOFTMAX>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_SOFTMAX, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<_TO_COPY>()
 //
+// Registers operator profile for `_to_copy`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::_TO_COPY>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_TO_COPY, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<_UNSAFE_VIEW>()
 //
+// Registers operator profile for `_unsafe_view`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::_UNSAFE_VIEW>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::_UNSAFE_VIEW, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<ADD_TENSOR>()
 //
+// Registers operator profile for `add.Tensor`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::ADD_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::ADD_TENSOR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<ARANGE_START>()
 //
+// Registers operator profile for `arange.start`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::ARANGE_START>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::ARANGE_START, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<BMM>()
 //
+// Registers operator profile for `bmm`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::BMM>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::BMM, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<CAT>()
 //
+// Registers operator profile for `cat`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::CAT>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::CAT, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<CLONE>()
 //
+// Registers operator profile for `clone`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::CLONE>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::CLONE, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<COS>()
 //
+// Registers operator profile for `cos`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::COS>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::COS, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<EMBEDDING>()
 //
+// Registers operator profile for `embedding`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::EMBEDDING>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::EMBEDDING, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<EXPAND>()
 //
+// Registers operator profile for `expand`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::EXPAND>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::EXPAND, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<INDEX_TENSOR>()
 //
+// Registers operator profile for `index.Tensor`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::INDEX_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::INDEX_TENSOR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<MEAN_DIM>()
 //
+// Registers operator profile for `mean.dim`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::MEAN_DIM>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MEAN_DIM, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<MM>()
 //
+// Registers operator profile for `mm`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::MM>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MM, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<MUL_SCALAR>()
 //
+// Registers operator profile for `mul.Scalar`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::MUL_SCALAR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MUL_SCALAR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<MUL_TENSOR>()
 //
+// Registers operator profile for `mul.Tensor`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::MUL_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::MUL_TENSOR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<NEG>()
 //
+// Registers operator profile for `neg`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::NEG>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::NEG, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<POW_TENSOR_SCALAR>()
 //
+// Registers operator profile for `pow.Tensor_Scalar`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::POW_TENSOR_SCALAR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(
+      std::make_pair(Operator::POW_TENSOR_SCALAR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<REPEAT>()
 //
+// Registers operator profile for `repeat`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::REPEAT>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::REPEAT, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<RSQRT>()
 //
+// Registers operator profile for `rsqrt`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::RSQRT>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::RSQRT, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<SILU>()
 //
+// Registers operator profile for `silu`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::SILU>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SILU, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<SIN>()
 //
+// Registers operator profile for `sin`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::SIN>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SIN, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<SLICE_TENSOR>()
 //
+// Registers operator profile for `slice.Tensor`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::SLICE_TENSOR>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SLICE_TENSOR, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<SYM_SIZE_INT>()
 //
+// Registers operator profile for `sym_size.int`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::SYM_SIZE_INT>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::SYM_SIZE_INT, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<T>()
 //
+// Registers operator profile for `t`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::T>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::T, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<TRANSPOSE_INT>()
 //
+// Registers operator profile for `transpose.int`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::TRANSPOSE_INT>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::TRANSPOSE_INT, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<UNSQUEEZE>()
 //
+// Registers operator profile for `unsqueeze`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::UNSQUEEZE>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::UNSQUEEZE, OpProf(0, 0, 0, 0)));
+}
 
 // OpProfRegistry::RegisterOpProf<VIEW>()
 //
+// Registers operator profile for `view`.
 template <>
 void OpProfRegistry::RegisterOpProf<Operator::VIEW>(
-    OpProfRegistry::value_type hidden_size) {}
+    OpProfRegistry::value_type hidden_size) {
+  table_.insert(std::make_pair(Operator::VIEW, OpProf(0, 0, 0, 0)));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+////////////////// OPERATOR PROFILE REGISTRATION SECTION END //////////////////
+///////////////////////////////////////////////////////////////////////////////
 
 }  // namespace flatflow
 
