@@ -185,8 +185,8 @@ class Dataset {
       bound = std::max(bound, sizes->Get(index));
     }
 
-    const auto index_slot_space = static_cast<std::size_t>(bound) + 1;
-    auto counts = std::vector<double>(index_slot_space, 0.0);
+    const auto kIndexSlotSpace = static_cast<std::size_t>(bound) + 1;
+    auto counts = std::vector<double>(kIndexSlotSpace, 0.0);
 
     #pragma omp declare reduction(vadd : std::vector<double> : cblas_daxpy( \
             omp_in.size(), 1.0, omp_in.data(), 1, omp_out.data(), 1))       \
@@ -197,10 +197,10 @@ class Dataset {
       ++counts[sizes->Get(index)];
     }
 
-    auto slots = std::vector<std::vector<mapped_type>>(index_slot_space);
+    auto slots = std::vector<std::vector<mapped_type>>(kIndexSlotSpace);
 
     #pragma omp parallel for
-    for (std::size_t size = 0; size < index_slot_space; ++size) {
+    for (std::size_t size = 0; size < kIndexSlotSpace; ++size) {
       const auto count = static_cast<std::size_t>(counts[size]);
       if (0 < count) {
         slots[size].reserve(count);
@@ -212,7 +212,7 @@ class Dataset {
       slots[sizes->Get(index)].emplace_back(index);
     }
 
-    for (std::size_t size = 0; size < index_slot_space; ++size) {
+    for (std::size_t size = 0; size < kIndexSlotSpace; ++size) {
       auto &slot = slots[size];
       if (0 < slot.size()) {
         items_.try_emplace(size, std::move(slot));
