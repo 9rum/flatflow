@@ -46,7 +46,7 @@ from pytorch_lightning.trainer.trainer import Trainer
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
 import flatflow.torch.utils.data
-
+import flatflow.megatron.core.pipeline_parallel.schedules
 try:
     from megatron.core.num_microbatches_calculator import (
         reconfigure_num_microbatches_calculator as _reconfigure_microbatch_calculator,
@@ -112,8 +112,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.use_flatflow = cfg.get("use_flatflow", True)
         self.use_memory_profile = cfg.get("use_memory_profile", True)
         self.use_compute_profile = cfg.get("use_compute_profile", True)
-        self.compute_profilers = {}
-        self.memory_profilers = {}
+        self.compute_profiler = {}
+        self.memory_profiler = {}
 
         if self.use_flatflow:
             if isinstance(self.model, list):
@@ -122,10 +122,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
 
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        self.profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
+        self.profile_key = None
 
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
@@ -442,7 +439,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.grad_sync_func = grad_sync_func
             module.config.param_sync_func = param_sync_func
 
-        fwd_bwd_function = get_forward_backward_func()
+        fwd_bwd_function = flatflow.megatron.core.pipeline_parallel.schedules.get_forward_backward_func() if self.use_flatflow else get_forward_backward_func()
 
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
@@ -453,13 +450,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
-            compute_profiler=self.compute_profilers[self.profile_key] if self.use_compute_profile else None,
-            memory_profiler=self.memory_profilers[self.profile_key] if self.use_memory_profile else None,
+            compute_profiler=self.compute_profiler[self.profile_key] if self.use_compute_profile else None,
+            memory_profiler=self.memory_profiler[self.profile_key] if self.use_memory_profile else None,
         )
 
         if self.use_compute_profile:
-            self.compute_profilers[self.profile_key].event.set()
-            self.compute_profilers[self.profile_key].gather_times()
+            self.compute_profiler[self.profile_key].event.set()
+            self.compute_profiler[self.profile_key].gather_times()
 
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses
@@ -910,12 +907,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             collate_fn = dataset.collate_fn
 
         if self.use_flatflow and is_train:
-            data_parallel_rank = parallel_state.get_data_parallel_rank()
-            tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-            pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-            profiler = None
-            if self.use_compute_profile:
-                profiler = self.compute_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"]
 
             batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
                 total_samples=len(dataset),
@@ -927,7 +918,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                profiler=profiler,
+                profiler=self.compute_profiler[self.profile_key] if self.use_compute_profile else None,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:
@@ -954,16 +945,20 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
     def setup_profiler(self):
         global_rank = torch.distributed.get_rank()
+        data_parallel_rank = parallel_state.get_data_parallel_rank()
+        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
+        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        self.profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
         if self.use_compute_profile:
             profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
-            self.compute_profilers[self.profile_key] = profiler
-            self.register_debug_hooks(profiler)
+            self.compute_profiler[self.profile_key] = profiler
+            self.register_hooks(profiler)
         if self.use_memory_profile:
             profiler = flatflow.torch.profiler.MemoryProfiler(rank=global_rank)
-            self.memory_profilers[self.profile_key] = profiler
-            self.register_debug_hooks(profiler)
+            self.memory_profiler[self.profile_key] = profiler
+            self.register_hooks(profiler)
 
-    def register_debug_hooks(self, profiler):
+    def register_hooks(self, profiler):
         def forward_pre_hook(module, input):
             profiler.record_start(module, input)
         def forward_hook(module, input, output):
@@ -1040,10 +1035,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
     def on_train_end(self) -> None:
         if self.use_memory_profile:
-            data_parallel_rank = parallel_state.get_data_parallel_rank()
-            tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-            pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-            self.memory_profilers[f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"].save_memory_log()
+            self.memory_profiler[self.profile_key].save_memory_log()
 
     def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
         def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, compute_profiler=None, memory_profiler=None, global_microbatch_id=None):
