@@ -16,10 +16,15 @@
 #define FLATFLOW_OPS_OPS_H_
 
 #include <cstdint>
+#include <execution>
+#include <numeric>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "flatbuffers/base.h"
+#include "flatbuffers/vector.h"
 
 #include "flatflow/ops/operator_generated.h"
 
@@ -29,10 +34,8 @@ class OpFLOPs {
  public:
   using value_type = uint64_t;
 
-  OpFLOPs() {}
-
-  OpFLOPs(value_type coef0, value_type coef1, value_type coef2,
-          value_type coef3)
+  OpFLOPs(value_type coef0 = 0, value_type coef1 = 0, value_type coef2 = 0,
+          value_type coef3 = 0)
       : coef0_(coef0), coef1_(coef1), coef2_(coef2), coef3_(coef3) {}
 
   OpFLOPs(const OpFLOPs &other) = default;
@@ -44,18 +47,18 @@ class OpFLOPs {
   OpFLOPs &operator=(OpFLOPs &&other) = default;
 
   OpFLOPs &operator+(const OpFLOPs &other) {
-    auto prof = OpFLOPs();
-    prof.coef0_ = coef0_ + other.coef0_;
-    prof.coef1_ = coef1_ + other.coef1_;
-    prof.coef2_ = coef2_ + other.coef2_;
-    prof.coef3_ = coef3_ + other.coef3_;
-    return prof;
+    auto spec = OpFLOPs();
+    spec.coef0_ = coef0_ + other.coef0_;
+    spec.coef1_ = coef1_ + other.coef1_;
+    spec.coef2_ = coef2_ + other.coef2_;
+    spec.coef3_ = coef3_ + other.coef3_;
+    return spec;
   }
 
-  value_type coef0_;
-  value_type coef1_;
-  value_type coef2_;
-  value_type coef3_;
+  value_type coef0_;  // constant
+  value_type coef1_;  // linear
+  value_type coef2_;  // quadratic
+  value_type coef3_;  // cubic
 };
 
 class OpFLOPsRegistry {
@@ -99,23 +102,42 @@ class OpFLOPsRegistry {
 
   // OpFLOPsRegistry::RegisterOpFLOPs<>()
   //
-  // This is a base template for operator FLOPs registration; calling this means
-  // that the program is ill-formed and should fail to compile.
+  // This is a base template for registering operator FLOPs specifications;
+  // calling this means that the program is ill-formed and should fail to
+  // compile.
   template <Operator>
   void RegisterOpFLOPs(value_type hidden_size) {
     static_assert(std::false_type::value);
   }
 
+  // OpFLOPsRegistry::MapReduce()
+  //
+  // Transforms the given operators to the corresponding operator FLOPs
+  // specifications, then returns their reduction.
+  OpFLOPs MapReduce(const flatbuffers::Vector<Operator> *operators) {
+    auto specs = std::vector<OpFLOPs>(operators->size());
+
+    // clang-format off
+    #pragma omp parallel for
+    for (flatbuffers::uoffset_t index = 0; index < operators->size(); ++index) {
+      specs[index] = table_.at(operators->Get(index));
+    }
+    // clang-format on
+
+    return std::reduce(std::execution::par, specs.cbegin(), specs.cend(),
+                       OpFLOPs());
+  }
+
   absl::flat_hash_map<Operator, OpFLOPs> table_;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-////////////////// OPERATOR FLOPS REGISTRATION SECTION BEGIN //////////////////
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/////////////// OPERATOR FLOPS SPECIFICATIONS REGISTRATION BEGIN ///////////////
+////////////////////////////////////////////////////////////////////////////////
 
 // OpFLOPsRegistry::RegisterOpFLOPs<_SOFTMAX>()
 //
-// Registers operator FLOPs for `_softmax`.
+// Registers operator FLOPs specification for `_softmax`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_SOFTMAX>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -124,7 +146,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_SOFTMAX>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<_TO_COPY>()
 //
-// Registers operator FLOPs for `_to_copy`.
+// Registers operator FLOPs specification for `_to_copy`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_TO_COPY>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -133,7 +155,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_TO_COPY>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<_UNSAFE_VIEW>()
 //
-// Registers operator FLOPs for `_unsafe_view`.
+// Registers operator FLOPs specification for `_unsafe_view`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_UNSAFE_VIEW>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -142,7 +164,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::_UNSAFE_VIEW>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<ADD_TENSOR>()
 //
-// Registers operator FLOPs for `add.Tensor`.
+// Registers operator FLOPs specification for `add.Tensor`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ADD_TENSOR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -151,7 +173,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ADD_TENSOR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<ARANGE_START>()
 //
-// Registers operator FLOPs for `arange.start`.
+// Registers operator FLOPs specification for `arange.start`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ARANGE_START>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -160,7 +182,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::ARANGE_START>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<BMM>()
 //
-// Registers operator FLOPs for `bmm`.
+// Registers operator FLOPs specification for `bmm`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::BMM>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -169,7 +191,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::BMM>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<CAT>()
 //
-// Registers operator FLOPs for `cat`.
+// Registers operator FLOPs specification for `cat`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CAT>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -178,7 +200,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CAT>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<CLONE>()
 //
-// Registers operator FLOPs for `clone`.
+// Registers operator FLOPs specification for `clone`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CLONE>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -187,7 +209,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::CLONE>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<COS>()
 //
-// Registers operator FLOPs for `cos`.
+// Registers operator FLOPs specification for `cos`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::COS>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -196,7 +218,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::COS>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<EMBEDDING>()
 //
-// Registers operator FLOPs for `embedding`.
+// Registers operator FLOPs specification for `embedding`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EMBEDDING>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -205,7 +227,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EMBEDDING>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<EXPAND>()
 //
-// Registers operator FLOPs for `expand`.
+// Registers operator FLOPs specification for `expand`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EXPAND>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -214,7 +236,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::EXPAND>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<INDEX_TENSOR>()
 //
-// Registers operator FLOPs for `index.Tensor`.
+// Registers operator FLOPs specification for `index.Tensor`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::INDEX_TENSOR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -223,7 +245,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::INDEX_TENSOR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<MEAN_DIM>()
 //
-// Registers operator FLOPs for `mean.dim`.
+// Registers operator FLOPs specification for `mean.dim`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MEAN_DIM>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -232,7 +254,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MEAN_DIM>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<MM>()
 //
-// Registers operator FLOPs for `mm`.
+// Registers operator FLOPs specification for `mm`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MM>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -241,7 +263,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MM>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<MUL_SCALAR>()
 //
-// Registers operator FLOPs for `mul.Scalar`.
+// Registers operator FLOPs specification for `mul.Scalar`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_SCALAR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -250,7 +272,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_SCALAR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<MUL_TENSOR>()
 //
-// Registers operator FLOPs for `mul.Tensor`.
+// Registers operator FLOPs specification for `mul.Tensor`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_TENSOR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -259,7 +281,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::MUL_TENSOR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<NEG>()
 //
-// Registers operator FLOPs for `neg`.
+// Registers operator FLOPs specification for `neg`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::NEG>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -268,7 +290,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::NEG>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<POW_TENSOR_SCALAR>()
 //
-// Registers operator FLOPs for `pow.Tensor_Scalar`.
+// Registers operator FLOPs specification for `pow.Tensor_Scalar`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::POW_TENSOR_SCALAR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -278,7 +300,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::POW_TENSOR_SCALAR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<REPEAT>()
 //
-// Registers operator FLOPs for `repeat`.
+// Registers operator FLOPs specification for `repeat`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::REPEAT>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -287,7 +309,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::REPEAT>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<RSQRT>()
 //
-// Registers operator FLOPs for `rsqrt`.
+// Registers operator FLOPs specification for `rsqrt`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::RSQRT>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -296,7 +318,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::RSQRT>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<SILU>()
 //
-// Registers operator FLOPs for `silu`.
+// Registers operator FLOPs specification for `silu`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SILU>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -305,7 +327,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SILU>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<SIN>()
 //
-// Registers operator FLOPs for `sin`.
+// Registers operator FLOPs specification for `sin`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SIN>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -314,7 +336,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SIN>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<SLICE_TENSOR>()
 //
-// Registers operator FLOPs for `slice.Tensor`.
+// Registers operator FLOPs specification for `slice.Tensor`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SLICE_TENSOR>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -323,7 +345,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SLICE_TENSOR>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<SYM_SIZE_INT>()
 //
-// Registers operator FLOPs for `sym_size.int`.
+// Registers operator FLOPs specification for `sym_size.int`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SYM_SIZE_INT>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -332,7 +354,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::SYM_SIZE_INT>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<T>()
 //
-// Registers operator FLOPs for `t`.
+// Registers operator FLOPs specification for `t`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::T>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -341,7 +363,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::T>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<TRANSPOSE_INT>()
 //
-// Registers operator FLOPs for `transpose.int`.
+// Registers operator FLOPs specification for `transpose.int`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::TRANSPOSE_INT>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -350,7 +372,7 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::TRANSPOSE_INT>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<UNSQUEEZE>()
 //
-// Registers operator FLOPs for `unsqueeze`.
+// Registers operator FLOPs specification for `unsqueeze`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::UNSQUEEZE>(
     OpFLOPsRegistry::value_type hidden_size) {
@@ -359,16 +381,16 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::UNSQUEEZE>(
 
 // OpFLOPsRegistry::RegisterOpFLOPs<VIEW>()
 //
-// Registers operator FLOPs for `view`.
+// Registers operator FLOPs specification for `view`.
 template <>
 void OpFLOPsRegistry::RegisterOpFLOPs<Operator::VIEW>(
     OpFLOPsRegistry::value_type hidden_size) {
   table_.insert(std::make_pair(Operator::VIEW, OpFLOPs(0, 0, 0, 0)));
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/////////////////// OPERATOR FLOPS REGISTRATION SECTION END ///////////////////
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//////////////// OPERATOR FLOPS SPECIFICATIONS REGISTRATION END ////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 }  // namespace flatflow
 
