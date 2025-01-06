@@ -952,13 +952,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if self.use_compute_profile:
             profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
             self.compute_profiler[self.profile_key] = profiler
-            self.register_debug_hooks(profiler)
+            self.register_hooks(profiler)
         if self.use_memory_profile:
             profiler = flatflow.torch.profiler.MemoryProfiler(rank=global_rank)
             self.memory_profiler[self.profile_key] = profiler
-            self.register_debug_hooks(profiler)
+            self.register_hooks(profiler)
 
-    def register_debug_hooks(self, profiler):
+    def register_hooks(self, profiler):
         def forward_pre_hook(module, input):
             profiler.record_start(module, input)
         def forward_hook(module, input, output):
