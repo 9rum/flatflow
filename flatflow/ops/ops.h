@@ -30,22 +30,36 @@
 
 namespace flatflow {
 
+// flatflow::OpFLOPs
+//
+// A `flatflow::OpFLOPs` represents the specification of operator FLOPs
+// (floating point operations). These specifications are created by measuring
+// the absolute number of floating point operations required by each operator
+// or MACs (multiply-accumulates) for FMA instructions, for a given size such
+// as sequence length.
 class OpFLOPs {
  public:
   using value_type = uint64_t;
 
-  OpFLOPs(value_type coef0 = 0, value_type coef1 = 0, value_type coef2 = 0,
-          value_type coef3 = 0)
+  // Constructors and assignment operators
+  //
+  // `flatflow::OpFLOPs` is required to be MoveConstructible since
+  // `flatflow::OpFLOPsRegistry` stores it as a value of `absl::flat_hash_map`.
+  explicit OpFLOPs(value_type coef0 = 0, value_type coef1 = 0,
+                   value_type coef2 = 0, value_type coef3 = 0)
       : coef0_(coef0), coef1_(coef1), coef2_(coef2), coef3_(coef3) {}
 
-  OpFLOPs(const OpFLOPs &other) = default;
+  explicit OpFLOPs(const OpFLOPs &other) = default;
 
   OpFLOPs &operator=(const OpFLOPs &other) = default;
 
-  OpFLOPs(OpFLOPs &&other) = default;
+  explicit OpFLOPs(OpFLOPs &&other) = default;
 
   OpFLOPs &operator=(OpFLOPs &&other) = default;
 
+  // OpFLOPs::operator+()
+  //
+  // Combines the two given operator FLOPs specifications in coefficient-wise.
   OpFLOPs &operator+(const OpFLOPs &other) {
     auto spec = OpFLOPs();
     spec.coef0_ = coef0_ + other.coef0_;
@@ -61,11 +75,36 @@ class OpFLOPs {
   value_type coef3_;  // cubic
 };
 
+// flatflow::OpFLOPsRegistry
+//
+// A `flatflow::OpFLOPsRegistry` holds the key information to identify operators
+// and generate optimized computation plans. It has an operator FLOPs
+// specifications table in a form of `absl::flat_hash_map<Operator, OpFLOPs>`,
+// where each specification contains the FLOPs formula of the corresponding
+// operator for a given size.
+//
+// To register a new operator, please follow the steps below:
+//
+// * First, declare a new operator as an enumerator value of `Operator` in the
+//   FlatBuffers schema - i.e., `flatflow/ops/operator.fbs`. The enumerator
+//   values are recommended to be sorted in order of their original operator
+//   names (not the enumerator values) for searching convenience.
+// * Second, generate codes from the updated schema by running `make generate`
+//   in the root directory of this source tree. This will create
+//   `flatflow/ops/operator_generated.h`, etc.
+// * Third, add a template specialization of `OpFLOPsRegistry::RegisterOpFLOPs`
+//   for the new operator; please refer to the below implementations for
+//   supported operators. Note that omitting this step will call the base
+//   template of `OpFLOPsRegistry::RegisterOpFLOPs`, which raises assertion
+//   failure at compile-time.
+// * Finally, register the new operator to the operator FLOPs specifications
+//   table by calling its specialized `OpFLOPsRegistry::RegisterOpFLOPs` in the
+//   constructor below.
 class OpFLOPsRegistry {
  public:
   using value_type = OpFLOPs::value_type;
 
-  OpFLOPsRegistry(value_type hidden_size) {
+  explicit OpFLOPsRegistry(value_type hidden_size) {
     constexpr auto kOpTableSpace =
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
@@ -99,6 +138,14 @@ class OpFLOPsRegistry {
     RegisterOpFLOPs<Operator::UNSQUEEZE>(hidden_size);
     RegisterOpFLOPs<Operator::VIEW>(hidden_size);
   }
+
+  explicit OpFLOPsRegistry(const OpFLOPsRegistry &other) = default;
+
+  OpFLOPsRegistry &operator=(const OpFLOPsRegistry &other) = default;
+
+  explicit OpFLOPsRegistry(OpFLOPsRegistry &&other) = default;
+
+  OpFLOPsRegistry &operator=(OpFLOPsRegistry &&other) = default;
 
   // OpFLOPsRegistry::RegisterOpFLOPs<>()
   //
