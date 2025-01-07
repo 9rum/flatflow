@@ -80,10 +80,10 @@ class OpFLOPs {
 // A `flatflow::OpFLOPsRegistry` holds the key information to identify operators
 // and generate optimized computation plans. It has an operator FLOPs
 // specifications table in a form of `absl::flat_hash_map<Operator, OpFLOPs>`,
-// where each specification contains the FLOPs formula of the corresponding
-// operator for a given size.
+// where each specification contains the FLOPs formula for the corresponding
+// operator and a given size.
 //
-// To register a new operator, please follow the steps below:
+// NOTE: To register a new operator, please follow the instructions below:
 //
 // * First, declare a new operator as an enumerator value of `Operator` in the
 //   FlatBuffers schema - i.e., `flatflow/ops/operator.fbs`. The enumerator
@@ -104,6 +104,16 @@ class OpFLOPsRegistry {
  public:
   using value_type = OpFLOPs::value_type;
 
+  // Constructors and assignment operators
+  //
+  // The constructor below creates the operator FLOPs specifications table and
+  // registers specifications for all supported operations to it.
+  //
+  // CAVEATS
+  //
+  // We provide only a handful of ATen operator set for now. The operator set
+  // is under development and more operators will be added in the future. For
+  // expanding the operator set, please refer to the note above.
   explicit OpFLOPsRegistry(value_type hidden_size) {
     constexpr auto kOpTableSpace =
         sizeof(EnumValuesOperator()) / sizeof(Operator);
