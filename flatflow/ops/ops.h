@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <execution>
+#include <functional>
 #include <numeric>
 #include <type_traits>
 #include <utility>
@@ -60,7 +61,7 @@ class OpFLOPs {
   // OpFLOPs::operator+()
   //
   // Combines the two given operator FLOPs specifications in coefficient-wise.
-  OpFLOPs &operator+(const OpFLOPs &other) {
+  OpFLOPs &operator+(const OpFLOPs &other) const noexcept {
     auto spec = OpFLOPs();
     spec.coef0_ = coef0_ + other.coef0_;
     spec.coef1_ = coef1_ + other.coef1_;
@@ -167,11 +168,12 @@ class OpFLOPsRegistry {
     static_assert(std::false_type::value);
   }
 
-  // OpFLOPsRegistry::MapReduce()
+  // OpFLOPsRegistry::transform_reduce()
   //
-  // Transforms the given operators to the corresponding operator FLOPs
+  // Maps the given operators to the corresponding operator FLOPs
   // specifications, then returns their reduction.
-  OpFLOPs MapReduce(const flatbuffers::Vector<Operator> *operators) {
+  OpFLOPs transform_reduce(
+      const flatbuffers::Vector<Operator> *operators) const {
     auto specs = std::vector<OpFLOPs>(operators->size());
 
     // clang-format off
@@ -448,6 +450,49 @@ void OpFLOPsRegistry::RegisterOpFLOPs<Operator::VIEW>(
 ////////////////////////////////////////////////////////////////////////////////
 //////////////// OPERATOR FLOPS SPECIFICATIONS REGISTRATION END ////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+// flatflow::PolyEval2()
+//
+// Based on Horner's rule, evaluates a given polynomial of degree two with
+// only two multiplications and two additions, by applying Horner's method.
+//
+// This is optimal, since there are polynomials of degree two that cannot be
+// evaluated with fewer arithmetic operations.
+// See https://en.wikipedia.org/wiki/Horner's_method.
+constexpr OpFLOPs::value_type PolyEval2(OpFLOPs::value_type size,
+                                        OpFLOPs::value_type coef0,
+                                        OpFLOPs::value_type coef1,
+                                        OpFLOPs::value_type coef2) noexcept {
+  return coef0 + size * (coef1 + size * coef2);
+}
+
+// flatflow::PolyEval3()
+//
+// Based on Horner's rule, evaluates a given polynomial of degree three with
+// only three multiplications and three additions, by applying Horner's method.
+//
+// This is optimal, since there are polynomials of degree three that cannot be
+// evaluated with fewer arithmetic operations.
+// See https://en.wikipedia.org/wiki/Horner's_method.
+constexpr OpFLOPs::value_type PolyEval3(OpFLOPs::value_type size,
+                                        OpFLOPs::value_type coef0,
+                                        OpFLOPs::value_type coef1,
+                                        OpFLOPs::value_type coef2,
+                                        OpFLOPs::value_type coef3) noexcept {
+  return coef0 + size * (coef1 + size * (coef2 + size * coef3));
+}
+
+// flatflow::bind()
+//
+// Generates a forwarding call wrapper for a function that evaluates the FLOPs
+// of the model for a given size upon forward call.
+decltype(auto) bind(OpFLOPsRegistry::value_type hidden_size,
+                    const flatbuffers::Vector<Operator> *operators) {
+  const auto registry = OpFLOPsRegistry(hidden_size);
+  const auto spec = registry.transform_reduce(operators);
+  return std::bind(PolyEval3, std::placeholders::_1, spec.coef0_, spec.coef1_,
+                   spec.coef2_, spec.coef3_);
+}
 
 }  // namespace flatflow
 
