@@ -19,7 +19,6 @@ namespace flatflow;
 
 table InitRequest {
   global_batch_size: ulong;
-  hidden_size:       ulong;
   micro_batch_size:  ulong;
   rank:              ulong;
   seed:              ulong;
