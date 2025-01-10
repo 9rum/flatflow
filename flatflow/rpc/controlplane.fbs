@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-include "flatflow/ops/operator.fbs";
+include "flatflow/ops/graph.fbs";
 include "flatflow/rpc/empty.fbs";
 
 namespace flatflow;
@@ -22,8 +22,8 @@ table InitRequest {
   micro_batch_size:  ulong;
   rank:              ulong;
   seed:              ulong;
+  graph:             Graph;
   sizes:             [uint];
-  operators:         [Operator];
 }
 
 table BroadcastRequest {
