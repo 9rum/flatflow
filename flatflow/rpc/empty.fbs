@@ -17,4 +17,4 @@ namespace flatflow;
 /// A generic empty message that you can reuse to avoid defining duplicated
 /// empty messages in your APIs. A typical example is to use it as the request
 /// or the response type of an API method.
-struct Empty {}
+table Empty {}
