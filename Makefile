@@ -30,6 +30,10 @@ generate:
 		mv flatflow/rpc/__init__.py tmp/rpc && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums --no-emit-min-max-enum-values flatflow/ops/operator.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/node.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/node.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/graph.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc --gen-onefile --python-typing flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --grpc --keep-prefix flatflow/rpc/controlplane.fbs && \
@@ -38,6 +42,7 @@ generate:
 		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs && \
 		mv tmp/ops/__init__.py flatflow/ops && \
 		mv tmp/rpc/__init__.py flatflow/rpc && \
+		rm flatflow/ops/Operator.py && \
 		rm flatflow/rpc/Operator.py && \
 		rmdir tmp/ops && \
 		rmdir tmp/rpc && \
