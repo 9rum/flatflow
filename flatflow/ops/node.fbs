@@ -30,11 +30,10 @@ table Size {
 
 /// `Node` is a data structure that represents individual operations in the
 /// computational graph. Each node contains an opcode identifying operators
-/// and the input/output shapes of the operator. Unlike `torch.fx.Node`, it
-/// excludes operations that are not ATen operators; i.e., operations that are
-/// not the target of `call_function`.
+/// and symbolic shapes of the operator arguments. Unlike `torch.fx.Node`,
+/// this excludes operations that are not ATen operators; i.e., operations
+/// that are not the target of `call_function`.
 table Node {
-  op:     Operator;
-  inputs: [Size];
-  output: Size;
+  op:   Operator;
+  args: [Size];
 }
