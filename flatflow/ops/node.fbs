@@ -16,7 +16,7 @@ include "flatflow/ops/operator.fbs";
 
 namespace flatflow;
 
-/// `SymInt` records a value within the symbolic shape of an operator.
+/// `SymInt` records a value within the symbolic shape of a tensor.
 table SymInt {
   coef0: int;  // constant
   coef1: int;  // linear
