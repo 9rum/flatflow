@@ -16,9 +16,12 @@
 #define FLATFLOW_OPS_OPS_H_
 
 #include <cstdint>
+#include <execution>
 #include <functional>
+#include <numeric>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
@@ -160,6 +163,17 @@ class OperatorRegistry {
     table_.erase(op);
   }
 
+  // OperatorRegistry::Dispatch()
+  //
+  // Executes the symbolic transformation corresponding to the given operator.
+  SymFLOPs Dispatch(
+      key_type op,
+      const flatbuffers::Vector<flatbuffers::Offset<Size>> *args) const {
+    CHECK(table_.contains(op));
+    return table_.at(op)(args);
+  }
+
+ protected:
   absl::flat_hash_map<key_type, mapped_type> table_;
 };
 
@@ -250,7 +264,27 @@ constexpr SymFLOPs::value_type PolyEval(SymFLOPs::value_type size,
 // Generates a forwarding call wrapper for a function that evaluates the FLOPs
 // of the graph for a given size upon forward call.
 decltype(auto) symbolic_trace(const Graph *graph) {
+  CHECK_NE(graph, nullptr);
+
+  auto nodes = graph->nodes();
+  CHECK_NE(nodes, nullptr);
+
+  auto exprs = std::vector<SymFLOPs>(nodes->size());
   const auto registry = OperatorRegistry();
+
+  // clang-format off
+  #pragma omp parallel for
+  for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
+    auto node = nodes->Get(index);
+    CHECK_NE(node, nullptr);
+    exprs[index] = registry.Dispatch(node->op(), node->args());
+  }
+  // clang-format on
+
+  const auto expr = std::reduce(std::execution::par, exprs.cbegin(),
+                                exprs.cend(), SymFLOPs());
+  return std::bind(PolyEval, std::placeholders::_1, expr.coef0_, expr.coef1_,
+                   expr.coef2_, expr.coef3_);
 }
 
 }  // namespace flatflow
