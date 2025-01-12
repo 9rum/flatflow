@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
@@ -174,7 +175,44 @@ class OperatorRegistry {
 template <>
 SymFLOPs symbolic_trace_impl<Operator::MM>(
     const flatbuffers::Vector<flatbuffers::Offset<Size>> *args) {
-  return SymFLOPs(0, 0, 0, 0);
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), 2);
+
+  auto size0 = args->Get(0);
+  CHECK_NE(size0, nullptr);
+  auto size1 = args->Get(1);
+  CHECK_NE(size1, nullptr);
+
+  auto shape0 = size0->values();
+  CHECK_NE(shape0, nullptr);
+  CHECK_EQ(shape0->size(), 2);
+  auto shape1 = size1->values();
+  CHECK_NE(shape1, nullptr);
+  CHECK_EQ(shape1->size(), 2);
+
+  // mm performs a matrix multiplication of the matrices `mat0` and `mat1`.
+  // If `mat0` is a (n x m) tensor and `mat1` is a (m x p) tensor, then it
+  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
+  auto n = shape0->Get(0);
+  CHECK_NE(n, nullptr);
+  auto m = shape0->Get(1);
+  CHECK_NE(m, nullptr);
+  CHECK_NE(shape1->Get(0), nullptr);
+  CHECK_EQ(m->coef0(), shape1->Get(0)->coef0());
+  CHECK_EQ(m->coef1(), shape1->Get(0)->coef1());
+  auto p = shape1->Get(1);
+  CHECK_NE(p, nullptr);
+
+  const auto coef0 = n->coef0() * m->coef0() * p->coef0();
+  const auto coef1 =
+      (n->coef1() * m->coef0() + n->coef0() * m->coef1()) * p->coef0() +
+      n->coef0() * m->coef0() * p->coef1();
+  const auto coef2 =
+      (n->coef0() * m->coef1() + n->coef1() + m->coef0()) * p->coef1() +
+      n->coef1() * m->coef1() * p->coef0();
+  const auto coef3 = n->coef1() * m->coef1() * p->coef1();
+
+  return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
 }
 
 // OperatorRegistry::RegisterOperator<MM>()
