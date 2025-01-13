@@ -18,8 +18,8 @@ namespace flatflow;
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
 table SymInt {
-  coef0: int;  // constant
-  coef1: int;  // linear
+  coef0: long;  // constant
+  coef1: long;  // linear
 }
 
 /// `Size` describes the shape of a tensor. Unlike `torch.Size`, it represents
