@@ -218,8 +218,12 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   auto m = shape0->Get(1);
   CHECK_NE(m, nullptr);
   CHECK_NE(shape1->Get(0), nullptr);
+
+  // The last dimension of the earlier matrix and the first dimension of the
+  // later matrix must be symbolically identical.
   CHECK_EQ(m->coef0(), shape1->Get(0)->coef0());
   CHECK_EQ(m->coef1(), shape1->Get(0)->coef1());
+
   auto p = shape1->Get(1);
   CHECK_NE(p, nullptr);
 
