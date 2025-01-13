@@ -43,7 +43,7 @@ namespace flatflow {
 // for a given size such as sequence length.
 class SymFLOPs {
  public:
-  using value_type = uint64_t;
+  using value_type = int64_t;
 
   // Constructors and assignment operators
   //
@@ -65,14 +65,20 @@ class SymFLOPs {
   //
   // Combines the two given symbolic expressions for FLOPs in coefficient-wise.
   SymFLOPs &operator+(const SymFLOPs &other) const noexcept {
-    auto expr = SymFLOPs();
-    expr.coef0_ = coef0_ + other.coef0_;
-    expr.coef1_ = coef1_ + other.coef1_;
-    expr.coef2_ = coef2_ + other.coef2_;
-    expr.coef3_ = coef3_ + other.coef3_;
+    auto expr = SymFLOPs(coef0_ + other.coef0(), coef1_ + other.coef1(),
+                         coef2_ + other.coef2(), coef3_ + other.coef3());
     return expr;
   }
 
+  value_type coef0() const noexcept { return coef0_; }
+
+  value_type coef1() const noexcept { return coef1_; }
+
+  value_type coef2() const noexcept { return coef2_; }
+
+  value_type coef3() const noexcept { return coef3_; }
+
+ protected:
   value_type coef0_;  // constant
   value_type coef1_;  // linear
   value_type coef2_;  // quadratic
@@ -283,8 +289,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
 
   const auto expr = std::reduce(std::execution::par, exprs.cbegin(),
                                 exprs.cend(), SymFLOPs());
-  return std::bind(PolyEval, std::placeholders::_1, expr.coef0_, expr.coef1_,
-                   expr.coef2_, expr.coef3_);
+  return std::bind(PolyEval, std::placeholders::_1, expr.coef0(), expr.coef1(),
+                   expr.coef2(), expr.coef3());
 }
 
 }  // namespace flatflow
