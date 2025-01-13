@@ -240,6 +240,7 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
 // Registers `mm` to the operator table.
 template <>
 void OperatorRegistry::RegisterOperator<Operator::MM>() {
+  // TODO: Check if the insertion took place.
   table_.insert(std::make_pair(
       Operator::MM,
       std::bind(symbolic_trace_impl<Operator::MM>, std::placeholders::_1)));
