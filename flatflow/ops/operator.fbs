@@ -26,10 +26,10 @@ namespace flatflow;
 /// Note that this operator set is under development and more operators
 /// will be added in the future.
 enum Operator: ushort {
-  _SOFTMAX,           // _softmax
   _TO_COPY,           // _to_copy
   _UNSAFE_VIEW,       // _unsafe_view
   ADD_TENSOR,         // add.Tensor
+  ARANGE,             // arange
   ARANGE_START,       // arange.start
   BMM,                // bmm
   CAT,                // cat
@@ -37,14 +37,13 @@ enum Operator: ushort {
   COS,                // cos
   EMBEDDING,          // embedding
   EXPAND,             // expand
-  INDEX_TENSOR,       // index.Tensor
+  FULL,               // full
+  GT_TENSOR,          // gt.Tensor
   MEAN_DIM,           // mean.dim
   MM,                 // mm
-  MUL_SCALAR,         // mul.Scalar
   MUL_TENSOR,         // mul.Tensor
   NEG,                // neg
   POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
-  REPEAT,             // repeat
   RSQRT,              // rsqrt
   SILU,               // silu
   SIN,                // sin
@@ -52,6 +51,7 @@ enum Operator: ushort {
   SYM_SIZE_INT,       // sym_size.int
   T,                  // t
   TRANSPOSE_INT,      // transpose.int
+  TRIU,               // triu
   UNSQUEEZE,          // unsqueeze
   VIEW,               // view
 }
