@@ -92,7 +92,8 @@ class SymFLOPs {
 // and should fail to compile.
 template <Operator>
 SymFLOPs symbolic_trace_impl(
-    const flatbuffers::Vector<flatbuffers::Offset<Size>> *args) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   static_assert(std::false_type::value);
 }
 
@@ -123,8 +124,9 @@ SymFLOPs symbolic_trace_impl(
 class OperatorRegistry {
  public:
   using key_type = Operator;
-  using mapped_type = decltype(std::bind(symbolic_trace_impl<Operator::MM>,
-                                         std::placeholders::_1));
+  using mapped_type =
+      decltype(std::bind(symbolic_trace_impl<Operator::MM>,
+                         std::placeholders::_1, std::placeholders::_2));
 
   // Constructors and assignment operators
   //
@@ -174,9 +176,10 @@ class OperatorRegistry {
   // Executes the symbolic transformation corresponding to the given operator.
   SymFLOPs Dispatch(
       key_type op,
-      const flatbuffers::Vector<flatbuffers::Offset<Size>> *args) const {
+      const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+      const TensorMetadata *meta) const {
     CHECK(table_.contains(op));
-    return table_.at(op)(args);
+    return table_.at(op)(args, meta);
   }
 
  protected:
@@ -194,19 +197,18 @@ class OperatorRegistry {
 // func: mm(Tensor self, Tensor mat2) -> Tensor
 template <>
 SymFLOPs symbolic_trace_impl<Operator::MM>(
-    const flatbuffers::Vector<flatbuffers::Offset<Size>> *args) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), 2);
 
-  auto size0 = args->Get(0);
-  CHECK_NE(size0, nullptr);
-  auto size1 = args->Get(1);
-  CHECK_NE(size1, nullptr);
-
-  auto shape0 = size0->values();
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape0 = args->Get(0)->shape();
   CHECK_NE(shape0, nullptr);
   CHECK_EQ(shape0->size(), 2);
-  auto shape1 = size1->values();
+
+  CHECK_NE(args->Get(1), nullptr);
+  auto shape1 = args->Get(1)->shape();
   CHECK_NE(shape1, nullptr);
   CHECK_EQ(shape1->size(), 2);
 
@@ -246,8 +248,8 @@ template <>
 void OperatorRegistry::RegisterOperator<Operator::MM>() {
   // TODO: Check if the insertion took place.
   table_.insert(std::make_pair(
-      Operator::MM,
-      std::bind(symbolic_trace_impl<Operator::MM>, std::placeholders::_1)));
+      Operator::MM, std::bind(symbolic_trace_impl<Operator::MM>,
+                              std::placeholders::_1, std::placeholders::_2)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -288,7 +290,7 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
     auto node = nodes->Get(index);
     CHECK_NE(node, nullptr);
-    exprs[index] = registry.Dispatch(node->op(), node->args());
+    exprs[index] = registry.Dispatch(node->op(), node->args(), node->meta());
   }
   // clang-format on
 
