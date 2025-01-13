@@ -22,18 +22,19 @@ table SymInt {
   coef1: long;  // linear
 }
 
-/// `Size` describes the shape of a tensor. Unlike `torch.Size`, it represents
-/// constant shapes as symbolic shapes as well.
-table Size {
-  values: [SymInt];
+/// `TensorMetadata` is a structure containing pertinent information
+/// about a tensor within a PyTorch program.
+table TensorMetadata {
+  shape: [SymInt];
 }
 
 /// `Node` is a data structure that represents individual operations in the
 /// computational graph. Each node contains an opcode identifying operators
-/// and symbolic shapes of the operator arguments. Unlike `torch.fx.Node`,
+/// and the input/output shapes of the operator. Unlike `torch.fx.Node`,
 /// this excludes operations that are not ATen operators; i.e., operations
 /// that are not the target of `call_function`.
 table Node {
   op:   Operator;
-  args: [Size];
+  args: [TensorMetadata];
+  meta: TensorMetadata;
 }
