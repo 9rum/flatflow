@@ -212,8 +212,8 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   CHECK_NE(shape1, nullptr);
   CHECK_EQ(shape1->size(), 2);
 
-  // mm performs a matrix multiplication of the matrices `mat0` and `mat1`.
-  // If `mat0` is a (n x m) tensor and `mat1` is a (m x p) tensor, then it
+  // mm performs a matrix multiplication of the matrices `self` and `mat2`.
+  // If `self` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
   // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
   auto n = shape0->Get(0);
   CHECK_NE(n, nullptr);
@@ -221,8 +221,8 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   CHECK_NE(m, nullptr);
   CHECK_NE(shape1->Get(0), nullptr);
 
-  // The last dimension of the earlier matrix and the first dimension of the
-  // later matrix must be symbolically identical.
+  // The last dimension of `self` and the first dimension of `mat2` must be
+  // symbolically identical.
   CHECK_EQ(m->coef0(), shape1->Get(0)->coef0());
   CHECK_EQ(m->coef1(), shape1->Get(0)->coef1());
 
@@ -259,11 +259,11 @@ void OperatorRegistry::RegisterOperator<Operator::MM>() {
 // flatflow::PolyEval()
 //
 // Based on Horner's rule, evaluates a given polynomial of degree three with
-// only three multiplications and three additions, by applying Horner's method.
+// only three multiplications and three additions, applying Horner's method.
 //
 // This is optimal, since there are polynomials of degree three that cannot be
 // evaluated with fewer arithmetic operations.
-// See https://en.wikipedia.org/wiki/Horner's_method.
+// See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
 constexpr SymFLOPs::value_type PolyEval(SymFLOPs::value_type size,
                                         SymFLOPs::value_type coef0,
                                         SymFLOPs::value_type coef1,
@@ -277,13 +277,14 @@ constexpr SymFLOPs::value_type PolyEval(SymFLOPs::value_type size,
 // Generates a forwarding call wrapper for a function that evaluates the FLOPs
 // of the graph for a given size upon forward call.
 decltype(auto) symbolic_trace(const Graph *graph) {
+  const auto registry = OperatorRegistry();
+
   CHECK_NE(graph, nullptr);
 
   auto nodes = graph->nodes();
   CHECK_NE(nodes, nullptr);
 
   auto exprs = std::vector<SymFLOPs>(nodes->size());
-  const auto registry = OperatorRegistry();
 
   // clang-format off
   #pragma omp parallel for
