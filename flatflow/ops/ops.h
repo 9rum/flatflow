@@ -145,8 +145,10 @@ class OperatorRegistry {
 
     RegisterOperator<Operator::ARANGE>();
     RegisterOperator<Operator::ARANGE_START>();
+    RegisterOperator<Operator::BMM>();
     RegisterOperator<Operator::EMBEDDING>();
     RegisterOperator<Operator::EXPAND>();
+    RegisterOperator<Operator::FULL>();
     RegisterOperator<Operator::MM>();
     RegisterOperator<Operator::T>();
     RegisterOperator<Operator::TRANSPOSE_INT>();
@@ -249,6 +251,86 @@ void OperatorRegistry::RegisterOperator<Operator::ARANGE_START>() {
                                std::placeholders::_1, std::placeholders::_2)));
 }
 
+// flatflow::symbolic_trace_impl<BMM>()
+//
+// Implements a symbolic transformation for `bmm`.
+//
+// func: bmm(Tensor self, Tensor mat2) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::BMM>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), 2);
+
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape0 = args->Get(0)->shape();
+  CHECK_NE(shape0, nullptr);
+  CHECK_EQ(shape0->size(), 3);
+
+  CHECK_NE(args->Get(1), nullptr);
+  auto shape1 = args->Get(1)->shape();
+  CHECK_NE(shape1, nullptr);
+  CHECK_EQ(shape1->size(), 3);
+
+  // bmm performs a batch matrix-matrix product of matrices `self` and `mat2`.
+  // `self` and `mat2` must be 3-D tensors each containing the same number of
+  // matrices. If `self` is a (b x n x m) tensor and `mat2` is a (b x m x p)
+  // tensor, then it produces a (b x n x p) tensor with b x n x m x p MACs,
+  // i.e., 2 x b x n x m x p FLOPs.
+  auto b = shape0->Get(0);
+  CHECK_NE(b, nullptr);
+
+  // The first dimension of `self` and `mat2` must be symbolically identical.
+  CHECK_NE(shape1->Get(0), nullptr);
+  CHECK_EQ(b->coef0(), shape1->Get(0)->coef0());
+  CHECK_EQ(b->coef1(), shape1->Get(0)->coef1());
+
+  auto n = shape0->Get(1);
+  CHECK_NE(n, nullptr);
+  auto m = shape0->Get(2);
+  CHECK_NE(m, nullptr);
+
+  // The last dimension of `self` and the middle dimension of `mat2` must be
+  // symbolically identical.
+  CHECK_NE(shape1->Get(1), nullptr);
+  CHECK_EQ(m->coef0(), shape1->Get(1)->coef0());
+  CHECK_EQ(m->coef1(), shape1->Get(1)->coef1());
+
+  auto p = shape1->Get(2);
+  CHECK_NE(p, nullptr);
+
+  const auto coef0 = b->coef0() * n->coef0() * m->coef0() * p->coef0();
+  const auto coef1 = (b->coef1() * n->coef0() + b->coef0() * n->coef1()) *
+                         m->coef0() * p->coef0() +
+                     (m->coef1() * p->coef0() + m->coef0() * p->coef1()) *
+                         b->coef0() * n->coef0();
+  const auto coef2 =
+      ((b->coef0() * n->coef1() + b->coef1() * n->coef0()) * m->coef0() +
+       b->coef0() * n->coef0() * m->coef1()) *
+          p->coef1() +
+      ((b->coef0() * n->coef1() + b->coef1() * n->coef0()) * m->coef1() +
+       b->coef1() * n->coef1() * m->coef0()) *
+          p->coef0();
+  const auto coef3 = (b->coef0() * n->coef1() + b->coef1() * n->coef0()) *
+                         m->coef1() * p->coef1() +
+                     (m->coef0() * p->coef1() + m->coef1() * p->coef0()) *
+                         b->coef1() * n->coef1();
+  // coef4 is actually zero, since at least one of b, n, m, p is a constant.
+
+  return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+}
+
+// OperatorRegistry::RegisterOperator<BMM>()
+//
+// Registers `bmm` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::BMM>() {
+  table_.insert(std::make_pair(
+      Operator::BMM, std::bind(symbolic_trace_impl<Operator::BMM>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
 // flatflow::symbolic_trace_impl<EMBEDDING>()
 //
 // Implements a symbolic transformation for `embedding`.
@@ -299,6 +381,31 @@ void OperatorRegistry::RegisterOperator<Operator::EXPAND>() {
                                std::placeholders::_1, std::placeholders::_2)));
 }
 
+// flatflow::symbolic_trace_impl<FULL>()
+//
+// Implements a symbolic transformation for `full`.
+//
+// func: full(SymInt[] size, Scalar fill_value, *, ScalarType? dtype=None,
+//            Layout? layout=None, Device? device=None,
+//            bool? pin_memory=None) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::FULL>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // full creates a tensor, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<FULL>()
+//
+// Registers `full` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::FULL>() {
+  table_.insert(std::make_pair(
+      Operator::FULL, std::bind(symbolic_trace_impl<Operator::FULL>,
+                                std::placeholders::_1, std::placeholders::_2)));
+}
+
 // flatflow::symbolic_trace_impl<MM>()
 //
 // Implements a symbolic transformation for `mm`.
@@ -328,10 +435,10 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   CHECK_NE(n, nullptr);
   auto m = shape0->Get(1);
   CHECK_NE(m, nullptr);
-  CHECK_NE(shape1->Get(0), nullptr);
 
   // The last dimension of `self` and the first dimension of `mat2` must be
   // symbolically identical.
+  CHECK_NE(shape1->Get(0), nullptr);
   CHECK_EQ(m->coef0(), shape1->Get(0)->coef0());
   CHECK_EQ(m->coef1(), shape1->Get(0)->coef1());
 
