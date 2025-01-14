@@ -145,6 +145,10 @@ class OperatorRegistry {
 
     RegisterOperator<Operator::EMBEDDING>();
     RegisterOperator<Operator::MM>();
+    RegisterOperator<Operator::T>();
+    RegisterOperator<Operator::TRANSPOSE_INT>();
+    RegisterOperator<Operator::UNSQUEEZE>();
+    RegisterOperator<Operator::VIEW>();
   }
 
   explicit OperatorRegistry(const OperatorRegistry &other) = default;
@@ -276,6 +280,102 @@ void OperatorRegistry::RegisterOperator<Operator::MM>() {
   table_.insert(std::make_pair(
       Operator::MM, std::bind(symbolic_trace_impl<Operator::MM>,
                               std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<T>()
+//
+// Implements a symbolic transformation for `t`.
+//
+// func: t(Tensor(a) self) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::T>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // t is a dimension swap, so technically it has 0 FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<T>()
+//
+// Registers `t` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::T>() {
+  table_.insert(std::make_pair(
+      Operator::T, std::bind(symbolic_trace_impl<Operator::T>,
+                             std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<TRANSPOSE_INT>()
+//
+// Implements a symbolic transformation for `transpose.int`.
+//
+// func: transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // transpose.int is a dimension swap, so technically it has 0 FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<TRANSPOSE_INT>()
+//
+// Registers `transpose.int` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::TRANSPOSE_INT>() {
+  table_.insert(
+      std::make_pair(Operator::TRANSPOSE_INT,
+                     std::bind(symbolic_trace_impl<Operator::TRANSPOSE_INT>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<UNSQUEEZE>()
+//
+// Implements a symbolic transformation for `unsqueeze`.
+//
+// func: unsqueeze(Tensor(a) self, int dim) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // unsqueeze inserts a singleton dimension at the specified position,
+  // so it has 0 FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<UNSQUEEZE>()
+//
+// Registers `unsqueeze` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::UNSQUEEZE>() {
+  table_.insert(
+      std::make_pair(Operator::UNSQUEEZE,
+                     std::bind(symbolic_trace_impl<Operator::UNSQUEEZE>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<VIEW>()
+//
+// Implements a symbolic transformation for `view`.
+//
+// func: view(Tensor(a) self, SymInt[] size) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::VIEW>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // view is a tensor view operation, so technically it has 0 FLOPs.
+  // See https://pytorch.org/docs/stable/tensor_view.html.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<VIEW>()
+//
+// Registers `view` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::VIEW>() {
+  table_.insert(std::make_pair(
+      Operator::VIEW, std::bind(symbolic_trace_impl<Operator::VIEW>,
+                                std::placeholders::_1, std::placeholders::_2)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
