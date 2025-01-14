@@ -144,6 +144,7 @@ class OperatorRegistry {
     table_.reserve(kOpTableSpace);
 
     RegisterOperator<Operator::ARANGE>();
+    RegisterOperator<Operator::ARANGE_START>();
     RegisterOperator<Operator::EMBEDDING>();
     RegisterOperator<Operator::MM>();
     RegisterOperator<Operator::T>();
@@ -218,6 +219,32 @@ void OperatorRegistry::RegisterOperator<Operator::ARANGE>() {
   table_.insert(
       std::make_pair(Operator::ARANGE,
                      std::bind(symbolic_trace_impl<Operator::ARANGE>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<ARANGE_START>()
+//
+// Implements a symbolic transformation for `arange.start`.
+//
+// func: arange.start(Scalar start, Scalar end, *, ScalarType? dtype=None,
+//                    Layout? layout=None, Device? device=None,
+//                    bool? pin_memory=None) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::ARANGE_START>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // arange.start returns a tensor, so it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<ARANGE_START>()
+//
+// Registers `arange.start` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::ARANGE_START>() {
+  table_.insert(
+      std::make_pair(Operator::ARANGE_START,
+                     std::bind(symbolic_trace_impl<Operator::ARANGE_START>,
                                std::placeholders::_1, std::placeholders::_2)));
 }
 
