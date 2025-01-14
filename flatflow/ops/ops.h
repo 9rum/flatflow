@@ -146,6 +146,7 @@ class OperatorRegistry {
     RegisterOperator<Operator::ARANGE>();
     RegisterOperator<Operator::ARANGE_START>();
     RegisterOperator<Operator::EMBEDDING>();
+    RegisterOperator<Operator::EXPAND>();
     RegisterOperator<Operator::MM>();
     RegisterOperator<Operator::T>();
     RegisterOperator<Operator::TRANSPOSE_INT>();
@@ -270,6 +271,31 @@ void OperatorRegistry::RegisterOperator<Operator::EMBEDDING>() {
   table_.insert(
       std::make_pair(Operator::EMBEDDING,
                      std::bind(symbolic_trace_impl<Operator::EMBEDDING>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
+// flatflow::symbolic_trace_impl<EXPAND>()
+//
+// Implements a symbolic transformation for `expand`.
+//
+// func: expand(Tensor(a) self, SymInt[] size, *,
+//              bool implicit=False) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::EXPAND>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // expand is a tensor view operation, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<EXPAND>()
+//
+// Registers `expand` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::EXPAND>() {
+  table_.insert(
+      std::make_pair(Operator::EXPAND,
+                     std::bind(symbolic_trace_impl<Operator::EXPAND>,
                                std::placeholders::_1, std::placeholders::_2)));
 }
 
