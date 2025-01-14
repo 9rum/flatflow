@@ -143,6 +143,7 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
+    RegisterOperator<Operator::ARANGE>();
     RegisterOperator<Operator::EMBEDDING>();
     RegisterOperator<Operator::MM>();
     RegisterOperator<Operator::T>();
@@ -195,6 +196,31 @@ class OperatorRegistry {
 ///////////////////// OPERATOR REGISTRATIONS SECTION BEGIN /////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// flatflow::symbolic_trace_impl<ARANGE>()
+//
+// Implements a symbolic transformation for `arange`.
+//
+// func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
+//              Device? device=None, bool? pin_memory=None) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::ARANGE>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // arange returns a tensor, so it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<ARANGE>()
+//
+// Registers `arange` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::ARANGE>() {
+  table_.insert(
+      std::make_pair(Operator::ARANGE,
+                     std::bind(symbolic_trace_impl<Operator::ARANGE>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
+
 // flatflow::symbolic_trace_impl<EMBEDDING>()
 //
 // Implements a symbolic transformation for `embedding`.
@@ -205,7 +231,7 @@ template <>
 SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
-  // embedding is a dictionary lookup, so technically it has 0 FLOPs.
+  // embedding is a dictionary lookup, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
 }
 
@@ -291,7 +317,7 @@ template <>
 SymFLOPs symbolic_trace_impl<Operator::T>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
-  // t is a dimension swap, so technically it has 0 FLOPs.
+  // t is a dimension swap, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
 }
 
@@ -314,7 +340,7 @@ template <>
 SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
-  // transpose.int is a dimension swap, so technically it has 0 FLOPs.
+  // transpose.int is a dimension swap, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
 }
 
@@ -339,7 +365,7 @@ SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // unsqueeze inserts a singleton dimension at the specified position,
-  // so it has 0 FLOPs.
+  // so it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
 }
 
@@ -363,7 +389,7 @@ template <>
 SymFLOPs symbolic_trace_impl<Operator::VIEW>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
-  // view is a tensor view operation, so technically it has 0 FLOPs.
+  // view is a tensor view operation, so technically it has zero FLOPs.
   // See https://pytorch.org/docs/stable/tensor_view.html.
   return SymFLOPs(0, 0, 0, 0);
 }
