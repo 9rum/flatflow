@@ -143,6 +143,7 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
+    RegisterOperator<Operator::EMBEDDING>();
     RegisterOperator<Operator::MM>();
   }
 
@@ -189,6 +190,31 @@ class OperatorRegistry {
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////// OPERATOR REGISTRATIONS SECTION BEGIN /////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+// flatflow::symbolic_trace_impl<EMBEDDING>()
+//
+// Implements a symbolic transformation for `embedding`.
+//
+// func: embedding(Tensor weight, Tensor indices, SymInt padding_idx=-1,
+//                 bool scale_grad_by_freq=False, bool sparse=False) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // embedding is a dictionary lookup, so technically it has 0 FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// OperatorRegistry::RegisterOperator<EMBEDDING>()
+//
+// Registers `embedding` to the operator table.
+template <>
+void OperatorRegistry::RegisterOperator<Operator::EMBEDDING>() {
+  table_.insert(
+      std::make_pair(Operator::EMBEDDING,
+                     std::bind(symbolic_trace_impl<Operator::EMBEDDING>,
+                               std::placeholders::_1, std::placeholders::_2)));
+}
 
 // flatflow::symbolic_trace_impl<MM>()
 //
