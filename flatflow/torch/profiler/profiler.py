@@ -112,10 +112,7 @@ class ComputeProfiler:
                 'timestamp': initial_time,
                 'elapsed_time': elapsed
             }
-            group_size = (
-                parallel_state.get_pipeline_model_parallel_world_size()
-                * parallel_state.get_tensor_model_parallel_world_size()
-            )
+
         else:
             processed_data = None
 
