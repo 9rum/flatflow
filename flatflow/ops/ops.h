@@ -85,18 +85,6 @@ class SymFLOPs {
   value_type coef3_;  // cubic
 };
 
-// flatflow::symbolic_trace_impl<>()
-//
-// This is a base template for implementing a symbolic transformation for the
-// corresponding operator; calling this means that the program is ill-formed
-// and should fail to compile.
-template <Operator>
-SymFLOPs symbolic_trace_impl(
-    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    const TensorMetadata *meta) {
-  static_assert(std::false_type::value);
-}
-
 // flatflow::OperatorRegistry
 //
 // A `flatflow::OperatorRegistry` holds the key information to identify
@@ -114,13 +102,12 @@ SymFLOPs symbolic_trace_impl(
 // * Second, generate codes from the updated schema by running `make generate`
 //   in the root directory of this source tree. This will create
 //   `flatflow/ops/operator_generated.h`, etc.
-// * Third, add template specializations of `symbolic_trace_impl` and
-//   `OperatorRegistry::RegisterOperator` for the new operator; please refer to
-//   the implementations below for supported operators. Note that omitting this
-//   step will call their base template, which raises an assertion failure at
-//   compile time.
-// * Finally, register the new operator to the operator table by calling its
-//   specialized `OperatorRegistry::RegisterOperator` in the constructor below.
+// * Third, add a template specialization of `symbolic_trace_impl` for the
+//   new operator; please refer to the implementations below for supported
+//   operators. Note that omitting this step will call the base template of
+//   `symbolic_trace_impl`, which raises assertion failure at compile time.
+// * Finally, register the new operator to the operator table by calling
+//   `OperatorRegistry::RegisterOperator` in the constructor below.
 class OperatorRegistry {
  public:
   using key_type = Operator;
@@ -143,17 +130,21 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
-    RegisterOperator<Operator::ARANGE>();
-    RegisterOperator<Operator::ARANGE_START>();
-    RegisterOperator<Operator::BMM>();
-    RegisterOperator<Operator::EMBEDDING>();
-    RegisterOperator<Operator::EXPAND>();
-    RegisterOperator<Operator::FULL>();
-    RegisterOperator<Operator::MM>();
-    RegisterOperator<Operator::T>();
-    RegisterOperator<Operator::TRANSPOSE_INT>();
-    RegisterOperator<Operator::UNSQUEEZE>();
-    RegisterOperator<Operator::VIEW>();
+    RegisterOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
+    RegisterOperator(Operator::ARANGE_START,
+                     &symbolic_trace_impl<Operator::ARANGE_START>);
+    RegisterOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
+    RegisterOperator(Operator::EMBEDDING,
+                     &symbolic_trace_impl<Operator::EMBEDDING>);
+    RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
+    RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
+    RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
+    RegisterOperator(Operator::TRANSPOSE_INT,
+                     &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
+    RegisterOperator(Operator::UNSQUEEZE,
+                     &symbolic_trace_impl<Operator::UNSQUEEZE>);
+    RegisterOperator(Operator::VIEW, &symbolic_trace_impl<Operator::VIEW>);
   }
 
   explicit OperatorRegistry(const OperatorRegistry &other) = default;
@@ -164,13 +155,17 @@ class OperatorRegistry {
 
   OperatorRegistry &operator=(OperatorRegistry &&other) = default;
 
-  // OperatorRegistry::RegisterOperator<>()
+  // OperatorRegistry::RegisterOperator()
   //
-  // This is a base template for registering operators; calling this means that
-  // the program is ill-formed and should fail to compile.
-  template <Operator>
-  void RegisterOperator() {
-    static_assert(std::false_type::value);
+  // Registers `op` to the operator table.
+  void RegisterOperator(
+      key_type op,
+      SymFLOPs (*func)(
+          const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
+          const TensorMetadata *)) {
+    // TODO: Check if the insertion took place.
+    table_.insert(std::make_pair(
+        op, std::bind(func, std::placeholders::_1, std::placeholders::_2)));
   }
 
   // OperatorRegistry::DeregisterOperator()
@@ -196,9 +191,17 @@ class OperatorRegistry {
   absl::flat_hash_map<key_type, mapped_type> table_;
 };
 
-////////////////////////////////////////////////////////////////////////////////
-///////////////////// OPERATOR REGISTRATIONS SECTION BEGIN /////////////////////
-////////////////////////////////////////////////////////////////////////////////
+// flatflow::symbolic_trace_impl<>()
+//
+// This is a base template for implementing a symbolic transformation for the
+// corresponding operator; calling this means that the program is ill-formed
+// and should fail to compile.
+template <Operator>
+SymFLOPs symbolic_trace_impl(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
+    const TensorMetadata *) {
+  static_assert(std::false_type::value);
+}
 
 // flatflow::symbolic_trace_impl<ARANGE>()
 //
@@ -214,17 +217,6 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE>(
   return SymFLOPs(0, 0, 0, 0);
 }
 
-// OperatorRegistry::RegisterOperator<ARANGE>()
-//
-// Registers `arange` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::ARANGE>() {
-  table_.insert(
-      std::make_pair(Operator::ARANGE,
-                     std::bind(symbolic_trace_impl<Operator::ARANGE>,
-                               std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<ARANGE_START>()
 //
 // Implements a symbolic transformation for `arange.start`.
@@ -238,17 +230,6 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE_START>(
     const TensorMetadata *meta) {
   // arange.start returns a tensor, so it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
-}
-
-// OperatorRegistry::RegisterOperator<ARANGE_START>()
-//
-// Registers `arange.start` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::ARANGE_START>() {
-  table_.insert(
-      std::make_pair(Operator::ARANGE_START,
-                     std::bind(symbolic_trace_impl<Operator::ARANGE_START>,
-                               std::placeholders::_1, std::placeholders::_2)));
 }
 
 // flatflow::symbolic_trace_impl<BMM>()
@@ -321,16 +302,6 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
 }
 
-// OperatorRegistry::RegisterOperator<BMM>()
-//
-// Registers `bmm` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::BMM>() {
-  table_.insert(std::make_pair(
-      Operator::BMM, std::bind(symbolic_trace_impl<Operator::BMM>,
-                               std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<EMBEDDING>()
 //
 // Implements a symbolic transformation for `embedding`.
@@ -343,17 +314,6 @@ SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
     const TensorMetadata *meta) {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
-}
-
-// OperatorRegistry::RegisterOperator<EMBEDDING>()
-//
-// Registers `embedding` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::EMBEDDING>() {
-  table_.insert(
-      std::make_pair(Operator::EMBEDDING,
-                     std::bind(symbolic_trace_impl<Operator::EMBEDDING>,
-                               std::placeholders::_1, std::placeholders::_2)));
 }
 
 // flatflow::symbolic_trace_impl<EXPAND>()
@@ -370,17 +330,6 @@ SymFLOPs symbolic_trace_impl<Operator::EXPAND>(
   return SymFLOPs(0, 0, 0, 0);
 }
 
-// OperatorRegistry::RegisterOperator<EXPAND>()
-//
-// Registers `expand` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::EXPAND>() {
-  table_.insert(
-      std::make_pair(Operator::EXPAND,
-                     std::bind(symbolic_trace_impl<Operator::EXPAND>,
-                               std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<FULL>()
 //
 // Implements a symbolic transformation for `full`.
@@ -394,16 +343,6 @@ SymFLOPs symbolic_trace_impl<Operator::FULL>(
     const TensorMetadata *meta) {
   // full creates a tensor, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
-}
-
-// OperatorRegistry::RegisterOperator<FULL>()
-//
-// Registers `full` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::FULL>() {
-  table_.insert(std::make_pair(
-      Operator::FULL, std::bind(symbolic_trace_impl<Operator::FULL>,
-                                std::placeholders::_1, std::placeholders::_2)));
 }
 
 // flatflow::symbolic_trace_impl<MM>()
@@ -457,17 +396,6 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
 }
 
-// OperatorRegistry::RegisterOperator<MM>()
-//
-// Registers `mm` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::MM>() {
-  // TODO: Check if the insertion took place.
-  table_.insert(std::make_pair(
-      Operator::MM, std::bind(symbolic_trace_impl<Operator::MM>,
-                              std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<T>()
 //
 // Implements a symbolic transformation for `t`.
@@ -481,16 +409,6 @@ SymFLOPs symbolic_trace_impl<Operator::T>(
   return SymFLOPs(0, 0, 0, 0);
 }
 
-// OperatorRegistry::RegisterOperator<T>()
-//
-// Registers `t` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::T>() {
-  table_.insert(std::make_pair(
-      Operator::T, std::bind(symbolic_trace_impl<Operator::T>,
-                             std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<TRANSPOSE_INT>()
 //
 // Implements a symbolic transformation for `transpose.int`.
@@ -502,17 +420,6 @@ SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
     const TensorMetadata *meta) {
   // transpose.int is a dimension swap, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
-}
-
-// OperatorRegistry::RegisterOperator<TRANSPOSE_INT>()
-//
-// Registers `transpose.int` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::TRANSPOSE_INT>() {
-  table_.insert(
-      std::make_pair(Operator::TRANSPOSE_INT,
-                     std::bind(symbolic_trace_impl<Operator::TRANSPOSE_INT>,
-                               std::placeholders::_1, std::placeholders::_2)));
 }
 
 // flatflow::symbolic_trace_impl<UNSQUEEZE>()
@@ -529,17 +436,6 @@ SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
   return SymFLOPs(0, 0, 0, 0);
 }
 
-// OperatorRegistry::RegisterOperator<UNSQUEEZE>()
-//
-// Registers `unsqueeze` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::UNSQUEEZE>() {
-  table_.insert(
-      std::make_pair(Operator::UNSQUEEZE,
-                     std::bind(symbolic_trace_impl<Operator::UNSQUEEZE>,
-                               std::placeholders::_1, std::placeholders::_2)));
-}
-
 // flatflow::symbolic_trace_impl<VIEW>()
 //
 // Implements a symbolic transformation for `view`.
@@ -553,20 +449,6 @@ SymFLOPs symbolic_trace_impl<Operator::VIEW>(
   // See https://pytorch.org/docs/stable/tensor_view.html.
   return SymFLOPs(0, 0, 0, 0);
 }
-
-// OperatorRegistry::RegisterOperator<VIEW>()
-//
-// Registers `view` to the operator table.
-template <>
-void OperatorRegistry::RegisterOperator<Operator::VIEW>() {
-  table_.insert(std::make_pair(
-      Operator::VIEW, std::bind(symbolic_trace_impl<Operator::VIEW>,
-                                std::placeholders::_1, std::placeholders::_2)));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////// OPERATOR REGISTRATIONS SECTION END //////////////////////
-////////////////////////////////////////////////////////////////////////////////
 
 // flatflow::PolyEval()
 //
