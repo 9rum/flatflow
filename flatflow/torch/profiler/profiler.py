@@ -26,19 +26,103 @@ __all__ = ["ComputeProfiler", "MemoryProfiler"]
 
 
 class ComputeProfiler:
-    def __init__(self, rank, hook_handles=[]):
-        self.start_times = {}
+    def __init__(self, rank, layers, layer_events):
+        self.timestamp = {}
         self.forward_times = []
         self.buffer = defaultdict(float)
         self.rank = rank
         self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
         self.current_batch_id = 0
-        self.hook_handles = hook_handles
+        self.hook_handles = []
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
         self.mp_group = parallel_state.get_model_parallel_group()
         self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
         self.pp_group = parallel_state.get_pipeline_model_parallel_group()
         self.event = mp.Event()
+        self.layers = layers
+        self.layer_events = layer_events
+        self.times = defaultdict(float)
+        for name in self.layers.keys():
+            self.register_hooks(name)
+
+    def register_hooks(self, name):
+        events = self.layer_events[name]
+        layer = self.layers[name]
+
+        def forward_pre_hook(module, _):
+            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
+            torch.cuda.synchronize()
+            events["forward_pre"].record()
+            self.timestamp[batch_key] = time.perf_counter()
+
+        def forward_hook(module, _, _1):
+            events["forward_post"].record()
+            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
+            torch.cuda.synchronize()
+            self.times[batch_key] += events["forward_pre"].elapsed_time(events["forward_post"])
+
+        def backward_pre_hook(module, _):
+            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
+            
+            torch.cuda.synchronize()
+            events["backward_pre"].record()
+            self.timestamp[batch_key] = time.perf_counter()
+
+        def backward_hook(module, _, _1):
+            events["backward_post"].record()
+            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
+            torch.cuda.synchronize()
+            self.times[batch_key] += events["backward_pre"].elapsed_time(events["backward_post"])
+            
+
+        self.hook_handles.append(layer.register_forward_pre_hook(forward_pre_hook))
+        self.hook_handles.append(layer.register_forward_hook(forward_hook))
+
+        self.hook_handles.append(layer.register_full_backward_pre_hook(backward_pre_hook))
+        self.hook_handles.append(layer.register_full_backward_hook(backward_hook))
+
+    def save_latency_log(self):
+        compute_times = (
+            [None]
+            * parallel_state.get_pipeline_model_parallel_world_size()
+            * parallel_state.get_tensor_model_parallel_world_size()
+        )
+
+        torch.distributed.all_gather_object(compute_times, self.times, group=self.mp_group)
+
+        if self.rank == self.mp_src_rank:
+            tp_max_memory = defaultdict(float)
+            for data in compute_times:
+                if data:
+                    for key, value in data.items():
+                        base_key = re.sub(r"_tp_\d+", "", key)
+                        tp_max_memory[base_key] = max(tp_max_memory[base_key], value)
+
+            processed_memory = defaultdict(float)
+            for key, value in tp_max_memory.items():
+                base_key = re.sub(r"_pp\d+", "", key)
+                processed_memory[base_key] += value
+
+            group_size = (
+                parallel_state.get_pipeline_model_parallel_world_size()
+                * parallel_state.get_tensor_model_parallel_world_size()
+            )
+            num_groups = self.world_size // group_size
+
+            memory_object = [None] * num_groups
+        else:
+            processed_memory = None
+            memory_object = None
+
+        if self.rank == 0:
+            memory_object = [None] * self.world_size
+
+        torch.distributed.gather_object(obj=processed_memory, object_gather_list=memory_object, dst=0)
+        if self.rank == 0:
+            assert memory_object is not None
+            revised = [memory for memory in memory_object if memory is not None]
+            with open("latecny_profile.json", "w") as f:
+                json.dump(revised, f, indent=4)
 
     def _generate_batch_key(self, microbatch_id: int) -> str:
         data_parallel_rank = parallel_state.get_data_parallel_rank()
@@ -141,17 +225,55 @@ class ComputeProfiler:
 
 
 class MemoryProfiler:
-    def __init__(self, rank, hook_handles=[]):
+    def __init__(self, rank, layers, layer_events):
         self.rank = rank
         self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
         self.current_batch_id = 0
-        self.hook_handles = hook_handles
+        self.hook_handles = []
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
         self.mp_group = parallel_state.get_model_parallel_group()
         self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
         self.pp_group = parallel_state.get_pipeline_model_parallel_group()
         self.memory_tracker = defaultdict(float)
         self.memory_buffer = {}
+        self.layers = layers
+        self.layer_events = layer_events
+        self.times = defaultdict(float)
+        for name in self.layers.keys():
+            self.register_hooks(name)
+
+    def register_hooks(self, name):
+        events = self.layer_events[name]
+        layer = self.layers[name]
+
+        def forward_pre_hook(module, _):
+            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
+            self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
+
+        def forward_hook(module, _, _1):
+            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
+            if batch_key in self.memory_buffer:
+                self.memory_tracker[batch_key] += (
+                    torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
+                )
+
+        def backward_pre_hook(module, _):
+            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
+            self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
+
+
+        def backward_hook(module, _, _1):
+            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
+            if batch_key in self.memory_buffer:
+                self.memory_tracker[batch_key] += (
+                    torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
+                )
+
+        self.hook_handles.append(layer.register_forward_pre_hook(forward_pre_hook))
+        self.hook_handles.append(layer.register_forward_hook(forward_hook))
+
+        self.hook_handles.append(layer.register_full_backward_pre_hook(backward_pre_hook))
+        self.hook_handles.append(layer.register_full_backward_hook(backward_hook))
 
     def _generate_batch_key(self, microbatch_id: int) -> str:
         data_parallel_rank = parallel_state.get_data_parallel_rank()
