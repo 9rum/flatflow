@@ -82,46 +82,55 @@ class ComputeProfiler:
         self.hook_handles.append(layer.register_full_backward_hook(backward_hook))
 
     def save_latency_log(self):
+        
+        combined_data = {
+        'elapsed_time': self.times,
+        'timestamps': self.start_times
+        }
+        
         compute_times = (
             [None]
             * parallel_state.get_pipeline_model_parallel_world_size()
             * parallel_state.get_tensor_model_parallel_world_size()
         )
 
-        torch.distributed.all_gather_object(compute_times, self.times, group=self.mp_group)
-
+        torch.distributed.all_gather_object(compute_times, combined_data, group=self.mp_group)
         if self.rank == self.mp_src_rank:
-            tp_max_memory = defaultdict(float)
+            elapsed = defaultdict(float)
+            initial_time = defaultdict(lambda: float('inf'))
+
             for data in compute_times:
                 if data:
-                    for key, value in data.items():
+                    for key, value in data['elapsed_time'].items():
                         base_key = re.sub(r"_tp_\d+", "", key)
-                        tp_max_memory[base_key] = max(tp_max_memory[base_key], value)
+                        elapsed[base_key] = max(elapsed[base_key], value)
+                    for key, value in data['timestamps'].items():
+                        base_key = re.sub(r"_tp_\d+", "", key)
+                        initial_time[base_key] = min(initial_time[base_key], value)
 
-            processed_memory = defaultdict(float)
-            for key, value in tp_max_memory.items():
-                base_key = re.sub(r"_pp\d+", "", key)
-                processed_memory[base_key] += value
-
+            processed_data = {
+                'timestamp': initial_time,
+                'elapsed_time': elapsed
+            }
             group_size = (
                 parallel_state.get_pipeline_model_parallel_world_size()
                 * parallel_state.get_tensor_model_parallel_world_size()
             )
             num_groups = self.world_size // group_size
 
-            memory_object = [None] * num_groups
+            data_object = [None] * num_groups
         else:
-            processed_memory = None
-            memory_object = None
+            processed_data = None
+            data_object = None
 
         if self.rank == 0:
-            memory_object = [None] * self.world_size
+            data_object = [None] * self.world_size
 
-        torch.distributed.gather_object(obj=processed_memory, object_gather_list=memory_object, dst=0)
+        torch.distributed.gather_object(obj=processed_data, object_gather_list=data_object, dst=0)
         if self.rank == 0:
-            assert memory_object is not None
-            revised = [memory for memory in memory_object if memory is not None]
-            with open("latecny_profile.json", "w") as f:
+            assert data_object is not None
+            revised = [data for data in data_object if data is not None]
+            with open("latency_profile.json", "w") as f:
                 json.dump(revised, f, indent=4)
 
     def _generate_batch_key(self, microbatch_id: int) -> str:
