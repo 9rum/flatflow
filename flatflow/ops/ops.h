@@ -179,11 +179,14 @@ class OperatorRegistry {
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::SLICE_TENSOR,
+                     &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     RegisterOperator(Operator::SYM_SIZE_INT,
                      &symbolic_trace_impl<Operator::SYM_SIZE_INT>);
     RegisterOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
     RegisterOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
+    RegisterOperator(Operator::TRIU, &symbolic_trace_impl<Operator::TRIU>);
     RegisterOperator(Operator::UNSQUEEZE,
                      &symbolic_trace_impl<Operator::UNSQUEEZE>);
     RegisterOperator(Operator::VIEW, &symbolic_trace_impl<Operator::VIEW>);
@@ -493,6 +496,20 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
 }
 
+// flatflow::symbolic_trace_impl<SLICE_TENSOR>()
+//
+// Implements a symbolic transformation for `slice.Tensor`.
+//
+// func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None,
+//                    SymInt? end=None, SymInt step=1) -> Tensor(a)
+template <>
+SymFLOPs symbolic_trace_impl<Operator::SLICE_TENSOR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // slice.Tensor is a tensor view operation, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
 // flatflow::symbolic_trace_impl<SYM_SIZE_INT>()
 //
 // Implements a symbolic transformation for `sym_size.int`.
@@ -529,6 +546,19 @@ SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // transpose.int is a dimension swap, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// flatflow::symbolic_trace_impl<TRIU>()
+//
+// Implements a symbolic transformation for `triu`.
+//
+// func: triu(Tensor self, int diagonal=0) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::TRIU>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // triu is a masking operation, so technically it has zero FLOPs.
   return SymFLOPs(0, 0, 0, 0);
 }
 
