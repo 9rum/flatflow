@@ -918,7 +918,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                profiler=self.compute_profiler[self.profile_key] if self.use_compute_profile else None,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:
