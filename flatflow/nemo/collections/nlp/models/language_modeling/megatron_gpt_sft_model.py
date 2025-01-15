@@ -123,6 +123,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             config.variable_seq_lengths = True
 
         self.profile_key = None
+        self.layer_event = {}
+        self.layer = {}
 
     def setup_metric(self, data_cfg):
         metric_name = "exact_string_match"
@@ -947,15 +949,34 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         data_parallel_rank = parallel_state.get_data_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
+        self.generate_events()
         self.profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
         if self.use_compute_profile:
-            profiler = flatflow.torch.profiler.ComputeProfiler(rank=global_rank)
-            self.compute_profiler[self.profile_key] = profiler
-            self.register_hooks(profiler)
+            self.compute_profiler[self.profile_key] = flatflow.torch.profiler.ComputeProfiler(rank=global_rank,layers=self.layer, layer_events=self.layer_event)
         if self.use_memory_profile:
-            profiler = flatflow.torch.profiler.MemoryProfiler(rank=global_rank)
-            self.memory_profiler[self.profile_key] = profiler
-            self.register_hooks(profiler)
+            self.memory_profiler[self.profile_key] = flatflow.torch.profiler.MemoryProfiler(rank=global_rank,layers=self.layer, layer_events=self.layer_event)
+
+
+    def generate_events(self):
+        if isinstance(self.model, list):
+            for model in self.model:
+                for name, module in model.named_modules():
+                    self.layer[name] = module
+                    self.layer_event[name] = {
+                        "forward_pre": torch.cuda.Event(enable_timing=True),
+                        "backward_pre": torch.cuda.Event(enable_timing=True),
+                        "forward_post": torch.cuda.Event(enable_timing=True),
+                        "backward_post": torch.cuda.Event(enable_timing=True),
+                    }
+        else:
+            for name, module in self.model.named_modules():
+                self.layer[name] = module
+                self.layer_event[name] = {
+                    "forward_pre": torch.cuda.Event(enable_timing=True),
+                    "backward_pre": torch.cuda.Event(enable_timing=True),
+                    "forward_post": torch.cuda.Event(enable_timing=True),
+                    "backward_post": torch.cuda.Event(enable_timing=True),
+                }
 
     def register_hooks(self, profiler):
         def forward_pre_hook(module, input):
@@ -1035,6 +1056,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
     def on_train_end(self) -> None:
         if self.use_memory_profile:
             self.memory_profiler[self.profile_key].save_memory_log()
+        if self.use_compute_profile:
+            self.compute_profiler[self.profile_key].save_latency_log()
 
     def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
         def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, compute_profiler=None, memory_profiler=None, global_microbatch_id=None):
