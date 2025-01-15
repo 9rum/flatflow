@@ -119,7 +119,6 @@ class ComputeProfiler:
         else:
             processed_data = None
 
-        # gather_object를 위한 리스트는 rank 0에서만 필요
         data_object = [None] * self.world_size if self.rank == 0 else None
 
         torch.distributed.gather_object(obj=processed_data, object_gather_list=data_object, dst=0)
