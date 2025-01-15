@@ -116,15 +116,11 @@ class ComputeProfiler:
                 parallel_state.get_pipeline_model_parallel_world_size()
                 * parallel_state.get_tensor_model_parallel_world_size()
             )
-            num_groups = self.world_size // group_size
-
-            data_object = [None] * num_groups
         else:
             processed_data = None
-            data_object = None
 
-        if self.rank == 0:
-            data_object = [None] * self.world_size
+        # gather_object를 위한 리스트는 rank 0에서만 필요
+        data_object = [None] * self.world_size if self.rank == 0 else None
 
         torch.distributed.gather_object(obj=processed_data, object_gather_list=data_object, dst=0)
         if self.rank == 0:
