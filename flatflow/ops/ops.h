@@ -172,6 +172,8 @@ class OperatorRegistry {
     RegisterOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
     RegisterOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
+    RegisterOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
+    RegisterOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
     RegisterOperator(Operator::EMBEDDING,
                      &symbolic_trace_impl<Operator::EMBEDDING>);
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
@@ -369,6 +371,32 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
   // coef4 is actually zero, since at least one of b, n, m, p is a constant.
 
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+}
+
+// flatflow::symbolic_trace_impl<CAT>()
+//
+// Implements a symbolic transformation for `cat`.
+//
+// func: cat(Tensor[] tensors, int dim=0) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::CAT>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // cat concatenates tensors in the given dimension, so it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// flatflow::symbolic_trace_impl<CLONE>()
+//
+// Implements a symbolic transformation for `clone`.
+//
+// func: clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::CLONE>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // clone copies a tensor, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
 }
 
 // flatflow::symbolic_trace_impl<EMBEDDING>()
