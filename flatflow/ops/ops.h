@@ -164,6 +164,10 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
+    RegisterOperator(Operator::_TO_COPY,
+                     &symbolic_trace_impl<Operator::_TO_COPY>);
+    RegisterOperator(Operator::_UNSAFE_VIEW,
+                     &symbolic_trace_impl<Operator::_UNSAFE_VIEW>);
     RegisterOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
     RegisterOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
@@ -173,6 +177,8 @@ class OperatorRegistry {
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::SYM_SIZE_INT,
+                     &symbolic_trace_impl<Operator::SYM_SIZE_INT>);
     RegisterOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
     RegisterOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
@@ -235,6 +241,35 @@ SymFLOPs symbolic_trace_impl(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
     const TensorMetadata *) {
   static_assert(std::false_type::value);
+}
+
+// flatflow::symbolic_trace_impl<_TO_COPY>()
+//
+// Implements a symbolic transformation for `_to_copy`.
+//
+// func: _to_copy(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
+//                Device? device=None, bool? pin_memory=None,
+//                bool non_blocking=False,
+//                MemoryFormat? memory_format=None) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::_TO_COPY>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // _to_copy copies a tensor, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
+}
+
+// flatflow::symbolic_trace_impl<_UNSAFE_VIEW>()
+//
+// Implements a symbolic transformation for `_unsafe_view`.
+//
+// func: _unsafe_view(Tensor self, SymInt[] size) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
 }
 
 // flatflow::symbolic_trace_impl<ARANGE>()
@@ -428,6 +463,19 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   const auto coef3 = n->coef1() * m->coef1() * p->coef1();
 
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+}
+
+// flatflow::symbolic_trace_impl<SYM_SIZE_INT>()
+//
+// Implements a symbolic transformation for `sym_size.int`.
+//
+// func: sym_size.int(Tensor self, int dim) -> SymInt
+template <>
+SymFLOPs symbolic_trace_impl<Operator::SYM_SIZE_INT>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // sym_size.int is used during tracing, so technically it has zero FLOPs.
+  return SymFLOPs(0, 0, 0, 0);
 }
 
 // flatflow::symbolic_trace_impl<T>()
