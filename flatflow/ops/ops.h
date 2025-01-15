@@ -70,6 +70,40 @@ class SymFLOPs {
     return expr;
   }
 
+  // SymFLOPs::operator+=()
+  //
+  // Combines the two given symbolic expressions for FLOPs in-place.
+  SymFLOPs &operator+=(const SymFLOPs &other) noexcept {
+    coef0_ += other.coef0();
+    coef1_ += other.coef1();
+    coef2_ += other.coef2();
+    coef3_ += other.coef3();
+    return *this;
+  }
+
+  // SymFLOPs::operator/()
+  //
+  // Scales the symbolic expression for FLOPs in coefficient-wise
+  // with the given divisor.
+  SymFLOPs &operator/(value_type divisor) const {
+    CHECK_NE(divisor, 0);
+    auto expr = SymFLOPs(coef0_ / divisor, coef1_ / divisor, coef2_ / divisor,
+                         coef3_ / divisor);
+    return expr;
+  }
+
+  // SymFLOPs::operator/=()
+  //
+  // Scales the symbolic expression for FLOPs in-place with the given divisor.
+  SymFLOPs &operator/=(value_type divisor) {
+    CHECK_NE(divisor, 0);
+    coef0_ /= divisor;
+    coef1_ /= divisor;
+    coef2_ /= divisor;
+    coef3_ /= divisor;
+    return *this;
+  }
+
   value_type coef0() const noexcept { return coef0_; }
 
   value_type coef1() const noexcept { return coef1_; }
@@ -489,8 +523,13 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   }
   // clang-format on
 
-  const auto expr = std::reduce(std::execution::par, exprs.cbegin(),
-                                exprs.cend(), SymFLOPs());
+  auto expr = std::reduce(std::execution::par, exprs.cbegin(), exprs.cend(),
+                          SymFLOPs());
+  const auto scale =
+      std::gcd(std::gcd(std::gcd(expr.coef0(), expr.coef1()), expr.coef2()),
+               expr.coef3());
+  expr /= scale;
+
   return std::bind(PolyEval, std::placeholders::_1, expr.coef0(), expr.coef1(),
                    expr.coef2(), expr.coef3());
 }
