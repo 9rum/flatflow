@@ -49,15 +49,15 @@ class SymFLOPs {
   //
   // In addition to the default constructor below, a `flatflow::SymFLOPs`
   // supports copy and move constructors and assignment operators.
-  explicit SymFLOPs(value_type coef0 = 0, value_type coef1 = 0,
-                    value_type coef2 = 0, value_type coef3 = 0)
+  SymFLOPs(value_type coef0 = 0, value_type coef1 = 0, value_type coef2 = 0,
+           value_type coef3 = 0)
       : coef0_(coef0), coef1_(coef1), coef2_(coef2), coef3_(coef3) {}
 
-  explicit SymFLOPs(const SymFLOPs &other) = default;
+  SymFLOPs(const SymFLOPs &other) = default;
 
   SymFLOPs &operator=(const SymFLOPs &other) = default;
 
-  explicit SymFLOPs(SymFLOPs &&other) = default;
+  SymFLOPs(SymFLOPs &&other) = default;
 
   SymFLOPs &operator=(SymFLOPs &&other) = default;
 
@@ -78,6 +78,33 @@ class SymFLOPs {
     coef1_ += other.coef1();
     coef2_ += other.coef2();
     coef3_ += other.coef3();
+    return *this;
+  }
+
+  // SymFLOPs::operator*()
+  //
+  // Multiplies the two given symbolic expressions for FLOPs
+  // in coefficient-wise.
+  SymFLOPs &operator*(const SymFLOPs &other) const noexcept {
+    auto expr = SymFLOPs(coef0_ * other.coef0(),
+                         coef0_ * other.coef1() + coef1_ * other.coef0(),
+                         coef0_ * other.coef2() + coef1_ * other.coef1() +
+                             coef2_ * other.coef0(),
+                         coef0_ * other.coef3() + coef1_ * other.coef2() +
+                             coef2_ * other.coef1() + coef3_ * other.coef0());
+    return expr;
+  }
+
+  // SymFLOPs::operator*=()
+  //
+  // Multiplies the two given symbolic expressions for FLOPs in-place.
+  SymFLOPs &operator*=(const SymFLOPs &other) noexcept {
+    coef0_ = coef0_ * other.coef0();
+    coef1_ = coef0_ * other.coef1() + coef1_ * other.coef0();
+    coef2_ = coef0_ * other.coef2() + coef1_ * other.coef1() +
+             coef2_ * other.coef0();
+    coef3_ = coef0_ * other.coef3() + coef1_ * other.coef2() +
+             coef2_ * other.coef1() + coef3_ * other.coef0();
     return *this;
   }
 
@@ -263,7 +290,7 @@ SymFLOPs symbolic_trace_impl<Operator::_TO_COPY>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // _to_copy copies a tensor, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<_UNSAFE_VIEW>()
@@ -276,7 +303,7 @@ SymFLOPs symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<ARANGE>()
@@ -290,7 +317,7 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // arange returns a tensor, so it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<ARANGE_START>()
@@ -305,7 +332,7 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE_START>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // arange.start returns a tensor, so it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<BMM>()
@@ -357,25 +384,13 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
   auto p = shape1->Get(2);
   CHECK_NE(p, nullptr);
 
-  const auto coef0 = b->coef0() * n->coef0() * m->coef0() * p->coef0();
-  const auto coef1 = (b->coef1() * n->coef0() + b->coef0() * n->coef1()) *
-                         m->coef0() * p->coef0() +
-                     (m->coef1() * p->coef0() + m->coef0() * p->coef1()) *
-                         b->coef0() * n->coef0();
-  const auto coef2 =
-      ((b->coef0() * n->coef1() + b->coef1() * n->coef0()) * m->coef0() +
-       b->coef0() * n->coef0() * m->coef1()) *
-          p->coef1() +
-      ((b->coef0() * n->coef1() + b->coef1() * n->coef0()) * m->coef1() +
-       b->coef1() * n->coef1() * m->coef0()) *
-          p->coef0();
-  const auto coef3 = (b->coef0() * n->coef1() + b->coef1() * n->coef0()) *
-                         m->coef1() * p->coef1() +
-                     (m->coef0() * p->coef1() + m->coef1() * p->coef0()) *
-                         b->coef1() * n->coef1();
   // coef4 is actually zero, since at least one of b, n, m, p is a constant.
+  const auto expr =
+      SymFLOPs(b->coef0(), b->coef1()) * SymFLOPs(n->coef0(), n->coef1()) *
+      SymFLOPs(m->coef0(), m->coef1()) * SymFLOPs(p->coef0(), p->coef1());
 
-  return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+  return SymFLOPs(expr.coef0() << 1, expr.coef1() << 1, expr.coef2() << 1,
+                  expr.coef3() << 1);
 }
 
 // flatflow::symbolic_trace_impl<CAT>()
@@ -388,7 +403,7 @@ SymFLOPs symbolic_trace_impl<Operator::CAT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // cat concatenates tensors in the given dimension, so it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<CLONE>()
@@ -401,7 +416,7 @@ SymFLOPs symbolic_trace_impl<Operator::CLONE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // clone copies a tensor, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<EMBEDDING>()
@@ -415,7 +430,7 @@ SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<EXPAND>()
@@ -429,7 +444,7 @@ SymFLOPs symbolic_trace_impl<Operator::EXPAND>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // expand is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<FULL>()
@@ -444,7 +459,7 @@ SymFLOPs symbolic_trace_impl<Operator::FULL>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // full creates a tensor, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<MM>()
@@ -486,16 +501,12 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   auto p = shape1->Get(1);
   CHECK_NE(p, nullptr);
 
-  const auto coef0 = n->coef0() * m->coef0() * p->coef0();
-  const auto coef1 =
-      (n->coef1() * m->coef0() + n->coef0() * m->coef1()) * p->coef0() +
-      n->coef0() * m->coef0() * p->coef1();
-  const auto coef2 =
-      (n->coef0() * m->coef1() + n->coef1() + m->coef0()) * p->coef1() +
-      n->coef1() * m->coef1() * p->coef0();
-  const auto coef3 = n->coef1() * m->coef1() * p->coef1();
+  const auto expr = SymFLOPs(n->coef0(), n->coef1()) *
+                    SymFLOPs(m->coef0(), m->coef1()) *
+                    SymFLOPs(p->coef0(), p->coef1());
 
-  return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+  return SymFLOPs(expr.coef0() << 1, expr.coef1() << 1, expr.coef2() << 1,
+                  expr.coef3() << 1);
 }
 
 // flatflow::symbolic_trace_impl<MUL_TENSOR>()
@@ -521,7 +532,14 @@ SymFLOPs symbolic_trace_impl<Operator::MUL_TENSOR>(
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  return SymFLOPs(0, 0, 0, 0);
+  auto expr = SymFLOPs(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= SymFLOPs(shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
 }
 
 // flatflow::symbolic_trace_impl<SLICE_TENSOR>()
@@ -535,7 +553,7 @@ SymFLOPs symbolic_trace_impl<Operator::SLICE_TENSOR>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // slice.Tensor is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<SYM_SIZE_INT>()
@@ -548,7 +566,7 @@ SymFLOPs symbolic_trace_impl<Operator::SYM_SIZE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // sym_size.int is used during tracing, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<T>()
@@ -561,7 +579,7 @@ SymFLOPs symbolic_trace_impl<Operator::T>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // t is a dimension swap, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<TRANSPOSE_INT>()
@@ -574,7 +592,7 @@ SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // transpose.int is a dimension swap, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<TRIU>()
@@ -587,7 +605,7 @@ SymFLOPs symbolic_trace_impl<Operator::TRIU>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // triu is a masking operation, so technically it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<UNSQUEEZE>()
@@ -601,7 +619,7 @@ SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
     const TensorMetadata *meta) {
   // unsqueeze inserts a singleton dimension at the specified position,
   // so it has zero FLOPs.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::symbolic_trace_impl<VIEW>()
@@ -615,7 +633,7 @@ SymFLOPs symbolic_trace_impl<Operator::VIEW>(
     const TensorMetadata *meta) {
   // view is a tensor view operation, so technically it has zero FLOPs.
   // See https://pytorch.org/docs/stable/tensor_view.html.
-  return SymFLOPs(0, 0, 0, 0);
+  return SymFLOPs();
 }
 
 // flatflow::PolyEval()
