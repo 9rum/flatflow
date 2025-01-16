@@ -87,7 +87,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         heterogeneous: bool = False,
         hidden_size: Optional[int] = False,
         port: int = 50051,
-        profiler=None,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -117,13 +116,10 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = 0
         self.indices = []
         self.last_batch_size = self.total_samples % self._global_batch_size
-        self.profiler = profiler
-        self.converged = False
         self.world_size = torch.distributed.get_world_size()
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
-        self.costs = None
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
 
@@ -166,14 +162,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 break
             indices_size = [0]
             if is_model_parallel_src:
-                if not self.converged:
-                    self.costs = self.profiler.extract() if self.profiler.event.is_set() else None
-                response = self.client.Broadcast(epoch=self.epoch, costs=self.costs)
-                self.converged = response.Converged()
-                if self.converged:
-                    for hook in self.profiler.hook_handles:
-                        hook.remove()
-
+                response = self.client.Broadcast(epoch=self.epoch)
                 indices = list(response.IndicesAsNumpy())
                 indices_size = [len(indices)]
 
