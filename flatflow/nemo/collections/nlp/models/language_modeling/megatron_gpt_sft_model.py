@@ -456,10 +456,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             memory_profiler=self.memory_profiler[self.profile_key] if self.use_memory_profile else None,
         )
 
-        if self.use_compute_profile:
-            self.compute_profiler[self.profile_key].event.set()
-            self.compute_profiler[self.profile_key].gather_times()
-
         non_loss_tensors = {}
         # only the last stages of the pipeline return losses
         if losses_reduced_per_micro_batch:
