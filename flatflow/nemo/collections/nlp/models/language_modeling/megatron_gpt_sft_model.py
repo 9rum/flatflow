@@ -441,7 +441,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.grad_sync_func = grad_sync_func
             module.config.param_sync_func = param_sync_func
 
-        fwd_bwd_function = flatflow.megatron.core.pipeline_parallel.schedules.get_forward_backward_func() if self.use_flatflow else get_forward_backward_func()
+        fwd_bwd_function = flatflow.megatron.core.pipeline_parallel.schedules.get_forward_backward_func()
 
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
