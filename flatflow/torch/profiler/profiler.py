@@ -318,19 +318,10 @@ class MemoryProfiler:
                 base_key = re.sub(r"_pp\d+", "", key)
                 processed_memory[base_key] += value
 
-            group_size = (
-                parallel_state.get_pipeline_model_parallel_world_size()
-                * parallel_state.get_tensor_model_parallel_world_size()
-            )
-            num_groups = self.world_size // group_size
-
-            memory_object = [None] * num_groups
         else:
             processed_memory = None
-            memory_object = None
 
-        if self.rank == 0:
-            memory_object = [None] * self.world_size
+        memory_object = [None] * self.world_size if self.rank == 0 else None
 
         torch.distributed.gather_object(obj=processed_memory, object_gather_list=memory_object, dst=0)
         if self.rank == 0:
