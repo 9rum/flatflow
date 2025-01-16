@@ -179,6 +179,8 @@ class OperatorRegistry {
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::MUL_TENSOR,
+                     &symbolic_trace_impl<Operator::MUL_TENSOR>);
     RegisterOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     RegisterOperator(Operator::SYM_SIZE_INT,
@@ -494,6 +496,32 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   const auto coef3 = n->coef1() * m->coef1() * p->coef1();
 
   return SymFLOPs(coef0 << 1, coef1 << 1, coef2 << 1, coef3 << 1);
+}
+
+// flatflow::symbolic_trace_impl<MUL_TENSOR>()
+//
+// Implements a symbolic transformation for `mul.Tensor`.
+//
+// func: mul.Tensor(Tensor self, Tensor other) -> Tensor
+template <>
+SymFLOPs symbolic_trace_impl<Operator::MUL_TENSOR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // mul.Tensor multiplies `self` by `other` in element-wise.
+  //
+  // NOTE: As shown above, mul.Tensor gets two tensor arguments but we have
+  // found that there is a bug during symbolic tracing where mul.Scalar is
+  // replaced by mul.Tensor with a single argument due to constant folding.
+  // Moreover, mul.Tensor supports broadcasting to a common shape, making it
+  // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
+  // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
+  // broadcasting.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  return SymFLOPs(0, 0, 0, 0);
 }
 
 // flatflow::symbolic_trace_impl<SLICE_TENSOR>()
