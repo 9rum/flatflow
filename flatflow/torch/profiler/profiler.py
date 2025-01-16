@@ -63,7 +63,7 @@ class ComputeProfiler:
 
         def backward_pre_hook(module, _):
             batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
-            
+
             torch.cuda.synchronize()
             events["backward_pre"].record()
             self.timestamp[batch_key] = time.perf_counter()
@@ -73,7 +73,7 @@ class ComputeProfiler:
             batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
             torch.cuda.synchronize()
             self.times[batch_key] += events["backward_pre"].elapsed_time(events["backward_post"])
-            
+
 
         self.hook_handles.append(layer.register_forward_pre_hook(forward_pre_hook))
         self.hook_handles.append(layer.register_forward_hook(forward_hook))
@@ -82,12 +82,12 @@ class ComputeProfiler:
         self.hook_handles.append(layer.register_full_backward_hook(backward_hook))
 
     def save_latency_log(self):
-        
+
         combined_data = {
         'elapsed_time': self.times,
-        'timestamps': self.timestamp
+        'timestamps': self.timestamp,
         }
-        
+
         compute_times = (
             [None]
             * parallel_state.get_pipeline_model_parallel_world_size()
@@ -111,7 +111,7 @@ class ComputeProfiler:
 
             processed_data = {
                 'timestamp': initial_time,
-                'elapsed_time': elapsed
+                'elapsed_time': elapsed,
             }
 
         else:

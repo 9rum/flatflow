@@ -1576,7 +1576,7 @@ def forward_backward_pipelining_without_interleaving(
 
             output_tensor_grad = recv_backward(send_tensor_shapes, config)
 
-            input_tensor_grad = backward_step( 
+            input_tensor_grad = backward_step(
                 input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + num_microbatches_remaining + i
             )
 
