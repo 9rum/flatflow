@@ -85,7 +85,7 @@ class ComputeProfiler:
         
         combined_data = {
         'elapsed_time': self.times,
-        'timestamps': self.start_times
+        'timestamps': self.timestamp
         }
         
         compute_times = (
