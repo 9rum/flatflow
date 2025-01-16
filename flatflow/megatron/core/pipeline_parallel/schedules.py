@@ -464,6 +464,8 @@ def forward_backward_no_pipelining(
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
+    if compute_profiler is not None and memory_profiler is not None:
+        config.deallocate_pipeline_outputs = False
     if config.timers is not None:
         config.timers('forward-backward', log_level=1).start(barrier=config.barrier_with_L1_time)
 
@@ -602,6 +604,8 @@ def forward_backward_pipelining_with_interleaving(
 
     global total_microbatch_id
     config = get_model_config(model[0])
+    if compute_profiler is not None and memory_profiler is not None:
+        config.deallocate_pipeline_outputs = False
     if config.overlap_p2p_comm and config.batch_p2p_comm:
         raise ValueError("Can not use both overlap_p2p_comm and batch_p2p_comm")
 
@@ -1349,6 +1353,8 @@ def forward_backward_pipelining_without_interleaving(
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
+    if compute_profiler is not None and memory_profiler is not None:
+        config.deallocate_pipeline_outputs = False
     if config.overlap_p2p_comm:
         raise ValueError(
             "Non-interleaved pipeline parallelism does not support overlapping p2p communication"
