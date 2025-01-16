@@ -131,6 +131,26 @@ class SymFLOPs {
     return *this;
   }
 
+  // SymFLOPs::operator<<()
+  //
+  // Applies coefficient-wise shift.
+  SymFLOPs &operator<<(value_type shift) const noexcept {
+    auto expr = SymFLOPs(coef0_ << shift, coef1_ << shift, coef2_ << shift,
+                         coef3_ << shift);
+    return expr;
+  }
+
+  // SymFLOPs::operator<<=()
+  //
+  // Applies coefficient-wise shift in-place.
+  SymFLOPs &operator<<=(value_type shift) noexcept {
+    coef0_ <<= shift;
+    coef1_ <<= shift;
+    coef2_ <<= shift;
+    coef3_ <<= shift;
+    return *this;
+  }
+
   value_type coef0() const noexcept { return coef0_; }
 
   value_type coef1() const noexcept { return coef1_; }
@@ -389,8 +409,7 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
       SymFLOPs(b->coef0(), b->coef1()) * SymFLOPs(n->coef0(), n->coef1()) *
       SymFLOPs(m->coef0(), m->coef1()) * SymFLOPs(p->coef0(), p->coef1());
 
-  return SymFLOPs(expr.coef0() << 1, expr.coef1() << 1, expr.coef2() << 1,
-                  expr.coef3() << 1);
+  return expr << 1;
 }
 
 // flatflow::symbolic_trace_impl<CAT>()
@@ -505,8 +524,7 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
                     SymFLOPs(m->coef0(), m->coef1()) *
                     SymFLOPs(p->coef0(), p->coef1());
 
-  return SymFLOPs(expr.coef0() << 1, expr.coef1() << 1, expr.coef2() << 1,
-                  expr.coef3() << 1);
+  return expr << 1;
 }
 
 // flatflow::symbolic_trace_impl<MUL_TENSOR>()
