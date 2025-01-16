@@ -97,7 +97,7 @@ class ComputeProfiler:
         torch.distributed.all_gather_object(compute_times, combined_data, group=self.mp_group)
         if self.rank == self.mp_src_rank:
             elapsed = defaultdict(float)
-            initial_time = defaultdict(lambda: float('inf'))
+            initial_time = dict()
 
             for data in compute_times:
                 if data:
@@ -106,7 +106,8 @@ class ComputeProfiler:
                         elapsed[base_key] = max(elapsed[base_key], value)
                     for key, value in data['timestamps'].items():
                         base_key = re.sub(r"_tp_\d+", "", key)
-                        initial_time[base_key] = min(initial_time[base_key], value)
+                        if base_key not in initial_time or value < initial_time[base_key]:
+                            initial_time[base_key] = value
 
             processed_data = {
                 'timestamp': initial_time,
