@@ -31,7 +31,7 @@ class ComputeProfiler:
         self.forward_times = []
         self.buffer = defaultdict(float)
         self.rank = rank
-        self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
+        self.world_size = torch.distributed.get_world_size()
         self.current_batch_id = 0
         self.hook_handles = []
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
@@ -229,7 +229,7 @@ class ComputeProfiler:
 class MemoryProfiler:
     def __init__(self, rank, layers, layer_events):
         self.rank = rank
-        self.world_size = parallel_state.get_pipeline_model_parallel_world_size()
+        self.world_size = torch.distributed.get_world_size()
         self.current_batch_id = 0
         self.hook_handles = []
         self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
