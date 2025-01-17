@@ -58,10 +58,12 @@ class Dataset {
       Size, std::vector<Index>, std::less<Size>,
       std::allocator<std::pair<const Size, std::vector<Index>>>,
       /*TargetNodeSize=*/512>;
-  using key_type = Size;
-  using mapped_type = Index;
-  using value_type = std::pair<Size, Index>;
-  using size_type = std::size_t;
+  using key_type = typename container_type::key_type;
+  using mapped_type = typename container_type::mapped_type::value_type;
+  using value_type =
+      std::pair<typename container_type::key_type,
+                typename container_type::mapped_type::value_type>;
+  using size_type = typename container_type::size_type;
 
   // Constructors and assignment operators
   //
