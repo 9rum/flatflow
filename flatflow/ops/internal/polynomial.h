@@ -24,6 +24,14 @@
 namespace flatflow {
 namespace internal {
 
+// polynomial<>
+//
+// This is a trivial class for polynomial manipulation, as an alternative to
+// Boost polynomials. A notable API difference stems from the absence of
+// division for polynomials over a field and over a unique factorization domain;
+// we soon noticed that implementing symbolic transformations is equivalent to
+// that of polynomial manipulation, where the division functionality between
+// polynomials is not required.
 template <typename T>
   requires Numerical<T>
 class polynomial {
@@ -32,12 +40,19 @@ class polynomial {
   using value_type = typename container_type::value_type;
   using size_type = typename container_type::size_type;
 
+  // Constructors and assignment operators
+  //
+  // `polynomial<>` supports construction from an arbitrary number of values,
+  // as well as the copy/move constructors and assignment operators below.
+  //
+  // CAVEATS
+  //
+  // For the constructor below, the arguments are used to value-initialize
+  // the underlying fixed size array, and may not exceed the container capacity.
   template <typename... Args>
   polynomial(Args... args) : data_{args...} {}
 
   polynomial(const container_type &data) : data_(data) {}
-
-  polynomial(container_type &&data) : data_(std::move(data)) {}
 
   polynomial(const polynomial &other) : data_(other.data()) {}
 
@@ -46,6 +61,8 @@ class polynomial {
     return *this;
   }
 
+  polynomial(container_type &&data) : data_(std::move(data)) {}
+
   polynomial(polynomial &&other) : data_(std::move(other.data())) {}
 
   polynomial &operator=(polynomial &&other) {
@@ -53,6 +70,10 @@ class polynomial {
     return *this;
   }
 
+  // Accessors
+  //
+  // `polynomial<>` provides the access to the underlying container and its
+  // metadata, just like Boost polynomials.
   size_type size() const { return data_.size(); }
 
   size_type degree() const { return data_.size() - 1; }
@@ -65,6 +86,11 @@ class polynomial {
 
   const value_type &operator[](size_type index) const { return data_[index]; }
 
+  // Operators
+  //
+  // `polynomial<>` supports basic polynomial arithmetic, as Boost polynomials
+  // do. Advanced manipulations such as fast Fourier transform (FFT) and
+  // factorization are not supported for now.
   T operator()(const T &value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
