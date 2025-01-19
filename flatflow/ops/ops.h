@@ -102,6 +102,7 @@ class OperatorRegistry {
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
     RegisterOperator(Operator::MUL_TENSOR,
                      &symbolic_trace_impl<Operator::MUL_TENSOR>);
+    RegisterOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
     RegisterOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     RegisterOperator(Operator::SYM_SIZE_INT,
@@ -439,6 +440,33 @@ symbolic_trace_impl<Operator::MUL_TENSOR>(
   // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
   // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
   // broadcasting.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
+}
+
+// flatflow::symbolic_trace_impl<NEG>()
+//
+// Implements a symbolic transformation for `neg`.
+//
+// func: neg(Tensor self) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::NEG>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // neg returns a new tensor with the negative of the elements of `self`.
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
