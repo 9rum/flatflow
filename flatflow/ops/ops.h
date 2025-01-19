@@ -29,150 +29,23 @@
 #include "flatbuffers/vector.h"
 
 #include "flatflow/ops/graph_generated.h"
+#include "flatflow/ops/internal/polynomial.h"
 #include "flatflow/ops/node_generated.h"
 #include "flatflow/ops/operator_generated.h"
 
 namespace flatflow {
-
-// flatflow::SymFLOPs
-//
-// `flatflow::SymFLOPs` is a symbolic expression for the absolute number
-// of floating point operations (FLOPs). These expressions are created by
-// measuring the absolute number of FLOPs or multiply-accumulates (MACs)
-// for FMA instructions required by each pair of operator and symbolic shapes,
-// for a given size such as sequence length.
-class SymFLOPs {
- public:
-  using value_type = int64_t;
-
-  // Constructors and assignment operators
-  //
-  // In addition to the default constructor below, a `flatflow::SymFLOPs`
-  // supports copy and move constructors and assignment operators.
-  SymFLOPs(value_type coef0 = 0, value_type coef1 = 0, value_type coef2 = 0,
-           value_type coef3 = 0)
-      : coef0_(coef0), coef1_(coef1), coef2_(coef2), coef3_(coef3) {}
-
-  SymFLOPs(const SymFLOPs &other) = default;
-
-  SymFLOPs &operator=(const SymFLOPs &other) = default;
-
-  SymFLOPs(SymFLOPs &&other) = default;
-
-  SymFLOPs &operator=(SymFLOPs &&other) = default;
-
-  // SymFLOPs::operator+()
-  //
-  // Combines the two given symbolic expressions for FLOPs in coefficient-wise.
-  SymFLOPs &operator+(const SymFLOPs &other) const noexcept {
-    auto expr = SymFLOPs(coef0_ + other.coef0(), coef1_ + other.coef1(),
-                         coef2_ + other.coef2(), coef3_ + other.coef3());
-    return expr;
-  }
-
-  // SymFLOPs::operator+=()
-  //
-  // Combines the two given symbolic expressions for FLOPs in-place.
-  SymFLOPs &operator+=(const SymFLOPs &other) noexcept {
-    coef0_ += other.coef0();
-    coef1_ += other.coef1();
-    coef2_ += other.coef2();
-    coef3_ += other.coef3();
-    return *this;
-  }
-
-  // SymFLOPs::operator*()
-  //
-  // Multiplies the two given symbolic expressions for FLOPs
-  // in coefficient-wise.
-  SymFLOPs &operator*(const SymFLOPs &other) const noexcept {
-    auto expr = SymFLOPs(coef0_ * other.coef0(),
-                         coef0_ * other.coef1() + coef1_ * other.coef0(),
-                         coef0_ * other.coef2() + coef1_ * other.coef1() +
-                             coef2_ * other.coef0(),
-                         coef0_ * other.coef3() + coef1_ * other.coef2() +
-                             coef2_ * other.coef1() + coef3_ * other.coef0());
-    return expr;
-  }
-
-  // SymFLOPs::operator*=()
-  //
-  // Multiplies the two given symbolic expressions for FLOPs in-place.
-  SymFLOPs &operator*=(const SymFLOPs &other) noexcept {
-    coef0_ = coef0_ * other.coef0();
-    coef1_ = coef0_ * other.coef1() + coef1_ * other.coef0();
-    coef2_ = coef0_ * other.coef2() + coef1_ * other.coef1() +
-             coef2_ * other.coef0();
-    coef3_ = coef0_ * other.coef3() + coef1_ * other.coef2() +
-             coef2_ * other.coef1() + coef3_ * other.coef0();
-    return *this;
-  }
-
-  // SymFLOPs::operator/()
-  //
-  // Scales the symbolic expression for FLOPs in coefficient-wise
-  // with the given divisor.
-  SymFLOPs &operator/(value_type divisor) const {
-    CHECK_NE(divisor, 0);
-    auto expr = SymFLOPs(coef0_ / divisor, coef1_ / divisor, coef2_ / divisor,
-                         coef3_ / divisor);
-    return expr;
-  }
-
-  // SymFLOPs::operator/=()
-  //
-  // Scales the symbolic expression for FLOPs in-place with the given divisor.
-  SymFLOPs &operator/=(value_type divisor) {
-    CHECK_NE(divisor, 0);
-    coef0_ /= divisor;
-    coef1_ /= divisor;
-    coef2_ /= divisor;
-    coef3_ /= divisor;
-    return *this;
-  }
-
-  // SymFLOPs::operator<<()
-  //
-  // Applies coefficient-wise shift.
-  SymFLOPs &operator<<(value_type shift) const noexcept {
-    auto expr = SymFLOPs(coef0_ << shift, coef1_ << shift, coef2_ << shift,
-                         coef3_ << shift);
-    return expr;
-  }
-
-  // SymFLOPs::operator<<=()
-  //
-  // Applies coefficient-wise shift in-place.
-  SymFLOPs &operator<<=(value_type shift) noexcept {
-    coef0_ <<= shift;
-    coef1_ <<= shift;
-    coef2_ <<= shift;
-    coef3_ <<= shift;
-    return *this;
-  }
-
-  value_type coef0() const noexcept { return coef0_; }
-
-  value_type coef1() const noexcept { return coef1_; }
-
-  value_type coef2() const noexcept { return coef2_; }
-
-  value_type coef3() const noexcept { return coef3_; }
-
- protected:
-  value_type coef0_;  // constant
-  value_type coef1_;  // linear
-  value_type coef2_;  // quadratic
-  value_type coef3_;  // cubic
-};
 
 // flatflow::OperatorRegistry
 //
 // A `flatflow::OperatorRegistry` holds the key information to identify
 // operators and generate optimized computation plans. It has an operator table
 // in a form of `absl::flat_hash_map<Operator, std::_Bind<...>>`, where each
-// value contains a transformation from the corresponding operator and symbolic
-// shapes to a symbolic FLOPs expression for a given size.
+// value contains a mapping from a pair of the corresponding operator and
+// symbolic shapes to a symbolic expression for the absolute number of
+// floating point operations (FLOPs), which we call symbolic transformation.
+// These expressions are created by measuring the absolute number of FLOPs or
+// multiply-accumulates (MACs) for FMA instructions required by each pair of
+// operator and symbolic shapes, for a given size such as sequence length.
 //
 // NOTE: To register a new operator, please follow the instructions below:
 //
@@ -195,6 +68,7 @@ class OperatorRegistry {
   using mapped_type =
       decltype(std::bind(symbolic_trace_impl<Operator::MM>,
                          std::placeholders::_1, std::placeholders::_2));
+  using value_type = typename internal::polynomial<int64_t>::value_type;
 
   // Constructors and assignment operators
   //
@@ -254,7 +128,7 @@ class OperatorRegistry {
   // Registers `op` to the operator table.
   void RegisterOperator(
       key_type op,
-      SymFLOPs (*func)(
+      internal::polynomial<value_type> (*func)(
           const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
           const TensorMetadata *)) {
     // TODO: Check if the insertion took place.
@@ -273,7 +147,7 @@ class OperatorRegistry {
   // OperatorRegistry::Dispatch()
   //
   // Executes the symbolic transformation corresponding to the given operator.
-  SymFLOPs Dispatch(
+  internal::polynomial<value_type> Dispatch(
       key_type op,
       const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
       const TensorMetadata *meta) const {
@@ -291,7 +165,7 @@ class OperatorRegistry {
 // corresponding operator; calling this means that the program is ill-formed
 // and should fail to compile.
 template <Operator>
-SymFLOPs symbolic_trace_impl(
+internal::polynomial<OperatorRegistry::value_type> symbolic_trace_impl(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
     const TensorMetadata *) {
   static_assert(std::false_type::value);
@@ -306,11 +180,12 @@ SymFLOPs symbolic_trace_impl(
 //                bool non_blocking=False,
 //                MemoryFormat? memory_format=None) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::_TO_COPY>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::_TO_COPY>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // _to_copy copies a tensor, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<_UNSAFE_VIEW>()
@@ -319,11 +194,12 @@ SymFLOPs symbolic_trace_impl<Operator::_TO_COPY>(
 //
 // func: _unsafe_view(Tensor self, SymInt[] size) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<ARANGE>()
@@ -333,11 +209,12 @@ SymFLOPs symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
 // func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
 //              Device? device=None, bool? pin_memory=None) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::ARANGE>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::ARANGE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // arange returns a tensor, so it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<ARANGE_START>()
@@ -348,11 +225,12 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE>(
 //                    Layout? layout=None, Device? device=None,
 //                    bool? pin_memory=None) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::ARANGE_START>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::ARANGE_START>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // arange.start returns a tensor, so it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<BMM>()
@@ -361,7 +239,8 @@ SymFLOPs symbolic_trace_impl<Operator::ARANGE_START>(
 //
 // func: bmm(Tensor self, Tensor mat2) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::BMM>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::BMM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
@@ -405,9 +284,14 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
   CHECK_NE(p, nullptr);
 
   // coef4 is actually zero, since at least one of b, n, m, p is a constant.
-  const auto expr =
-      SymFLOPs(b->coef0(), b->coef1()) * SymFLOPs(n->coef0(), n->coef1()) *
-      SymFLOPs(m->coef0(), m->coef1()) * SymFLOPs(p->coef0(), p->coef1());
+  const auto expr = internal::polynomial<OperatorRegistry::value_type>(
+                        b->coef0(), b->coef1()) *
+                    internal::polynomial<OperatorRegistry::value_type>(
+                        n->coef0(), n->coef1()) *
+                    internal::polynomial<OperatorRegistry::value_type>(
+                        m->coef0(), m->coef1()) *
+                    internal::polynomial<OperatorRegistry::value_type>(
+                        p->coef0(), p->coef1());
 
   return expr << 1;
 }
@@ -418,11 +302,12 @@ SymFLOPs symbolic_trace_impl<Operator::BMM>(
 //
 // func: cat(Tensor[] tensors, int dim=0) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::CAT>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::CAT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // cat concatenates tensors in the given dimension, so it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<CLONE>()
@@ -431,11 +316,12 @@ SymFLOPs symbolic_trace_impl<Operator::CAT>(
 //
 // func: clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::CLONE>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::CLONE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // clone copies a tensor, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<EMBEDDING>()
@@ -445,11 +331,12 @@ SymFLOPs symbolic_trace_impl<Operator::CLONE>(
 // func: embedding(Tensor weight, Tensor indices, SymInt padding_idx=-1,
 //                 bool scale_grad_by_freq=False, bool sparse=False) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::EMBEDDING>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<EXPAND>()
@@ -459,11 +346,12 @@ SymFLOPs symbolic_trace_impl<Operator::EMBEDDING>(
 // func: expand(Tensor(a) self, SymInt[] size, *,
 //              bool implicit=False) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::EXPAND>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::EXPAND>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // expand is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<FULL>()
@@ -474,11 +362,12 @@ SymFLOPs symbolic_trace_impl<Operator::EXPAND>(
 //            Layout? layout=None, Device? device=None,
 //            bool? pin_memory=None) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::FULL>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::FULL>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // full creates a tensor, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<MM>()
@@ -487,7 +376,8 @@ SymFLOPs symbolic_trace_impl<Operator::FULL>(
 //
 // func: mm(Tensor self, Tensor mat2) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::MM>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::MM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
@@ -520,9 +410,12 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
   auto p = shape1->Get(1);
   CHECK_NE(p, nullptr);
 
-  const auto expr = SymFLOPs(n->coef0(), n->coef1()) *
-                    SymFLOPs(m->coef0(), m->coef1()) *
-                    SymFLOPs(p->coef0(), p->coef1());
+  const auto expr = internal::polynomial<OperatorRegistry::value_type>(
+                        n->coef0(), n->coef1()) *
+                    internal::polynomial<OperatorRegistry::value_type>(
+                        m->coef0(), m->coef1()) *
+                    internal::polynomial<OperatorRegistry::value_type>(
+                        p->coef0(), p->coef1());
 
   return expr << 1;
 }
@@ -533,7 +426,8 @@ SymFLOPs symbolic_trace_impl<Operator::MM>(
 //
 // func: mul.Tensor(Tensor self, Tensor other) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::MUL_TENSOR>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::MUL_TENSOR>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // mul.Tensor multiplies `self` by `other` in element-wise.
@@ -550,11 +444,12 @@ SymFLOPs symbolic_trace_impl<Operator::MUL_TENSOR>(
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto expr = SymFLOPs(1);
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(1);
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
-    expr *= SymFLOPs(shape->Get(index)->coef0(), shape->Get(index)->coef1());
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
   }
 
   return expr;
@@ -567,11 +462,12 @@ SymFLOPs symbolic_trace_impl<Operator::MUL_TENSOR>(
 // func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None,
 //                    SymInt? end=None, SymInt step=1) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::SLICE_TENSOR>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::SLICE_TENSOR>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // slice.Tensor is a tensor view operation, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<SYM_SIZE_INT>()
@@ -580,11 +476,12 @@ SymFLOPs symbolic_trace_impl<Operator::SLICE_TENSOR>(
 //
 // func: sym_size.int(Tensor self, int dim) -> SymInt
 template <>
-SymFLOPs symbolic_trace_impl<Operator::SYM_SIZE_INT>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::SYM_SIZE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // sym_size.int is used during tracing, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<T>()
@@ -593,11 +490,12 @@ SymFLOPs symbolic_trace_impl<Operator::SYM_SIZE_INT>(
 //
 // func: t(Tensor(a) self) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::T>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::T>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // t is a dimension swap, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<TRANSPOSE_INT>()
@@ -606,11 +504,12 @@ SymFLOPs symbolic_trace_impl<Operator::T>(
 //
 // func: transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::TRANSPOSE_INT>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // transpose.int is a dimension swap, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<TRIU>()
@@ -619,11 +518,12 @@ SymFLOPs symbolic_trace_impl<Operator::TRANSPOSE_INT>(
 //
 // func: triu(Tensor self, int diagonal=0) -> Tensor
 template <>
-SymFLOPs symbolic_trace_impl<Operator::TRIU>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::TRIU>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // triu is a masking operation, so technically it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<UNSQUEEZE>()
@@ -632,12 +532,13 @@ SymFLOPs symbolic_trace_impl<Operator::TRIU>(
 //
 // func: unsqueeze(Tensor(a) self, int dim) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::UNSQUEEZE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // unsqueeze inserts a singleton dimension at the specified position,
   // so it has zero FLOPs.
-  return SymFLOPs();
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<VIEW>()
@@ -646,28 +547,13 @@ SymFLOPs symbolic_trace_impl<Operator::UNSQUEEZE>(
 //
 // func: view(Tensor(a) self, SymInt[] size) -> Tensor(a)
 template <>
-SymFLOPs symbolic_trace_impl<Operator::VIEW>(
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::VIEW>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // view is a tensor view operation, so technically it has zero FLOPs.
   // See https://pytorch.org/docs/stable/tensor_view.html.
-  return SymFLOPs();
-}
-
-// flatflow::PolyEval()
-//
-// Based on Horner's rule, evaluates a given polynomial of degree three with
-// only three multiplications and three additions, applying Horner's method.
-//
-// This is optimal, since there are polynomials of degree three that cannot be
-// evaluated with fewer arithmetic operations.
-// See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
-constexpr SymFLOPs::value_type PolyEval(SymFLOPs::value_type size,
-                                        SymFLOPs::value_type coef0,
-                                        SymFLOPs::value_type coef1,
-                                        SymFLOPs::value_type coef2,
-                                        SymFLOPs::value_type coef3) noexcept {
-  return coef0 + size * (coef1 + size * (coef2 + size * coef3));
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace()
@@ -682,7 +568,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   auto nodes = graph->nodes();
   CHECK_NE(nodes, nullptr);
 
-  auto exprs = std::vector<SymFLOPs>(nodes->size());
+  auto exprs = std::vector<internal::polynomial<OperatorRegistry::value_type>>(
+      nodes->size());
 
   // clang-format off
   #pragma omp parallel for
@@ -694,14 +581,13 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   // clang-format on
 
   auto expr = std::reduce(std::execution::par, exprs.cbegin(), exprs.cend(),
-                          SymFLOPs());
+                          internal::polynomial<OperatorRegistry::value_type>());
   const auto scale =
-      std::gcd(std::gcd(std::gcd(expr.coef0(), expr.coef1()), expr.coef2()),
-               expr.coef3());
+      std::gcd(std::gcd(std::gcd(expr[0], expr[1]), expr[2]), expr[3]);
   expr /= scale;
 
-  return std::bind(PolyEval, std::placeholders::_1, expr.coef0(), expr.coef1(),
-                   expr.coef2(), expr.coef3());
+  return std::bind(internal::evaluate_polynomial<OperatorRegistry::value_type>,
+                   expr, std::placeholders::_1);
 }
 
 }  // namespace flatflow
