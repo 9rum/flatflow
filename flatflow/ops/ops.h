@@ -89,6 +89,8 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::_TO_COPY>);
     RegisterOperator(Operator::_UNSAFE_VIEW,
                      &symbolic_trace_impl<Operator::_UNSAFE_VIEW>);
+    RegisterOperator(Operator::ADD_TENSOR,
+                     &symbolic_trace_impl<Operator::ADD_TENSOR>);
     RegisterOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
     RegisterOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
@@ -201,6 +203,41 @@ symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
     const TensorMetadata *meta) {
   // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
   return internal::polynomial<OperatorRegistry::value_type>();
+}
+
+// flatflow::symbolic_trace_impl<ADD_TENSOR>()
+//
+// Implements a symbolic transformation for `add.Tensor`.
+//
+// func: add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::ADD_TENSOR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // add.Tensor adds `other`, scaled by `alpha`, to `self`.
+  //
+  // NOTE: As in the case of mul.Tensor, we have found that add.Scalar is
+  // replaced by add.Tensor with a single argument due to constant folding.
+  // That is, if two arguments are given, one addition and one multiplication
+  // are required for each element; but if there is only one argument, just one
+  // addition occurs for each element. add.Tensor also supports broadcasting to
+  // a common shape, necessitating the use of output shape.
+  CHECK_NE(args, nullptr);
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(args->size());
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
 }
 
 // flatflow::symbolic_trace_impl<ARANGE>()
