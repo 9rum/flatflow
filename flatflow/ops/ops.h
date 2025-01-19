@@ -101,6 +101,8 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::EMBEDDING>);
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
+    RegisterOperator(Operator::GT_TENSOR,
+                     &symbolic_trace_impl<Operator::GT_TENSOR>);
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
     RegisterOperator(Operator::MUL_TENSOR,
                      &symbolic_trace_impl<Operator::MUL_TENSOR>);
@@ -405,6 +407,20 @@ symbolic_trace_impl<Operator::FULL>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // full creates a tensor, so technically it has zero FLOPs.
+  return internal::polynomial<OperatorRegistry::value_type>();
+}
+
+// flatflow::symbolic_trace_impl<GT_TENSOR>()
+//
+// Implements a symbolic transformation for `gt.Tensor`.
+//
+// func: gt.Tensor(Tensor self, Tensor other) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::GT_TENSOR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // gt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
   return internal::polynomial<OperatorRegistry::value_type>();
 }
 
