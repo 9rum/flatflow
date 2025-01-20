@@ -64,7 +64,6 @@ class ComputeProfiler:
 
         def backward_pre_hook(module, _):
             batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
-
             torch.cuda.synchronize()
             events["backward_pre"].record()
             if batch_key not in self.timestamp:
