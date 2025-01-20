@@ -53,7 +53,8 @@ class ComputeProfiler:
             batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
             torch.cuda.synchronize()
             events["forward_pre"].record()
-            self.timestamp[batch_key] = time.perf_counter()
+            if batch_key not in self.timestamp:
+                self.timestamp[batch_key] = time.perf_counter()
 
         def forward_hook(module, _, _1):
             events["forward_post"].record()
@@ -66,7 +67,8 @@ class ComputeProfiler:
 
             torch.cuda.synchronize()
             events["backward_pre"].record()
-            self.timestamp[batch_key] = time.perf_counter()
+            if batch_key not in self.timestamp:
+                self.timestamp[batch_key] = time.perf_counter()
 
         def backward_hook(module, _, _1):
             events["backward_post"].record()
