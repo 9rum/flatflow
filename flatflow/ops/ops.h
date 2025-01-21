@@ -15,6 +15,8 @@
 #ifndef FLATFLOW_OPS_OPS_H_
 #define FLATFLOW_OPS_OPS_H_
 
+#include <omp.h>
+
 #include <cstdint>
 #include <execution>
 #include <functional>
@@ -25,6 +27,8 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/strings/str_format.h"
 #include "flatbuffers/base.h"
 #include "flatbuffers/vector.h"
 
@@ -868,6 +872,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   auto exprs = std::vector<internal::polynomial<OperatorRegistry::value_type>>(
       nodes->size());
 
+  const auto now = omp_get_wtime();
+
   // clang-format off
   #pragma omp parallel for
   for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
@@ -879,6 +885,11 @@ decltype(auto) symbolic_trace(const Graph *graph) {
 
   auto expr = std::reduce(std::execution::par, exprs.cbegin(), exprs.cend(),
                           internal::polynomial<OperatorRegistry::value_type>());
+
+  // clang-format off
+  LOG(INFO) << absl::StrFormat("Tracing over %u operators took %fs", nodes->size(), omp_get_wtime() - now);
+  // clang-format on
+
   const auto scale =
       std::gcd(std::gcd(std::gcd(expr[0], expr[1]), expr[2]), expr[3]);
   expr /= scale;
