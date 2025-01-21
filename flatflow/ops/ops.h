@@ -110,6 +110,7 @@ class OperatorRegistry {
     RegisterOperator(Operator::POW_TENSOR_SCALAR,
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
     RegisterOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
+    RegisterOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
     RegisterOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     RegisterOperator(Operator::SYM_SIZE_INT,
@@ -585,6 +586,34 @@ symbolic_trace_impl<Operator::RSQRT>(
   CHECK_NE(shape, nullptr);
 
   auto expr = internal::polynomial<OperatorRegistry::value_type>(2);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
+}
+
+// flatflow::symbolic_trace_impl<SILU>()
+//
+// Implements a symbolic transformation for `silu`.
+//
+// func: silu(Tensor self) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::SILU>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // silu applies the sigmoid linear unit (SiLU) function to `self`
+  // in element-wise.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(4);
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
