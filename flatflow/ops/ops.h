@@ -85,6 +85,8 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     table_.reserve(kOpTableSpace);
 
+    RegisterOperator(Operator::_SOFTMAX,
+                     &symbolic_trace_impl<Operator::_SOFTMAX>);
     RegisterOperator(Operator::_TO_COPY,
                      &symbolic_trace_impl<Operator::_TO_COPY>);
     RegisterOperator(Operator::_UNSAFE_VIEW,
@@ -103,7 +105,11 @@ class OperatorRegistry {
     RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     RegisterOperator(Operator::GT_TENSOR,
                      &symbolic_trace_impl<Operator::GT_TENSOR>);
+    RegisterOperator(Operator::MEAN_DIM,
+                     &symbolic_trace_impl<Operator::MEAN_DIM>);
     RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::MUL_SCALAR,
+                     &symbolic_trace_impl<Operator::MUL_SCALAR>);
     RegisterOperator(Operator::MUL_TENSOR,
                      &symbolic_trace_impl<Operator::MUL_TENSOR>);
     RegisterOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
@@ -178,6 +184,33 @@ internal::polynomial<OperatorRegistry::value_type> symbolic_trace_impl(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
     const TensorMetadata *) {
   static_assert(std::false_type::value);
+}
+
+// flatflow::symbolic_trace_impl<_SOFTMAX>()
+//
+// Implements a symbolic transformation for `_softmax`.
+//
+// func: _softmax(Tensor self, int dim, bool half_to_float) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::_SOFTMAX>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // _softmax applies the softmax function to `self`.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(5);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
 }
 
 // flatflow::symbolic_trace_impl<_TO_COPY>()
@@ -428,6 +461,37 @@ symbolic_trace_impl<Operator::GT_TENSOR>(
   return internal::polynomial<OperatorRegistry::value_type>();
 }
 
+// flatflow::symbolic_trace_impl<MEAN_DIM>()
+//
+// Implements a symbolic transformation for `mean.dim`.
+//
+// func: mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *,
+//                ScalarType? dtype=None) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::MEAN_DIM>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // mean.dim returns the mean value of each row of `self` in the given
+  // dimension `dim`.
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), 1);
+
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
+}
+
 // flatflow::symbolic_trace_impl<MM>()
 //
 // Implements a symbolic transformation for `mm`.
@@ -476,6 +540,33 @@ symbolic_trace_impl<Operator::MM>(
                         p->coef0(), p->coef1());
 
   return expr << 1;
+}
+
+// flatflow::symbolic_trace_impl<MUL_SCALAR>()
+//
+// Implements a symbolic transformation for `mul.Scalar`.
+//
+// func: mul.Scalar(Tensor self, Scalar other) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::MUL_SCALAR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // mul.Scalar multiplies `self` by `other` in element-wise.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto expr = internal::polynomial<OperatorRegistry::value_type>(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    expr *= internal::polynomial<OperatorRegistry::value_type>(
+        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+  }
+
+  return expr;
 }
 
 // flatflow::symbolic_trace_impl<MUL_TENSOR>()
