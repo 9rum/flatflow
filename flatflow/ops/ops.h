@@ -99,6 +99,7 @@ class OperatorRegistry {
     RegisterOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
     RegisterOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
     RegisterOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
+    RegisterOperator(Operator::COS, &symbolic_trace_impl<Operator::COS>);
     RegisterOperator(Operator::EMBEDDING,
                      &symbolic_trace_impl<Operator::EMBEDDING>);
     RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
@@ -117,6 +118,7 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
     RegisterOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
     RegisterOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
+    RegisterOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     RegisterOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     RegisterOperator(Operator::SYM_SIZE_INT,
@@ -398,6 +400,25 @@ symbolic_trace_impl<Operator::CLONE>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // clone copies a tensor, so technically it has zero FLOPs.
+  return internal::polynomial<OperatorRegistry::value_type>();
+}
+
+// flatflow::symbolic_trace_impl<COS>()
+//
+// Implements a symbolic transformation for `cos`.
+//
+// func: cos(Tensor self) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::COS>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // cos returns a new tensor with the cosine of the elements of `self`.
+  //
+  // NOTE: Its absolute number of FLOPs is implementation-dependent, typically
+  // tens of FLOPs for each element; as this operator appears only once in the
+  // embedding layer such as rotary position embedding (RoPE), we approximate
+  // this to zero FLOPs.
   return internal::polynomial<OperatorRegistry::value_type>();
 }
 
@@ -713,6 +734,22 @@ symbolic_trace_impl<Operator::SILU>(
   }
 
   return expr;
+}
+
+// flatflow::symbolic_trace_impl<SIN>()
+//
+// Implements a symbolic transformation for `sin`.
+//
+// func: sin(Tensor self) -> Tensor
+template <>
+internal::polynomial<OperatorRegistry::value_type>
+symbolic_trace_impl<Operator::SIN>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // sin returns a new tensor with the sine of the elements of `self`.
+  //
+  // NOTE: For the same reason as cos, we approximate this to zero FLOPs.
+  return internal::polynomial<OperatorRegistry::value_type>();
 }
 
 // flatflow::symbolic_trace_impl<SLICE_TENSOR>()
