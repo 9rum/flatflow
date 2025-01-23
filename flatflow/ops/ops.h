@@ -894,7 +894,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
       std::gcd(std::gcd(std::gcd(expr[0], expr[1]), expr[2]), expr[3]);
   expr /= scale;
 
-  return std::bind(internal::evaluate_polynomial<OperatorRegistry::value_type>,
+  return std::bind(internal::evaluate_polynomial<OperatorRegistry::value_type,
+                                                 OperatorRegistry::value_type>,
                    expr, std::placeholders::_1);
 }
 

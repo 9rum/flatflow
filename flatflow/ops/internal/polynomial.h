@@ -91,7 +91,9 @@ class polynomial {
   // `polynomial<>` supports basic polynomial arithmetic, as Boost polynomials
   // do. Advanced manipulations such as fast Fourier transform (FFT) and
   // factorization are not supported for now.
-  T operator()(const T &value) const noexcept {
+  template <typename V>
+    requires Numerical<V>
+  T operator()(const V &value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
 
@@ -256,6 +258,13 @@ class polynomial {
   container_type data_;
 };
 
+template <typename T>
+  requires Numerical<T>
+constexpr T evaluate_polynomial_impl(const polynomial<T> &p,
+                                     const T &value) noexcept {
+  return p[0] + value * (p[1] + value * (p[2] + value * p[3]));
+}
+
 // evaluate_polynomial()
 //
 // Based on Horner's rule, evaluates a given polynomial of degree three with
@@ -264,11 +273,11 @@ class polynomial {
 // This is optimal, since there are polynomials of degree three that cannot be
 // evaluated with fewer arithmetic operations.
 // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
-template <typename T>
-  requires Numerical<T>
+template <typename T, typename V>
+  requires(Numerical<T> && Numerical<V>)
 constexpr T evaluate_polynomial(const polynomial<T> &p,
-                                const T &value) noexcept {
-  return p[0] + value * (p[1] + value * (p[2] + value * p[3]));
+                                const V &value) noexcept {
+  return evaluate_polynomial_impl<T>(p, value);
 }
 
 }  // namespace internal
