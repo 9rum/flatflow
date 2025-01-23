@@ -17,7 +17,7 @@ include "flatflow/ops/node.fbs";
 namespace flatflow;
 
 /// `Graph` is the main data structure for tracing a given model at the
-/// IR (intermediate representation) level. It consists of a series of `Node`s,
+/// intermediate representation (IR) level. It consists of a series of `Node`s,
 /// each representing callsites such as opcode and the input/output shapes of
 /// the corresponding operator.
 table Graph {
