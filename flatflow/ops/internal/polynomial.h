@@ -181,6 +181,14 @@ class polynomial {
     return *this;
   }
 
+  bool operator==(const polynomial &other) const {
+    return data_ == other.data();
+  }
+
+  bool operator!=(const polynomial &other) const {
+    return data_ != other.data();
+  }
+
  private:
   template <typename BinaryOp>
   polynomial &addition(const T &value, BinaryOp op) {
