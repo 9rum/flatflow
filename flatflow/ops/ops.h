@@ -887,7 +887,7 @@ decltype(auto) symbolic_trace(const Graph *graph) {
                           internal::polynomial<OperatorRegistry::value_type>());
 
   // clang-format off
-  LOG(INFO) << absl::StrFormat("Tracing over %u operators took %fs", nodes->size(), omp_get_wtime() - now);
+  LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);
   // clang-format on
 
   const auto scale =
