@@ -13,3 +13,41 @@
 # limitations under the License.
 
 add_subdirectory(internal)
+
+add_executable(
+  ops_test
+  ops_test.cc)
+target_include_directories(
+  ops_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  ops_test
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  ops_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    ops_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    ops_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    ops_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    ops_test
+    PRIVATE -fsanitize=undefined)
+endif()
+gtest_add_tests(
+  TARGET ops_test)
