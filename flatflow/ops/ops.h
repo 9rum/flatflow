@@ -775,9 +775,9 @@ symbolic_trace_impl<Operator::VIEW>(
 //   in the root directory of this source tree. This will create
 //   `flatflow/ops/operator_generated.h`, etc.
 // * Third, add a template specialization of `symbolic_trace_impl` for the
-//   new operator; please refer to the implementations below for supported
+//   new operator; please refer to the implementations above for supported
 //   operators. Note that omitting this step will call the base template of
-//   `symbolic_trace_impl`, which raises assertion failure at compile time.
+//   `symbolic_trace_impl`, which can be caught at compile time.
 // * Finally, register the new operator to the operator table by calling
 //   `OperatorRegistry::RegisterOperator` in the constructor below.
 class OperatorRegistry : public OperatorRegistryBase {
@@ -872,7 +872,7 @@ class OperatorRegistry : public OperatorRegistryBase {
 
   // OperatorRegistry::DeregisterOperator()
   //
-  // Excludes `op` from the operator table.
+  // Removes `op` from the operator table.
   void DeregisterOperator(key_type op) {
     // TODO: Check the number of elements removed.
     table_.erase(op);
