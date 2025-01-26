@@ -924,6 +924,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);
   // clang-format on
 
+  // Here we ignore the constant term as it has no effect on differencing,
+  // and the coefficients are reduced to prevent overflow.
   const auto scale = std::gcd(std::gcd(expr[1], expr[2]), expr[3]);
   expr[0] = 0;
   expr /= scale;
