@@ -72,7 +72,7 @@ class polynomial {
 
   // Accessors
   //
-  // `polynomial<>` provides the access to the underlying container and its
+  // `polynomial<>` provides access to the underlying container and associated
   // metadata, just like Boost polynomials.
   size_type size() const { return data_.size(); }
 
@@ -88,9 +88,9 @@ class polynomial {
 
   // Operators
   //
-  // `polynomial<>` supports basic polynomial arithmetic, as Boost polynomials
-  // do. Advanced manipulations such as fast Fourier transform (FFT) and
-  // factorization are not supported for now.
+  // `polynomial<>` supports basic polynomial arithmetic, as its Boost
+  // counterpart do. Advanced manipulations such as fast Fourier transform (FFT)
+  // and factorization are not supported for now.
   template <typename V>
     requires Numerical<V>
   T operator()(const V &value) const noexcept {
