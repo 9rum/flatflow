@@ -191,7 +191,7 @@ class polynomial {
     return data_ != other.data();
   }
 
- private:
+ protected:
   template <typename BinaryOp>
   polynomial &addition(const T &value, BinaryOp op) {
     data_[0] = op(data_[0], value);
