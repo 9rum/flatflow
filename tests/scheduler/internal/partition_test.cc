@@ -15,6 +15,7 @@
 #include "flatflow/scheduler/internal/partition.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <random>
 #include <utility>
 #include <vector>
@@ -43,17 +44,17 @@ class PartitionTest : public testing::Test {
   static constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 };
 
-TEST_F(PartitionTest, KarmarkarKarpWithGaltonIntegerDistribution) {
+TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
+  auto items = std::vector<std::pair<uint32_t, uint64_t>>();
   items.reserve(kMicroBatchSize * kNumMicroBatches);
 
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint16_t>(std::lround(size));
+      const auto makespan = static_cast<uint32_t>(std::lround(size));
       const auto index = static_cast<uint64_t>(items.size());
       items.emplace_back(makespan, index);
     }
@@ -62,33 +63,34 @@ TEST_F(PartitionTest, KarmarkarKarpWithGaltonIntegerDistribution) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches = flatflow::internal::KarmarkarKarp(
-      items, static_cast<uint64_t>(kNumMicroBatches),
-      [](const auto &size) { return static_cast<uint32_t>(size); });
+  const auto micro_batches =
+      flatflow::internal::BLDM(items, static_cast<uint64_t>(kNumMicroBatches),
+                               [](const auto &size) { return size; });
 
   auto makespans = std::vector<uint32_t>();
   makespans.reserve(kNumMicroBatches);
 
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  for (const auto &[makespan, micro_batch] : micro_batches) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-    makespans.emplace_back(makespan);
-  }
+  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
+                [&](const auto &micro_batch) {
+                  EXPECT_EQ(micro_batch.items().size(), kMicroBatchSize);
+                  makespans.emplace_back(micro_batch.sum());
+                });
 
   LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
 }
 
-TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
+TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
+  auto items = std::vector<std::pair<uint32_t, uint64_t>>();
   items.reserve(kMicroBatchSize * kNumMicroBatches);
 
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint16_t>(std::lround(size));
+      const auto makespan = static_cast<uint32_t>(std::lround(size));
       const auto index = static_cast<uint64_t>(items.size());
       items.emplace_back(makespan, index);
     }
@@ -97,7 +99,7 @@ TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches = flatflow::internal::KarmarkarKarp(
+  const auto micro_batches = flatflow::internal::BLDM(
       items, static_cast<uint64_t>(kNumMicroBatches),
       [](const auto &size) { return static_cast<double>(size); });
 
@@ -105,10 +107,11 @@ TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
   makespans.reserve(kNumMicroBatches);
 
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  for (const auto &[makespan, micro_batch] : micro_batches) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-    makespans.emplace_back(makespan);
-  }
+  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
+                [&](const auto &micro_batch) {
+                  EXPECT_EQ(micro_batch.items().size(), kMicroBatchSize);
+                  makespans.emplace_back(micro_batch.sum());
+                });
 
   LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
 }
