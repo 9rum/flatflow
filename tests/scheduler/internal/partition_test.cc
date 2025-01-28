@@ -73,7 +73,7 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
   std::for_each(micro_batches.cbegin(), micro_batches.cend(),
                 [&](const auto &micro_batch) {
-                  EXPECT_EQ(micro_batch.items().size(), kMicroBatchSize);
+                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
                   makespans.emplace_back(micro_batch.sum());
                 });
 
@@ -109,7 +109,7 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
   std::for_each(micro_batches.cbegin(), micro_batches.cend(),
                 [&](const auto &micro_batch) {
-                  EXPECT_EQ(micro_batch.items().size(), kMicroBatchSize);
+                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
                   makespans.emplace_back(micro_batch.sum());
                 });
 
