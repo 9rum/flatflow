@@ -14,127 +14,122 @@
 
 #include "flatflow/scheduler/internal/shuffle.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
+
+#include "flatflow/scheduler/internal/partition.h"
 
 namespace {
 
 TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
+  constexpr auto kSeed = static_cast<uint64_t>(0);
 
-  auto micro_batches = std::vector<
-      std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>>();
+  auto micro_batches =
+      std::vector<flatflow::internal::Subset<uint64_t, uint32_t>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch =
-        std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>();
-    micro_batch.first = static_cast<uint32_t>(std::lround(std::log2(step + 2)));
-    micro_batch.second.reserve(kMicroBatchSize);
+    const auto sum = std::lround(std::log2(step + 2));
+    auto data = std::vector<uint64_t>();
+    data.reserve(kMicroBatchSize);
     for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
-      micro_batch.second.emplace_back(
-          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
-          static_cast<uint64_t>(step * kMicroBatchSize + index));
+      data.emplace_back(step * kMicroBatchSize + index);
     }
-    micro_batches.emplace_back(std::move(micro_batch));
+    micro_batches.emplace_back(sum, std::move(data));
   }
 
-  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
+  flatflow::internal::shuffle(micro_batches, kSeed);
 
-  EXPECT_EQ(shuffled.size(), kNumMicroBatches);
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
+  EXPECT_TRUE(std::is_sorted(
+      micro_batches.cbegin(), micro_batches.cend(),
+      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
-  for (const auto &micro_batch : shuffled) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-  }
+  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
+                [&](const auto &micro_batch) {
+                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
+                });
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
-  auto micro_batch =
-      std::vector<std::pair<uint16_t, uint64_t>>(1, std::make_pair(1, 0));
-  auto micro_batches = std::vector<
-      std::pair<uint32_t, std::vector<std::pair<uint16_t, uint64_t>>>>();
-  micro_batches.emplace_back(0, std::move(micro_batch));
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1);
+  constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
+  constexpr auto kSeed = static_cast<uint64_t>(0);
 
-  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
+  auto micro_batches =
+      std::vector<flatflow::internal::Subset<uint64_t, uint32_t>>();
+  micro_batches.reserve(kNumMicroBatches);
 
-  EXPECT_EQ(shuffled.size(), 1);
-  EXPECT_EQ(shuffled.front().size(), 1);
+  const auto sum = 0;
+  auto data = std::vector<uint64_t>();
+  data.reserve(kMicroBatchSize);
+  data.emplace_back(0);
+  micro_batches.emplace_back(sum, std::move(data));
+
+  flatflow::internal::shuffle(micro_batches, kSeed);
+
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
+  EXPECT_EQ(micro_batches.front().data().size(), kMicroBatchSize);
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
+  constexpr auto kSeed = static_cast<uint64_t>(0);
 
-  auto micro_batches = std::vector<
-      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
+  auto micro_batches =
+      std::vector<flatflow::internal::Subset<uint64_t, double>>();
   micro_batches.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch =
-        std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>();
-    micro_batch.first = std::round(std::log2(step + 2));
-    micro_batch.second.reserve(kMicroBatchSize);
+    const auto sum = std::round(std::log2(step + 2));
+    auto data = std::vector<uint64_t>();
+    data.reserve(kMicroBatchSize);
     for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
-      micro_batch.second.emplace_back(
-          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
-          static_cast<uint64_t>(step * kMicroBatchSize + index));
+      data.emplace_back(step * kMicroBatchSize + index);
     }
-    micro_batches.emplace_back(std::move(micro_batch));
+    micro_batches.emplace_back(sum, std::move(data));
   }
 
-  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
+  flatflow::internal::shuffle(micro_batches, kSeed);
 
-  EXPECT_EQ(shuffled.size(), kNumMicroBatches);
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
+  EXPECT_TRUE(std::is_sorted(
+      micro_batches.cbegin(), micro_batches.cend(),
+      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
-  for (const auto &micro_batch : shuffled) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-  }
+  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
+                [&](const auto &micro_batch) {
+                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
+                });
 }
 
 TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
-  auto micro_batch =
-      std::vector<std::pair<uint16_t, uint64_t>>(1, std::make_pair(1, 0));
-  auto micro_batches = std::vector<
-      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
-  micro_batches.emplace_back(0.0, std::move(micro_batch));
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1);
+  constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
+  constexpr auto kSeed = static_cast<uint64_t>(0);
 
-  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, false);
-
-  EXPECT_EQ(shuffled.size(), 1);
-  EXPECT_EQ(shuffled.front().size(), 1);
-}
-
-TEST(ShuffleTest, InterBatchShufflingWithFlatShuffle) {
-  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
-  constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
-
-  auto micro_batches = std::vector<
-      std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>>();
+  auto micro_batches =
+      std::vector<flatflow::internal::Subset<uint64_t, double>>();
   micro_batches.reserve(kNumMicroBatches);
 
-  for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
-    auto micro_batch =
-        std::pair<double, std::vector<std::pair<uint16_t, uint64_t>>>();
-    micro_batch.first = std::round(std::log2(step + 2));
-    micro_batch.second.reserve(kMicroBatchSize);
-    for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
-      micro_batch.second.emplace_back(
-          static_cast<uint16_t>(std::lround(std::log2(step + 2))),
-          static_cast<uint64_t>(step * kMicroBatchSize + index));
-    }
-    micro_batches.emplace_back(std::move(micro_batch));
-  }
+  const auto sum = 0.0;
+  auto data = std::vector<uint64_t>();
+  data.reserve(kMicroBatchSize);
+  data.emplace_back(0);
+  micro_batches.emplace_back(sum, std::move(data));
 
-  auto shuffled = flatflow::internal::shuffle(micro_batches, 0UL, true);
+  flatflow::internal::shuffle(micro_batches, kSeed);
 
-  EXPECT_EQ(shuffled.size(), kNumMicroBatches);
-
-  for (const auto &micro_batch : shuffled) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-  }
+  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
+  EXPECT_EQ(micro_batches.front().data().size(), kMicroBatchSize);
 }
 
 }  // namespace

@@ -157,7 +157,9 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   shuffle_test
-  PRIVATE GTest::gtest_main)
+  PRIVATE absl::check
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
   target_link_libraries(
     shuffle_test
