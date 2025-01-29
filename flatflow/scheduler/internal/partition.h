@@ -165,14 +165,19 @@ template <typename Index, typename Size, typename UnaryFunc>
 std::vector<Subset<Index, std::invoke_result_t<UnaryFunc, Size>>> BLDM(
     const std::vector<std::pair<Size, Index>> &items, const Index &num_subsets,
     UnaryFunc func) {
+  using value_type = Index;
+  using result_type = std::invoke_result_t<UnaryFunc, Size>;
+
+  if (items.empty()) {
+    return std::vector<Subset<value_type, result_type>>();
+  }
+
   const auto stride = static_cast<std::size_t>(num_subsets);
-  CHECK_NE(stride, static_cast<std::size_t>(0));
   CHECK_EQ(items.size() % stride, static_cast<std::size_t>(0));
 
   // Initially, BLDM starts with a sequence of `k` partial solutions, where each
   // partial solution is obtained from the `m` smallest remaining items.
-  auto solutions = std::priority_queue<
-      Solution<Index, std::invoke_result_t<UnaryFunc, Size>>>();
+  auto solutions = std::priority_queue<Solution<value_type, result_type>>();
 
   for (std::size_t offset = 0; offset < items.size(); offset += stride) {
     solutions.emplace(std::span(items).subspan(offset, stride), func);
