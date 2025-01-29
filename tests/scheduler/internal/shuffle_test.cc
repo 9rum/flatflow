@@ -132,4 +132,15 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
   EXPECT_EQ(micro_batches.front().data().size(), kMicroBatchSize);
 }
 
+TEST(ShuffleTest, InterBatchShufflingWithZeroMakespan) {
+  constexpr auto kSeed = static_cast<uint64_t>(0);
+
+  auto micro_batches =
+      std::vector<flatflow::internal::Subset<uint64_t, int64_t>>();
+
+  flatflow::internal::shuffle(micro_batches, kSeed);
+
+  EXPECT_TRUE(micro_batches.empty());
+}
+
 }  // namespace
