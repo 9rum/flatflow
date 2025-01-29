@@ -44,6 +44,14 @@ class PartitionTest : public testing::Test {
   static constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
 };
 
+TEST_F(PartitionTest, BLDMWithEmptyItems) {
+  const auto items = std::vector<std::pair<uint32_t, uint64_t>>();
+
+  const auto micro_batches = flatflow::internal::BLDM(
+      items, items.size(), [](const auto &size) { return size; });
+  EXPECT_TRUE(micro_batches.empty());
+}
+
 TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
@@ -54,8 +62,8 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint32_t>(std::lround(size));
-      const auto index = static_cast<uint64_t>(items.size());
+      const auto makespan = std::lround(size);
+      const auto index = items.size();
       items.emplace_back(makespan, index);
     }
   }
@@ -63,9 +71,11 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches =
-      flatflow::internal::BLDM(items, static_cast<uint64_t>(kNumMicroBatches),
-                               [](const auto &size) { return size; });
+  const auto micro_batches = flatflow::internal::BLDM(
+      items, kNumMicroBatches, [](const auto &size) { return size; });
+  EXPECT_TRUE(std::is_sorted(
+      micro_batches.cbegin(), micro_batches.cend(),
+      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
   auto makespans = std::vector<uint32_t>();
   makespans.reserve(kNumMicroBatches);
@@ -90,8 +100,8 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint32_t>(std::lround(size));
-      const auto index = static_cast<uint64_t>(items.size());
+      const auto makespan = std::lround(size);
+      const auto index = items.size();
       items.emplace_back(makespan, index);
     }
   }
@@ -100,8 +110,11 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   });
 
   const auto micro_batches = flatflow::internal::BLDM(
-      items, static_cast<uint64_t>(kNumMicroBatches),
+      items, kNumMicroBatches,
       [](const auto &size) { return static_cast<double>(size); });
+  EXPECT_TRUE(std::is_sorted(
+      micro_batches.cbegin(), micro_batches.cend(),
+      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
   auto makespans = std::vector<double>();
   makespans.reserve(kNumMicroBatches);
