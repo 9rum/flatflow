@@ -47,6 +47,15 @@ class Subset {
     data_ = {index};
   }
 
+  Subset(const result_type &result, const container_type &data) : data_(data) {
+    sum_ = result;
+  }
+
+  Subset(const result_type &result, container_type &&data)
+      : data_(std::move(data)) {
+    sum_ = result;
+  }
+
   Subset() = delete;
 
   Subset(const Subset &other) = default;
