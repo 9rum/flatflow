@@ -1162,7 +1162,7 @@ def forward_backward_pipelining_with_interleaving(
                 p2p_communication.recv_backward(tensor_shape, config=config)
             )
         for k in range(num_microbatches_remaining, total_num_microbatches):
-            input_tensor_grad = backward_step_helper(backward_k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + k)
+            input_tensor_grad = backward_step_helper(k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + k)
             next_backward_model_chunk_id = get_model_chunk_id(k + 1, forward=False)
             recv_next = True
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
