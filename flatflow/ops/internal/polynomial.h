@@ -84,7 +84,7 @@ class polynomial {
 
   value_type &operator[](size_type index) { return data_[index]; }
 
-  const value_type &operator[](size_type index) const { return data_[index]; }
+  value_type operator[](size_type index) const { return data_[index]; }
 
   // Operators
   //
@@ -93,17 +93,17 @@ class polynomial {
   // and factorization are not supported for now.
   template <typename V>
     requires Numerical<V>
-  T operator()(const V &value) const noexcept {
+  value_type operator()(V value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
 
-  polynomial operator+(const T &value) const {
+  polynomial operator+(value_type value) const {
     auto p = *this;
     p += value;
     return p;
   }
 
-  polynomial &operator+=(const T &value) { return addition(value); }
+  polynomial &operator+=(value_type value) { return addition(value); }
 
   polynomial operator+(const polynomial &other) const {
     auto p = *this;
@@ -113,13 +113,13 @@ class polynomial {
 
   polynomial &operator+=(const polynomial &other) { return addition(other); }
 
-  polynomial operator-(const T &value) const {
+  polynomial operator-(value_type value) const {
     auto p = *this;
     p -= value;
     return p;
   }
 
-  polynomial &operator-=(const T &value) { return subtraction(value); }
+  polynomial &operator-=(value_type value) { return subtraction(value); }
 
   polynomial operator-(const polynomial &other) const {
     auto p = *this;
@@ -129,13 +129,13 @@ class polynomial {
 
   polynomial &operator-=(const polynomial &other) { return subtraction(other); }
 
-  polynomial operator*(const T &value) const {
+  polynomial operator*(value_type value) const {
     auto p = *this;
     p *= value;
     return p;
   }
 
-  polynomial &operator*=(const T &value) { return multiplication(value); }
+  polynomial &operator*=(value_type value) { return multiplication(value); }
 
   polynomial operator*(const polynomial &other) const {
     auto p = *this;
@@ -147,21 +147,21 @@ class polynomial {
     return multiplication(other);
   }
 
-  polynomial operator/(const T &value) const {
+  polynomial operator/(value_type value) const {
     auto p = *this;
     p /= value;
     return p;
   }
 
-  polynomial &operator/=(const T &value) { return division(value); }
+  polynomial &operator/=(value_type value) { return division(value); }
 
-  polynomial operator<<(const T &value) const {
+  polynomial operator<<(value_type value) const {
     auto p = *this;
     p <<= value;
     return p;
   }
 
-  polynomial &operator<<=(const T &value) {
+  polynomial &operator<<=(value_type value) {
     data_[0] <<= value;
     data_[1] <<= value;
     data_[2] <<= value;
@@ -169,13 +169,13 @@ class polynomial {
     return *this;
   }
 
-  polynomial operator>>(const T &value) const {
+  polynomial operator>>(value_type value) const {
     auto p = *this;
     p >>= value;
     return p;
   }
 
-  polynomial &operator>>=(const T &value) {
+  polynomial &operator>>=(value_type value) {
     data_[0] >>= value;
     data_[1] >>= value;
     data_[2] >>= value;
@@ -193,14 +193,16 @@ class polynomial {
 
  protected:
   template <typename BinaryOp>
-  polynomial &addition(const T &value, BinaryOp op) {
+  polynomial &addition(value_type value, BinaryOp op) {
     data_[0] = op(data_[0], value);
     return *this;
   }
 
-  polynomial &addition(const T &value) { return addition(value, std::plus()); }
+  polynomial &addition(value_type value) {
+    return addition(value, std::plus());
+  }
 
-  polynomial &subtraction(const T &value) {
+  polynomial &subtraction(value_type value) {
     return addition(value, std::minus());
   }
 
@@ -222,7 +224,7 @@ class polynomial {
   }
 
   template <typename BinaryOp>
-  polynomial &multiplication(const T &value, BinaryOp op) {
+  polynomial &multiplication(value_type value, BinaryOp op) {
     data_[0] = op(data_[0], value);
     data_[1] = op(data_[1], value);
     data_[2] = op(data_[2], value);
@@ -230,11 +232,11 @@ class polynomial {
     return *this;
   }
 
-  polynomial &multiplication(const T &value) {
+  polynomial &multiplication(value_type value) {
     return multiplication(value, std::multiplies());
   }
 
-  polynomial &division(const T &value) {
+  polynomial &division(value_type value) {
     return multiplication(value, std::divides());
   }
 
@@ -260,8 +262,7 @@ class polynomial {
 
 template <typename T>
   requires Numerical<T>
-constexpr T evaluate_polynomial_impl(const polynomial<T> &p,
-                                     const T &value) noexcept {
+constexpr T evaluate_polynomial_impl(const polynomial<T> &p, T value) noexcept {
   return p[0] + value * (p[1] + value * (p[2] + value * p[3]));
 }
 
@@ -275,8 +276,7 @@ constexpr T evaluate_polynomial_impl(const polynomial<T> &p,
 // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
 template <typename T, typename V>
   requires(Numerical<T> && Numerical<V>)
-constexpr T evaluate_polynomial(const polynomial<T> &p,
-                                const V &value) noexcept {
+constexpr T evaluate_polynomial(const polynomial<T> &p, V value) noexcept {
   return evaluate_polynomial_impl<T>(p, value);
 }
 
