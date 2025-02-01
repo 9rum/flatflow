@@ -50,19 +50,19 @@ namespace flatflow {
 // each training epoch so that the data samples are recovered without any data
 // movement overhead. To this end, this exposes two callbacks which are invoked
 // at the beginning and end of each training epoch.
-template <typename Index, typename Size>
-  requires(internal::Unsigned<Index> && internal::Unsigned<Size>)
+template <typename IndexType, typename SizeType>
+  requires(internal::Unsigned<IndexType> && internal::Unsigned<SizeType>)
 class Dataset {
  public:
   using container_type = internal::btree_map<
-      Size, std::vector<Index>, std::less<Size>,
-      std::allocator<std::pair<const Size, std::vector<Index>>>,
+      SizeType, std::vector<IndexType>, std::less<SizeType>,
+      std::allocator<std::pair<const SizeType, std::vector<IndexType>>>,
       /*TargetNodeSize=*/512>;
   using key_type = typename container_type::key_type;
   using mapped_type = typename container_type::mapped_type::value_type;
   using value_type =
-      std::pair<typename container_type::key_type,
-                typename container_type::mapped_type::value_type>;
+      std::pair<typename container_type::value_type::first_type,
+                typename container_type::value_type::second_type::value_type>;
   using size_type = typename container_type::size_type;
 
   // Constructors and assignment operators
