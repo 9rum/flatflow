@@ -62,9 +62,9 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = std::lround(size);
+      const auto workload = std::lround(size);
       const auto index = items.size();
-      items.emplace_back(makespan, index);
+      items.emplace_back(workload, index);
     }
   }
   std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
@@ -77,17 +77,17 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
       micro_batches.cbegin(), micro_batches.cend(),
       [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
-  auto makespans = std::vector<uint32_t>();
-  makespans.reserve(kNumMicroBatches);
+  auto workloads = std::vector<uint32_t>();
+  workloads.reserve(kNumMicroBatches);
 
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
   std::for_each(micro_batches.cbegin(), micro_batches.cend(),
                 [&](const auto &micro_batch) {
                   EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
-                  makespans.emplace_back(micro_batch.sum());
+                  workloads.emplace_back(micro_batch.sum());
                 });
 
-  LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
+  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
 }
 
 TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
@@ -100,9 +100,9 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = std::lround(size);
+      const auto workload = std::lround(size);
       const auto index = items.size();
-      items.emplace_back(makespan, index);
+      items.emplace_back(workload, index);
     }
   }
   std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
@@ -116,17 +116,17 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
       micro_batches.cbegin(), micro_batches.cend(),
       [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
-  auto makespans = std::vector<double>();
-  makespans.reserve(kNumMicroBatches);
+  auto workloads = std::vector<double>();
+  workloads.reserve(kNumMicroBatches);
 
   EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
   std::for_each(micro_batches.cbegin(), micro_batches.cend(),
                 [&](const auto &micro_batch) {
                   EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
-                  makespans.emplace_back(micro_batch.sum());
+                  workloads.emplace_back(micro_batch.sum());
                 });
 
-  LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
+  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
 }
 
 }  // namespace

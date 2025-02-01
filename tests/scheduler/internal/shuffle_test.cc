@@ -26,7 +26,7 @@
 
 namespace {
 
-TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
+TEST(ShuffleTest, InterBatchShufflingWithIntegerWorkloads) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kSeed = static_cast<uint64_t>(0);
@@ -58,7 +58,7 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerMakespans) {
                 });
 }
 
-TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
+TEST(ShuffleTest, InterBatchShufflingWithOneIntegerWorkload) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
   constexpr auto kSeed = static_cast<uint64_t>(0);
@@ -79,7 +79,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneIntegerMakespan) {
   EXPECT_EQ(micro_batches.front().data().size(), kMicroBatchSize);
 }
 
-TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
+TEST(ShuffleTest, InterBatchShufflingWithRealWorkloads) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kSeed = static_cast<uint64_t>(0);
@@ -111,7 +111,7 @@ TEST(ShuffleTest, InterBatchShufflingWithRealMakespans) {
                 });
 }
 
-TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
+TEST(ShuffleTest, InterBatchShufflingWithOneRealWorkload) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1);
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
   constexpr auto kSeed = static_cast<uint64_t>(0);
@@ -132,7 +132,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealMakespan) {
   EXPECT_EQ(micro_batches.front().data().size(), kMicroBatchSize);
 }
 
-TEST(ShuffleTest, InterBatchShufflingWithZeroMakespan) {
+TEST(ShuffleTest, InterBatchShufflingWithZeroWorkloads) {
   constexpr auto kSeed = static_cast<uint64_t>(0);
 
   auto micro_batches =
