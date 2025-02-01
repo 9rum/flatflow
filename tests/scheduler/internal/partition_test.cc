@@ -45,7 +45,7 @@ class PartitionTest : public testing::Test {
 };
 
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
-  const auto items = std::vector<std::pair<uint32_t, uint64_t>>();
+  const auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
 
   const auto micro_batches = flatflow::internal::BLDM(
       items, items.size(), [](const auto &size) { return size; });
@@ -56,20 +56,28 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint32_t, uint64_t>>();
-  items.reserve(kMicroBatchSize * kNumMicroBatches);
+  auto pairs = std::vector<std::pair<uint32_t, uint64_t>>();
+  pairs.reserve(kMicroBatchSize * kNumMicroBatches);
 
-  while (items.size() < items.capacity()) {
+  while (pairs.size() < pairs.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
       const auto workload = std::lround(size);
-      const auto index = items.size();
-      items.emplace_back(workload, index);
+      const auto index = pairs.size();
+      pairs.emplace_back(workload, index);
     }
   }
-  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
+
+  std::sort(pairs.begin(), pairs.end(), [](const auto &lhs, const auto &rhs) {
     return lhs.first < rhs.first;
   });
+
+  auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
+  items.reserve(pairs.size());
+
+  std::for_each(
+      std::execution::seq, pairs.cbegin(), pairs.cend(),
+      [&](const auto &pair) { items.emplace_back(pair.first, pair.second); });
 
   const auto micro_batches = flatflow::internal::BLDM(
       items, kNumMicroBatches, [](const auto &size) { return size; });
@@ -94,20 +102,28 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint32_t, uint64_t>>();
-  items.reserve(kMicroBatchSize * kNumMicroBatches);
+  auto pairs = std::vector<std::pair<uint32_t, uint64_t>>();
+  pairs.reserve(kMicroBatchSize * kNumMicroBatches);
 
-  while (items.size() < items.capacity()) {
+  while (pairs.size() < pairs.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
       const auto workload = std::lround(size);
-      const auto index = items.size();
-      items.emplace_back(workload, index);
+      const auto index = pairs.size();
+      pairs.emplace_back(workload, index);
     }
   }
-  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
+
+  std::sort(pairs.begin(), pairs.end(), [](const auto &lhs, const auto &rhs) {
     return lhs.first < rhs.first;
   });
+
+  auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
+  items.reserve(pairs.size());
+
+  std::for_each(
+      std::execution::seq, pairs.cbegin(), pairs.cend(),
+      [&](const auto &pair) { items.emplace_back(pair.first, pair.second); });
 
   const auto micro_batches = flatflow::internal::BLDM(
       items, kNumMicroBatches,
