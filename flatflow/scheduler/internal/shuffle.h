@@ -35,10 +35,10 @@ namespace internal {
 // samples with the same size but also between scheduled batches. We use the
 // same pseudo-random number generator and random seed as `flatflow::Dataset<>`
 // for deterministic shuffling.
-template <typename Index, typename R>
-  requires(Unsigned<Index> && Numerical<R>)
-void shuffle(std::vector<Subset<Index, R>> &subsets, const Index &seed) {
-  using iterator = typename std::vector<Subset<Index, R>>::iterator;
+template <typename IndexType, typename R>
+  requires(Unsigned<IndexType> && Numerical<R>)
+void shuffle(std::vector<Subset<IndexType, R>> &subsets, IndexType seed) {
+  using iterator = typename std::vector<Subset<IndexType, R>>::iterator;
 
   if (subsets.empty()) {
     return;
