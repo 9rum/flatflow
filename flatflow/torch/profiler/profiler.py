@@ -133,7 +133,7 @@ class ComputeProfiler:
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         return f"dp{data_parallel_rank}_pp{pipeline_parallel_rank}_tp{tensor_parallel_rank}_batch{microbatch_id}"
 
-    def set_microbatch_id(self, microbatch_id: int):
+    def set_microbatch_id(self, microbatch_id):
         self.current_batch_id = microbatch_id
 
     def update_microbatch_id(self):
