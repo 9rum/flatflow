@@ -974,24 +974,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     "backward_post": torch.cuda.Event(enable_timing=True),
                 }
 
-    def register_hooks(self, profiler):
-        def forward_pre_hook(module, input):
-            profiler.record_start(module, input)
-        def forward_hook(module, input, output):
-            profiler.record_end(module, input, output)
-
-        if isinstance(self.model, list):
-            for model in self.model:
-                for _, module in model.named_modules():
-                    pre_handle = module.register_forward_pre_hook(forward_pre_hook)
-                    post_handle = module.register_forward_hook(forward_hook)
-                    profiler.hook_handles.extend([pre_handle, post_handle])
-        else:
-            for _, module in self.model.named_modules():
-                pre_handle = module.register_forward_pre_hook(forward_pre_hook)
-                post_handle = module.register_forward_hook(forward_hook)
-                profiler.hook_handles.extend([pre_handle, post_handle])
-
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
             consumed_samples = self.compute_consumed_samples(0)

@@ -1162,7 +1162,7 @@ def forward_backward_pipelining_with_interleaving(
                 p2p_communication.recv_backward(tensor_shape, config=config)
             )
         for k in range(num_microbatches_remaining, total_num_microbatches):
-            input_tensor_grad = backward_step_helper(backward_k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + k)
+            input_tensor_grad = backward_step_helper(k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + k)
             next_backward_model_chunk_id = get_model_chunk_id(k + 1, forward=False)
             recv_next = True
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
@@ -1470,14 +1470,14 @@ def forward_backward_pipelining_without_interleaving(
             encoder_decoder_xattn=encoder_decoder_xattn,
             compute_profiler=compute_profiler,
             memory_profiler=memory_profiler,
-            global_microbatch_id=total_microbatch_id + i,
+            global_microbatch_id=f"{total_microbatch_id + i}",
         )
         send_forward(output_tensor, send_tensor_shapes, config)
         total_num_tokens += num_tokens.item()
 
         if not forward_only:
-            input_tensors.append(input_tensor)
-            output_tensors.append(output_tensor)
+            input_tensors.append([input_tensor,f"{total_microbatch_id + i}"])
+            output_tensors.append([output_tensor, f"{total_microbatch_id + i}"])
             deallocate_output_tensor(output_tensor[0], config.deallocate_pipeline_outputs)
 
     # Before running 1F1B, need to receive first forward tensor.
@@ -1515,7 +1515,7 @@ def forward_backward_pipelining_without_interleaving(
             encoder_decoder_xattn=encoder_decoder_xattn,
             compute_profiler=compute_profiler,
             memory_profiler=memory_profiler,
-            global_microbatch_id=total_microbatch_id + num_warmup_microbatches + i,
+            global_microbatch_id=f"{total_microbatch_id + num_warmup_microbatches + i}",
         )
         total_num_tokens += num_tokens.item()
 
@@ -1530,16 +1530,16 @@ def forward_backward_pipelining_without_interleaving(
                 output_tensor, send_tensor_shapes, config
             )
 
-            # Add input_tensor and output_tensor to end of list.
-            input_tensors.append(input_tensor)
-            output_tensors.append(output_tensor)
+            # Add input_tensor and output_tensor to end of list. 
+            input_tensors.append([input_tensor, total_microbatch_id + num_warmup_microbatches + i])
+            output_tensors.append([output_tensor, total_microbatch_id + num_warmup_microbatches + i])
             deallocate_output_tensor(output_tensor[0], config.deallocate_pipeline_outputs)
 
             # Pop input_tensor and output_tensor from the start of the list for
             # the backward pass.
-            input_tensor = input_tensors.pop(0)
-            output_tensor = output_tensors.pop(0)
-
+            input_tensor, input_current_microbatch_id = input_tensors.pop(0)
+            output_tensor, output_current_microbatch_id = output_tensors.pop(0)
+            assert input_current_microbatch_id == output_current_microbatch_id , "Input & output batch id should be the same"
             # Enable grad sync for the last microbatch in the batch if the full
             # backward pass completes in the 1F1B stage.
             if num_warmup_microbatches == 0 and last_iteration:
@@ -1547,7 +1547,7 @@ def forward_backward_pipelining_without_interleaving(
                     enable_grad_sync()
 
             input_tensor_grad = backward_step(
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + num_warmup_microbatches + i
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id= f"{output_current_microbatch_id }"
             )
 
             if last_iteration:
@@ -1571,13 +1571,14 @@ def forward_backward_pipelining_without_interleaving(
                 if config.grad_sync_func is None or rank == 0:
                     enable_grad_sync()
 
-            input_tensor = input_tensors.pop(0)
-            output_tensor = output_tensors.pop(0)
+            input_tensor, input_current_microbatch_id = input_tensors.pop(0)
+            output_tensor, output_current_microbatch_id = output_tensors.pop(0)
+            assert input_current_microbatch_id == output_current_microbatch_id, "Input & output batch id should be the same"
 
             output_tensor_grad = recv_backward(send_tensor_shapes, config)
 
-            input_tensor_grad = backward_step(
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + num_microbatches_remaining + i
+            input_tensor_grad = backward_step( 
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=f"{output_current_microbatch_id}"
             )
 
             send_backward(input_tensor_grad, recv_tensor_shapes, config)
