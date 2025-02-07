@@ -90,7 +90,7 @@ class Subset {
   // Subset::Join()
   //
   // Merges the two given partitions.
-  void Join(const Subset &other) {
+  void Join(Subset &other) {
     sum_ += other.sum();
     items_.reserve(items_.size() + other.items().size());
     items_.insert(items_.cend(), std::make_move_iterator(other.items().begin()),
@@ -151,7 +151,7 @@ class Solution {
   // sum in one with the subset with the largest sum in the other, the subset
   // with the second smallest sum in one with the subset with the second largest
   // sum in the other, and so on.
-  void Combine(const Solution &other) {
+  void Combine(Solution &other) {
     // clang-format off
     #pragma omp parallel for
     for (std::size_t index = 0; index < subsets_.size(); ++index) {
@@ -216,7 +216,9 @@ OutputIt BLDM(InputIt first, InputIt last, OutputIt result, F func, Proj proj,
     auto solution = solutions.top();
     solutions.pop();
 
-    solution.Combine(solutions.top());
+    solution.Combine(
+        const_cast<typename std::priority_queue<
+            Solution<InputIt, F, Proj>>::reference>(solutions.top()));
     solutions.pop();
 
     solutions.emplace(std::move(solution));
