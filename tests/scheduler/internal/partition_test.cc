@@ -15,6 +15,7 @@
 #include "flatflow/scheduler/internal/partition.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <random>
 #include <utility>
@@ -45,11 +46,14 @@ class PartitionTest : public testing::Test {
 };
 
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
-  const auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
-
-  const auto micro_batches = flatflow::internal::BLDM(
-      items, items.size(), [](const auto &size) { return size; });
-  EXPECT_TRUE(micro_batches.empty());
+  auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return item.second; },
+      [](const auto &item) { return item.first; }, 0);
+  EXPECT_TRUE(subsets.empty());
+  EXPECT_EQ(std::distance(subsets.end(), result), 0);
 }
 
 TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
@@ -79,21 +83,26 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
       std::execution::seq, pairs.cbegin(), pairs.cend(),
       [&](const auto &pair) { items.emplace_back(pair.first, pair.second); });
 
-  const auto micro_batches = flatflow::internal::BLDM(
-      items, kNumMicroBatches, [](const auto &size) { return size; });
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>(
+      kNumMicroBatches);
+  auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return item.second; },
+      [](const auto &item) { return item.first; }, kNumMicroBatches);
+  EXPECT_EQ(subsets.size(), kNumMicroBatches);
+  EXPECT_EQ(std::distance(subsets.end(), result), 0);
+
   EXPECT_TRUE(std::is_sorted(
-      micro_batches.cbegin(), micro_batches.cend(),
+      subsets.cbegin(), subsets.cend(),
       [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
   auto workloads = std::vector<uint32_t>();
   workloads.reserve(kNumMicroBatches);
 
-  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
-                [&](const auto &micro_batch) {
-                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
-                  workloads.emplace_back(micro_batch.sum());
-                });
+  std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
+    EXPECT_EQ(subset.items().size(), kMicroBatchSize);
+    workloads.emplace_back(subset.sum());
+  });
 
   LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
 }
@@ -125,22 +134,27 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
       std::execution::seq, pairs.cbegin(), pairs.cend(),
       [&](const auto &pair) { items.emplace_back(pair.first, pair.second); });
 
-  const auto micro_batches = flatflow::internal::BLDM(
-      items, kNumMicroBatches,
-      [](const auto &size) { return static_cast<double>(size); });
+  auto subsets = std::vector<flatflow::internal::Subset<double, uint64_t>>(
+      kNumMicroBatches);
+  auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return item.second; },
+      [](const auto &item) { return static_cast<double>(item.first); },
+      kNumMicroBatches);
+  EXPECT_EQ(subsets.size(), kNumMicroBatches);
+  EXPECT_EQ(std::distance(subsets.end(), result), 0);
+
   EXPECT_TRUE(std::is_sorted(
-      micro_batches.cbegin(), micro_batches.cend(),
+      subsets.cbegin(), subsets.cend(),
       [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
 
   auto workloads = std::vector<double>();
   workloads.reserve(kNumMicroBatches);
 
-  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  std::for_each(micro_batches.cbegin(), micro_batches.cend(),
-                [&](const auto &micro_batch) {
-                  EXPECT_EQ(micro_batch.data().size(), kMicroBatchSize);
-                  workloads.emplace_back(micro_batch.sum());
-                });
+  std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
+    EXPECT_EQ(subset.items().size(), kMicroBatchSize);
+    workloads.emplace_back(subset.sum());
+  });
 
   LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
 }

@@ -47,6 +47,8 @@ class Subset {
   using mapped_type = T;
   using container_type = std::vector<T>;
 
+  Subset() {}
+
   Subset(key_type key, const mapped_type &item) {
     sum_ = key;
     items_ = {item};
@@ -64,8 +66,6 @@ class Subset {
   Subset(key_type key, container_type &&items) : items_(std::move(items)) {
     sum_ = key;
   }
-
-  Subset() = delete;
 
   Subset(const Subset &other) = default;
 
@@ -114,6 +114,8 @@ class Solution {
                          std::invoke_result_t<F, std::iter_value_t<InputIt>>>>;
   using key_type = typename container_type::value_type::key_type;
 
+  Solution() {}
+
   Solution(InputIt first, InputIt last, F func, Proj proj) {
     subsets_.reserve(std::distance(first, last));
     std::for_each(std::execution::seq, std::make_move_iterator(first),
@@ -122,8 +124,6 @@ class Solution {
                   });
     difference_ = subsets_.back().sum() - subsets_.front().sum();
   }
-
-  Solution() = delete;
 
   Solution(const Solution &other) = default;
 
