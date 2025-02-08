@@ -16,14 +16,11 @@
 #define FLATFLOW_SCHEDULER_INTERNAL_SCATTER_H_
 
 #include <algorithm>
-#include <cstddef>
+#include <execution>
 #include <iterator>
-#include <utility>
-#include <vector>
 
 #include "absl/log/check.h"
 
-#include "flatflow/data/internal/types.h"
 #include "flatflow/scheduler/internal/partition.h"
 
 namespace flatflow {
