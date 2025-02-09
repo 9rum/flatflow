@@ -15,8 +15,11 @@
 #include "flatflow/scheduler/internal/partition.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <execution>
+#include <iterator>
 #include <random>
 #include <utility>
 #include <vector>
@@ -48,12 +51,12 @@ class PartitionTest : public testing::Test {
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
   auto items = std::vector<std::pair<const uint32_t, uint64_t>>();
   auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
-  auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::Partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return item.first; }, 0);
   EXPECT_TRUE(subsets.empty());
-  EXPECT_EQ(std::distance(subsets.end(), result), 0);
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
 }
 
 TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
@@ -85,12 +88,12 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
 
   auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>(
       kNumMicroBatches);
-  auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::Partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return item.first; }, kNumMicroBatches);
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
-  EXPECT_EQ(std::distance(subsets.end(), result), 0);
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
@@ -134,13 +137,13 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
 
   auto subsets = std::vector<flatflow::internal::Subset<double, uint64_t>>(
       kNumMicroBatches);
-  auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::Partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return static_cast<double>(item.first); },
       kNumMicroBatches);
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
-  EXPECT_EQ(std::distance(subsets.end(), result), 0);
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
