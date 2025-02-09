@@ -92,9 +92,7 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
   EXPECT_EQ(std::distance(subsets.end(), result), 0);
 
-  EXPECT_TRUE(std::is_sorted(
-      subsets.cbegin(), subsets.cend(),
-      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
   auto workloads = std::vector<uint32_t>();
   workloads.reserve(kNumMicroBatches);
@@ -144,9 +142,7 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
   EXPECT_EQ(std::distance(subsets.end(), result), 0);
 
-  EXPECT_TRUE(std::is_sorted(
-      subsets.cbegin(), subsets.cend(),
-      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
   auto workloads = std::vector<double>();
   workloads.reserve(kNumMicroBatches);

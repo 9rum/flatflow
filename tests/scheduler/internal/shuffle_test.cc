@@ -48,9 +48,7 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerWorkloads) {
   flatflow::internal::Shuffle(subsets.begin(), subsets.end(), kSeed);
 
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
-  EXPECT_TRUE(std::is_sorted(
-      subsets.cbegin(), subsets.cend(),
-      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
     EXPECT_EQ(subset.items().size(), kMicroBatchSize);
@@ -98,9 +96,7 @@ TEST(ShuffleTest, InterBatchShufflingWithRealWorkloads) {
   flatflow::internal::Shuffle(subsets.begin(), subsets.end(), kSeed);
 
   EXPECT_EQ(subsets.size(), kNumMicroBatches);
-  EXPECT_TRUE(std::is_sorted(
-      subsets.cbegin(), subsets.cend(),
-      [](const auto &lhs, const auto &rhs) { return lhs.sum() < rhs.sum(); }));
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
     EXPECT_EQ(subset.items().size(), kMicroBatchSize);
