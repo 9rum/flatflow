@@ -46,16 +46,14 @@ OutputIt Scatter(
   CHECK_EQ(n % m, 0);
   CHECK_EQ(stride % m, 0);
 
-  auto d_last = result;
-
   // clang-format off
-  #pragma omp parallel for reduction(max : d_last)
+  #pragma omp parallel for
   for (typename std::iterator_traits<InputIt>::difference_type offset = 0;
        offset < n; offset += stride) {
     const auto d_first = std::next(result, offset / stride * m);
-    d_last = Partition(std::next(first, offset),
-                       std::next(first, std::min(offset + stride, n)), d_first,
-                       func, proj, m);
+    const auto d_last = Partition(
+        std::next(first, offset),
+        std::next(first, std::min(offset + stride, n)), d_first, func, proj, m);
 
     // To minimize both computation stalls across pipeline stages and
     // synchronization latency between pipelines, we distribute the shuffled
@@ -75,7 +73,9 @@ OutputIt Scatter(
   }
   // clang-format on
 
-  return d_last;
+  // (x - 1) / y + 1 is always equal to x % y == 0 ? x / y : x / y + 1 without
+  // any branch instructions.
+  return std::next(result, ((n - 1) / stride + 1) * m);
 }
 
 }  // namespace internal

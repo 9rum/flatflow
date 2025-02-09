@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -37,11 +38,8 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerWorkloads) {
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::lround(std::log2(step + 2));
-    auto items = std::vector<uint64_t>();
-    items.reserve(kMicroBatchSize);
-    for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
-      items.emplace_back(step * kMicroBatchSize + index);
-    }
+    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
 
@@ -85,11 +83,8 @@ TEST(ShuffleTest, InterBatchShufflingWithRealWorkloads) {
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::round(std::log2(step + 2));
-    auto items = std::vector<uint64_t>();
-    items.reserve(kMicroBatchSize);
-    for (std::size_t index = 0; index < kMicroBatchSize; ++index) {
-      items.emplace_back(step * kMicroBatchSize + index);
-    }
+    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
 

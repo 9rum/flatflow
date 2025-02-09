@@ -118,36 +118,42 @@ gtest_add_tests(
   TARGET partition_test)
 
 add_executable(
-  reshape_test
-  reshape_test.cc)
+  scatter_test
+  scatter_test.cc)
 target_include_directories(
-  reshape_test
+  scatter_test
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
-  reshape_test
+  scatter_test
+  PRIVATE absl::check
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+  target_link_libraries(
+    scatter_test
+    PRIVATE TBB::tbb)
+endif()
 target_compile_options(
-  reshape_test
+  scatter_test
   PRIVATE -Wall -Wextra)
 if(FLATFLOW_ENABLE_ASAN)
   target_compile_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=address)
   target_link_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=address)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=undefined)
   target_link_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=undefined)
 endif()
 gtest_add_tests(
-  TARGET reshape_test)
+  TARGET scatter_test)
 
 add_executable(
   shuffle_test
