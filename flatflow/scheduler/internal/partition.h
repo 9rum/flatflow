@@ -120,7 +120,7 @@ class Solution {
     subsets_.reserve(std::distance(first, last));
     std::for_each(std::execution::seq, std::make_move_iterator(first),
                   std::make_move_iterator(last), [&](auto item) {
-                    subsets_.emplace_back(proj(item), std::move(func(item)));
+                    subsets_.emplace_back(proj(item), func(item));
                   });
     difference_ = subsets_.back().sum() - subsets_.front().sum();
   }
