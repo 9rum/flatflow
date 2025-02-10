@@ -29,6 +29,23 @@
 
 namespace {
 
+TEST(ScatterTest, ScatterWithEmptySubsets) {
+  constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 2);
+  constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
+  constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
+
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto batches = std::vector<flatflow::internal::Subset<
+      uint32_t, flatflow::internal::Subset<uint32_t, uint64_t>>>();
+  const auto result = flatflow::internal::Scatter(
+      subsets.begin(), subsets.end(), batches.begin(),
+      [](auto subset) { return subset; },
+      [](auto subset) { return subset.sum(); }, kWorldSize,
+      kGlobalBatchSize / kMicroBatchSize);
+  EXPECT_TRUE(batches.empty());
+  EXPECT_EQ(std::distance(result, batches.end()), 0);
+}
+
 TEST(ScatterTest, ScatterWithoutRemainder) {
   constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 9);
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
