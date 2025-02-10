@@ -86,7 +86,8 @@ class Dataset {
   // inverted index at once, which is fast but memory-intensive. For key types
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
-  explicit Dataset(const flatbuffers::Vector<key_type> *sizes, mapped_type seed)
+  explicit Dataset(const flatbuffers::Vector<key_type> *sizes,
+                   std::mt19937::result_type seed)
     requires(std::numeric_limits<key_type>::digits <
              std::numeric_limits<uint32_t>::digits)
       : seed_(seed) {
@@ -166,7 +167,8 @@ class Dataset {
   // index slot space exponentially with the key size; instead it iterates over
   // the given sizes one more time to find the minimal required space, which
   // makes it cannot leverage inlined vector but prevent severe memory pressure.
-  explicit Dataset(const flatbuffers::Vector<key_type> *sizes, mapped_type seed)
+  explicit Dataset(const flatbuffers::Vector<key_type> *sizes,
+                   std::mt19937::result_type seed)
       : seed_(seed) {
     CHECK_NE(sizes, nullptr);
 
@@ -396,7 +398,7 @@ class Dataset {
 
   size_type max_size_;
   size_type size_;
-  mapped_type seed_;
+  std::mt19937::result_type seed_;
   container_type items_;
   container_type recyclebin_;
 };
