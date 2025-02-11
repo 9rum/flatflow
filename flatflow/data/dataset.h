@@ -247,13 +247,13 @@ class Dataset {
   std::vector<value_type> take(size_type n) {
     CHECK_LE(n, size_);
 
-    auto samples = std::vector<value_type>();
-    samples.reserve(n);
+    auto items = std::vector<value_type>();
+    items.reserve(n);
 
     for (auto item = items_.begin(); 0 < n; item = items_.begin()) {
       if (n < item->second.size()) {
         for (; 0 < n; --n) {
-          samples.emplace_back(take_impl(item));
+          items.emplace_back(take_impl(item));
         }
       } else {
         // The split loop below is intended.
@@ -265,16 +265,16 @@ class Dataset {
         // One should run the loop only until the size of index slot becomes one
         // to prevent invalid memory access.
         for (; 1 < item->second.size(); --n) {
-          samples.emplace_back(take_impl(item));
+          items.emplace_back(take_impl(item));
         }
-        samples.emplace_back(take_impl(item));
+        items.emplace_back(take_impl(item));
         --n;
       }
     }
 
-    size_ -= samples.size();
+    size_ -= items.size();
 
-    return samples;
+    return items;
   }
 
   // Dataset::size()
@@ -290,7 +290,7 @@ class Dataset {
   // Dataset::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  void on_epoch_begin(mapped_type epoch) {
+  void on_epoch_begin(std::mt19937::result_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the beginning of each epoch, a `flatflow::Dataset<>` shuffles between
@@ -324,7 +324,7 @@ class Dataset {
   // Dataset::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  void on_epoch_end(mapped_type epoch) {
+  void on_epoch_end(std::mt19937::result_type epoch) {
     const auto now = omp_get_wtime();
 
     // At the end of an epoch, the inverted index must be empty.

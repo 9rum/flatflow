@@ -142,7 +142,7 @@ TEST_F(DatasetTest, Constructor) {
 // This test checks whether intra-batch shuffling occurs deterministically for
 // an arbitrary value of random seed.
 TEST_F(DatasetTest, IntraBatchShuffling) {
-  const auto epoch = static_cast<uint64_t>(std::rand());
+  const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
   auto slots = std::map<uint16_t, std::vector<uint64_t>>();
   for (const auto [size, count] : counts_) {
@@ -187,7 +187,7 @@ TEST_F(DatasetTest, Take) {
     }
   }
 
-  const auto epoch = static_cast<uint64_t>(std::rand());
+  const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
   dataset_.on_epoch_end(epoch);
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
@@ -313,7 +313,7 @@ TEST_F(Dataset32Test, Constructor) {
 }
 
 TEST_F(Dataset32Test, IntraBatchShuffling) {
-  const auto epoch = static_cast<uint64_t>(std::rand());
+  const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
   auto slots = std::map<uint32_t, std::vector<uint64_t>>();
   for (const auto [size, count] : counts_) {
@@ -355,7 +355,7 @@ TEST_F(Dataset32Test, Take) {
     }
   }
 
-  const auto epoch = static_cast<uint64_t>(std::rand());
+  const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
   dataset_.on_epoch_end(epoch);
   EXPECT_EQ(dataset_.size(), dataset_.max_size());
