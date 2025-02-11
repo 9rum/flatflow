@@ -36,9 +36,8 @@ template <typename T>
   requires Numerical<T>
 class polynomial {
  public:
-  using container_type = std::array<T, 4>;
-  using value_type = typename container_type::value_type;
-  using size_type = typename container_type::size_type;
+  using value_type = typename std::array<T, 4>::value_type;
+  using size_type = typename std::array<T, 4>::size_type;
 
   // Constructors and assignment operators
   //
@@ -52,7 +51,7 @@ class polynomial {
   template <typename... Args>
   polynomial(Args... args) : data_{args...} {}
 
-  polynomial(const container_type &data) : data_(data) {}
+  polynomial(const std::array<T, 4> &data) : data_(data) {}
 
   polynomial(const polynomial &other) : data_(other.data()) {}
 
@@ -61,7 +60,7 @@ class polynomial {
     return *this;
   }
 
-  polynomial(container_type &&data) : data_(std::move(data)) {}
+  polynomial(std::array<T, 4> &&data) : data_(std::move(data)) {}
 
   polynomial(polynomial &&other) : data_(std::move(other.data())) {}
 
@@ -78,9 +77,9 @@ class polynomial {
 
   size_type degree() const { return data_.size() - 1; }
 
-  container_type &data() { return data_; }
+  std::array<T, 4> &data() { return data_; }
 
-  const container_type &data() const { return data_; }
+  const std::array<T, 4> &data() const { return data_; }
 
   value_type &operator[](size_type index) { return data_[index]; }
 
@@ -241,7 +240,7 @@ class polynomial {
   }
 
   polynomial &multiplication(const polynomial &other) {
-    auto data = container_type();
+    auto data = std::array<T, 4>();
 
     data[0] = data_[0] * other[0];
     data[1] = data_[0] * other[1] + data_[1] * other[0];
@@ -257,7 +256,7 @@ class polynomial {
     return *this;
   }
 
-  container_type data_;
+  std::array<T, 4> data_;
 };
 
 template <typename T>
