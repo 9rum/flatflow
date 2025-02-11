@@ -33,8 +33,8 @@
 namespace {
 
 // A read-only data set used only for testing purpose.
-class Dataset : public flatflow::Dataset<uint64_t, uint16_t> {
-  using super_type = flatflow::Dataset<uint64_t, uint16_t>;
+class Dataset16 : public flatflow::Dataset<uint16_t> {
+  using super_type = typename Dataset16::Dataset;
 
  public:
   using super_type::super_type;
@@ -75,7 +75,7 @@ class Dataset : public flatflow::Dataset<uint64_t, uint16_t> {
   }
 };
 
-class DatasetTest : public testing::Test {
+class Dataset16Test : public testing::Test {
  protected:
   void SetUp() override {
     constexpr auto kMaxSize = static_cast<uint16_t>(1 << 12);
@@ -105,15 +105,15 @@ class DatasetTest : public testing::Test {
 
     auto builder = flatbuffers::FlatBufferBuilder();
     auto data__ = builder.CreateVector(data);
-    auto offset = CreateSizes(builder, data__);
+    auto offset = CreateSizes16(builder, data__);
     builder.Finish(offset);
 
-    auto sizes = flatbuffers::GetRoot<Sizes>(builder.GetBufferPointer());
-    dataset_ = Dataset(sizes->data(), 0);
+    auto sizes = flatbuffers::GetRoot<Sizes16>(builder.GetBufferPointer());
+    dataset_ = Dataset16(sizes->data(), 0);
   }
 
   std::map<uint16_t, std::size_t> counts_;
-  Dataset dataset_;
+  Dataset16 dataset_;
 };
 
 // This test answers the following questions to see that the inverted indices
@@ -123,7 +123,7 @@ class DatasetTest : public testing::Test {
 // * Does each index slot occupy exactly as much memory footprint as required?
 // * Is each index slot initially sorted?
 // * Is the recycle bin initially empty?
-TEST_F(DatasetTest, Constructor) {
+TEST_F(Dataset16Test, Constructor) {
   EXPECT_TRUE(dataset_.empty(false));
 
   for (const auto [size, count] : counts_) {
@@ -141,7 +141,7 @@ TEST_F(DatasetTest, Constructor) {
 
 // This test checks whether intra-batch shuffling occurs deterministically for
 // an arbitrary value of random seed.
-TEST_F(DatasetTest, IntraBatchShuffling) {
+TEST_F(Dataset16Test, IntraBatchShuffling) {
   const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
   auto slots = std::map<uint16_t, std::vector<uint64_t>>();
@@ -168,7 +168,7 @@ TEST_F(DatasetTest, IntraBatchShuffling) {
 // This test checks whether the bulk loading routine retrieves data samples as
 // intended. It also verifies that the retrieved data samples are properly
 // recovered in the recycle bin.
-TEST_F(DatasetTest, Take) {
+TEST_F(Dataset16Test, Take) {
   auto samples = dataset_.take(dataset_.size());
   EXPECT_EQ(samples.size(), dataset_.max_size());
   EXPECT_TRUE(std::is_sorted(samples.cbegin(), samples.cend(),
@@ -213,8 +213,8 @@ TEST_F(DatasetTest, Take) {
 }
 
 // A read-only data set used only for testing purpose.
-class Dataset32 : public flatflow::Dataset<uint64_t, uint32_t> {
-  using super_type = flatflow::Dataset<uint64_t, uint32_t>;
+class Dataset32 : public flatflow::Dataset<uint32_t> {
+  using super_type = typename Dataset32::Dataset;
 
  public:
   using super_type::super_type;

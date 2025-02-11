@@ -19,6 +19,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <execution>
 #include <functional>
 #include <iterator>
@@ -42,28 +43,28 @@ namespace flatflow {
 
 // flatflow::Dataset<>
 //
-// A `flatflow::Dataset<I, S>` stores metadata about the index and size of
-// data samples in a given data set. For fast execution of scheduling, a
-// `flatflow::Dataset<I, S>` constructs an inverted index in a form of
-// `btree_map<S, std::vector<I>>` and stores the scheduled data samples in
-// another inverted index; the two inverted indices are swapped at the end of
-// each training epoch so that the data samples are recovered without any data
-// movement overhead. To this end, this exposes two callbacks which are invoked
-// at the beginning and end of each training epoch.
-template <typename IndexType, typename SizeType>
-  requires(internal::Unsigned<IndexType> && internal::Unsigned<SizeType>)
+// A `flatflow::Dataset<>` stores metadata about the index and size of
+// data samples in a given data set. For fast execution of scheduling,
+// a `flatflow::Dataset<>` constructs an inverted index in a form of B-tree map
+// and stores the scheduled data samples in another inverted index; the two
+// inverted indices are swapped at the end of each training epoch so that the
+// data samples are recovered without any data movement overhead. To this end,
+// this exposes two callbacks which are invoked at the beginning and end of each
+// training epoch.
+template <typename Data,
+          typename Container = internal::btree_map<
+              Data, std::vector<size_t>, std::less<Data>,
+              std::allocator<std::pair<const Data, std::vector<size_t>>>,
+              /*TargetNodeSize=*/512>>
+  requires internal::Unsigned<Data>
 class Dataset {
  public:
-  using container_type = internal::btree_map<
-      SizeType, std::vector<IndexType>, std::less<SizeType>,
-      std::allocator<std::pair<const SizeType, std::vector<IndexType>>>,
-      /*TargetNodeSize=*/512>;
-  using key_type = typename container_type::key_type;
-  using mapped_type = typename container_type::mapped_type::value_type;
+  using key_type = typename Container::key_type;
   using value_type =
-      std::pair<typename container_type::value_type::first_type,
-                typename container_type::value_type::second_type::value_type>;
-  using size_type = typename container_type::size_type;
+      std::pair<typename Container::value_type::first_type,
+                typename Container::value_type::second_type::value_type>;
+  using size_type = typename Container::size_type;
+  using container_type = Container;
 
   // Constructors and assignment operators
   //
@@ -74,7 +75,7 @@ class Dataset {
   // Note that even if a copy/move constructor or assignment operator is called,
   // the data set is actually direct-initialized by copy elision.
   // See https://en.cppreference.com/w/cpp/language/copy_elision.
-  explicit Dataset() {}
+  Dataset() {}
 
   // Constructor to build an inverted index from the relative sizes for each
   // data sample delivered from the Python frontend.
@@ -86,8 +87,8 @@ class Dataset {
   // inverted index at once, which is fast but memory-intensive. For key types
   // over 16 bits, this may bring too much memory pressure and the constructor
   // needs to be specialized.
-  explicit Dataset(const flatbuffers::Vector<key_type> *sizes,
-                   std::mt19937::result_type seed)
+  Dataset(const flatbuffers::Vector<key_type> *sizes,
+          std::mt19937::result_type seed)
     requires(std::numeric_limits<key_type>::digits <
              std::numeric_limits<uint32_t>::digits)
       : seed_(seed) {
@@ -121,7 +122,7 @@ class Dataset {
       ++counts[sizes->Get(index)];
     }
 
-    auto slots = absl::InlinedVector<std::vector<mapped_type>, kIndexSlotSpace>(
+    auto slots = absl::InlinedVector<std::vector<size_type>, kIndexSlotSpace>(
         kIndexSlotSpace);
 
     #pragma omp parallel for
@@ -167,8 +168,8 @@ class Dataset {
   // index slot space exponentially with the key size; instead it iterates over
   // the given sizes one more time to find the minimal required space, which
   // makes it cannot leverage inlined vector but prevent severe memory pressure.
-  explicit Dataset(const flatbuffers::Vector<key_type> *sizes,
-                   std::mt19937::result_type seed)
+  Dataset(const flatbuffers::Vector<key_type> *sizes,
+          std::mt19937::result_type seed)
       : seed_(seed) {
     CHECK_NE(sizes, nullptr);
 
@@ -201,7 +202,7 @@ class Dataset {
       ++counts[sizes->Get(index)];
     }
 
-    auto slots = std::vector<std::vector<mapped_type>>(kIndexSlotSpace);
+    auto slots = std::vector<std::vector<size_type>>(kIndexSlotSpace);
 
     #pragma omp parallel for
     for (std::size_t size = 0; size < kIndexSlotSpace; ++size) {
@@ -231,11 +232,11 @@ class Dataset {
     // clang-format on
   }
 
-  explicit Dataset(const Dataset &other) = default;
+  Dataset(const Dataset &other) = default;
 
   Dataset &operator=(const Dataset &other) = default;
 
-  explicit Dataset(Dataset &&other) = default;
+  Dataset(Dataset &&other) = default;
 
   Dataset &operator=(Dataset &&other) = default;
 
@@ -373,7 +374,7 @@ class Dataset {
       recyclebin_.insert(std::move(items_.extract(position)));
     } else if (position->second.size() == position->second.capacity()) {
       position->second.pop_back();
-      auto slot = std::vector<mapped_type>();
+      auto slot = std::vector<size_type>();
       slot.reserve(position->second.capacity());
       slot.emplace_back(index);
       recyclebin_.try_emplace(size, std::move(slot));
