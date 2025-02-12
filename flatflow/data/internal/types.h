@@ -35,11 +35,11 @@ template <typename T>
 concept Integral =
     std::integral<T> && !std::same_as<T, char> && !std::same_as<T, bool>;
 
-// The concept `Numerical<T>` is satisfied if and only if `T` is a numerical
+// The concept `Arithmetic<T>` is satisfied if and only if `T` is an arithmetic
 // type (i.e., integers and floating-points) and both `std::same_as<T, char>`
 // and `std::same_as<T, bool>` are `false`.
 template <typename T>
-concept Numerical = Integral<T> || std::floating_point<T>;
+concept Arithmetic = Integral<T> || std::floating_point<T>;
 
 }  // namespace internal
 }  // namespace flatflow
