@@ -15,7 +15,10 @@
 #include "flatflow/data/dataset.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <execution>
 #include <map>
 #include <random>
@@ -64,13 +67,13 @@ class Dataset16 : public flatflow::Dataset<uint16_t> {
                                   recyclebin_.at(size).crend());
   }
 
-  std::vector<uint64_t> copy(uint16_t size) const {
-    auto slot = std::vector<uint64_t>(items_.at(size).size());
+  std::vector<std::size_t> copy(uint16_t size) const {
+    auto slot = std::vector<std::size_t>(items_.at(size).size());
     std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
     return slot;
   }
 
-  bool equal(uint16_t size, const std::vector<uint64_t> &slot) const {
+  bool equal(uint16_t size, const std::vector<std::size_t> &slot) const {
     return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
   }
 };
@@ -144,7 +147,7 @@ TEST_F(Dataset16Test, Constructor) {
 TEST_F(Dataset16Test, IntraBatchShuffling) {
   const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
-  auto slots = std::map<uint16_t, std::vector<uint64_t>>();
+  auto slots = std::map<uint16_t, std::vector<std::size_t>>();
   for (const auto [size, count] : counts_) {
     if (0 < count) {
       slots.try_emplace(size, std::move(dataset_.copy(size)));
@@ -244,13 +247,13 @@ class Dataset32 : public flatflow::Dataset<uint32_t> {
                                   recyclebin_.at(size).crend());
   }
 
-  std::vector<uint64_t> copy(uint32_t size) const {
-    auto slot = std::vector<uint64_t>(items_.at(size).size());
+  std::vector<std::size_t> copy(uint32_t size) const {
+    auto slot = std::vector<std::size_t>(items_.at(size).size());
     std::copy(items_.at(size).cbegin(), items_.at(size).cend(), slot.begin());
     return slot;
   }
 
-  bool equal(uint32_t size, const std::vector<uint64_t> &slot) const {
+  bool equal(uint32_t size, const std::vector<std::size_t> &slot) const {
     return std::equal(slot.cbegin(), slot.cend(), items_.at(size).cbegin());
   }
 };
@@ -315,7 +318,7 @@ TEST_F(Dataset32Test, Constructor) {
 TEST_F(Dataset32Test, IntraBatchShuffling) {
   const auto epoch = static_cast<std::mt19937::result_type>(std::rand());
 
-  auto slots = std::map<uint32_t, std::vector<uint64_t>>();
+  auto slots = std::map<uint32_t, std::vector<std::size_t>>();
   for (const auto [size, count] : counts_) {
     if (0 < count) {
       slots.try_emplace(size, std::move(dataset_.copy(size)));
