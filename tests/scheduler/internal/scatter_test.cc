@@ -34,9 +34,9 @@ TEST(ScatterTest, ScatterWithEmptySubsets) {
   constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
   constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   auto batches = std::vector<flatflow::internal::Subset<
-      uint32_t, flatflow::internal::Subset<uint32_t, uint64_t>>>();
+      uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>();
   const auto result = flatflow::internal::Scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },
@@ -53,18 +53,18 @@ TEST(ScatterTest, ScatterWithoutRemainder) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::lround(std::log2(step + 2));
-    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    auto items = std::vector<size_t>(kMicroBatchSize);
     std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
 
   auto batches = std::vector<flatflow::internal::Subset<
-      uint32_t, flatflow::internal::Subset<uint32_t, uint64_t>>>(kNumBatches);
+      uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>(kNumBatches);
   const auto result = flatflow::internal::Scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },
@@ -88,18 +88,18 @@ TEST(ScatterTest, ScatterWithRemainder) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kWorldSize = static_cast<std::size_t>(1 << 2);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::lround(std::log2(step + 2));
-    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    auto items = std::vector<size_t>(kMicroBatchSize);
     std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
 
   auto batches = std::vector<flatflow::internal::Subset<
-      uint32_t, flatflow::internal::Subset<uint32_t, uint64_t>>>(kNumBatches);
+      uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>(kNumBatches);
   const auto result = flatflow::internal::Scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },

@@ -33,12 +33,12 @@ TEST(ShuffleTest, InterBatchShufflingWithIntegerWorkloads) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kSeed = static_cast<uint_fast32_t>(0);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::lround(std::log2(step + 2));
-    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    auto items = std::vector<size_t>(kMicroBatchSize);
     std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
@@ -58,11 +58,11 @@ TEST(ShuffleTest, InterBatchShufflingWithOneIntegerWorkload) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
   constexpr auto kSeed = static_cast<uint_fast32_t>(0);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   const auto sum = 0;
-  auto items = std::vector<uint64_t>();
+  auto items = std::vector<size_t>();
   items.reserve(kMicroBatchSize);
   items.emplace_back(0);
   subsets.emplace_back(sum, std::move(items));
@@ -78,12 +78,12 @@ TEST(ShuffleTest, InterBatchShufflingWithRealWorkloads) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
   constexpr auto kSeed = static_cast<uint_fast32_t>(0);
 
-  auto subsets = std::vector<flatflow::internal::Subset<double, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<double, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   for (std::size_t step = 0; step < kNumMicroBatches; ++step) {
     const auto sum = std::round(std::log2(step + 2));
-    auto items = std::vector<uint64_t>(kMicroBatchSize);
+    auto items = std::vector<size_t>(kMicroBatchSize);
     std::iota(items.begin(), items.end(), step * kMicroBatchSize);
     subsets.emplace_back(sum, std::move(items));
   }
@@ -103,11 +103,11 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealWorkload) {
   constexpr auto kNumMicroBatches = static_cast<std::size_t>(1);
   constexpr auto kSeed = static_cast<uint_fast32_t>(0);
 
-  auto subsets = std::vector<flatflow::internal::Subset<double, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<double, size_t>>();
   subsets.reserve(kNumMicroBatches);
 
   const auto sum = 0.0;
-  auto items = std::vector<uint64_t>();
+  auto items = std::vector<size_t>();
   items.reserve(kMicroBatchSize);
   items.emplace_back(0);
   subsets.emplace_back(sum, std::move(items));
@@ -121,7 +121,7 @@ TEST(ShuffleTest, InterBatchShufflingWithOneRealWorkload) {
 TEST(ShuffleTest, InterBatchShufflingWithZeroWorkloads) {
   constexpr auto kSeed = static_cast<uint_fast32_t>(0);
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, uint64_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
 
   flatflow::internal::Shuffle(subsets.begin(), subsets.end(), kSeed);
 
