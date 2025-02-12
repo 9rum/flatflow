@@ -33,7 +33,7 @@ namespace internal {
 // that of polynomial manipulation, where the division functionality between
 // polynomials is not required.
 template <typename T>
-  requires Numerical<T>
+  requires Arithmetic<T>
 class polynomial {
  public:
   using value_type = typename std::array<T, 4>::value_type;
@@ -91,7 +91,7 @@ class polynomial {
   // counterpart do. Advanced manipulations such as fast Fourier transform (FFT)
   // and factorization are not supported for now.
   template <typename V>
-    requires Numerical<V>
+    requires Arithmetic<V>
   value_type operator()(V value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
@@ -260,7 +260,7 @@ class polynomial {
 };
 
 template <typename T>
-  requires Numerical<T>
+  requires Arithmetic<T>
 constexpr T evaluate_polynomial_impl(const polynomial<T> &p, T value) noexcept {
   return p[0] + value * (p[1] + value * (p[2] + value * p[3]));
 }
@@ -274,7 +274,7 @@ constexpr T evaluate_polynomial_impl(const polynomial<T> &p, T value) noexcept {
 // evaluated with fewer arithmetic operations.
 // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
 template <typename T, typename V>
-  requires(Numerical<T> && Numerical<V>)
+  requires(Arithmetic<T> && Arithmetic<V>)
 constexpr T evaluate_polynomial(const polynomial<T> &p, V value) noexcept {
   return evaluate_polynomial_impl<T>(p, value);
 }
