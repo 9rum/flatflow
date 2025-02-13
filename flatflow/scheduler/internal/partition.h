@@ -227,14 +227,14 @@ OutputIt BLDM(InputIt first, InputIt last, OutputIt result, F func, Proj proj,
                    solutions.top().subsets().end(), result);
 }
 
-// Partition()
+// partition()
 //
 // Partitions the given items in the range [`first`, `last`) into `m` subsets
 // where each subset contains items with `func` applied, which are evaluated as
 // their projected values through `proj`. The resulting subsets are stored in an
 // output range starting from `result`.
 template <typename InputIt, typename OutputIt, typename F, typename Proj>
-OutputIt Partition(InputIt first, InputIt last, OutputIt result, F func,
+OutputIt partition(InputIt first, InputIt last, OutputIt result, F func,
                    Proj proj,
                    typename std::iterator_traits<InputIt>::difference_type m) {
   return BLDM(first, last, result, func, proj, m);

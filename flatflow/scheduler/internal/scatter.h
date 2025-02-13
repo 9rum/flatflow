@@ -26,13 +26,13 @@
 namespace flatflow {
 namespace internal {
 
-// Scatter()
+// scatter()
 //
 // Distributes the given items in the range [`first`, `last`) into `m` subsets.
 // The items can be grouped in a strided manner, and the resulting subsets are
 // stored in another range beginning at `result`, also in a strided manner.
 template <typename InputIt, typename OutputIt, typename F, typename Proj>
-OutputIt Scatter(
+OutputIt scatter(
     InputIt first, InputIt last, OutputIt result, F func, Proj proj,
     typename std::iterator_traits<InputIt>::difference_type m,
     typename std::iterator_traits<InputIt>::difference_type stride) {
@@ -51,7 +51,7 @@ OutputIt Scatter(
   for (typename std::iterator_traits<InputIt>::difference_type offset = 0;
        offset < n; offset += stride) {
     const auto d_first = std::next(result, offset / stride * m);
-    const auto d_last = Partition(
+    const auto d_last = partition(
         std::next(first, offset),
         std::next(first, std::min(offset + stride, n)), d_first, func, proj, m);
 

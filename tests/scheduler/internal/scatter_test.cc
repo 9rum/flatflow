@@ -37,7 +37,7 @@ TEST(ScatterTest, ScatterWithEmptySubsets) {
   auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
   auto batches = std::vector<flatflow::internal::Subset<
       uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>();
-  const auto result = flatflow::internal::Scatter(
+  const auto result = flatflow::internal::scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },
       [](auto subset) { return subset.sum(); }, kWorldSize,
@@ -65,7 +65,7 @@ TEST(ScatterTest, ScatterWithoutRemainder) {
 
   auto batches = std::vector<flatflow::internal::Subset<
       uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>(kNumBatches);
-  const auto result = flatflow::internal::Scatter(
+  const auto result = flatflow::internal::scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },
       [](auto subset) { return subset.sum(); }, kWorldSize,
@@ -100,7 +100,7 @@ TEST(ScatterTest, ScatterWithRemainder) {
 
   auto batches = std::vector<flatflow::internal::Subset<
       uint32_t, flatflow::internal::Subset<uint32_t, size_t>>>(kNumBatches);
-  const auto result = flatflow::internal::Scatter(
+  const auto result = flatflow::internal::scatter(
       subsets.begin(), subsets.end(), batches.begin(),
       [](auto subset) { return subset; },
       [](auto subset) { return subset.sum(); }, kWorldSize,

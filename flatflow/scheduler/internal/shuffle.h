@@ -26,7 +26,7 @@
 namespace flatflow {
 namespace internal {
 
-// Shuffle()
+// shuffle()
 //
 // After partitioning, a `flatflow::Scheduler<>` shuffles between batches, which
 // we call inter-batch shuffling. This enables shuffling not only between data
@@ -34,7 +34,7 @@ namespace internal {
 // same pseudo-random number generator and random seed as `flatflow::Dataset<>`
 // for deterministic shuffling.
 template <typename RandomIt>
-void Shuffle(RandomIt first, RandomIt last, std::mt19937::result_type seed) {
+void shuffle(RandomIt first, RandomIt last, std::mt19937::result_type seed) {
   const auto m = std::distance(first, last);
 
   // The inter-batch shuffling first groups subsets (i.e., micro-batches) with

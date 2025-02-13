@@ -51,7 +51,7 @@ class PartitionTest : public testing::Test {
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
   auto items = std::vector<std::pair<const uint32_t, size_t>>();
   auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
-  const auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return item.first; }, 0);
@@ -88,7 +88,7 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
 
   auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>(
       kNumMicroBatches);
-  const auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return item.first; }, kNumMicroBatches);
@@ -137,7 +137,7 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
 
   auto subsets =
       std::vector<flatflow::internal::Subset<double, size_t>>(kNumMicroBatches);
-  const auto result = flatflow::internal::Partition(
+  const auto result = flatflow::internal::partition(
       items.begin(), items.end(), subsets.begin(),
       [](const auto &item) { return item.second; },
       [](const auto &item) { return static_cast<double>(item.first); },
