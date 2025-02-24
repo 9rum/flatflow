@@ -14,7 +14,7 @@
 
 #include <pybind11/pybind11.h>
 
-#include "flatflow/rpc/communicator.h"
+#include "flatflow/rpc/controlplane.h"
 
 PYBIND11_MODULE(_C, m) {
   // This may bind `flatflow::run` to `flatflow._C.run` in the Python frontend.

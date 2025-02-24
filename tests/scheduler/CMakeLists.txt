@@ -22,20 +22,14 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   scheduler_test
-  PRIVATE absl::btree
-  PRIVATE absl::inlined_vector
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
-  PRIVATE BLAS::BLAS
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  target_link_libraries(
-    scheduler_test
-    PRIVATE TBB::tbb)
-endif()
 target_compile_options(
   scheduler_test
   PRIVATE -Wall -Wextra)

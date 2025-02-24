@@ -12,34 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+include "flatflow/ops/graph.fbs";
 include "flatflow/rpc/empty.fbs";
 
 namespace flatflow;
 
 table InitRequest {
   global_batch_size: ulong;
-  hidden_size:       ulong;
   micro_batch_size:  ulong;
-  order:             ulong;
-  rank:              ulong;
-  seed:              ulong;
-  sizes:             [ushort];
-  heterogeneous:     bool;
-  use_flat_shuffle:  bool;
+  graph:             Graph;
+  sizes:             [uint];
 }
 
 table BroadcastRequest {
-  epoch: ulong;
-  rank:  ulong;
-  costs: [double];
+  epoch:   ulong;
+  rank:    ulong;
+  indices: [ulong];
 }
 
 table BroadcastResponse {
-  indices:   [ulong] (required);
-  converged: bool;
+  indices: [ulong] (required);
 }
 
-rpc_service Communicator {
+rpc_service ControlPlane {
   /// RPC for initializing training environment.
   Init(InitRequest): Empty;
 

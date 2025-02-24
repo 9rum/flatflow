@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# CMake 3.18 is the minimum supported version to use imported target for BLAS.
-cmake_minimum_required(VERSION 3.18)
+# As of GoogleTest v1.14.0, CMake 3.13 is the minimum supported version.
+cmake_minimum_required(VERSION 3.13)
 
 project(flatflow LANGUAGES CXX)
 
@@ -25,16 +25,7 @@ option(FLATFLOW_ENABLE_UBSAN "If ON, enable UndefinedBehaviorSanitizer" OFF)
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED)
-
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  # Intel has contributed to PSTL headers with a dependency on tbb/task.h, then
-  # deprecated it in a later TBB release. One has to either use an older version
-  # of TBB or suppress the warning by defining TBB_SUPPRESS_DEPRECATED_MESSAGES.
-  find_package(TBB REQUIRED)
-  add_compile_definitions(TBB_SUPPRESS_DEPRECATED_MESSAGES)
-endif()
 
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)

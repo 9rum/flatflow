@@ -15,6 +15,10 @@
 #include "flatflow/scheduler/internal/partition.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <random>
 #include <utility>
 #include <vector>
@@ -39,78 +43,103 @@ class PartitionTest : public testing::Test {
     }
   }
 
-  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
-  static constexpr auto kNumMicroBatches = static_cast<std::size_t>(1 << 12);
+  static constexpr auto kMicroBatchSize = static_cast<size_t>(1 << 3);
+  static constexpr auto kNumMicrobatches = static_cast<size_t>(1 << 12);
 };
 
-TEST_F(PartitionTest, KarmarkarKarpWithGaltonIntegerDistribution) {
-  auto distribution = std::lognormal_distribution(5.252, 0.293);
-  auto generator = std::default_random_engine();
-
-  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
-  items.reserve(kMicroBatchSize * kNumMicroBatches);
-
-  while (items.size() < items.capacity()) {
-    const auto size = distribution(generator);
-    if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint16_t>(std::lround(size));
-      const auto index = static_cast<uint64_t>(items.size());
-      items.emplace_back(makespan, index);
-    }
-  }
-  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
-    return lhs.first < rhs.first;
-  });
-
-  const auto micro_batches = flatflow::internal::KarmarkarKarp(
-      items, static_cast<uint64_t>(kNumMicroBatches),
-      [](const auto &size) { return static_cast<uint32_t>(size); });
-
-  auto makespans = std::vector<uint32_t>();
-  makespans.reserve(kNumMicroBatches);
-
-  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  for (const auto &[makespan, micro_batch] : micro_batches) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-    makespans.emplace_back(makespan);
-  }
-
-  LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
+TEST_F(PartitionTest, BLDMWithEmptyItems) {
+  auto items = std::vector<std::pair<uint32_t, size_t>>();
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
+  const auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return item.first; },
+      [](const auto &item) { return item.second; }, 0);
+  EXPECT_TRUE(subsets.empty());
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
 }
 
-TEST_F(PartitionTest, KarmarkarKarpWithGaltonRealDistribution) {
+TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint16_t, uint64_t>>();
-  items.reserve(kMicroBatchSize * kNumMicroBatches);
+  auto items = std::vector<std::pair<uint32_t, size_t>>();
+  items.reserve(kMicroBatchSize * kNumMicrobatches);
 
   while (items.size() < items.capacity()) {
     const auto size = distribution(generator);
     if (0.5 <= size && size < 8192.5) {
-      const auto makespan = static_cast<uint16_t>(std::lround(size));
-      const auto index = static_cast<uint64_t>(items.size());
-      items.emplace_back(makespan, index);
+      const auto workload = std::lround(size);
+      const auto index = items.size();
+      items.emplace_back(workload, index);
     }
   }
+
   std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
     return lhs.first < rhs.first;
   });
 
-  const auto micro_batches = flatflow::internal::KarmarkarKarp(
-      items, static_cast<uint64_t>(kNumMicroBatches),
-      [](const auto &size) { return static_cast<double>(size); });
+  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>(
+      kNumMicrobatches);
+  const auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return item.first; },
+      [](const auto &item) { return item.second; }, kNumMicrobatches);
+  EXPECT_EQ(subsets.size(), kNumMicrobatches);
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
 
-  auto makespans = std::vector<double>();
-  makespans.reserve(kNumMicroBatches);
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
-  EXPECT_EQ(micro_batches.size(), kNumMicroBatches);
-  for (const auto &[makespan, micro_batch] : micro_batches) {
-    EXPECT_EQ(micro_batch.size(), kMicroBatchSize);
-    makespans.emplace_back(makespan);
+  auto workloads = std::vector<uint32_t>();
+  workloads.reserve(kNumMicrobatches);
+
+  std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
+    EXPECT_EQ(subset.items().size(), kMicroBatchSize);
+    workloads.emplace_back(subset.sum());
+  });
+
+  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
+}
+
+TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
+  auto distribution = std::lognormal_distribution(5.252, 0.293);
+  auto generator = std::default_random_engine();
+
+  auto items = std::vector<std::pair<uint32_t, size_t>>();
+  items.reserve(kMicroBatchSize * kNumMicrobatches);
+
+  while (items.size() < items.capacity()) {
+    const auto size = distribution(generator);
+    if (0.5 <= size && size < 8192.5) {
+      const auto workload = std::lround(size);
+      const auto index = items.size();
+      items.emplace_back(workload, index);
+    }
   }
 
-  LOG(INFO) << absl::StrFormat("Makespans: %s", absl::StrJoin(makespans, " "));
+  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
+    return lhs.first < rhs.first;
+  });
+
+  auto subsets =
+      std::vector<flatflow::internal::Subset<double, size_t>>(kNumMicrobatches);
+  const auto result = flatflow::internal::Partition(
+      items.begin(), items.end(), subsets.begin(),
+      [](const auto &item) { return static_cast<double>(item.first); },
+      [](const auto &item) { return item.second; }, kNumMicrobatches);
+  EXPECT_EQ(subsets.size(), kNumMicrobatches);
+  EXPECT_EQ(std::distance(result, subsets.end()), 0);
+
+  EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
+
+  auto workloads = std::vector<double>();
+  workloads.reserve(kNumMicrobatches);
+
+  std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
+    EXPECT_EQ(subset.items().size(), kMicroBatchSize);
+    workloads.emplace_back(subset.sum());
+  });
+
+  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
 }
 
 }  // namespace

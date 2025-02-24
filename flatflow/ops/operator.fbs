@@ -1,0 +1,59 @@
+// Copyright 2024 The FlatFlow Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+namespace flatflow;
+
+/// This table defines the operator set to identify operations in the
+/// computational graph of a given model. It is based on ATen operator set,
+/// so that each entry corresponds to the basic building block in the
+/// computational graph while ensuring compatibility with PyTorch.
+///
+/// The latest version of ATen operator set can be found at
+/// https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml
+/// or by running `python3 -c "import torch; print(dir(torch.ops.aten))"`.
+///
+/// Note that this operator set is under development and more operators
+/// will be added in the future.
+enum Operator: ushort {
+  _SOFTMAX,           // _softmax
+  _TO_COPY,           // _to_copy
+  _UNSAFE_VIEW,       // _unsafe_view
+  ADD_TENSOR,         // add.Tensor
+  ARANGE,             // arange
+  ARANGE_START,       // arange.start
+  BMM,                // bmm
+  CAT,                // cat
+  CLONE,              // clone
+  COS,                // cos
+  EMBEDDING,          // embedding
+  EXPAND,             // expand
+  FULL,               // full
+  GT_TENSOR,          // gt.Tensor
+  MEAN_DIM,           // mean.dim
+  MM,                 // mm
+  MUL_SCALAR,         // mul.Scalar
+  MUL_TENSOR,         // mul.Tensor
+  NEG,                // neg
+  POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
+  RSQRT,              // rsqrt
+  SILU,               // silu
+  SIN,                // sin
+  SLICE_TENSOR,       // slice.Tensor
+  SYM_SIZE_INT,       // sym_size.int
+  T,                  // t
+  TRANSPOSE_INT,      // transpose.int
+  TRIU,               // triu
+  UNSQUEEZE,          // unsqueeze
+  VIEW,               // view
+}

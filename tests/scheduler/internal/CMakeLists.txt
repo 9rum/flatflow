@@ -13,70 +13,6 @@
 # limitations under the License.
 
 add_executable(
-  concat_test
-  concat_test.cc)
-target_include_directories(
-  concat_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(
-  concat_test
-  PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  concat_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    concat_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    concat_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    concat_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    concat_test
-    PRIVATE -fsanitize=undefined)
-endif()
-gtest_add_tests(
-  TARGET concat_test)
-
-add_executable(
-  extract_test
-  extract_test.cc)
-target_include_directories(
-  extract_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(
-  extract_test
-  PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  extract_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    extract_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    extract_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    extract_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    extract_test
-    PRIVATE -fsanitize=undefined)
-endif()
-gtest_add_tests(
-  TARGET extract_test)
-
-add_executable(
   partition_test
   partition_test.cc)
 target_include_directories(
@@ -84,16 +20,11 @@ target_include_directories(
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   partition_test
+  PRIVATE absl::check
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
-  PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  target_link_libraries(
-    partition_test
-    PRIVATE TBB::tbb)
-endif()
+  PRIVATE GTest::gtest_main)
 target_compile_options(
   partition_test
   PRIVATE -Wall -Wextra)
@@ -117,69 +48,34 @@ gtest_add_tests(
   TARGET partition_test)
 
 add_executable(
-  reshape_test
-  reshape_test.cc)
+  scatter_test
+  scatter_test.cc)
 target_include_directories(
-  reshape_test
+  scatter_test
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
-  reshape_test
+  scatter_test
+  PRIVATE absl::check
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
 target_compile_options(
-  reshape_test
+  scatter_test
   PRIVATE -Wall -Wextra)
 if(FLATFLOW_ENABLE_ASAN)
   target_compile_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=address)
   target_link_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=address)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=undefined)
   target_link_options(
-    reshape_test
+    scatter_test
     PRIVATE -fsanitize=undefined)
 endif()
 gtest_add_tests(
-  TARGET reshape_test)
-
-add_executable(
-  shuffle_test
-  shuffle_test.cc)
-target_include_directories(
-  shuffle_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_libraries(
-  shuffle_test
-  PRIVATE GTest::gtest_main)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  target_link_libraries(
-    shuffle_test
-    PRIVATE TBB::tbb)
-endif()
-target_compile_options(
-  shuffle_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    shuffle_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    shuffle_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    shuffle_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    shuffle_test
-    PRIVATE -fsanitize=undefined)
-endif()
-gtest_add_tests(
-  TARGET shuffle_test)
+  TARGET scatter_test)

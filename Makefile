@@ -24,20 +24,26 @@ all:
 		$(MAKE)
 
 generate:
-	@mkdir -p tmp && \
-		mv flatflow/__init__.py tmp && \
+	@mkdir -p tmp/ops && \
+		mkdir -p tmp/rpc && \
+		mv flatflow/ops/__init__.py tmp/ops && \
+		mv flatflow/rpc/__init__.py tmp/rpc && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums --no-emit-min-max-enum-values flatflow/ops/operator.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/node.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/node.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/graph.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix flatflow/rpc/communicator.fbs && \
-		./build/third_party/flatbuffers/flatc -p flatflow/rpc/empty.fbs && \
-		./build/third_party/flatbuffers/flatc -p --grpc -I . flatflow/rpc/communicator.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o tests/data tests/data/dataset_test.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o tests/scheduler tests/scheduler/scheduler_test.fbs && \
-		mv tmp/__init__.py flatflow && \
-		mv flatflow/BroadcastRequest.py flatflow/rpc && \
-		mv flatflow/BroadcastResponse.py flatflow/rpc && \
-		mv flatflow/Empty.py flatflow/rpc && \
-		mv flatflow/InitRequest.py flatflow/rpc && \
-		mv flatflow/communicator_grpc_fb.py flatflow/rpc && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc --gen-onefile --python-typing flatflow/rpc/empty.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --grpc --keep-prefix flatflow/rpc/controlplane.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc -I . --grpc --gen-onefile --python-typing --grpc-python-typed-handlers --grpc-filename-suffix _fb flatflow/rpc/controlplane.fbs && \
+		mv tmp/ops/__init__.py flatflow/ops && \
+		mv tmp/rpc/__init__.py flatflow/rpc && \
+		rm flatflow/ops/Operator.py && \
+		rm flatflow/rpc/Operator.py && \
+		rmdir tmp/ops && \
+		rmdir tmp/rpc && \
 		rmdir tmp
 
 test:

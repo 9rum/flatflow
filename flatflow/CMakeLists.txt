@@ -14,27 +14,37 @@
 
 pybind11_add_module(
   _C
-  rpc/communicator.grpc.fb.cc
+  rpc/controlplane.grpc.fb.cc
   pybind.cc)
 target_include_directories(
   _C
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
   _C
-  PRIVATE absl::btree
-  PRIVATE absl::inlined_vector
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
   PRIVATE absl::log
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
-  PRIVATE BLAS::BLAS
   PRIVATE flatbuffers
   PRIVATE gRPC::grpc++
   PRIVATE OpenMP::OpenMP_CXX)
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-  target_link_libraries(
-    _C
-    PRIVATE TBB::tbb)
-endif()
 target_compile_options(
   _C
   PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    _C
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    _C
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    _C
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    _C
+    PRIVATE -fsanitize=undefined)
+endif()

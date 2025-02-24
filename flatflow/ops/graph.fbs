@@ -1,4 +1,4 @@
-// Copyright 2024 The FlatFlow Authors
+// Copyright 2025 The FlatFlow Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-table Sizes {
-  data: [ushort];
-}
+include "flatflow/ops/node.fbs";
 
-root_type Sizes;
+namespace flatflow;
+
+/// `Graph` is the main data structure for tracing a given model at the
+/// intermediate representation (IR) level. It consists of a series of `Node`s,
+/// each representing callsites such as opcode and the input/output shapes of
+/// the corresponding operator.
+table Graph {
+  nodes: [Node];
+}

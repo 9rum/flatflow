@@ -9,7 +9,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 extend-exclude = ["third_party"]
-line-length = 120
 target-version = "py39"
 
 [tool.ruff.format]

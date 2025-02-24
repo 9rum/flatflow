@@ -1,0 +1,40 @@
+// Copyright 2025 The FlatFlow Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+include "flatflow/ops/operator.fbs";
+
+namespace flatflow;
+
+/// `SymInt` records a value within the symbolic shape of a tensor.
+table SymInt {
+  coef0: long;  // constant
+  coef1: long;  // linear
+}
+
+/// `TensorMetadata` is a structure containing pertinent information
+/// about a tensor within a PyTorch program.
+table TensorMetadata {
+  shape: [SymInt];
+}
+
+/// `Node` is a data structure that represents individual operations in the
+/// computational graph. Each node contains an opcode identifying operators
+/// and the input/output shapes of the operator. Unlike `torch.fx.Node`,
+/// this excludes operations that are not ATen operators; i.e., operations
+/// that are not the target of `call_function`.
+table Node {
+  op:   Operator;
+  args: [TensorMetadata];
+  meta: TensorMetadata;
+}
