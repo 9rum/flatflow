@@ -3,21 +3,6 @@ FROM quay.io/pypa/manylinux_2_28_x86_64
 # This should be consistent with the gRPC version in requirements.txt.
 ARG GRPC_VERSION=1.67.1
 
-RUN echo -e "[oneAPI]\n\
-name=Intel® oneAPI repository\n\
-baseurl=https://yum.repos.intel.com/oneapi\n\
-enabled=1\n\
-gpgcheck=1\n\
-repo_gpgcheck=1\n\
-gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB" > /etc/yum.repos.d/oneAPI.repo
-
-RUN rpm --import https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
-    dnf update -y && \
-    dnf install -y intel-basekit && \
-    dnf autoremove && \
-    dnf clean all && \
-    ln -s /opt/intel/oneapi/mkl/latest/include/mkl_cblas.h /usr/include/cblas.h
-
 WORKDIR /workspace
 
 RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
@@ -42,8 +27,7 @@ WORKDIR /workspace/flatflow
 
 COPY . .
 
-RUN source /opt/intel/oneapi/setvars.sh && \
-    for PYTHON_VERSION in 3.9 3.10 3.11 3.12 3.13; \
+RUN for PYTHON_VERSION in 3.9 3.10 3.11 3.12 3.13; \
     do \
       python$PYTHON_VERSION -m build -w && \
       rm -rf build flatflow.egg-info; \

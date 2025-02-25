@@ -21,7 +21,7 @@ table InitRequest {
   global_batch_size: ulong;
   micro_batch_size:  ulong;
   graph:             Graph;
-  sizes:             [uint];
+  sizes:             [uint] (required);
 }
 
 table BroadcastRequest {

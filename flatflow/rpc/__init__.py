@@ -1,11 +1,7 @@
-from flatflow._C import run
-from flatflow.rpc.BroadcastResponse import BroadcastResponse
-from flatflow.rpc.communicator import CommunicatorClient
-from flatflow.rpc.Empty import Empty
+from flatflow._C import run  # type: ignore[attr-defined]
+from flatflow.rpc.controlplane import ControlPlaneClient
 
 __all__ = [
-    "BroadcastResponse",
-    "CommunicatorClient",
-    "Empty",
+    "ControlPlaneClient",
     "run",
 ]

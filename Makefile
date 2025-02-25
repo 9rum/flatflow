@@ -36,8 +36,8 @@ generate:
 		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc --gen-onefile --python-typing flatflow/rpc/empty.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --grpc --keep-prefix flatflow/rpc/controlplane.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc -I . --grpc --gen-onefile --python-typing --grpc-python-typed-handlers --grpc-filename-suffix _fb flatflow/rpc/controlplane.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix --grpc flatflow/rpc/controlplane.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc -I . --gen-onefile --python-typing --grpc --grpc-filename-suffix _fb flatflow/rpc/controlplane.fbs && \
 		mv tmp/ops/__init__.py flatflow/ops && \
 		mv tmp/rpc/__init__.py flatflow/rpc && \
 		rm flatflow/ops/Operator.py && \
