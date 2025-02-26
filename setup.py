@@ -58,7 +58,6 @@ class BuildExtension(build_ext):
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={outdir}",
             f"-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={self.build_temp}",
             f"-DPython_EXECUTABLE={sys.executable}",
-            f"-DPython3_EXECUTABLE={sys.executable}",
             *ext.cmake_args,
         ]
         cmd = " ".join(args)

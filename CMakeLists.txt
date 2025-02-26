@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# As of GoogleTest v1.14.0, CMake 3.13 is the minimum supported version.
-cmake_minimum_required(VERSION 3.13)
+# This should be consistent with the CMake version in pyproject.toml.
+cmake_minimum_required(VERSION 3.16)
 
 project(flatflow LANGUAGES CXX)
 
