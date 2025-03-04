@@ -128,8 +128,8 @@ class Scheduler {
   //
   // CAVEATS
   //
-  // This scheduler implementation partially reorders the training sequence
-  // at the granularity of batch, which we call partial reordering.
+  // This scheduler implementation iteratively reorders the training sequence
+  // at the granularity of mini-batch, which we call iterative reordering.
   // This may produce somewhat suboptimal training performance due to the
   // constraints in optimization scope, yet still maintains the as-if rule;
   // the observable behavior of the model before and after reordering is

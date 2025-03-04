@@ -20,7 +20,6 @@
 #include <cstdint>
 #include <functional>
 #include <numeric>
-#include <utility>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
@@ -80,8 +79,9 @@ symbolic_trace_impl<Operator::_SOFTMAX>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -149,8 +149,9 @@ symbolic_trace_impl<Operator::ADD_TENSOR>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -219,35 +220,41 @@ symbolic_trace_impl<Operator::BMM>(
   // i.e., 2 x b x n x m x p FLOPs.
   auto b = shape0->Get(0);
   CHECK_NE(b, nullptr);
+  CHECK_NE(b->data(), nullptr);
 
   // The first dimension of `self` and `mat2` must be symbolically identical.
   CHECK_NE(shape1->Get(0), nullptr);
-  CHECK_EQ(b->coef0(), shape1->Get(0)->coef0());
-  CHECK_EQ(b->coef1(), shape1->Get(0)->coef1());
+  CHECK_NE(shape1->Get(0)->data(), nullptr);
+  CHECK_EQ(b->data()->Get(0), shape1->Get(0)->data()->Get(0));
+  CHECK_EQ(b->data()->Get(1), shape1->Get(0)->data()->Get(1));
 
   auto n = shape0->Get(1);
   CHECK_NE(n, nullptr);
+  CHECK_NE(n->data(), nullptr);
   auto m = shape0->Get(2);
   CHECK_NE(m, nullptr);
+  CHECK_NE(m->data(), nullptr);
 
   // The last dimension of `self` and the middle dimension of `mat2` must be
   // symbolically identical.
   CHECK_NE(shape1->Get(1), nullptr);
-  CHECK_EQ(m->coef0(), shape1->Get(1)->coef0());
-  CHECK_EQ(m->coef1(), shape1->Get(1)->coef1());
+  CHECK_NE(shape1->Get(1)->data(), nullptr);
+  CHECK_EQ(m->data()->Get(0), shape1->Get(1)->data()->Get(0));
+  CHECK_EQ(m->data()->Get(1), shape1->Get(1)->data()->Get(1));
 
   auto p = shape1->Get(2);
   CHECK_NE(p, nullptr);
+  CHECK_NE(p->data(), nullptr);
 
   // coef4 is actually zero, since at least one of b, n, m, p is a constant.
   const auto poly = internal::polynomial<OperatorRegistryBase::value_type>(
-                        b->coef0(), b->coef1()) *
+                        b->data()->Get(0), b->data()->Get(1)) *
                     internal::polynomial<OperatorRegistryBase::value_type>(
-                        n->coef0(), n->coef1()) *
+                        n->data()->Get(0), n->data()->Get(1)) *
                     internal::polynomial<OperatorRegistryBase::value_type>(
-                        m->coef0(), m->coef1()) *
+                        m->data()->Get(0), m->data()->Get(1)) *
                     internal::polynomial<OperatorRegistryBase::value_type>(
-                        p->coef0(), p->coef1());
+                        p->data()->Get(0), p->data()->Get(1));
 
   return poly << 1;
 }
@@ -390,8 +397,9 @@ symbolic_trace_impl<Operator::MEAN_DIM>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -425,24 +433,28 @@ symbolic_trace_impl<Operator::MM>(
   // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
   auto n = shape0->Get(0);
   CHECK_NE(n, nullptr);
+  CHECK_NE(n->data(), nullptr);
   auto m = shape0->Get(1);
   CHECK_NE(m, nullptr);
+  CHECK_NE(m->data(), nullptr);
 
   // The last dimension of `self` and the first dimension of `mat2` must be
   // symbolically identical.
   CHECK_NE(shape1->Get(0), nullptr);
-  CHECK_EQ(m->coef0(), shape1->Get(0)->coef0());
-  CHECK_EQ(m->coef1(), shape1->Get(0)->coef1());
+  CHECK_NE(shape1->Get(0)->data(), nullptr);
+  CHECK_EQ(m->data()->Get(0), shape1->Get(0)->data()->Get(0));
+  CHECK_EQ(m->data()->Get(1), shape1->Get(0)->data()->Get(1));
 
   auto p = shape1->Get(1);
   CHECK_NE(p, nullptr);
+  CHECK_NE(p->data(), nullptr);
 
   const auto poly = internal::polynomial<OperatorRegistryBase::value_type>(
-                        n->coef0(), n->coef1()) *
+                        n->data()->Get(0), n->data()->Get(1)) *
                     internal::polynomial<OperatorRegistryBase::value_type>(
-                        m->coef0(), m->coef1()) *
+                        m->data()->Get(0), m->data()->Get(1)) *
                     internal::polynomial<OperatorRegistryBase::value_type>(
-                        p->coef0(), p->coef1());
+                        p->data()->Get(0), p->data()->Get(1));
 
   return poly << 1;
 }
@@ -468,8 +480,9 @@ symbolic_trace_impl<Operator::MUL_SCALAR>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -504,8 +517,9 @@ symbolic_trace_impl<Operator::MUL_TENSOR>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -532,8 +546,9 @@ symbolic_trace_impl<Operator::NEG>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -561,8 +576,9 @@ symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -593,8 +609,9 @@ symbolic_trace_impl<Operator::RSQRT>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -622,8 +639,9 @@ symbolic_trace_impl<Operator::SILU>(
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= internal::polynomial<OperatorRegistryBase::value_type>(
-        shape->Get(index)->coef0(), shape->Get(index)->coef1());
+        shape->Get(index)->data()->Get(0), shape->Get(index)->data()->Get(1));
   }
 
   return poly;
@@ -893,8 +911,8 @@ class OperatorRegistry : public OperatorRegistryBase {
 
 // flatflow::symbolic_trace()
 //
-// Generates a forwarding call wrapper for a function that evaluates the FLOPs
-// of the graph for a given size upon forward call.
+// Generates a perfect forwarding call wrapper for a function that evaluates
+// FLOPs of the graph for a given size upon forward call.
 decltype(auto) symbolic_trace(const Graph *graph) {
   CHECK_NE(graph, nullptr);
 
@@ -916,7 +934,7 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
     auto node = nodes->Get(index);
     CHECK_NE(node, nullptr);
-    poly += registry.dispatch(node->op(), node->args(), node->meta());
+    poly += registry.dispatch(node->target(), node->args(), node->meta());
   }
 
   LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);

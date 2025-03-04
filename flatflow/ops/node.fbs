@@ -17,9 +17,8 @@ include "flatflow/ops/operator.fbs";
 namespace flatflow;
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
-table SymInt {
-  coef0: long;  // constant
-  coef1: long;  // linear
+struct SymInt {
+  data: [long:2];
 }
 
 /// `TensorMetadata` is a structure containing pertinent information
@@ -31,10 +30,10 @@ table TensorMetadata {
 /// `Node` is a data structure that represents individual operations in the
 /// computational graph. Each node contains an opcode identifying operators
 /// and the input/output shapes of the operator. Unlike `torch.fx.Node`,
-/// this excludes operations that are not ATen operators; i.e., operations
-/// that are not the target of `call_function`.
+/// this excludes operations other than callsites to ATen operators;
+/// i.e., operations whose `op` property are not `call_function`.
 table Node {
-  op:   Operator;
-  args: [TensorMetadata];
-  meta: TensorMetadata;
+  target: Operator;
+  args:   [TensorMetadata];
+  meta:   TensorMetadata;
 }
