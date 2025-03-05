@@ -17,6 +17,7 @@
 import contextlib
 from typing import Iterator, List, Union
 
+import nvtx
 import torch
 from torch.autograd.variable import Variable
 
@@ -198,6 +199,7 @@ def forward_step(
     compute_profiler = None,
     memory_profiler = None,
     global_microbatch_id = None,
+    forward_only=False,
 ):
     """Forward step for passed-in model.
 
@@ -266,7 +268,8 @@ def forward_step(
             The memory profiler. Defaults to None.
         global_microbatch_id (int, optional):
             Global microbatch id to track current microbatch id. Defaults to None.
-
+        forward_only (bool, optional):
+            Whether it is training or else. Defaults to False.
     Returns:
         Tensor or list[Tensor]: The output object(s) from the forward step.
         Tensor: The number of tokens.
@@ -293,10 +296,10 @@ def forward_step(
         context_manager = contextlib.nullcontext()
     with context_manager:
         if checkpoint_activations_microbatch is None:
-            output_tensor, loss_func = forward_step_func(data_iterator, model, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id)
+            output_tensor, loss_func = forward_step_func(data_iterator, model, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only)
         else:
             output_tensor, loss_func = forward_step_func(
-                data_iterator, model, checkpoint_activations_microbatch, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id
+                data_iterator, model, checkpoint_activations_microbatch, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only
             )
 
     num_tokens = torch.tensor(0, dtype=torch.int)
@@ -349,7 +352,7 @@ def forward_step(
     return [output_tensor], num_tokens
 
 
-def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=None, memory_profiler=None, global_microbatch_id=None):
+def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=None, memory_profiler=None, global_microbatch_id=None, forward_only=False):
     """Backward step through passed-in output tensor.
 
     If last stage, output_tensor_grad is None, otherwise gradient of loss
@@ -387,10 +390,21 @@ def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, c
     if memory_profiler is not None and global_microbatch_id is not None:
         memory_profiler.set_microbatch_id(global_microbatch_id)
 
-    if config.deallocate_pipeline_outputs:
-        custom_backward(output_tensor[0], output_tensor_grad[0])
+    if not forward_only:
+        nvtx_ctx = nvtx.annotate(message="backward", color="blue", domain="backward", category=f"{global_microbatch_id}")
+        nvtx_ctx.__enter__()
+        try:
+            if config.deallocate_pipeline_outputs:
+                custom_backward(output_tensor[0], output_tensor_grad[0])
+            else:
+                torch.autograd.backward(output_tensor[0], grad_tensors=output_tensor_grad[0])
+        finally:
+            nvtx_ctx.__exit__(None, None, None)
     else:
-        torch.autograd.backward(output_tensor[0], grad_tensors=output_tensor_grad[0])
+        if config.deallocate_pipeline_outputs:
+            custom_backward(output_tensor[0], output_tensor_grad[0])
+        else:
+            torch.autograd.backward(output_tensor[0], grad_tensors=output_tensor_grad[0])
 
     # Collect the grad of the input_tensor.
     input_tensor_grad = [None]
@@ -494,10 +508,11 @@ def forward_backward_no_pipelining(
                 compute_profiler=compute_profiler,
                 memory_profiler=memory_profiler,
                 global_microbatch_id=i,
+                forward_only=forward_only,
             )
             total_num_tokens += num_tokens.item()
             if not forward_only:
-                backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=i)
+                backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=i, forward_only=forward_only)
 
     # Run computation for last microbatch out of context handler (want to
     # synchronize gradients).
@@ -521,7 +536,7 @@ def forward_backward_no_pipelining(
     total_num_tokens += num_tokens.item()
 
     if not forward_only:
-        backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config,compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=num_microbatches - 1)
+        backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config,compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=num_microbatches - 1, forward_only=forward_only)
 
     if config.finalize_model_grads_func is not None and not forward_only:
         # Finalize model grads (perform full grad all-reduce / reduce-scatter for
@@ -818,6 +833,7 @@ def forward_backward_pipelining_with_interleaving(
             compute_profiler=compute_profiler,
             memory_profiler=memory_profiler,
             global_microbatch_id=global_microbatch_id,
+            forward_only=forward_only,
         )
         output_tensors[model_chunk_id].append(output_tensor)
 
@@ -850,7 +866,7 @@ def forward_backward_pipelining_with_interleaving(
         output_tensor = output_tensors[model_chunk_id].pop(0)
         output_tensor_grad = output_tensor_grads[model_chunk_id].pop(0)
         input_tensor_grad = backward_step(
-            input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id
+            input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only
         )
 
         # launch grad synchronization (custom grad sync)
@@ -1471,6 +1487,7 @@ def forward_backward_pipelining_without_interleaving(
             compute_profiler=compute_profiler,
             memory_profiler=memory_profiler,
             global_microbatch_id=f"{total_microbatch_id + i}",
+            forward_only=forward_only,
         )
         send_forward(output_tensor, send_tensor_shapes, config)
         total_num_tokens += num_tokens.item()
@@ -1516,6 +1533,7 @@ def forward_backward_pipelining_without_interleaving(
             compute_profiler=compute_profiler,
             memory_profiler=memory_profiler,
             global_microbatch_id=f"{total_microbatch_id + num_warmup_microbatches + i}",
+            forward_only=forward_only,
         )
         total_num_tokens += num_tokens.item()
 
@@ -1547,7 +1565,7 @@ def forward_backward_pipelining_without_interleaving(
                     enable_grad_sync()
 
             input_tensor_grad = backward_step(
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id= f"{output_current_microbatch_id }"
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id= f"{output_current_microbatch_id}", forward_only=forward_only,
             )
 
             if last_iteration:
@@ -1578,7 +1596,7 @@ def forward_backward_pipelining_without_interleaving(
             output_tensor_grad = recv_backward(send_tensor_shapes, config)
 
             input_tensor_grad = backward_step( 
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=f"{output_current_microbatch_id}"
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=f"{output_current_microbatch_id}", forward_only=forward_only,
             )
 
             send_backward(input_tensor_grad, recv_tensor_shapes, config)
