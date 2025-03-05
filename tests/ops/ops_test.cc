@@ -35,6 +35,11 @@ flatflow::SymInt CreateSymInt(int64_t x, int64_t y) {
   return flatflow::SymInt(flatbuffers::make_span({x, y}));
 }
 
+template <typename... Args>
+std::vector<flatflow::SymInt> CreateVectorOfSymInts(Args... args) {
+  return std::vector<flatflow::SymInt>{args...};
+}
+
 class SymbolicTraceTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -45,50 +50,50 @@ class SymbolicTraceTest : public testing::Test {
   }
 };
 
-// This test checks whether symbolic tracing works as intended for Llama 3.1.
+// This test checks whether symbolic tracing works as intended for Llama 3.
 // Specifically, this test answers the following questions:
 //
 // * Does the current implementation of operator registry support all the
-//   operators included in Llama 3.1?
+//   operators included in Llama 3?
 // * Does symbolic tracing work deterministically on the same model?
 //
-// Note that the original Llama 3.1 models have thousands of nodes when
+// Note that the original Llama 3 models have thousands of nodes when
 // converted to graphs; 3887 nodes for the 8B, 9567 nodes for the 70B.
 // This produces hundreds of thousands of lines of code when generated, severely
 // slowing down the build; 60,178 lines for the 8B, 148,226 lines for the 70B.
-// To this end, this test simulates Llama 3.1 where the operators appear only
-// once, limiting the computational graph to have only 30 nodes.
-TEST_F(SymbolicTraceTest, Llama31) {
+// To this end, this test emulates Llama 3 where the operators appear only once,
+// limiting the computational graph to have only 30 nodes.
+TEST_F(SymbolicTraceTest, Llama3) {
   auto builder = flatbuffers::FlatBufferBuilder();
 
   auto op = flatflow::Operator::EMBEDDING;
   auto sym_int0 = CreateSymInt(128256, 0);
   auto sym_int1 = CreateSymInt(8192, 0);
-  auto shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  auto shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   auto meta0 = flatflow::CreateTensorMetadata(builder, shape);
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   auto meta1 = flatflow::CreateTensorMetadata(builder, shape);
   auto args = builder.CreateVector({meta0, meta1});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   auto sym_int2 = CreateSymInt(8192, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   auto meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node0 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::SYM_SIZE_INT;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
-  shape = builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>());
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node1 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -96,21 +101,19 @@ TEST_F(SymbolicTraceTest, Llama31) {
   args = builder.CreateVector(
       std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(-7, 8);
-  shape =
-      builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>({sym_int0}));
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node2 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::UNSQUEEZE;
   sym_int0 = CreateSymInt(-7, 8);
-  shape =
-      builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>({sym_int0}));
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node3 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -119,22 +122,22 @@ TEST_F(SymbolicTraceTest, Llama31) {
       std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node4 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::TRIU;
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node5 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -142,72 +145,69 @@ TEST_F(SymbolicTraceTest, Llama31) {
   args = builder.CreateVector(
       std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(-6, 8);
-  shape =
-      builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>({sym_int0}));
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node6 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::VIEW;
   sym_int0 = CreateSymInt(-7, 8);
-  shape =
-      builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>({sym_int0}));
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node7 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::GT_TENSOR;
   sym_int0 = CreateSymInt(-6, 8);
-  shape =
-      builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>({sym_int0}));
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta1 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0, meta1});
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node8 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::MUL_TENSOR;
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta1 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0, meta1});
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(-6, 8);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node9 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::SLICE_TENSOR;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(64, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(64, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node10 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -216,14 +216,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node11 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -232,14 +232,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node12 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -248,20 +248,20 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(-7, 8);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta1 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0, meta1});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(-7, 8);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node13 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -270,14 +270,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(64, 0);
   sym_int2 = CreateSymInt(-7, 8);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(64, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node14 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -288,7 +288,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node15 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -297,14 +297,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node16 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -313,14 +313,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node17 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -329,14 +329,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(8192, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(8192, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node18 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -345,14 +345,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(8192, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node19 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -361,14 +361,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node20 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -377,47 +377,47 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node21 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::T;
   sym_int0 = CreateSymInt(8192, 0);
   sym_int1 = CreateSymInt(8192, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(8192, 0);
   sym_int1 = CreateSymInt(8192, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node22 = flatflow::CreateNode(builder, op, args, meta);
 
   op = flatflow::Operator::MM;
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(8192, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   sym_int0 = CreateSymInt(8192, 0);
   sym_int1 = CreateSymInt(8192, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta1 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0, meta1});
   sym_int0 = CreateSymInt(-7, 8);
   sym_int1 = CreateSymInt(8192, 0);
-  shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1}));
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node23 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -427,7 +427,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   auto sym_int3 = CreateSymInt(64, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
@@ -435,7 +435,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(64, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node24 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -445,8 +445,8 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(8, 0);
   sym_int3 = CreateSymInt(-7, 8);
   auto sym_int4 = CreateSymInt(128, 0);
-  shape = builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>(
-      {sym_int0, sym_int1, sym_int2, sym_int3, sym_int4}));
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
@@ -454,8 +454,8 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(8, 0);
   sym_int3 = CreateSymInt(-7, 8);
   sym_int4 = CreateSymInt(128, 0);
-  shape = builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>(
-      {sym_int0, sym_int1, sym_int2, sym_int3, sym_int4}));
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node25 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -465,8 +465,8 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(8, 0);
   sym_int3 = CreateSymInt(-7, 8);
   sym_int4 = CreateSymInt(128, 0);
-  shape = builder.CreateVectorOfStructs(std::vector<flatflow::SymInt>(
-      {sym_int0, sym_int1, sym_int2, sym_int3, sym_int4}));
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
@@ -474,7 +474,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node26 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -484,7 +484,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
@@ -492,7 +492,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node27 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -502,7 +502,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(-7, 8);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
@@ -510,7 +510,7 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int2 = CreateSymInt(-7, 8);
   sym_int3 = CreateSymInt(-7, 8);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2, sym_int3}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node28 = flatflow::CreateNode(builder, op, args, meta);
 
@@ -519,14 +519,14 @@ TEST_F(SymbolicTraceTest, Llama31) {
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(28672, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta0 = flatflow::CreateTensorMetadata(builder, shape);
   args = builder.CreateVector({meta0});
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(-7, 8);
   sym_int2 = CreateSymInt(28672, 0);
   shape = builder.CreateVectorOfStructs(
-      std::vector<flatflow::SymInt>({sym_int0, sym_int1, sym_int2}));
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
   meta = flatflow::CreateTensorMetadata(builder, shape);
   auto node29 = flatflow::CreateNode(builder, op, args, meta);
 
