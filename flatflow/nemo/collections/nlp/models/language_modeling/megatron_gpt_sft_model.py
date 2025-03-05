@@ -895,7 +895,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self._train_ds = self._build_dataset(self.cfg.data.train_ds)
         logging.info(f'Length of train dataset: {len(self._train_ds)}')
 
-    def build_data_loader(self, dataset, data_cfg, consumed_samples=0, is_train=False):
+    def build_data_loader(self, dataset, data_cfg, consumed_samples=0, is_train=False, shuffle=True):
         """Buld dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
@@ -916,6 +916,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
+                graph=prepare_ops(self.model),
+                shuffle=shuffle,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:
@@ -1191,3 +1193,37 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             return output_tensor, loss_func
 
         return fwd_output_and_loss_func
+
+def prepare_ops(model):
+    from transformers import AutoTokenizer
+
+    model_name = 'meta-llama/Llama-3.1-70B'
+    tokenizer = AutoTokenizer.from_pretrained(model_name,device_map="auto")
+
+    base_prompt = "How many hours are in a day?"
+    base_inputs = tokenizer(base_prompt, return_tensors="pt")
+
+    input_ids = base_inputs.input_ids
+    base_inputs = base_inputs
+
+    model = model.to(dtype=torch.float16).eval()  # b16 or bf16
+
+    _seq_len = torch.export.Dim('_seq_len', min=2, max=128)  # 2 <= 8*_seq_len - 7 <= 1024
+    seq_len = 8*_seq_len - 7
+    import contextlib
+
+    @contextlib.contextmanager
+    def suppress_logger_warnings():
+        from transformers.models.llama.modeling_llama import logger
+        original_warning_once = logger.warning_once
+        logger.warning_once = lambda *args, **kwargs: None
+        try:
+            yield
+        finally:
+            logger.warning_once = original_warning_once
+
+    with suppress_logger_warnings(), \
+        torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=True, enable_mem_efficient=False), \
+        torch.inference_mode():
+        model_graph = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=True)
+    return model_graph

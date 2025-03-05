@@ -16,6 +16,7 @@
 
 import os
 from typing import Optional
+import math
 
 import grpc
 import torch.distributed
@@ -23,7 +24,7 @@ from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 
 from flatflow import sys
-from flatflow.rpc import CommunicatorClient, run
+from flatflow.rpc import ControlPlaneClient, run
 from flatflow.torch.utils.data.dataset import Dataset
 
 __all__ = ["MegatronPretrainingBatchSampler"]
@@ -52,15 +53,9 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
-        order (int, optional): Indicates model complexity. (CNN: 1, transformer: 2)
-        use_flat_shuffle (bool, optional): If ``True``, then the sampler will shuffle in inter-range.
-            This will enable faster training.
         seed (int, optional): Random seed used to shuffle the sampler.
             This number should be identical across all processes in the distributed group. (default: ``0``)
-        heterogeneous (str, optional): Indicates whether cluster is heterogeneous or not.
-            Currently, only False is supported.
-        hidden_size (bool, optional): Indicates the hidden dimension size of model.
-            This is given only when order is 2.
+        shuffle (bool, optional): If ``True`` (default), sampler will shuffle the indices.
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
         profiler (Profiler, optional): Profiler object to be used for profiling the training loop.
@@ -80,12 +75,10 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         data_parallel_rank: int,
         data_parallel_size: int,
         drop_last: bool,
+        graph: torch.fx.graph,
         pad_samples_to_global_batch_size=False,
-        order: Optional[int] = 2,
-        use_flat_shuffle: bool = True,
         seed: Optional[int] = 0,
-        heterogeneous: bool = False,
-        hidden_size: Optional[int] = False,
+        shuffle: bool = True,
         port: int = 50051,
     ) -> None:
         super().__init__(
@@ -98,8 +91,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             drop_last=drop_last,
             pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
         )
-        self.order = order
-        self.use_flat_shuffle = use_flat_shuffle
         self.total_samples: int = total_samples
         self.consumed_samples: int = consumed_samples
         self.micro_batch_size: int = micro_batch_size
@@ -120,24 +111,23 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
+        self.seed = seed
+        self.shuffle = shuffle
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
-        if self.global_rank == 0:
+
+        if self.data_parallel_rank == 0:
             run(port, data_parallel_size)
-        self.client = CommunicatorClient(channel)
+
+        self.client = ControlPlaneClient(self.global_rank, channel)
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
             self.client.Init(
                 global_batch_size,
                 micro_batch_size,
-                order,
-                self.data_parallel_rank,
-                seed,
-                heterogeneous,
-                use_flat_shuffle,
-                hidden_size,
+                graph,
                 sizes if self.global_rank == 0 else None,
             )
 
@@ -152,8 +142,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
     def __iter__(self):
         indices = []
-        model_parallel_group = parallel_state.get_model_parallel_group()
-        model_parallel_group_ranks = torch.distributed.get_process_group_ranks(model_parallel_group) 
+        model_parallel_group = parallel_state.get_model_parallel_group() 
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
@@ -161,8 +150,29 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
                 break
             indices_size = [0]
+            if self.shuffle:
+                # deterministically shuffle based on epoch and seed
+                g = torch.Generator()
+                g.manual_seed(self.seed + self.epoch)
+                indices = torch.randperm(len(self.dataset), generator=g).tolist()
+            else:
+                indices = list(range(len(self.dataset)))
+
+            if not self.drop_last:
+                # add extra samples to make it evenly divisible
+                padding_size = self.total_size - len(indices)
+                if padding_size <= len(indices):
+                    indices += indices[:padding_size]
+                else:
+                    indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+            else:
+                # remove tail of data to make it evenly divisible.
+                indices = indices[: self.total_size]
+            assert len(indices) == self.total_size
+
+            # receive the reordered computation schedule from the control plane
             if is_model_parallel_src:
-                response = self.client.Broadcast(epoch=self.epoch)
+                response = self.client.Broadcast(self.epoch, indices)
                 indices = list(response.IndicesAsNumpy())
                 indices_size = [len(indices)]
 
