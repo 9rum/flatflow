@@ -17,9 +17,12 @@ from typing import Optional
 
 import flatbuffers
 import grpc
+import torch
 import torch.fx
 from numpy.typing import ArrayLike
+from torch._ops import OpOverload
 
+from flatflow.ops import *  # noqa: F403
 from flatflow.rpc.controlplane_generated import (
     BroadcastRequestAddEpoch,
     BroadcastRequestAddIndices,
@@ -29,6 +32,7 @@ from flatflow.rpc.controlplane_generated import (
     BroadcastRequestStartIndicesVector,
     BroadcastResponse,
     InitRequestAddGlobalBatchSize,
+    InitRequestAddGraph,
     InitRequestAddMicroBatchSize,
     InitRequestAddSizes,
     InitRequestEnd,
@@ -78,8 +82,87 @@ class ControlPlaneClient(object):
 
         builder = flatbuffers.Builder()
 
+        nodes = []
+
+        for node in graph.nodes:
+            if isinstance(node.target, OpOverload):
+                opcode = node.target.name()
+                assert opcode in _OPCODES, (
+                    f"{opcode} is not a supported operator.\n"
+                    "Please make sure you are using the latest version of FlatFlow\n"
+                    "or file an issue to https://github.com/9rum/flatflow/issues.\n"
+                    "The latest release can be found at https://github.com/9rum/flatflow/releases."
+                )
+                target = _OPCODES[opcode]
+
+                args = []
+
+                for arg in node.args:
+                    shape = []
+
+                    if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
+                        for maybe_sym_int in arg.meta["tensor_meta"].shape:
+                            if isinstance(maybe_sym_int, torch.SymInt):
+                                expr = maybe_sym_int.node.expr
+                                symbol = next(iter(expr.free_symbols))
+                                shape.append(
+                                    [expr.coeff(symbol, 0), expr.coeff(symbol, 1)]
+                                )
+                            else:
+                                shape.append([maybe_sym_int, 0])
+
+                    TensorMetadataStartShapeVector(builder, len(shape))
+                    for sym_int in reversed(shape):
+                        CreateSymInt(builder, sym_int)
+                    _shape = builder.EndVector()
+
+                    TensorMetadataStart(builder)
+                    TensorMetadataAddShape(builder, _shape)
+                    _arg = TensorMetadataEnd(builder)
+                    args.append(_arg)
+
+                NodeStartArgsVector(builder, len(args))
+                for arg in reversed(args):
+                    builder.PrependUOffsetTRelative(arg)
+                _args = builder.EndVector()
+
+                shape = []
+
+                if "tensor_meta" in node.meta:
+                    for maybe_sym_int in node.meta["tensor_meta"].shape:
+                        if isinstance(maybe_sym_int, torch.SymInt):
+                            expr = maybe_sym_int.node.expr
+                            symbol = next(iter(expr.free_symbols))
+                            shape.append([expr.coeff(symbol, 0), expr.coeff(symbol, 1)])
+                        else:
+                            shape.append([maybe_sym_int, 0])
+
+                TensorMetadataStartShapeVector(builder, len(shape))
+                for sym_int in reversed(shape):
+                    CreateSymInt(builder, sym_int)
+                _shape = builder.EndVector()
+
+                TensorMetadataStart(builder)
+                TensorMetadataAddShape(builder, _shape)
+                _meta = TensorMetadataEnd(builder)
+
+                NodeStart(builder)
+                NodeAddTarget(builder, target)
+                NodeAddArgs(builder, _args)
+                NodeAddMeta(builder, _meta)
+                _node = NodeEnd(builder)
+                nodes.append(_node)
+
+        GraphStartNodesVector(builder, len(nodes))
+        for node in reversed(nodes):
+            builder.PrependUOffsetTRelative(node)
+        _nodes = builder.EndVector()
+
+        GraphStart(builder)
+        GraphAddNodes(builder, _nodes)
+        _graph = GraphEnd(builder)
+
         InitRequestStartSizesVector(builder, len(sizes))
-        # Since we prepend the sizes, this loop iterates in reverse order.
         for size in reversed(sizes):
             builder.PrependUint32(size)
         _sizes = builder.EndVector()
@@ -87,7 +170,7 @@ class ControlPlaneClient(object):
         InitRequestStart(builder)
         InitRequestAddGlobalBatchSize(builder, global_batch_size)
         InitRequestAddMicroBatchSize(builder, micro_batch_size)
-        # TODO: add graph
+        InitRequestAddGraph(builder, _graph)
         InitRequestAddSizes(builder, _sizes)
         request = InitRequestEnd(builder)
         builder.Finish(request)
@@ -111,7 +194,6 @@ class ControlPlaneClient(object):
         if self.rank == 0:
             assert indices is not None
             BroadcastRequestStartIndicesVector(builder, len(indices))
-            # Since we prepend the indices, this loop iterates in reverse order.
             for index in reversed(indices):
                 builder.PrependUint64(index)
             _indices = builder.EndVector()
