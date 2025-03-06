@@ -531,7 +531,8 @@ def forward_backward_no_pipelining(
     if config.timers is not None:
         config.timers('forward-backward').stop()
 
-    total_microbatch_id += num_microbatches
+    if not forward_only:
+        total_microbatch_id += num_microbatches
 
     return forward_data_store
 
@@ -1178,7 +1179,8 @@ def forward_backward_pipelining_with_interleaving(
                     config.grad_sync_func[model_chunk_id](model[model_chunk_id].parameters())
                     synchronized_model_chunks.add(model_chunk_id)
 
-    total_microbatch_id += num_microbatches
+    if not forward_only:
+        total_microbatch_id += num_microbatches
     if config.finalize_model_grads_func is not None and not forward_only:
 
         # If defer_embedding_wgrad_compute is enabled we need to do the
@@ -1594,6 +1596,7 @@ def forward_backward_pipelining_without_interleaving(
     if config.timers is not None:
         config.timers('forward-backward').stop()
 
-    total_microbatch_id += num_microbatches
+    if not forward_only:
+        total_microbatch_id += num_microbatches
 
     return forward_data_store
