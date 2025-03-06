@@ -346,7 +346,7 @@ def forward_step(
     return [output_tensor], num_tokens
 
 
-def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=None, forward_only=False, enable_profile=False):
+def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=None, forward_only=False, enable_profile=True):
     """Backward step through passed-in output tensor.
 
     If last stage, output_tensor_grad is None, otherwise gradient of loss
@@ -444,7 +444,7 @@ def forward_backward_no_pipelining(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    enable_profile: bool = False,
+    enable_profile: bool = True,
 ):
     """Run forward and backward passes with no pipeline parallelism
     (no inter-stage communication).
@@ -588,7 +588,7 @@ def forward_backward_pipelining_with_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    enable_profile: bool = False,
+    enable_profile: bool = True,
 ):
     """Run interleaved 1F1B schedule (model split into model chunks), with
     communication between pipeline stages as needed.
@@ -1329,7 +1329,7 @@ def forward_backward_pipelining_without_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    enable_profile: bool = False,
+    enable_profile: bool = True,
 ):
     """Run non-interleaved 1F1B schedule, with communication between pipeline
     stages. Returns dictionary with losses if the last stage, empty dict otherwise."""
