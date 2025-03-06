@@ -111,10 +111,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.init_global_step = 0
 
         self.use_flatflow = cfg.get("use_flatflow", True)
-        self.use_memory_profile = cfg.get("use_memory_profile", True)
-        self.use_compute_profile = cfg.get("use_compute_profile", True)
-        self.compute_profiler = {}
-        self.memory_profiler = {}
+        self.enable_profile = cfg.get("enable_profile", True)
 
         if self.use_flatflow:
             if isinstance(self.model, list):
@@ -214,7 +211,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             return
         self.build_train_valid_test_datasets(stage=stage)
         if hasattr(self, '_train_ds'):
-            self.setup_profiler()
             self.setup_training_dataloader()
         if hasattr(self, '_validation_ds'):
             self._validation_dl = self.setup_eval_dataloader(self._validation_ds, self.cfg.data.validation_ds)
@@ -453,8 +449,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
-            compute_profiler=self.compute_profiler[self.profile_key] if self.use_compute_profile else None,
-            memory_profiler=self.memory_profiler[self.profile_key] if self.use_memory_profile else None,
+            enable_profile=self.enable_profile,
         )
 
         non_loss_tensors = {}
@@ -941,40 +936,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             persistent_workers=0 < data_cfg.num_workers,
         )
 
-    def setup_profiler(self):
-        global_rank = torch.distributed.get_rank()
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        self.generate_events()
-        self.profile_key = f"{data_parallel_rank}_{pipeline_parallel_rank}_{tensor_parallel_rank}"
-        if self.use_compute_profile:
-            self.compute_profiler[self.profile_key] = flatflow.torch.profiler.ComputeProfiler(rank=global_rank,layers=self.layer, layer_events=self.layer_event)
-        if self.use_memory_profile:
-            self.memory_profiler[self.profile_key] = flatflow.torch.profiler.MemoryProfiler(rank=global_rank,layers=self.layer, layer_events=self.layer_event)
-
-
-    def generate_events(self):
-        if isinstance(self.model, list):
-            for model in self.model:
-                for name, module in model.named_modules():
-                    self.layer[name] = module
-                    self.layer_event[name] = {
-                        "forward_pre": torch.cuda.Event(enable_timing=True),
-                        "backward_pre": torch.cuda.Event(enable_timing=True),
-                        "forward_post": torch.cuda.Event(enable_timing=True),
-                        "backward_post": torch.cuda.Event(enable_timing=True),
-                    }
-        else:
-            for name, module in self.model.named_modules():
-                self.layer[name] = module
-                self.layer_event[name] = {
-                    "forward_pre": torch.cuda.Event(enable_timing=True),
-                    "backward_pre": torch.cuda.Event(enable_timing=True),
-                    "forward_post": torch.cuda.Event(enable_timing=True),
-                    "backward_post": torch.cuda.Event(enable_timing=True),
-                }
-
     def setup_training_dataloader(self):
         if hasattr(self, '_train_ds'):
             consumed_samples = self.compute_consumed_samples(0)
@@ -1032,14 +993,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.on_validation_epoch_end()
         return super().on_train_epoch_start()
 
-    def on_train_end(self) -> None:
-        if self.use_memory_profile:
-            self.memory_profiler[self.profile_key].save_memory_log()
-        if self.use_compute_profile:
-            self.compute_profiler[self.profile_key].save_latency_log()
 
     def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
-        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, compute_profiler=None, memory_profiler=None, global_microbatch_id=None, forward_only=False):
+        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, global_microbatch_id=None, forward_only=False):
 
             # Get data batch
             batch = self.get_batch(dataloader_iter, tuning)
@@ -1112,7 +1068,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         qkv_format='thd',
                     )
 
-            if not forward_only:
+            if self.enable_profile and not forward_only:
                 nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
                 nvtx_ctx.__enter__()
                 try:

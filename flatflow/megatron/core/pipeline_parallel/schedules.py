@@ -196,8 +196,6 @@ def forward_step(
     is_first_microbatch=False,
     current_microbatch=None,
     encoder_decoder_xattn=False,
-    compute_profiler = None,
-    memory_profiler = None,
     global_microbatch_id = None,
     forward_only=False,
 ):
@@ -262,10 +260,6 @@ def forward_step(
             Whether it is the first microbatch. Defaults to False.
         current_microbatch (int, optional):
             The current microbatch. Defaults to None.
-        compute_profiler (object, optional):
-            The compute profiler. Defaults to None.
-        memory_profiler (object, optional):
-            The memory profiler. Defaults to None.
         global_microbatch_id (int, optional):
             Global microbatch id to track current microbatch id. Defaults to None.
         forward_only (bool, optional):
@@ -296,10 +290,10 @@ def forward_step(
         context_manager = contextlib.nullcontext()
     with context_manager:
         if checkpoint_activations_microbatch is None:
-            output_tensor, loss_func = forward_step_func(data_iterator, model, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only)
+            output_tensor, loss_func = forward_step_func(data_iterator, model, global_microbatch_id=global_microbatch_id, forward_only=forward_only)
         else:
             output_tensor, loss_func = forward_step_func(
-                data_iterator, model, checkpoint_activations_microbatch, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only
+                data_iterator, model, checkpoint_activations_microbatch, global_microbatch_id=global_microbatch_id, forward_only=forward_only
             )
 
     num_tokens = torch.tensor(0, dtype=torch.int)
@@ -352,7 +346,7 @@ def forward_step(
     return [output_tensor], num_tokens
 
 
-def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=None, memory_profiler=None, global_microbatch_id=None, forward_only=False):
+def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=None, forward_only=False, enable_profile=False):
     """Backward step through passed-in output tensor.
 
     If last stage, output_tensor_grad is None, otherwise gradient of loss
@@ -385,12 +379,8 @@ def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, c
     # Backward pass.
     if output_tensor_grad[0] is None and config.grad_scale_func is not None:
         output_tensor[0] = config.grad_scale_func(output_tensor[0])
-    if compute_profiler is not None and global_microbatch_id is not None:
-        compute_profiler.set_microbatch_id(global_microbatch_id)
-    if memory_profiler is not None and global_microbatch_id is not None:
-        memory_profiler.set_microbatch_id(global_microbatch_id)
 
-    if not forward_only:
+    if enable_profile and not forward_only:
         nvtx_ctx = nvtx.annotate(message="backward", color="blue", domain="backward", category=f"{global_microbatch_id}")
         nvtx_ctx.__enter__()
         try:
@@ -454,8 +444,7 @@ def forward_backward_no_pipelining(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    compute_profiler=None,
-    memory_profiler=None,
+    enable_profile: bool = False,
 ):
     """Run forward and backward passes with no pipeline parallelism
     (no inter-stage communication).
@@ -478,8 +467,6 @@ def forward_backward_no_pipelining(
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
-    if compute_profiler is not None and memory_profiler is not None:
-        config.deallocate_pipeline_outputs = False
     if config.timers is not None:
         config.timers('forward-backward', log_level=1).start(barrier=config.barrier_with_L1_time)
 
@@ -505,14 +492,12 @@ def forward_backward_no_pipelining(
                 collect_non_loss_data,
                 is_first_microbatch=check_first_val_step(first_val_step, forward_only, i == 0),
                 current_microbatch=i,
-                compute_profiler=compute_profiler,
-                memory_profiler=memory_profiler,
                 global_microbatch_id=i,
                 forward_only=forward_only,
             )
             total_num_tokens += num_tokens.item()
             if not forward_only:
-                backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=i, forward_only=forward_only)
+                backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=i, forward_only=forward_only, enable_profile=enable_profile)
 
     # Run computation for last microbatch out of context handler (want to
     # synchronize gradients).
@@ -529,14 +514,12 @@ def forward_backward_no_pipelining(
             first_val_step, forward_only, num_microbatches == 1
         ),
         current_microbatch=num_microbatches - 1,
-        compute_profiler=compute_profiler,
-        memory_profiler=memory_profiler,
         global_microbatch_id=num_microbatches - 1,
     )
     total_num_tokens += num_tokens.item()
 
     if not forward_only:
-        backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config,compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=num_microbatches - 1, forward_only=forward_only)
+        backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=num_microbatches - 1, forward_only=forward_only, enable_profile=enable_profile)
 
     if config.finalize_model_grads_func is not None and not forward_only:
         # Finalize model grads (perform full grad all-reduce / reduce-scatter for
@@ -604,8 +587,7 @@ def forward_backward_pipelining_with_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    compute_profiler=None,
-    memory_profiler=None,
+    enable_profile: bool = False,
 ):
     """Run interleaved 1F1B schedule (model split into model chunks), with
     communication between pipeline stages as needed.
@@ -619,8 +601,6 @@ def forward_backward_pipelining_with_interleaving(
 
     global total_microbatch_id
     config = get_model_config(model[0])
-    if compute_profiler is not None and memory_profiler is not None:
-        config.deallocate_pipeline_outputs = False
     if config.overlap_p2p_comm and config.batch_p2p_comm:
         raise ValueError("Can not use both overlap_p2p_comm and batch_p2p_comm")
 
@@ -786,7 +766,7 @@ def forward_backward_pipelining_with_interleaving(
         else:
             return False
 
-    def forward_step_helper(microbatch_id, current_microbatch, checkpoint_activations_microbatch, compute_profiler=None, memory_profiler=None, global_microbatch_id = None):
+    def forward_step_helper(microbatch_id, current_microbatch, checkpoint_activations_microbatch, global_microbatch_id = None):
         """Helper method to run forward step with model split into chunks
         (run set_virtual_pipeline_model_parallel_rank() before calling
         forward_step())."""
@@ -830,8 +810,6 @@ def forward_backward_pipelining_with_interleaving(
                 first_val_step, forward_only, is_first_microbatch_for_model_chunk(microbatch_id)
             ),
             current_microbatch=current_microbatch,
-            compute_profiler=compute_profiler,
-            memory_profiler=memory_profiler,
             global_microbatch_id=global_microbatch_id,
             forward_only=forward_only,
         )
@@ -847,7 +825,7 @@ def forward_backward_pipelining_with_interleaving(
 
         return output_tensor
 
-    def backward_step_helper(microbatch_id, compute_profiler=None, memory_profiler=None, global_microbatch_id=None):
+    def backward_step_helper(microbatch_id, global_microbatch_id=None):
         """Helper method to run backward step with model split into chunks
         (run set_virtual_pipeline_model_parallel_rank() before calling
         backward_step())."""
@@ -866,7 +844,7 @@ def forward_backward_pipelining_with_interleaving(
         output_tensor = output_tensors[model_chunk_id].pop(0)
         output_tensor_grad = output_tensor_grads[model_chunk_id].pop(0)
         input_tensor_grad = backward_step(
-            input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=global_microbatch_id, forward_only=forward_only
+            input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=global_microbatch_id, forward_only=forward_only, enable_profile=enable_profile
         )
 
         # launch grad synchronization (custom grad sync)
@@ -911,7 +889,7 @@ def forward_backward_pipelining_with_interleaving(
 
         current_microbatch = get_microbatch_id_in_model_chunk(k, forward=True)
         output_tensor = forward_step_helper(
-            k, current_microbatch, checkpoint_activations_microbatch, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + current_microbatch
+            k, current_microbatch, checkpoint_activations_microbatch, global_microbatch_id=total_microbatch_id + current_microbatch
         )
 
         # Determine if tensor should be received from previous stage.
@@ -1012,7 +990,7 @@ def forward_backward_pipelining_with_interleaving(
             deallocate_output_tensor(output_tensor, config.deallocate_pipeline_outputs)
 
             output_tensor = forward_step_helper(
-                forward_k, current_microbatch, checkpoint_activations_microbatch, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + current_microbatch
+                forward_k, current_microbatch, checkpoint_activations_microbatch, global_microbatch_id=total_microbatch_id + current_microbatch
             )
 
             # Determine if current stage has anything to send in either direction,
@@ -1060,7 +1038,7 @@ def forward_backward_pipelining_with_interleaving(
 
             # Backward pass.
             backward_k = k
-            input_tensor_grad = backward_step_helper(backward_k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + current_microbatch)
+            input_tensor_grad = backward_step_helper(backward_k, global_microbatch_id=total_microbatch_id + current_microbatch)
 
             backward_model_chunk_id = get_model_chunk_id(backward_k, forward=False)
             parallel_state.set_virtual_pipeline_model_parallel_rank(backward_model_chunk_id)
@@ -1092,12 +1070,12 @@ def forward_backward_pipelining_with_interleaving(
 
         else:  # no p2p overlap
             output_tensor = forward_step_helper(
-                forward_k, current_microbatch, checkpoint_activations_microbatch,  compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + current_microbatch
+                forward_k, current_microbatch, checkpoint_activations_microbatch, global_microbatch_id=total_microbatch_id + current_microbatch
             )
 
             # Backward pass.
             backward_k = k
-            input_tensor_grad = backward_step_helper(backward_k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + current_microbatch)
+            input_tensor_grad = backward_step_helper(backward_k, global_microbatch_id=total_microbatch_id + current_microbatch)
 
             # Send output_tensor and input_tensor_grad, receive input_tensor
             # and output_tensor_grad.
@@ -1178,7 +1156,7 @@ def forward_backward_pipelining_with_interleaving(
                 p2p_communication.recv_backward(tensor_shape, config=config)
             )
         for k in range(num_microbatches_remaining, total_num_microbatches):
-            input_tensor_grad = backward_step_helper(k, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=total_microbatch_id + k)
+            input_tensor_grad = backward_step_helper(k, global_microbatch_id=total_microbatch_id + k)
             next_backward_model_chunk_id = get_model_chunk_id(k + 1, forward=False)
             recv_next = True
             if parallel_state.is_pipeline_last_stage(ignore_virtual=True):
@@ -1349,8 +1327,7 @@ def forward_backward_pipelining_without_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
-    compute_profiler=None,
-    memory_profiler=None,
+    enable_profile: bool = False,
 ):
     """Run non-interleaved 1F1B schedule, with communication between pipeline
     stages. Returns dictionary with losses if the last stage, empty dict otherwise."""
@@ -1369,8 +1346,6 @@ def forward_backward_pipelining_without_interleaving(
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
-    if compute_profiler is not None and memory_profiler is not None:
-        config.deallocate_pipeline_outputs = False
     if config.overlap_p2p_comm:
         raise ValueError(
             "Non-interleaved pipeline parallelism does not support overlapping p2p communication"
@@ -1484,8 +1459,6 @@ def forward_backward_pipelining_without_interleaving(
             check_first_val_step(first_val_step, forward_only, i == 0),
             current_microbatch=i,
             encoder_decoder_xattn=encoder_decoder_xattn,
-            compute_profiler=compute_profiler,
-            memory_profiler=memory_profiler,
             global_microbatch_id=f"{total_microbatch_id + i}",
             forward_only=forward_only,
         )
@@ -1530,8 +1503,6 @@ def forward_backward_pipelining_without_interleaving(
             ),
             current_microbatch=i + num_warmup_microbatches,
             encoder_decoder_xattn=encoder_decoder_xattn,
-            compute_profiler=compute_profiler,
-            memory_profiler=memory_profiler,
             global_microbatch_id=f"{total_microbatch_id + num_warmup_microbatches + i}",
             forward_only=forward_only,
         )
@@ -1565,7 +1536,7 @@ def forward_backward_pipelining_without_interleaving(
                     enable_grad_sync()
 
             input_tensor_grad = backward_step(
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id= f"{output_current_microbatch_id}", forward_only=forward_only,
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id= f"{output_current_microbatch_id}", forward_only=forward_only, enable_profile=enable_profile
             )
 
             if last_iteration:
@@ -1596,7 +1567,7 @@ def forward_backward_pipelining_without_interleaving(
             output_tensor_grad = recv_backward(send_tensor_shapes, config)
 
             input_tensor_grad = backward_step( 
-                input_tensor, output_tensor, output_tensor_grad, model_type, config, compute_profiler=compute_profiler, memory_profiler=memory_profiler, global_microbatch_id=f"{output_current_microbatch_id}", forward_only=forward_only,
+                input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=f"{output_current_microbatch_id}", forward_only=forward_only, enable_profile=enable_profile
             )
 
             send_backward(input_tensor_grad, recv_tensor_shapes, config)
