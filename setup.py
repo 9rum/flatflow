@@ -114,7 +114,7 @@ cmdclass = {
 setup(
     name="flatflow",
     version=get_flatflow_version(),
-    description="A learned system for parallel training of neural networks",
+    description="Fast and exact parallel training of neural networks",
     long_description=readme,
     long_description_content_type="text/markdown",
     author="The FlatFlow Authors",
