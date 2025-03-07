@@ -113,7 +113,6 @@ def get_forward_backward_func():
     first_val_step (bool, optional): Is the first step of the validation phase. Used by
         Transformer Engine modules to only update their fp8 weights only on the first validation
         step.
-
     """
     pipeline_model_parallel_size = parallel_state.get_pipeline_model_parallel_world_size()
     if pipeline_model_parallel_size > 1:
