@@ -98,9 +98,9 @@ class ControlPlaneClient(object):
                 args = []
 
                 for arg in node.args:
-                    shape = []
-
                     if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
+                        shape = []
+
                         for maybe_sym_int in arg.meta["tensor_meta"].shape:
                             if isinstance(maybe_sym_int, torch.SymInt):
                                 expr = maybe_sym_int.node.expr
@@ -111,15 +111,15 @@ class ControlPlaneClient(object):
                             else:
                                 shape.append([maybe_sym_int, 0])
 
-                    TensorMetadataStartShapeVector(builder, len(shape))
-                    for sym_int in reversed(shape):
-                        CreateSymInt(builder, sym_int)
-                    _shape = builder.EndVector()
+                        TensorMetadataStartShapeVector(builder, len(shape))
+                        for sym_int in reversed(shape):
+                            CreateSymInt(builder, sym_int)
+                        _shape = builder.EndVector()
 
-                    TensorMetadataStart(builder)
-                    TensorMetadataAddShape(builder, _shape)
-                    _arg = TensorMetadataEnd(builder)
-                    args.append(_arg)
+                        TensorMetadataStart(builder)
+                        TensorMetadataAddShape(builder, _shape)
+                        _arg = TensorMetadataEnd(builder)
+                        args.append(_arg)
 
                 NodeStartArgsVector(builder, len(args))
                 for arg in reversed(args):
