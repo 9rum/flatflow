@@ -86,8 +86,7 @@ model:
   fsdp_use_orig_params: False # Set to True to use FSDP for specific peft scheme.
 
   use_flatflow: False
-  use_compute_profile: False
-  use_memory_profile: False
+  enable_profile: True
 
   peft:
     peft_scheme: "adapter"  # can be either "adapter", "ia3", or "ptuning"
