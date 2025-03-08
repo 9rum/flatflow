@@ -680,21 +680,6 @@ symbolic_trace_impl<Operator::SLICE_TENSOR>(
   return internal::polynomial<OperatorRegistryBase::value_type>();
 }
 
-// flatflow::symbolic_trace_impl<SYM_SIZE_INT>()
-//
-// Implements a symbolic transformation for `sym_size.int`.
-//
-// func: sym_size.int(Tensor self, int dim) -> SymInt
-template <>
-internal::polynomial<OperatorRegistryBase::value_type>
-symbolic_trace_impl<Operator::SYM_SIZE_INT>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
-  // sym_size.int is used during tracing, so technically it has zero FLOPs.
-  return internal::polynomial<OperatorRegistryBase::value_type>();
-}
-
 // flatflow::symbolic_trace_impl<T>()
 //
 // Implements a symbolic transformation for `t`.
@@ -855,8 +840,6 @@ class OperatorRegistry : public OperatorRegistryBase {
     registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     registerOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
-    registerOperator(Operator::SYM_SIZE_INT,
-                     &symbolic_trace_impl<Operator::SYM_SIZE_INT>);
     registerOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
     registerOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);

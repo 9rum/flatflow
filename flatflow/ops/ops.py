@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
+import torch.fx
+
 from flatflow.ops.operator_generated import Operator
 
-__all__ = ["_OPCODES"]
+aten = torch._ops.ops.aten  # type: ignore[has-type]
+
+__all__ = ["_OPCODES", "is_accessor_node"]
 
 _OPCODES = {
     "aten::_softmax": Operator._SOFTMAX,
@@ -41,10 +46,32 @@ _OPCODES = {
     "aten::silu": Operator.SILU,
     "aten::sin": Operator.SIN,
     "aten::slice.Tensor": Operator.SLICE_TENSOR,
-    "aten::sym_size.int": Operator.SYM_SIZE_INT,
     "aten::t": Operator.T,
     "aten::transpose.int": Operator.TRANSPOSE_INT,
     "aten::triu": Operator.TRIU,
     "aten::unsqueeze": Operator.UNSQUEEZE,
     "aten::view": Operator.VIEW,
 }
+
+
+def is_accessor_node(node: torch.fx.Node) -> bool:
+    return (
+        node.op == "call_method"
+        and isinstance(node.args[0], torch.fx.Node)
+        and isinstance(node.args[0].meta["example_value"], torch.Tensor)
+        and node.target in ["size", "stride", "storage_offset", "item"]
+    ) or (
+        node.op == "call_function"
+        and node.target
+        in [
+            aten.sym_size,
+            aten.sym_size.default,
+            aten.sym_size.int,
+            aten.sym_stride,
+            aten.sym_stride.default,
+            aten.sym_stride.int,
+            aten.sym_storage_offset,
+            aten.sym_storage_offset.default,
+            aten.sym_numel.default,
+        ]
+    )

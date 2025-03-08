@@ -85,7 +85,7 @@ class ControlPlaneClient(object):
         nodes = []
 
         for node in graph.nodes:
-            if isinstance(node.target, OpOverload):
+            if not is_accessor_node(node) and isinstance(node.target, OpOverload):
                 opcode = node.target.name()
                 assert opcode in _OPCODES, (
                     f"{opcode} is not a supported operator.\n"
