@@ -85,51 +85,24 @@ class ControlPlaneClient(object):
         nodes = []
 
         for node in graph.nodes:
-            if not is_accessor_node(node) and isinstance(node.target, OpOverload):
-                opcode = node.target.name()
-                assert opcode in _OPCODES, (
-                    f"{opcode} is not a supported operator.\n"
-                    "Please make sure you are using the latest version of FlatFlow\n"
-                    "or file an issue to https://github.com/9rum/flatflow/issues.\n"
-                    "The latest release can be found at https://github.com/9rum/flatflow/releases."
-                )
-                target = _OPCODES[opcode]
+            if is_accessor_node(node) or not isinstance(node.target, OpOverload):
+                continue
 
-                args = []
+            assert node.target in _OPS_TABLE, (
+                f"{node.target} is not a supported operator.\n"
+                "Please make sure you are using the latest version of FlatFlow\n"
+                "or file an issue to https://github.com/9rum/flatflow/issues.\n"
+                "The latest release can be found at https://github.com/9rum/flatflow/releases."
+            )
+            target = _OPS_TABLE[node.target]
 
-                for arg in node.args:
-                    if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
-                        shape = []
+            args = []
 
-                        for maybe_sym_int in arg.meta["tensor_meta"].shape:
-                            if isinstance(maybe_sym_int, torch.SymInt):
-                                expr = maybe_sym_int.node.expr
-                                symbol = next(iter(expr.free_symbols))
-                                shape.append(
-                                    [expr.coeff(symbol, 0), expr.coeff(symbol, 1)]
-                                )
-                            else:
-                                shape.append([maybe_sym_int, 0])
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
+                    shape = []
 
-                        TensorMetadataStartShapeVector(builder, len(shape))
-                        for sym_int in reversed(shape):
-                            CreateSymInt(builder, sym_int)
-                        _shape = builder.EndVector()
-
-                        TensorMetadataStart(builder)
-                        TensorMetadataAddShape(builder, _shape)
-                        _arg = TensorMetadataEnd(builder)
-                        args.append(_arg)
-
-                NodeStartArgsVector(builder, len(args))
-                for arg in reversed(args):
-                    builder.PrependUOffsetTRelative(arg)
-                _args = builder.EndVector()
-
-                shape = []
-
-                if "tensor_meta" in node.meta:
-                    for maybe_sym_int in node.meta["tensor_meta"].shape:
+                    for maybe_sym_int in arg.meta["tensor_meta"].shape:
                         if isinstance(maybe_sym_int, torch.SymInt):
                             expr = maybe_sym_int.node.expr
                             symbol = next(iter(expr.free_symbols))
@@ -137,21 +110,47 @@ class ControlPlaneClient(object):
                         else:
                             shape.append([maybe_sym_int, 0])
 
-                TensorMetadataStartShapeVector(builder, len(shape))
-                for sym_int in reversed(shape):
-                    CreateSymInt(builder, sym_int)
-                _shape = builder.EndVector()
+                    TensorMetadataStartShapeVector(builder, len(shape))
+                    for sym_int in reversed(shape):
+                        CreateSymInt(builder, sym_int)
+                    _shape = builder.EndVector()
 
-                TensorMetadataStart(builder)
-                TensorMetadataAddShape(builder, _shape)
-                _meta = TensorMetadataEnd(builder)
+                    TensorMetadataStart(builder)
+                    TensorMetadataAddShape(builder, _shape)
+                    _arg = TensorMetadataEnd(builder)
+                    args.append(_arg)
 
-                NodeStart(builder)
-                NodeAddTarget(builder, target)
-                NodeAddArgs(builder, _args)
-                NodeAddMeta(builder, _meta)
-                _node = NodeEnd(builder)
-                nodes.append(_node)
+            NodeStartArgsVector(builder, len(args))
+            for arg in reversed(args):
+                builder.PrependUOffsetTRelative(arg)
+            _args = builder.EndVector()
+
+            shape = []
+
+            if "tensor_meta" in node.meta:
+                for maybe_sym_int in node.meta["tensor_meta"].shape:
+                    if isinstance(maybe_sym_int, torch.SymInt):
+                        expr = maybe_sym_int.node.expr
+                        symbol = next(iter(expr.free_symbols))
+                        shape.append([expr.coeff(symbol, 0), expr.coeff(symbol, 1)])
+                    else:
+                        shape.append([maybe_sym_int, 0])
+
+            TensorMetadataStartShapeVector(builder, len(shape))
+            for sym_int in reversed(shape):
+                CreateSymInt(builder, sym_int)
+            _shape = builder.EndVector()
+
+            TensorMetadataStart(builder)
+            TensorMetadataAddShape(builder, _shape)
+            _meta = TensorMetadataEnd(builder)
+
+            NodeStart(builder)
+            NodeAddTarget(builder, target)
+            NodeAddArgs(builder, _args)
+            NodeAddMeta(builder, _meta)
+            _node = NodeEnd(builder)
+            nodes.append(_node)
 
         GraphStartNodesVector(builder, len(nodes))
         for node in reversed(nodes):
