@@ -22,7 +22,7 @@ from flatflow.ops.node_generated import (
     TensorMetadataStartShapeVector,
 )
 from flatflow.ops.operator_generated import Operator
-from flatflow.ops.ops import _OPCODES
+from flatflow.ops.ops import _OPCODES, is_accessor_node
 
 __all__ = [
     "CreateSymInt",
@@ -46,4 +46,5 @@ __all__ = [
     "TensorMetadataStart",
     "TensorMetadataStartShapeVector",
     "_OPCODES",
+    "is_accessor_node",
 ]

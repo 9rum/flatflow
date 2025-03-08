@@ -50,7 +50,6 @@ enum Operator: ushort {
   SILU,               // silu
   SIN,                // sin
   SLICE_TENSOR,       // slice.Tensor
-  SYM_SIZE_INT,       // sym_size.int
   T,                  // t
   TRANSPOSE_INT,      // transpose.int
   TRIU,               // triu
