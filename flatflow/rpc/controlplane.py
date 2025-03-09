@@ -91,8 +91,8 @@ class ControlPlaneClient(object):
             assert node.target in _OPS_TABLE, (
                 f"{node.target} is not a supported operator.\n"
                 "Please make sure you are using the latest version of FlatFlow\n"
-                "or file an issue to https://github.com/9rum/flatflow/issues.\n"
-                "The latest release can be found at https://github.com/9rum/flatflow/releases."
+                "or file an issue to\n\n\thttps://github.com/9rum/flatflow/issues\n\n"
+                "The latest release can be found at\n\n\thttps://github.com/9rum/flatflow/tags"
             )
             target = _OPS_TABLE[node.target]
 
