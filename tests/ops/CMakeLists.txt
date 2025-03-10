@@ -49,5 +49,4 @@ if(FLATFLOW_ENABLE_UBSAN)
     ops_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_add_tests(
-  TARGET ops_test)
+gtest_discover_tests(ops_test)

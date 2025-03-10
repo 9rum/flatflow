@@ -49,5 +49,4 @@ if(FLATFLOW_ENABLE_UBSAN)
     scheduler_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_add_tests(
-  TARGET scheduler_test)
+gtest_discover_tests(scheduler_test)

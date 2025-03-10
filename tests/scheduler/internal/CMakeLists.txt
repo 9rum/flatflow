@@ -44,8 +44,7 @@ if(FLATFLOW_ENABLE_UBSAN)
     partition_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_add_tests(
-  TARGET partition_test)
+gtest_discover_tests(partition_test)
 
 add_executable(
   scatter_test
@@ -77,5 +76,4 @@ if(FLATFLOW_ENABLE_UBSAN)
     scatter_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_add_tests(
-  TARGET scatter_test)
+gtest_discover_tests(scatter_test)
