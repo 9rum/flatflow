@@ -112,7 +112,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         )
         self.seed = seed
         self.shuffle = shuffle
-        self.total_size
+        self.total_size = total_samples 
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
 
@@ -149,7 +149,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         while True:
             if self.consumed_samples > self.total_length // self.num_data_parallel_group:
                 break
-            indices_size = [0]
+            schedule_size = [0]
             if self.shuffle:
                 # deterministically shuffle based on epoch and seed
                 g = torch.Generator()
@@ -183,7 +183,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             self.consumed_samples += schedule_size[0]
 
             batch = []
-            for idx in range(indices_size[0]):
+            for idx in range(schedule_size[0]):
                 batch.append(schedule[idx])
                 if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
                     yield batch
