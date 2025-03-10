@@ -58,7 +58,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         shuffle (bool, optional): If ``True`` (default), sampler will shuffle the indices.
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
-        profiler (Profiler, optional): Profiler object to be used for profiling the training loop.
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
@@ -113,6 +112,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         )
         self.seed = seed
         self.shuffle = shuffle
+        self.total_size
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
         self.total_length = len(sizes)
 
@@ -172,20 +172,19 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
             # receive the reordered computation schedule from the control plane
             if is_model_parallel_src:
-                response = self.client.Broadcast(self.epoch, indices)
-                indices = list(response.IndicesAsNumpy())
-                indices_size = [len(indices)]
+                schedule = self.client.Broadcast(self.epoch, indices)
+                schedule_size = [len(schedule)]
 
-            torch.distributed.broadcast_object_list(indices_size, src=model_parallel_src_rank, group=model_parallel_group)
+            torch.distributed.broadcast_object_list(schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
             if not is_model_parallel_src:
-                indices = [0] * indices_size[0]
-            torch.distributed.broadcast_object_list(indices, src=model_parallel_src_rank, group=model_parallel_group)
+                schedule = [0] * schedule_size[0]
+            torch.distributed.broadcast_object_list(schedule, src=model_parallel_src_rank, group=model_parallel_group)
 
-            self.consumed_samples += indices_size[0]
+            self.consumed_samples += schedule_size[0]
 
             batch = []
             for idx in range(indices_size[0]):
-                batch.append(indices[idx])
+                batch.append(schedule[idx])
                 if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
                     yield batch
                     batch = []
