@@ -800,9 +800,9 @@ class OperatorRegistry : public OperatorRegistryBase {
   // is under development and more operators will be added in the future. For
   // expanding the operator set, please refer to the note above.
   OperatorRegistry() {
-    constexpr auto kOpTableSpace =
+    constexpr auto kOpsTableSpace =
         sizeof(EnumValuesOperator()) / sizeof(Operator);
-    table_.reserve(kOpTableSpace);
+    ops_table_.reserve(kOpsTableSpace);
 
     registerOperator(Operator::_SOFTMAX,
                      &symbolic_trace_impl<Operator::_SOFTMAX>);
@@ -866,7 +866,7 @@ class OperatorRegistry : public OperatorRegistryBase {
           const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
           const TensorMetadata *)) {
     // TODO: Check if the insertion took place.
-    table_.try_emplace(op, std::bind_front(func));
+    ops_table_.try_emplace(op, std::bind_front(func));
   }
 
   // OperatorRegistry::deregisterOperator()
@@ -874,7 +874,7 @@ class OperatorRegistry : public OperatorRegistryBase {
   // Removes `op` from the operator table.
   void deregisterOperator(key_type op) {
     // TODO: Check the number of elements removed.
-    table_.erase(op);
+    ops_table_.erase(op);
   }
 
   // OperatorRegistry::dispatch()
@@ -884,12 +884,12 @@ class OperatorRegistry : public OperatorRegistryBase {
       key_type op,
       const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
       const TensorMetadata *meta) const {
-    CHECK(table_.contains(op));
-    return table_.at(op)(args, meta);
+    CHECK(ops_table_.contains(op));
+    return ops_table_.at(op)(args, meta);
   }
 
  protected:
-  absl::flat_hash_map<key_type, mapped_type> table_;
+  absl::flat_hash_map<key_type, mapped_type> ops_table_;
 };
 
 // flatflow::symbolic_trace()
