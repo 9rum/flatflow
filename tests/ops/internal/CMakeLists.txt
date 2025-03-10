@@ -40,5 +40,4 @@ if(FLATFLOW_ENABLE_UBSAN)
     polynomial_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_add_tests(
-  TARGET polynomial_test)
+gtest_discover_tests(polynomial_test)

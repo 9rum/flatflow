@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # This should be consistent with the CMake version in pyproject.toml.
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.29)
 
 project(flatflow LANGUAGES CXX)
 
