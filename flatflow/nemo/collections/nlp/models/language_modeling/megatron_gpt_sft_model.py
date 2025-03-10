@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 import nvtx
 import torch
+import transformers
 from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
@@ -119,7 +120,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             else:
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
-
+        self.tokenizer_path = None
         self.profile_key = None
         self.layer_event = {}
         self.layer = {}
@@ -912,7 +913,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                graph=prepare_ops(self.model),
+                graph=prepare_ops(self.model, self.tokenizer_path),
                 shuffle=shuffle,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
@@ -1155,36 +1156,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         return fwd_output_and_loss_func
 
-def prepare_ops(model):
-    from transformers import AutoTokenizer
-
-    model_name = 'meta-llama/Llama-3.1-70B'
-    tokenizer = AutoTokenizer.from_pretrained(model_name,device_map="auto")
-
-    base_prompt = "How many hours are in a day?"
-    base_inputs = tokenizer(base_prompt, return_tensors="pt")
-
-    input_ids = base_inputs.input_ids
-    base_inputs = base_inputs
-
+def prepare_ops(model, tokenizer_path):
+    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path)
+    prompt = "How many hours are in a day?"
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     model = model.to(dtype=torch.float16).eval()  # b16 or bf16
 
-    _seq_len = torch.export.Dim('_seq_len', min=2, max=128)  # 2 <= 8*_seq_len - 7 <= 1024
-    seq_len = 8*_seq_len - 7
-    import contextlib
-
-    @contextlib.contextmanager
-    def suppress_logger_warnings():
-        from transformers.models.llama.modeling_llama import logger
-        original_warning_once = logger.warning_once
-        logger.warning_once = lambda *args, **kwargs: None
-        try:
-            yield
-        finally:
-            logger.warning_once = original_warning_once
-
-    with suppress_logger_warnings(), \
-        torch.backends.cuda.sdp_kernel(enable_flash=False, enable_math=True, enable_mem_efficient=False), \
-        torch.inference_mode():
-        model_graph = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=True)
-    return model_graph
+    seq_len = torch.export.Dim("seq_len", min=2, max=128)
+    with torch.no_grad(), torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
+        executed_program = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},))
+    return executed_program.graph

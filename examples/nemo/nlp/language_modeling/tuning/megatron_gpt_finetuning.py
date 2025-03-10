@@ -74,7 +74,7 @@ def main(cfg) -> None:
         model.add_adapter(peft_cfg_cls(model_cfg))
     else:
         logging.info(f"Running full finetuning since no peft scheme is given.\n{model.summarize()}")
-
+    model.tokenizer_path = cfg.model.restore_from_path.split("/model.nemo")[0]
     trainer.fit(model)
 
 
