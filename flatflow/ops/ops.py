@@ -128,6 +128,7 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
         if not is_accessor_node(node) and isinstance(node.target, OpOverload):
             if node.target not in _OPS_TABLE:
                 drops.append(node.target)
+                continue
             target = _OPS_TABLE[node.target]
             args = []
 
