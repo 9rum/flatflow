@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
+import warnings
+from collections.abc import Mapping, Sequence
 
 import flatbuffers
 import torch
@@ -77,6 +78,24 @@ _OPS_TABLE: Mapping[OpOverload, int] = {
 }
 
 
+class UnsupportedOperatorWarning(UserWarning):
+    """Warning that signals the presence of unsupported operators."""
+
+    def __init__(self, args: Sequence[OpOverload]) -> None:
+        self.args = tuple(set(args))
+
+    def __str__(self) -> str:
+        message = (
+            "The following operators are not supported\n{}\n"
+            "Please make sure you are using the latest version of FlatFlow\n"
+            "or file an issue to https://github.com/9rum/flatflow/issues\n"
+            "The latest release can be found at https://github.com/9rum/flatflow/tags"
+        )
+        return message.format(
+            "\n".join(sorted("\t{}".format(arg) for arg in self.args))
+        )
+
+
 def is_accessor_node(node: torch.fx.Node) -> bool:
     return (
         node.op == "call_method"
@@ -102,18 +121,14 @@ def is_accessor_node(node: torch.fx.Node) -> bool:
 
 def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
     """Serializes the given graph."""
+    drops = []
     nodes = []
 
     for node in graph.nodes:
         if not is_accessor_node(node) and isinstance(node.target, OpOverload):
-            assert node.target in _OPS_TABLE, (
-                f"{node.target} is not a supported operator.\n"
-                "Please make sure you are using the latest version of FlatFlow\n"
-                "or file an issue to\n\n\thttps://github.com/9rum/flatflow/issues\n\n"
-                "The latest release can be found at\n\n\thttps://github.com/9rum/flatflow/tags"
-            )
+            if node.target not in _OPS_TABLE:
+                drops.append(node.target)
             target = _OPS_TABLE[node.target]
-
             args = []
 
             for arg in node.args:
@@ -169,6 +184,9 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             NodeAddMeta(builder, _meta)
             _node = NodeEnd(builder)
             nodes.append(_node)
+
+    if 0 < len(drops):
+        warnings.warn(UnsupportedOperatorWarning(drops), stacklevel=2)
 
     GraphStartNodesVector(builder, len(nodes))
     for node in reversed(nodes):
