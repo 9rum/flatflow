@@ -1,4 +1,6 @@
-# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/models/language_modeling/megatron_base_model.py
+# Copyright (c) 2025, The FlatFlow Authors.
+# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
