@@ -1,6 +1,6 @@
 # Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/models/language_modeling/megatron_gpt_sft_model.py
 # Copyright (c) 2024, The FlatFlow Authors.
-# Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -402,9 +402,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             _, seq_length = batch['tokens'].shape
             data_iter = get_iterator_k_split(batch, num_microbatches)
         else:
-            # Using flatflow, the 'stack-dim' batch size is always 1 for a microbatch. Instead, the `get_micro_batch_size()` 
+            # Using flatflow, the 'stack-dim' batch size is always 1 for a microbatch. Instead, the `get_micro_batch_size()`
             # corresponds to the 'concat-dim' batch size of microbatches, processed in `flatflow...GPTSFTDataset`.
-            micro_batch_size = 1    
+            micro_batch_size = 1
             batch = []
             iter_count = num_microbatches
             while len(batch) < iter_count:

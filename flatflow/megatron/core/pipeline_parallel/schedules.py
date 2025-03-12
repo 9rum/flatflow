@@ -1,18 +1,7 @@
 # Adapted from https://github.com/NVIDIA/Megatron-LM/blob/core_r0.9.0/megatron/core/pipeline_parallel/schedules.py
-# Copyright (c) 2024, The FlatFlow Authors.
-# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 
 import contextlib
 from typing import Iterator, List, Union
@@ -1520,7 +1509,7 @@ def forward_backward_pipelining_without_interleaving(
                 output_tensor, send_tensor_shapes, config
             )
 
-            # Add input_tensor and output_tensor to end of list. 
+            # Add input_tensor and output_tensor to end of list.
             input_tensors.append([input_tensor, total_microbatch_id + num_warmup_microbatches + i])
             output_tensors.append([output_tensor, total_microbatch_id + num_warmup_microbatches + i])
             deallocate_output_tensor(output_tensor[0], config.deallocate_pipeline_outputs)
@@ -1567,7 +1556,7 @@ def forward_backward_pipelining_without_interleaving(
 
             output_tensor_grad = recv_backward(send_tensor_shapes, config)
 
-            input_tensor_grad = backward_step( 
+            input_tensor_grad = backward_step(
                 input_tensor, output_tensor, output_tensor_grad, model_type, config, global_microbatch_id=f"{output_current_microbatch_id}", forward_only=forward_only, enable_profile=enable_profile
             )
 

@@ -1,6 +1,6 @@
 # Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/data/language_modeling/megatron/megatron_batch_samplers.py
 # Copyright (c) 2024, The FlatFlow Authors.
-# Copyright (c) 2022, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
     def __iter__(self):
         indices = []
         model_parallel_group = parallel_state.get_model_parallel_group()
-        model_parallel_group_ranks = torch.distributed.get_process_group_ranks(model_parallel_group) 
+        model_parallel_group_ranks = torch.distributed.get_process_group_ranks(model_parallel_group)
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
