@@ -925,9 +925,8 @@ decltype(auto) symbolic_trace(const Graph *graph) {
 
   // Here we ignore the constant term as it has no effect on differencing
   // and the coefficients are reduced to prevent overflow.
-  const auto scale = std::gcd(std::gcd(poly[1], poly[2]), poly[3]);
   poly[0] = 0;
-  poly /= scale;
+  poly /= std::gcd(poly[1], poly[2]);
 
   return std::bind_front(
       internal::evaluate_polynomial<typename OperatorRegistry::value_type,

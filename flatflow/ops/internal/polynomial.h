@@ -36,8 +36,8 @@ template <typename T>
   requires flatflow::arithmetic<T>
 class polynomial {
  public:
-  using value_type = typename std::array<T, 4>::value_type;
-  using size_type = typename std::array<T, 4>::size_type;
+  using value_type = typename std::array<T, 3>::value_type;
+  using size_type = typename std::array<T, 3>::size_type;
 
   // Constructors and assignment operators
   //
@@ -51,7 +51,7 @@ class polynomial {
   template <typename... Args>
   polynomial(Args... args) : data_{args...} {}
 
-  polynomial(const std::array<T, 4> &data) : data_(data) {}
+  polynomial(const std::array<T, 3> &data) : data_(data) {}
 
   polynomial(const polynomial &other) : data_(other.data()) {}
 
@@ -60,7 +60,7 @@ class polynomial {
     return *this;
   }
 
-  polynomial(std::array<T, 4> &&data) : data_(std::move(data)) {}
+  polynomial(std::array<T, 3> &&data) : data_(std::move(data)) {}
 
   polynomial(polynomial &&other) : data_(std::move(other.data())) {}
 
@@ -73,13 +73,13 @@ class polynomial {
   //
   // `polynomial<>` provides access to the underlying container and associated
   // metadata, just like Boost polynomials.
-  size_type size() const { return data_.size(); }
+  constexpr size_type size() const noexcept { return data_.size(); }
 
-  size_type degree() const { return data_.size() - 1; }
+  constexpr size_type degree() const noexcept { return data_.size() - 1; }
 
-  std::array<T, 4> &data() { return data_; }
+  std::array<T, 3> &data() { return data_; }
 
-  const std::array<T, 4> &data() const { return data_; }
+  const std::array<T, 3> &data() const { return data_; }
 
   value_type &operator[](size_type index) { return data_[index]; }
 
@@ -92,7 +92,7 @@ class polynomial {
   // and factorization are not supported for now.
   template <typename U>
     requires flatflow::arithmetic<U>
-  value_type operator()(U value) const noexcept {
+  constexpr value_type operator()(U value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
 
@@ -164,7 +164,6 @@ class polynomial {
     data_[0] <<= value;
     data_[1] <<= value;
     data_[2] <<= value;
-    data_[3] <<= value;
     return *this;
   }
 
@@ -178,7 +177,6 @@ class polynomial {
     data_[0] >>= value;
     data_[1] >>= value;
     data_[2] >>= value;
-    data_[3] >>= value;
     return *this;
   }
 
@@ -210,7 +208,6 @@ class polynomial {
     data_[0] = op(data_[0], other[0]);
     data_[1] = op(data_[1], other[1]);
     data_[2] = op(data_[2], other[2]);
-    data_[3] = op(data_[3], other[3]);
     return *this;
   }
 
@@ -227,7 +224,6 @@ class polynomial {
     data_[0] = op(data_[0], value);
     data_[1] = op(data_[1], value);
     data_[2] = op(data_[2], value);
-    data_[3] = op(data_[3], value);
     return *this;
   }
 
@@ -240,38 +236,35 @@ class polynomial {
   }
 
   polynomial &multiplication(const polynomial &other) {
-    auto data = std::array<T, 4>();
+    auto data = std::array<T, 3>();
 
     data[0] = data_[0] * other[0];
     data[1] = data_[0] * other[1] + data_[1] * other[0];
     data[2] = data_[0] * other[2] + data_[1] * other[1] + data_[2] * other[0];
-    data[3] = data_[0] * other[3] + data_[1] * other[2] + data_[2] * other[1] +
-              data_[3] * other[0];
 
     data_[0] = data[0];
     data_[1] = data[1];
     data_[2] = data[2];
-    data_[3] = data[3];
 
     return *this;
   }
 
-  std::array<T, 4> data_;
+  std::array<T, 3> data_;
 };
 
 template <typename T>
   requires flatflow::arithmetic<T>
 constexpr T evaluate_polynomial_impl(const polynomial<T> &poly,
                                      T value) noexcept {
-  return poly[0] + value * (poly[1] + value * (poly[2] + value * poly[3]));
+  return poly[0] + value * (poly[1] + value * poly[2]);
 }
 
 // evaluate_polynomial()
 //
-// Based on Horner's rule, evaluates a given polynomial of degree three with
-// only three multiplications and three additions, applying Horner's method.
+// Based on Horner's rule, evaluates a given polynomial of degree two with only
+// two multiplications and two additions, applying Horner's method.
 //
-// This is optimal, since there are polynomials of degree three that cannot be
+// This is optimal, since there are polynomials of degree two that cannot be
 // evaluated with fewer arithmetic operations.
 // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
 template <typename T, typename U>
