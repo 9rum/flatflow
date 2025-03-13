@@ -1164,5 +1164,5 @@ def prepare_ops(model_path):
 
     seq_len = torch.export.Dim("seq_len", min=2, max=128)
     with torch.no_grad(), torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
-        executed_program = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},))
+        executed_program = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
     return executed_program.graph
