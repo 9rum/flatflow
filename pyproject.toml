@@ -35,9 +35,3 @@ known-local-folder = ["flatflow"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.pytest.ini_options]
-minversion = "6.0"
-python_files = "test_*.py"
-testpaths = ["tests"]
-addopts = "-rf -s"
