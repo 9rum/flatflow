@@ -14,7 +14,6 @@
 
 #include "flatflow/ops/ops.h"
 
-#include <initializer_list>
 #include <vector>
 
 #include "absl/base/log_severity.h"
@@ -89,7 +88,7 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   target = flatflow::Operator::ARANGE_START;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -109,7 +108,7 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   target = flatflow::Operator::FULL;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 1);
   shape =
@@ -133,7 +132,7 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   target = flatflow::Operator::ARANGE;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -409,7 +408,7 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   target = flatflow::Operator::CAT;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(128, 0);

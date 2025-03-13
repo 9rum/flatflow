@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <initializer_list>
 #include <iterator>
 #include <numeric>
 #include <random>
@@ -188,7 +187,7 @@ TEST_F(SchedulerTest, Llama3) {
 
   target = flatflow::Operator::ARANGE_START;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -208,7 +207,7 @@ TEST_F(SchedulerTest, Llama3) {
 
   target = flatflow::Operator::FULL;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 1);
   shape =
@@ -232,7 +231,7 @@ TEST_F(SchedulerTest, Llama3) {
 
   target = flatflow::Operator::ARANGE;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -508,7 +507,7 @@ TEST_F(SchedulerTest, Llama3) {
 
   target = flatflow::Operator::CAT;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(128, 0);
@@ -1836,7 +1835,7 @@ TEST_F(SchedulerWithRemainderTest, Llama3) {
 
   target = flatflow::Operator::ARANGE_START;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -1856,7 +1855,7 @@ TEST_F(SchedulerWithRemainderTest, Llama3) {
 
   target = flatflow::Operator::FULL;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 1);
   shape =
@@ -1880,7 +1879,7 @@ TEST_F(SchedulerWithRemainderTest, Llama3) {
 
   target = flatflow::Operator::ARANGE;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -2156,7 +2155,7 @@ TEST_F(SchedulerWithRemainderTest, Llama3) {
 
   target = flatflow::Operator::CAT;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(128, 0);
@@ -3484,7 +3483,7 @@ TEST_F(SchedulerWithRemainderOnlyTest, Llama3) {
 
   target = flatflow::Operator::ARANGE_START;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -3504,7 +3503,7 @@ TEST_F(SchedulerWithRemainderOnlyTest, Llama3) {
 
   target = flatflow::Operator::FULL;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 1);
   shape =
@@ -3528,7 +3527,7 @@ TEST_F(SchedulerWithRemainderOnlyTest, Llama3) {
 
   target = flatflow::Operator::ARANGE;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
   meta = flatflow::CreateTensorMetadata(builder, shape);
@@ -3804,7 +3803,7 @@ TEST_F(SchedulerWithRemainderOnlyTest, Llama3) {
 
   target = flatflow::Operator::CAT;
   args = builder.CreateVector(
-      std::initializer_list<flatbuffers::Offset<flatflow::TensorMetadata>>());
+      std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(128, 0);
