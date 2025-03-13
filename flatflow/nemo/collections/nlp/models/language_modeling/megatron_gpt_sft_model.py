@@ -913,7 +913,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
-                graph=prepare_ops(self.model, self.tokenizer_path),
+                graph=prepare_ops(self.model_path),
                 shuffle=shuffle,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
@@ -1156,11 +1156,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         return fwd_output_and_loss_func
 
-def prepare_ops(model, tokenizer_path):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path)
+def prepare_ops(model_path):
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
     prompt = "How many hours are in a day?"
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-    model = model.to(dtype=torch.float16).eval()  # b16 or bf16
+    model = transformers.AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
 
     seq_len = torch.export.Dim("seq_len", min=2, max=128)
     with torch.no_grad(), torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
