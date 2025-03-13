@@ -120,7 +120,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             else:
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
-        self.tokenizer_path = cfg.get("restore_from_path", None).split("/model.nemo")[0]
+        self.model_path = cfg.get("restore_from_path", None).split("/model.nemo")[0]
         self.profile_key = None
         self.layer_event = {}
         self.layer = {}
