@@ -24,7 +24,7 @@ struct SymInt {
 /// `TensorMetadata` is a structure containing pertinent information
 /// about a tensor within a PyTorch program.
 table TensorMetadata {
-  shape: [SymInt];
+  shape: [SymInt] (required);
 }
 
 /// `Node` is a data structure that represents individual operations in the
@@ -34,6 +34,6 @@ table TensorMetadata {
 /// i.e., operations whose `op` property are not `call_function`.
 table Node {
   target: Operator;
-  args:   [TensorMetadata];
-  meta:   TensorMetadata;
+  args:   [TensorMetadata] (required);
+  meta:   TensorMetadata (required);
 }

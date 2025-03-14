@@ -1,0 +1,22 @@
+diff --git a/flatflow/ops/node_generated.h b/flatflow/ops/node_generated.h
+index 167694e..e2e03c2 100644
+--- a/flatflow/ops/node_generated.h
++++ b/flatflow/ops/node_generated.h
+@@ -158,7 +158,7 @@ struct NodeBuilder {
+
+ inline ::flatbuffers::Offset<Node> CreateNode(
+     ::flatbuffers::FlatBufferBuilder &_fbb,
+-    flatflow::Operator target = flatflow::Operator__SOFTMAX,
++    flatflow::Operator target = flatflow::Operator::_SOFTMAX,
+     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<flatflow::TensorMetadata>>> args = 0,
+     ::flatbuffers::Offset<flatflow::TensorMetadata> meta = 0) {
+   NodeBuilder builder_(_fbb);
+@@ -170,7 +170,7 @@ inline ::flatbuffers::Offset<Node> CreateNode(
+
+ inline ::flatbuffers::Offset<Node> CreateNodeDirect(
+     ::flatbuffers::FlatBufferBuilder &_fbb,
+-    flatflow::Operator target = flatflow::Operator__SOFTMAX,
++    flatflow::Operator target = flatflow::Operator::_SOFTMAX,
+     const std::vector<::flatbuffers::Offset<flatflow::TensorMetadata>> *args = nullptr,
+     ::flatbuffers::Offset<flatflow::TensorMetadata> meta = 0) {
+   auto args__ = args ? _fbb.CreateVector<::flatbuffers::Offset<flatflow::TensorMetadata>>(*args) : 0;
