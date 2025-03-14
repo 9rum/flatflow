@@ -17,6 +17,7 @@
 
 #include <array>
 #include <functional>
+#include <numeric>
 #include <utility>
 
 #include "flatflow/types.h"
@@ -186,6 +187,13 @@ class polynomial {
 
   bool operator!=(const polynomial &other) const {
     return data_ != other.data();
+  }
+
+  // polynomial::normalize()
+  //
+  // Reduces coefficients.
+  polynomial &normalize() {
+    return division(std::gcd(std::gcd(data_[0], data_[1]), data_[2]));
   }
 
  protected:

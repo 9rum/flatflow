@@ -121,6 +121,12 @@ TEST(PolynomialTest, ShiftRightIdentity) {
   EXPECT_EQ(poly >> 0, poly);
 }
 
+TEST(PolynomialTest, Normalize) {
+  auto poly = flatflow::internal::polynomial<int64_t>(0, 128, 208);
+  poly.normalize();
+  EXPECT_EQ(poly, flatflow::internal::polynomial<int64_t>(0, 8, 13));
+}
+
 TEST(PolynomialTest, Size) {
   const auto poly = flatflow::internal::polynomial<int64_t>();
   EXPECT_EQ(poly.size(), 3);

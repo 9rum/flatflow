@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <functional>
-#include <numeric>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
@@ -923,10 +922,9 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);
   // clang-format on
 
-  // Here we ignore the constant term as it has no effect on differencing
-  // and the coefficients are reduced to prevent overflow.
+  // Here we ignore the constant term as it has no effect on differencing.
   poly[0] = 0;
-  poly /= std::gcd(poly[1], poly[2]);
+  poly.normalize();
 
   return std::bind_front(
       internal::evaluate_polynomial<typename OperatorRegistry::value_type,
