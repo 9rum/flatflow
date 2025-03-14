@@ -78,7 +78,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         pad_samples_to_global_batch_size=False,
         seed: Optional[int] = 0,
         shuffle: bool = True,
-        port: int = 50051,
+        port: int = 50052,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -114,16 +114,21 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.shuffle = shuffle
         self.total_size = total_samples 
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-        self.total_length = len(sizes)
+
+        self.total_size = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
 
-        if self.data_parallel_rank == 0:
+        if self.global_rank == 0:
             run(port, data_parallel_size)
 
-        self.client = ControlPlaneClient(self.global_rank, channel)
+        model_parallel_group = parallel_state.get_model_parallel_group() 
+        model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
+        self.schedule = []
+        self.schedule_size = [0]
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
+            self.client = ControlPlaneClient(self.global_rank, channel)
             self.client.Init(
                 global_batch_size,
                 micro_batch_size,
@@ -145,11 +150,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         model_parallel_group = parallel_state.get_model_parallel_group() 
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
-
-        while True:
-            if self.consumed_samples > self.total_length // self.num_data_parallel_group:
-                break
-            schedule_size = [0]
+        if self.consumed_samples ==0 or self.consumed_samples >= self.total_size: #TODO refactor
             if self.shuffle:
                 # deterministically shuffle based on epoch and seed
                 g = torch.Generator()
@@ -172,28 +173,36 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
             # receive the reordered computation schedule from the control plane
             if is_model_parallel_src:
-                schedule = self.client.Broadcast(self.epoch, indices)
-                schedule_size = [len(schedule)]
+                self.schedule = self.client.Broadcast(self.epoch, indices)
+                self.schedule_size = [len(self.schedule)]
 
-            torch.distributed.broadcast_object_list(schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
-            if not is_model_parallel_src:
-                schedule = [0] * schedule_size[0]
-            torch.distributed.broadcast_object_list(schedule, src=model_parallel_src_rank, group=model_parallel_group)
+        # while True:
+        #     if self.consumed_samples > self.total_size // self.num_data_parallel_group:
+        #         print("BREAKED")
+        #         break
 
-            self.consumed_samples += schedule_size[0]
+        torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
+        if not is_model_parallel_src:
+            self.schedule = [0] * self.schedule_size[0]
+        torch.distributed.broadcast_object_list(self.schedule, src=model_parallel_src_rank, group=model_parallel_group)
 
-            batch = []
-            for idx in range(schedule_size[0]):
-                batch.append(schedule[idx])
-                if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                    yield batch
-                    batch = []
-
-            if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-                num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
-                batch = batch + [-1] * num_pad
+        self.consumed_samples += self.schedule_size[0]
+        print(f"{self.consumed_samples=}, {self.total_size=}")
+        print(f"{self.schedule_size=}")
+        batch = []
+        for idx in range(self.schedule_size[0]):
+            batch.append(self.schedule[idx])
+            if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
+                # print(f" {self.global_rank=} : {batch=}")
                 yield batch
+                batch = []
+
+        if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
+            num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
+            batch = batch + [-1] * num_pad
+            # print(f" {self.global_rank=} : {batch=}")
+            yield batch
 
     def __del__(self) -> None:
-        if hasattr(self.client, "rank") and self.client.rank == 0:
+        if hasattr(self, 'client') and self.client.rank == 0:
             self.client.Finalize()
