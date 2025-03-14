@@ -56,12 +56,12 @@ class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder
                 find_unused_parameters=False,
             )
 
-        assert self.cfg.model.get('fsdp', False) == False, "FSDP is not supported in BPipe yet"
+        assert not self.cfg.model.get("fsdp", False), "FSDP is not supported in BPipe yet"
 
-        # Set BPIPE options before setting DDP strategy to ensure proper 
+        # Set BPipe options before setting DDP strategy to ensure proper 
         # pipeline parallel (PP) behavior. Override PP-related functions 
-        # to integrate BPIPE's memory-balanced execution.
-        use_bpipe = self.cfg.model.get('use_bpipe', False)
+        # to integrate BPipe's memory-balanced execution.
+        use_bpipe = self.cfg.model.get("use_bpipe", False)
         bpipe_state.set_bpipe_option(use_bpipe)
 
         return NLPDDPStrategy(
