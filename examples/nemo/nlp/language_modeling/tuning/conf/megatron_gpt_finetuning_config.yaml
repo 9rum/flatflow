@@ -87,7 +87,8 @@ model:
 
   use_flatflow: False
   enable_profile: True
-
+  use_bpipe: False
+  
   peft:
     peft_scheme: "adapter"  # can be either "adapter", "ia3", or "ptuning"
     restore_from_path: null
