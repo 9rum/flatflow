@@ -82,9 +82,13 @@ class polynomial {
 
   const std::array<T, 3> &data() const { return data_; }
 
-  value_type &operator[](size_type index) { return data_[index]; }
+  constexpr value_type &operator[](size_type index) noexcept {
+    return data_[index];
+  }
 
-  value_type operator[](size_type index) const { return data_[index]; }
+  constexpr value_type operator[](size_type index) const noexcept {
+    return data_[index];
+  }
 
   // Operators
   //

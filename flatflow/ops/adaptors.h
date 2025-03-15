@@ -211,11 +211,9 @@ class GraphAdaptor {
 
   const std::vector<NodeAdaptor> &nodes() const { return nodes_; }
 
-  value_type &operator[](size_type index) noexcept { return nodes_[index]; }
+  value_type &operator[](size_type index) { return nodes_[index]; }
 
-  const value_type &operator[](size_type index) const noexcept {
-    return nodes_[index];
-  }
+  const value_type &operator[](size_type index) const { return nodes_[index]; }
 
  protected:
   std::vector<NodeAdaptor> nodes_;
