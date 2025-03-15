@@ -15,6 +15,42 @@
 add_subdirectory(internal)
 
 add_executable(
+  adaptors_test
+  adaptors_test.cc)
+target_include_directories(
+  adaptors_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  adaptors_test
+  PRIVATE absl::check
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  adaptors_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    adaptors_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    adaptors_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    adaptors_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    adaptors_test
+    PRIVATE -fsanitize=undefined)
+endif()
+gtest_discover_tests(adaptors_test)
+
+add_executable(
   ops_test
   ops_test.cc)
 target_include_directories(
