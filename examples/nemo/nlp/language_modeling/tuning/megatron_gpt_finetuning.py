@@ -15,13 +15,13 @@
 # limitations under the License.
 
 import torch.multiprocessing as mp
-from nemo.collections.nlp.parts.megatron_trainer_builder import MegatronLMPPTrainerBuilder
 from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
 from nemo.utils.exp_manager import exp_manager
 from omegaconf import OmegaConf
 
+from flatflow.nemo.collections.nlp.parts.megatron_trainer_builder import MegatronLMPPTrainerBuilder
 from flatflow.nemo.collections.nlp.models.language_modeling import MegatronGPTSFTModel
 
 mp.set_start_method("spawn", force=True)
