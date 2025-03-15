@@ -78,7 +78,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         pad_samples_to_global_batch_size=False,
         seed: Optional[int] = 0,
         shuffle: bool = True,
-        port: int = 50052,
+        port: int = 50051,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -114,7 +114,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.shuffle = shuffle
         self.total_size = total_samples 
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-
         self.total_size = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
@@ -150,57 +149,48 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         model_parallel_group = parallel_state.get_model_parallel_group() 
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
-        if self.consumed_samples ==0 or self.consumed_samples >= self.total_size: #TODO refactor
-            if self.shuffle:
-                # deterministically shuffle based on epoch and seed
-                g = torch.Generator()
-                g.manual_seed(self.seed + self.epoch)
-                indices = torch.randperm(len(self.dataset), generator=g).tolist()
+        if self.shuffle:
+            # deterministically shuffle based on epoch and seed
+            g = torch.Generator()
+            g.manual_seed(self.seed + self.epoch)
+            indices = torch.randperm(len(self.dataset), generator=g).tolist()
+        else:
+            indices = list(range(len(self.dataset)))
+
+        if not self.drop_last:
+            # add extra samples to make it evenly divisible
+            padding_size = self.total_size - len(indices)
+            if padding_size <= len(indices):
+                indices += indices[:padding_size]
             else:
-                indices = list(range(len(self.dataset)))
+                indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
+        else:
+            # remove tail of data to make it evenly divisible.
+            indices = indices[: self.total_size]
+        assert len(indices) == self.total_size
 
-            if not self.drop_last:
-                # add extra samples to make it evenly divisible
-                padding_size = self.total_size - len(indices)
-                if padding_size <= len(indices):
-                    indices += indices[:padding_size]
-                else:
-                    indices += (indices * math.ceil(padding_size / len(indices)))[:padding_size]
-            else:
-                # remove tail of data to make it evenly divisible.
-                indices = indices[: self.total_size]
-            assert len(indices) == self.total_size
-
-            # receive the reordered computation schedule from the control plane
-            if is_model_parallel_src:
-                self.schedule = self.client.Broadcast(self.epoch, indices)
-                self.schedule_size = [len(self.schedule)]
-
-        # while True:
-        #     if self.consumed_samples > self.total_size // self.num_data_parallel_group:
-        #         print("BREAKED")
-        #         break
+        # receive the reordered computation schedule from the control plane
+        if is_model_parallel_src:
+            self.schedule = self.client.Broadcast(self.epoch, indices)
+            self.schedule_size = [len(self.schedule)]
+            self.epoch +=1
 
         torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
         if not is_model_parallel_src:
             self.schedule = [0] * self.schedule_size[0]
         torch.distributed.broadcast_object_list(self.schedule, src=model_parallel_src_rank, group=model_parallel_group)
 
-        self.consumed_samples += self.schedule_size[0]
-        print(f"{self.consumed_samples=}, {self.total_size=}")
-        print(f"{self.schedule_size=}")
         batch = []
         for idx in range(self.schedule_size[0]):
             batch.append(self.schedule[idx])
             if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                # print(f" {self.global_rank=} : {batch=}")
+
                 yield batch
                 batch = []
 
         if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
             num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
             batch = batch + [-1] * num_pad
-            # print(f" {self.global_rank=} : {batch=}")
             yield batch
 
     def __del__(self) -> None:
