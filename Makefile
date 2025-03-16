@@ -38,10 +38,11 @@ generate:
 		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc --gen-onefile --python-typing flatflow/rpc/empty.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/rpc -I . --keep-prefix --grpc flatflow/rpc/controlplane.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/rpc -I . --gen-onefile --python-typing --grpc --grpc-filename-suffix _fb flatflow/rpc/controlplane.fbs && \
-		mv tmp/ops/__init__.py flatflow/ops && \
-		mv tmp/rpc/__init__.py flatflow/rpc && \
+		patch -p1 < flatflow/ops/node_generated.patch && \
 		rm flatflow/ops/Operator.py && \
 		rm flatflow/rpc/Operator.py && \
+		mv tmp/ops/__init__.py flatflow/ops && \
+		mv tmp/rpc/__init__.py flatflow/rpc && \
 		rmdir tmp/ops && \
 		rmdir tmp/rpc && \
 		rmdir tmp

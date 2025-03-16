@@ -33,9 +33,6 @@
 *.pdb
 *.su
 
-# CMake build directory
-build/
-
 # Adapted from https://github.com/github/gitignore/blob/bfa56dc5d8465f558383f6764e1219b4e983b725/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
@@ -53,7 +50,6 @@ eggs/
 .eggs/
 lib/
 lib64/
-parts/
 sdist/
 var/
 wheelhouse/

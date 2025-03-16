@@ -84,11 +84,10 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
   ControlPlaneServiceImpl &operator=(ControlPlaneServiceImpl &&other) = default;
 
   ~ControlPlaneServiceImpl() override {
-    if (!signal_.valid()) {
-      // It looks like the program was terminated via an external signal such as
-      // keyboard interrupt without calling `Finalize`.
-      // Just get it done in silence...
-    } else if (signal_.get() != 0) {
+    // The signal should be first validated as the program may have been
+    // terminated via an external signal such as keyboard interrupt without
+    // calling `Finalize`.
+    if (signal_.valid() && signal_.get() != 0) {
       LOG(ERROR) << "Failed to send signal to the program";
     }
   }

@@ -12,17 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
+import warnings
+from collections.abc import Mapping, Sequence
 
+import flatbuffers
 import torch
 import torch.fx
 from torch._ops import OpOverload
 
+from flatflow.ops.graph_generated import (
+    GraphAddNodes,
+    GraphEnd,
+    GraphStart,
+    GraphStartNodesVector,
+)
+from flatflow.ops.node_generated import (
+    CreateSymInt,
+    NodeAddArgs,
+    NodeAddMeta,
+    NodeAddTarget,
+    NodeEnd,
+    NodeStart,
+    NodeStartArgsVector,
+    TensorMetadataAddShape,
+    TensorMetadataEnd,
+    TensorMetadataStart,
+    TensorMetadataStartShapeVector,
+)
 from flatflow.ops.operator_generated import Operator
 
 aten = torch._ops.ops.aten  # type: ignore[has-type]
 
-__all__ = ["_OPS_TABLE", "is_accessor_node"]
+__all__ = ["serialize"]
 
 _OPS_TABLE: Mapping[OpOverload, int] = {
     aten._softmax: Operator._SOFTMAX,
@@ -57,6 +78,24 @@ _OPS_TABLE: Mapping[OpOverload, int] = {
 }
 
 
+class UnsupportedOperatorWarning(UserWarning):
+    """Warning that signals the presence of unsupported operators."""
+
+    def __init__(self, args: Sequence[OpOverload]) -> None:
+        self.args = tuple(set(args))
+
+    def __str__(self) -> str:
+        message = (
+            "The following operators are not supported\n{}\n"
+            "Please make sure you are using the latest version of FlatFlow\n"
+            "or file an issue to https://github.com/9rum/flatflow/issues\n"
+            "The latest release can be found at https://github.com/9rum/flatflow/tags"
+        )
+        return message.format(
+            "\n".join(sorted("\t{}".format(arg) for arg in self.args))
+        )
+
+
 def is_accessor_node(node: torch.fx.Node) -> bool:
     return (
         node.op == "call_method"
@@ -78,3 +117,83 @@ def is_accessor_node(node: torch.fx.Node) -> bool:
             aten.sym_numel.default,
         ]
     )
+
+
+def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
+    """Serializes the given graph."""
+    blacklist = []
+    nodes = []
+
+    for node in graph.nodes:
+        if not is_accessor_node(node) and isinstance(node.target, OpOverload):
+            if node.target not in _OPS_TABLE:
+                blacklist.append(node.target)
+                continue
+            target = _OPS_TABLE[node.target]
+            args = []
+
+            for arg in node.args:
+                if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
+                    shape = []
+
+                    for maybe_sym_int in arg.meta["tensor_meta"].shape:
+                        if isinstance(maybe_sym_int, torch.SymInt):
+                            expr = maybe_sym_int.node.expr
+                            symbol = next(iter(expr.free_symbols))
+                            shape.append([expr.coeff(symbol, 0), expr.coeff(symbol, 1)])
+                        else:
+                            shape.append([maybe_sym_int, 0])
+
+                    TensorMetadataStartShapeVector(builder, len(shape))
+                    for sym_int in reversed(shape):
+                        CreateSymInt(builder, sym_int)
+                    _shape = builder.EndVector()
+
+                    TensorMetadataStart(builder)
+                    TensorMetadataAddShape(builder, _shape)
+                    _arg = TensorMetadataEnd(builder)
+                    args.append(_arg)
+
+            NodeStartArgsVector(builder, len(args))
+            for arg in reversed(args):
+                builder.PrependUOffsetTRelative(arg)
+            _args = builder.EndVector()
+
+            shape = []
+
+            if "tensor_meta" in node.meta:
+                for maybe_sym_int in node.meta["tensor_meta"].shape:
+                    if isinstance(maybe_sym_int, torch.SymInt):
+                        expr = maybe_sym_int.node.expr
+                        symbol = next(iter(expr.free_symbols))
+                        shape.append([expr.coeff(symbol, 0), expr.coeff(symbol, 1)])
+                    else:
+                        shape.append([maybe_sym_int, 0])
+
+            TensorMetadataStartShapeVector(builder, len(shape))
+            for sym_int in reversed(shape):
+                CreateSymInt(builder, sym_int)
+            _shape = builder.EndVector()
+
+            TensorMetadataStart(builder)
+            TensorMetadataAddShape(builder, _shape)
+            _meta = TensorMetadataEnd(builder)
+
+            NodeStart(builder)
+            NodeAddTarget(builder, target)
+            NodeAddArgs(builder, _args)
+            NodeAddMeta(builder, _meta)
+            _node = NodeEnd(builder)
+            nodes.append(_node)
+
+    if blacklist:
+        warnings.warn(UnsupportedOperatorWarning(blacklist), stacklevel=2)
+
+    GraphStartNodesVector(builder, len(nodes))
+    for node in reversed(nodes):
+        builder.PrependUOffsetTRelative(node)
+    _nodes = builder.EndVector()
+
+    GraphStart(builder)
+    GraphAddNodes(builder, _nodes)
+    return GraphEnd(builder)

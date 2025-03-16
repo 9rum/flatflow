@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/ops/ops.h"
-
-#include <vector>
+#include "flatflow/ops/adaptors.h"
 
 #include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
@@ -39,7 +37,7 @@ std::vector<flatflow::SymInt> CreateVectorOfSymInts(Args... args) {
   return std::vector<flatflow::SymInt>{args...};
 }
 
-class SymbolicTraceTest : public testing::Test {
+class AdaptorsTest : public testing::Test {
  protected:
   void SetUp() override {
     if (!absl::log_internal::IsInitialized()) {
@@ -49,21 +47,7 @@ class SymbolicTraceTest : public testing::Test {
   }
 };
 
-// This test checks whether symbolic tracing works as intended for Llama 3.
-// Specifically, this test answers the following questions:
-//
-// * Does the current implementation of operator registry support all the
-//   operators included in Llama 3?
-// * Does symbolic tracing work deterministically on the same model?
-//
-// Note that the original Llama 3 models have thousands of nodes when
-// converted to graphs; 3887 nodes for the 8B, 9567 nodes for the 70B.
-// This produces hundreds of thousands of lines of code when generated, severely
-// slowing down the build; 60,178 lines for the 8B, 148,226 lines for the 70B.
-// To this end, this test emulates Llama 3 where a unique pair of operator and
-// symbolic shapes appears only once, limiting the computational graph to have
-// only 95 nodes.
-TEST_F(SymbolicTraceTest, Llama3) {
+TEST_F(AdaptorsTest, Llama3) {
   auto builder = flatbuffers::FlatBufferBuilder();
 
   auto target = flatflow::Operator::EMBEDDING;
@@ -1707,13 +1691,51 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   auto graph =
       flatbuffers::GetRoot<flatflow::Graph>(builder.GetBufferPointer());
-  const auto trace =
-      flatflow::symbolic_trace(graph);  // 16609 s0^2 + 1327619844 s0
+  const auto adaptor = flatflow::GraphAdaptor(graph);
 
-  EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 1327636453);
-  EXPECT_EQ(trace(1024), 1376898519040);
-  EXPECT_EQ(trace(2048), 2788628635648);
+  EXPECT_EQ(adaptor.size(), graph->nodes()->size());
+
+  for (flatbuffers::uoffset_t i = 0; i < graph->nodes()->size(); ++i) {
+    EXPECT_EQ(adaptor[i].target(), graph->nodes()->Get(i)->target());
+
+    EXPECT_EQ(adaptor[i].args().size(), graph->nodes()->Get(i)->args()->size());
+    for (flatbuffers::uoffset_t j = 0;
+         j < graph->nodes()->Get(i)->args()->size(); ++j) {
+      EXPECT_EQ(adaptor[i].args()[j].shape().size(),
+                graph->nodes()->Get(i)->args()->Get(j)->shape()->size());
+      for (flatbuffers::uoffset_t k = 0;
+           k < graph->nodes()->Get(i)->args()->Get(j)->shape()->size(); ++k) {
+        EXPECT_EQ(adaptor[i].args()[j].shape()[k][0], graph->nodes()
+                                                          ->Get(i)
+                                                          ->args()
+                                                          ->Get(j)
+                                                          ->shape()
+                                                          ->Get(k)
+                                                          ->data()
+                                                          ->Get(0));
+        EXPECT_EQ(adaptor[i].args()[j].shape()[k][1], graph->nodes()
+                                                          ->Get(i)
+                                                          ->args()
+                                                          ->Get(j)
+                                                          ->shape()
+                                                          ->Get(k)
+                                                          ->data()
+                                                          ->Get(1));
+      }
+    }
+
+    EXPECT_EQ(adaptor[i].meta().shape().size(),
+              graph->nodes()->Get(i)->meta()->shape()->size());
+    for (flatbuffers::uoffset_t j = 0;
+         j < graph->nodes()->Get(i)->meta()->shape()->size(); ++j) {
+      EXPECT_EQ(
+          adaptor[i].meta().shape()[j][0],
+          graph->nodes()->Get(i)->meta()->shape()->Get(j)->data()->Get(0));
+      EXPECT_EQ(
+          adaptor[i].meta().shape()[j][1],
+          graph->nodes()->Get(i)->meta()->shape()->Get(j)->data()->Get(1));
+    }
+  }
 }
 
 }  // namespace
