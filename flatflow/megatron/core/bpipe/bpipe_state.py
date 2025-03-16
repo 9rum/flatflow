@@ -1,4 +1,4 @@
-# Copyright 2025, The FlatFlow Authors.
+# Copyright 2025 The FlatFlow Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ def is_bpipe_enabled() -> bool:
     return _USE_BPIPE
 
 # BPipe option
-def set_bpipe_option(enabled) -> None:
+def set_bpipe_option(enabled: bool) -> None:
     """Enable or disable bpipe."""
     global _USE_BPIPE
     _USE_BPIPE = enabled
