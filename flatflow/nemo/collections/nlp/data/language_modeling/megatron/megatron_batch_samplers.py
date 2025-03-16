@@ -52,7 +52,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
-            graph (torch.fx.graph) : exported model in torch.fx.graph format.
+        graph (torch.fx.graph) : exported model in torch.fx.graph format.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
         seed (int, optional): Random seed used to shuffle the sampler.
             This number should be identical across all processes in the distributed group. (default: ``0``)
