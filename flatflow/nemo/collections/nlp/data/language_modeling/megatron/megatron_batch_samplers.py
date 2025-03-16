@@ -52,7 +52,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
-        graph (torch.fx.graph) : exported model in torch.fx.graph format.
+            graph (torch.fx.graph) : exported model in torch.fx.graph format.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
         seed (int, optional): Random seed used to shuffle the sampler.
             This number should be identical across all processes in the distributed group. (default: ``0``)
@@ -185,7 +185,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         for idx in range(self.schedule_size[0]):
             batch.append(self.schedule[idx])
             if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-
+                self.consumed_samples += self._global_batch_size
                 yield batch
                 batch = []
 
@@ -193,6 +193,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
             batch = batch + [-1] * num_pad
             yield batch
+        self.consumed_samples = 0
 
     def __del__(self) -> None:
         if hasattr(self, 'client') and self.client.rank == 0:
