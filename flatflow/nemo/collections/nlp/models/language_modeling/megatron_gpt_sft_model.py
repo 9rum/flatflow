@@ -21,7 +21,9 @@ from typing import Any, Optional
 
 import nvtx
 import torch
-import transformers
+import torch.export
+from torch.nn.attention import sdpa_kernel, SDPBackend
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
@@ -1157,15 +1159,15 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         return fwd_output_and_loss_func
 
 def prepare_ops(model_path):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     prompt = "How many hours are in a day?"
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     torch.backends.cuda.enable_mem_efficient_sdp(False)
     decomp_table = torch._decomp.get_decompositions([torch.ops.aten.scaled_dot_product_attention])
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
+    model = AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
 
     seq_len = torch.export.Dim("seq_len", min=2, max=128)
-    with torch.no_grad(), torch.nn.attention.sdpa_kernel(torch.nn.attention.SDPBackend.MATH):
-        executed_program = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
-        executed_program = executed_program.run_decompositions(decomp_table)
-    return executed_program.graph
+    with torch.no_grad(), sdpa_kernel(SDPBackend.MATH):
+        ep = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
+        ep = ep.run_decompositions(decomp_table)
+    return ep.graph
