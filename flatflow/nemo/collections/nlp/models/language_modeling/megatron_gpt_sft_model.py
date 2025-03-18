@@ -894,7 +894,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self._train_ds = self._build_dataset(self.cfg.data.train_ds)
         logging.info(f'Length of train dataset: {len(self._train_ds)}')
 
-    def build_data_loader(self, dataset, data_cfg, consumed_samples=0, is_train=False, shuffle=True):
+    def build_data_loader(self, dataset, data_cfg, consumed_samples=0, is_train=False):
         """Buld dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
@@ -916,7 +916,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
                 graph=prepare_ops(self.model_path),
-                shuffle=shuffle,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:
