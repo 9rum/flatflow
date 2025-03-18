@@ -150,7 +150,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         if is_model_parallel_src:
             self.schedule = self.client.Broadcast(self.epoch, broadcast_indices)
             self.schedule_size = [len(self.schedule)]
-            self.epoch +=1
+            self.epoch += 1
 
         torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
         if not is_model_parallel_src:
@@ -161,20 +161,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         for idx in range(self.schedule_size[0]):
             batch.append(self.schedule[idx])
             if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                self.consumed_samples += self._global_batch_size
-                indices = [
-                    batch[i] for i in range(self.data_parallel_rank, self._global_batch_size, self.data_parallel_size,)
-                ]
-                assert len(indices) == self._global_batch_size_on_this_data_parallel_rank
-                yield indices
+                self.consumed_samples += self._global_batch_size_on_this_data_parallel_rank
+                yield batch
                 batch = []
 
         if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-            indices = [batch[i] for i in range(self.data_parallel_rank, len(batch), self.data_parallel_size)]
-            if self.pad_samples_to_global_batch_size:
-                num_pad = self._global_batch_size // self.data_parallel_size - len(indices)
-                indices = indices + [-1] * num_pad
-            yield indices
+            num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
+            batch = batch + [-1] * num_pad
+            yield batch    
 
         self.consumed_samples = 0
 
