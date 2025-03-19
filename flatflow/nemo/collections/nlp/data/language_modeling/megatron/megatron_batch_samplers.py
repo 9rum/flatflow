@@ -123,13 +123,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.schedule = []
         self.schedule_size = [0]
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            self.client = ControlPlaneClient(self.global_rank, channel)
-            self.client.Init(
-                global_batch_size,
-                micro_batch_size,
-                graph,
-                sizes if self.global_rank == 0 else None,
-            )
+            self.client = ControlPlaneClient(self.data_parallel_rank, channel)
+            if self.data_parallel_rank == 0:
+                self.client.Init(
+                    global_batch_size,
+                    micro_batch_size,
+                    graph,
+                    sizes,
+                )
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
