@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import os
-from typing import Optional
 
 import grpc
 import torch.distributed
@@ -53,10 +52,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
-        graph (torch.fx.graph) : exported model in torch.fx.graph format.
+        graph (torch.fx.graph) : The exported model in torch.fx.Graph format.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
-        seed (int, optional): Random seed used to shuffle the sampler.
-            This number should be identical across all processes in the distributed group. (default: ``0``)
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
     .. warning::
@@ -77,7 +74,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         drop_last: bool,
         graph: torch.fx.graph,
         pad_samples_to_global_batch_size=False,
-        seed: Optional[int] = 0,
         port: int = 50051,
     ) -> None:
         super().__init__(
@@ -109,10 +105,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
-        self.seed = seed
-        self.total_size = total_samples 
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-        self.total_size = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
@@ -142,14 +135,14 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        broadcast_indices = list(range(len(self.dataset)))
+        indices = list(range(len(self.dataset)))
         model_parallel_group = parallel_state.get_model_parallel_group() 
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
         # receive the reordered computation schedule from the control plane
         if is_model_parallel_src:
-            self.schedule = self.client.Broadcast(self.epoch, broadcast_indices)
+            self.schedule = self.client.Broadcast(self.epoch, indices)
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
 
@@ -174,5 +167,5 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.consumed_samples = 0
 
     def __del__(self) -> None:
-        if hasattr(self, 'client') and self.client.rank == 0:
+        if hasattr(self, "client") and self.client.rank == 0:
             self.client.Finalize()
