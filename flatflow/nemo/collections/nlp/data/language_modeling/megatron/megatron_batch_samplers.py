@@ -16,13 +16,13 @@
 
 import os
 from typing import Optional
-import math
-from itertools import chain
 
 import grpc
 import torch.distributed
 from megatron.core import parallel_state
-from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
+from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
+    BaseMegatronBatchSampler,
+)
 
 from flatflow import sys
 from flatflow.rpc import ControlPlaneClient, run
