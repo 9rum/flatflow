@@ -15,15 +15,17 @@
 # limitations under the License.
 
 import os
-from typing import Optional
 
 import grpc
 import torch.distributed
+import torch.fx
 from megatron.core import parallel_state
-from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
+from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
+    BaseMegatronBatchSampler,
+)
 
 from flatflow import sys
-from flatflow.rpc import CommunicatorClient, run
+from flatflow.rpc import ControlPlaneClient, run
 from flatflow.torch.utils.data.dataset import Dataset
 
 __all__ = ["MegatronPretrainingBatchSampler"]
@@ -51,19 +53,10 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
+        graph (torch.fx.Graph): The exported computational graph.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
-        order (int, optional): Indicates model complexity. (CNN: 1, transformer: 2)
-        use_flat_shuffle (bool, optional): If ``True``, then the sampler will shuffle in inter-range.
-            This will enable faster training.
-        seed (int, optional): Random seed used to shuffle the sampler.
-            This number should be identical across all processes in the distributed group. (default: ``0``)
-        heterogeneous (str, optional): Indicates whether cluster is heterogeneous or not.
-            Currently, only False is supported.
-        hidden_size (bool, optional): Indicates the hidden dimension size of model.
-            This is given only when order is 2.
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
-        profiler (Profiler, optional): Profiler object to be used for profiling the training loop.
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
@@ -80,12 +73,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         data_parallel_rank: int,
         data_parallel_size: int,
         drop_last: bool,
+        graph: torch.fx.Graph,
         pad_samples_to_global_batch_size=False,
-        order: Optional[int] = 2,
-        use_flat_shuffle: bool = True,
-        seed: Optional[int] = 0,
-        heterogeneous: bool = False,
-        hidden_size: Optional[int] = False,
         port: int = 50051,
     ) -> None:
         super().__init__(
@@ -98,8 +87,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             drop_last=drop_last,
             pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
         )
-        self.order = order
-        self.use_flat_shuffle = use_flat_shuffle
         self.total_samples: int = total_samples
         self.consumed_samples: int = consumed_samples
         self.micro_batch_size: int = micro_batch_size
@@ -115,31 +102,29 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.global_rank = torch.distributed.get_rank()
         self.epoch = 0
         self.indices = []
-        self.last_batch_size = self.total_samples % self._global_batch_size
         self.world_size = torch.distributed.get_world_size()
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-        self.total_length = len(sizes)
 
         addr = os.getenv("MASTER_ADDR")
         channel = grpc.insecure_channel(f"{addr}:{port}")
+
         if self.global_rank == 0:
             run(port, data_parallel_size)
-        self.client = CommunicatorClient(channel)
+
+        self.schedule = []
+        self.schedule_size = [0]
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            self.client.Init(
-                global_batch_size,
-                micro_batch_size,
-                order,
-                self.data_parallel_rank,
-                seed,
-                heterogeneous,
-                use_flat_shuffle,
-                hidden_size,
-                sizes if self.global_rank == 0 else None,
-            )
+            self.client = ControlPlaneClient(self.data_parallel_rank, channel)
+            if self.data_parallel_rank == 0:
+                self.client.Init(
+                    global_batch_size,
+                    micro_batch_size,
+                    graph,
+                    sizes,
+                )
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -151,40 +136,37 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        indices = []
-        model_parallel_group = parallel_state.get_model_parallel_group()
-        model_parallel_group_ranks = torch.distributed.get_process_group_ranks(model_parallel_group)
+        indices = list(range(len(self.dataset)))
+        model_parallel_group = parallel_state.get_model_parallel_group() 
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
-        while True:
-            if self.consumed_samples > self.total_length // self.num_data_parallel_group:
-                break
-            indices_size = [0]
-            if is_model_parallel_src:
-                response = self.client.Broadcast(epoch=self.epoch)
-                indices = list(response.IndicesAsNumpy())
-                indices_size = [len(indices)]
+        # receive the reordered computation schedule from the control plane
+        if is_model_parallel_src:
+            self.schedule = self.client.Broadcast(self.epoch, indices)
+            self.schedule_size = [len(self.schedule)]
+            self.epoch += 1
 
-            torch.distributed.broadcast_object_list(indices_size, src=model_parallel_src_rank, group=model_parallel_group)
-            if not is_model_parallel_src:
-                indices = [0] * indices_size[0]
-            torch.distributed.broadcast_object_list(indices, src=model_parallel_src_rank, group=model_parallel_group)
+        torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
+        if not is_model_parallel_src:
+            self.schedule = [0] * self.schedule_size[0]
+        torch.distributed.broadcast_object_list(self.schedule, src=model_parallel_src_rank, group=model_parallel_group)
 
-            self.consumed_samples += indices_size[0]
-
-            batch = []
-            for idx in range(indices_size[0]):
-                batch.append(indices[idx])
-                if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                    yield batch
-                    batch = []
-
-            if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-                num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
-                batch = batch + [-1] * num_pad
+        batch = []
+        for idx in range(self.schedule_size[0]):
+            batch.append(self.schedule[idx])
+            if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
+                self.consumed_samples += self._global_batch_size_on_this_data_parallel_rank
                 yield batch
+                batch = []
+
+        if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
+            num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
+            batch = batch + [-1] * num_pad
+            yield batch    
+
+        self.consumed_samples = 0
 
     def __del__(self) -> None:
-        if hasattr(self.client, "rank") and self.client.rank == 0:
+        if hasattr(self, "client") and self.client.rank == 0:
             self.client.Finalize()

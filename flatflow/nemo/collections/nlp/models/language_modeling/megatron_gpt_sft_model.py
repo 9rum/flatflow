@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 import nvtx
 import torch
+import torch.export
 from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
@@ -43,17 +44,23 @@ from nemo.utils import AppState, logging
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
+from torch._decomp import get_decompositions
+from torch.nn.attention import SDPBackend, sdpa_kernel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
+import flatflow.megatron.core.pipeline_parallel.schedules
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
 import flatflow.torch.utils.data
-import flatflow.megatron.core.pipeline_parallel.schedules
+
 try:
     from megatron.core.num_microbatches_calculator import (
-        reconfigure_num_microbatches_calculator as _reconfigure_microbatch_calculator,
         get_current_global_batch_size,
         get_micro_batch_size,
         get_num_microbatches,
+    )
+    from megatron.core.num_microbatches_calculator import (
+        reconfigure_num_microbatches_calculator as _reconfigure_microbatch_calculator,
     )
 
 except (ImportError, ModuleNotFoundError):
@@ -119,7 +126,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             else:
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
-
+        self.model_path = cfg.get("restore_from_path", None).split("/model.nemo")[0]
         self.profile_key = None
         self.layer_event = {}
         self.layer = {}
@@ -912,6 +919,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 drop_last=data_cfg.drop_last,
                 pad_samples_to_global_batch_size=not data_cfg.drop_last,
                 dataset=dataset,
+                graph=_export(self.model_path),
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:
@@ -1152,3 +1160,17 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             return output_tensor, loss_func
 
         return fwd_output_and_loss_func
+
+def _export(model_path):
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    prompt = "How many hours are in a day?"
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
+    decomp_table = get_decompositions([torch.ops.aten.scaled_dot_product_attention])
+    model = AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
+
+    seq_len = torch.export.Dim("seq_len", min=2, max=128)
+    with torch.no_grad(), sdpa_kernel(SDPBackend.MATH):
+        ep = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
+        ep = ep.run_decompositions(decomp_table)
+    return ep.graph
