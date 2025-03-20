@@ -18,6 +18,7 @@ import os
 
 import grpc
 import torch.distributed
+import torch.fx
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
     BaseMegatronBatchSampler,
@@ -52,7 +53,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             tail of the data to make it evenly divisible across the number of
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
-        graph (torch.fx.graph) : The exported model in torch.fx.Graph format.
+        graph (torch.fx.Graph): The exported computational graph.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
         port (int, optional): Port on the master node (rank 0) to be used for initializing
             the communicator server. (default: ``50051``)
