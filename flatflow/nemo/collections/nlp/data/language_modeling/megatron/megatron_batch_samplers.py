@@ -72,7 +72,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         data_parallel_rank: int,
         data_parallel_size: int,
         drop_last: bool,
-        graph: torch.fx.graph,
+        graph: torch.fx.Graph,
         pad_samples_to_global_batch_size=False,
         port: int = 50051,
     ) -> None:
