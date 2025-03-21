@@ -19,6 +19,20 @@
 
 namespace flatflow {
 
+// If the type `T` is a pointer type, provides the member typedef `type` which
+// is the type pointed to by `T` with its topmost cv-qualifiers removed.
+// Otherwise `type` is `T` with its topmost cv-qualifiers removed.
+template <typename T>
+struct remove_cvptr {
+  // The type pointed by `T` or `T` itself if it is not a pointer,
+  // with top-level cv-qualifiers removed.
+  using type = std::remove_cv_t<std::remove_pointer_t<T>>;
+};
+
+// Alias template for `remove_cvptr`.
+template <typename T>
+using remove_cvptr_t = typename remove_cvptr<T>::type;
+
 // The concept `arithmetic<T>` is satisfied if and only if `T` is an arithmetic
 // type (that is, an integral type or a floating-point type). This is intended
 // as a supplementary concept to the standard concepts library, filling the gap
