@@ -47,9 +47,9 @@ namespace flatflow {
 class Scheduler {
  public:
   using value_type =
-      typename std::vector<typename OperatorRegistry::value_type>::value_type;
+      typename std::vector<typename SymIntAdaptor::return_type>::value_type;
   using size_type =
-      typename std::vector<typename OperatorRegistry::value_type>::size_type;
+      typename std::vector<typename SymIntAdaptor::return_type>::size_type;
 
   // Constructors and assignment operators
   //
@@ -340,7 +340,7 @@ class Scheduler {
   size_type last_micro_batch_size_;
   size_type micro_batch_size_;
   size_type num_microbatches_;
-  std::vector<typename OperatorRegistry::value_type> preds_;
+  std::vector<typename SymIntAdaptor::return_type> preds_;
 };
 
 }  // namespace flatflow
