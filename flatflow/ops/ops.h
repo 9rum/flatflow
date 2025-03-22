@@ -43,6 +43,10 @@ struct SymIntAdaptor {
       decltype(std::declval<SymInt>().data())>::return_type;
 };
 
+// flatflow::make_polynomial()
+//
+// Creates a `polynomial` whose coefficients are initialized from the
+// corresponding arguments.
 template <typename... Args>
 internal::polynomial<typename SymIntAdaptor::return_type> make_polynomial(
     Args... args) {
