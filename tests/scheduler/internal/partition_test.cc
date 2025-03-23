@@ -19,8 +19,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <numeric>
 #include <random>
-#include <utility>
 #include <vector>
 
 #include "absl/base/log_severity.h"
@@ -48,12 +48,15 @@ class PartitionTest : public testing::Test {
 };
 
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
-  auto items = std::vector<std::pair<uint32_t, size_t>>();
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>();
+  auto indices = std::vector<size_t>();
+
+  auto projs = std::vector<uint32_t>();
+
+  auto subsets = std::vector<flatflow::internal::Subset<size_t, uint32_t>>();
   const auto result = flatflow::internal::Partition(
-      items.begin(), items.end(), subsets.begin(),
-      [](const auto &item) { return item.first; },
-      [](const auto &item) { return item.second; }, 0);
+      indices.begin(), indices.end(), subsets.begin(), 0,
+      [&](auto index) { return projs[index]; });
+
   EXPECT_TRUE(subsets.empty());
   EXPECT_EQ(std::distance(result, subsets.end()), 0);
 }
@@ -62,84 +65,82 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint32_t, size_t>>();
-  items.reserve(kMicroBatchSize * kNumMicrobatches);
+  auto indices = std::vector<size_t>(kMicroBatchSize * kNumMicrobatches);
+  std::iota(indices.begin(), indices.end(), 0);
 
-  while (items.size() < items.capacity()) {
-    const auto size = distribution(generator);
-    if (0.5 <= size && size < 8192.5) {
-      const auto workload = std::lround(size);
-      const auto index = items.size();
-      items.emplace_back(workload, index);
+  auto projs = std::vector<uint32_t>();
+  projs.reserve(kMicroBatchSize * kNumMicrobatches);
+
+  while (projs.size() < projs.capacity()) {
+    const auto proj = distribution(generator);
+    if (0.5 <= proj && proj < 8192.5) {
+      projs.emplace_back(std::lround(proj));
     }
   }
 
-  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
-    return lhs.first < rhs.first;
-  });
+  std::sort(projs.begin(), projs.end());
 
-  auto subsets = std::vector<flatflow::internal::Subset<uint32_t, size_t>>(
+  auto subsets = std::vector<flatflow::internal::Subset<size_t, uint32_t>>(
       kNumMicrobatches);
   const auto result = flatflow::internal::Partition(
-      items.begin(), items.end(), subsets.begin(),
-      [](const auto &item) { return item.first; },
-      [](const auto &item) { return item.second; }, kNumMicrobatches);
+      indices.begin(), indices.end(), subsets.begin(), kNumMicrobatches,
+      [&](auto index) { return projs[index]; });
+
   EXPECT_EQ(subsets.size(), kNumMicrobatches);
   EXPECT_EQ(std::distance(result, subsets.end()), 0);
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
-  auto workloads = std::vector<uint32_t>();
-  workloads.reserve(kNumMicrobatches);
+  projs = std::vector<uint32_t>();
+  projs.reserve(kNumMicrobatches);
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
     EXPECT_EQ(subset.items().size(), kMicroBatchSize);
-    workloads.emplace_back(subset.sum());
+    projs.emplace_back(subset.sum());
   });
 
-  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
+  LOG(INFO) << absl::StrFormat("Subset sums: %s", absl::StrJoin(projs, " "));
 }
 
 TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto items = std::vector<std::pair<uint32_t, size_t>>();
-  items.reserve(kMicroBatchSize * kNumMicrobatches);
+  auto indices = std::vector<size_t>(kMicroBatchSize * kNumMicrobatches);
+  std::iota(indices.begin(), indices.end(), 0);
 
-  while (items.size() < items.capacity()) {
-    const auto size = distribution(generator);
-    if (0.5 <= size && size < 8192.5) {
-      const auto workload = std::lround(size);
-      const auto index = items.size();
-      items.emplace_back(workload, index);
+  auto projs = std::vector<double_t>();
+  projs.reserve(kMicroBatchSize * kNumMicrobatches);
+
+  while (projs.size() < projs.capacity()) {
+    const auto proj = distribution(generator);
+    if (0.5 <= proj && proj < 8192.5) {
+      projs.emplace_back(std::round(proj));
     }
   }
 
-  std::sort(items.begin(), items.end(), [](const auto &lhs, const auto &rhs) {
-    return lhs.first < rhs.first;
-  });
+  std::sort(projs.begin(), projs.end());
 
-  auto subsets =
-      std::vector<flatflow::internal::Subset<double, size_t>>(kNumMicrobatches);
+  auto subsets = std::vector<flatflow::internal::Subset<size_t, double_t>>(
+      kNumMicrobatches);
   const auto result = flatflow::internal::Partition(
-      items.begin(), items.end(), subsets.begin(),
-      [](const auto &item) { return static_cast<double>(item.first); },
-      [](const auto &item) { return item.second; }, kNumMicrobatches);
+      indices.begin(), indices.end(), subsets.begin(), kNumMicrobatches,
+      [&](auto index) { return projs[index]; });
+
   EXPECT_EQ(subsets.size(), kNumMicrobatches);
   EXPECT_EQ(std::distance(result, subsets.end()), 0);
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
-  auto workloads = std::vector<double>();
-  workloads.reserve(kNumMicrobatches);
+  projs = std::vector<double_t>();
+  projs.reserve(kNumMicrobatches);
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
     EXPECT_EQ(subset.items().size(), kMicroBatchSize);
-    workloads.emplace_back(subset.sum());
+    projs.emplace_back(subset.sum());
   });
 
-  LOG(INFO) << absl::StrFormat("Workloads: %s", absl::StrJoin(workloads, " "));
+  LOG(INFO) << absl::StrFormat("Subset sums: %s", absl::StrJoin(projs, " "));
 }
 
 }  // namespace
