@@ -97,11 +97,11 @@ class SchedChecker : public flatflow::Scheduler {
           const auto first =
               base + num_samples / data_parallel_world_size_ * rank;
           buf[rank] = absl::StrFormat(
-              "%13d",
-              std::transform_reduce(
-                  std::next(indices.begin(), first),
-                  std::next(indices.begin(), first + micro_batch_size_), kZero,
-                  std::plus<>(), [&](size_t index) { return preds_[index]; }));
+              "%13d", std::transform_reduce(
+                          std::next(indices.begin(), first),
+                          std::next(indices.begin(), first + micro_batch_size_),
+                          kZero, std::plus<>(),
+                          [&](size_t index) { return projections_[index]; }));
         }
 
         LOG(INFO) << absl::StrFormat("[%s]", absl::StrJoin(buf, " "));
@@ -115,7 +115,7 @@ class SchedChecker : public flatflow::Scheduler {
             std::transform_reduce(
                 std::next(indices.begin(), last - last_micro_batch_size),
                 std::next(indices.begin(), last), kZero, std::plus<>(),
-                [&](size_t index) { return preds_[index]; }));
+                [&](size_t index) { return projections_[index]; }));
       }
 
       LOG(INFO) << absl::StrFormat("[%s]", absl::StrJoin(buf, " "));

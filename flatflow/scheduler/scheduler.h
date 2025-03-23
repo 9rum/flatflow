@@ -88,9 +88,9 @@ class Scheduler {
     // branch instructions.
     last_global_batch_size_ = (total_size - 1) % global_batch_size + 1;
 
-    // The last micro-batch size must be calculated since the total number of
-    // data samples is guaranteed to be a multiple of data parallel world size,
-    // but may not be divisible by the micro-batch size.
+    // The last micro-batch size be calculated since the total number of data
+    // samples is guaranteed to be a multiple of data parallel world size, but
+    // may not be divisible by the micro-batch size.
     last_micro_batch_size_ =
         (total_size / data_parallel_world_size - 1) % micro_batch_size + 1;
 
@@ -100,14 +100,14 @@ class Scheduler {
         ((total_size / data_parallel_world_size - 1) / micro_batch_size + 1) *
         data_parallel_world_size;
 
-    preds_.resize(total_size);
+    projections_.resize(total_size);
 
     const auto trace = symbolic_trace(graph);
 
     // clang-format off
     #pragma omp parallel for
     for (size_type index = 0; index < total_size; ++index) {
-      preds_[index] = trace(*std::next(first, index));
+      projections_[index] = trace(*std::next(first, index));
     }
     // clang-format on
   }
@@ -141,10 +141,10 @@ class Scheduler {
 
     const auto total_size = static_cast<size_type>(std::distance(first, last));
 
-    const auto comp = std::bind_front(&Scheduler::CompareForSchedule, this);
-    const auto pred = std::bind_front(&Scheduler::PredForSchedule, this);
-    const auto bpred = std::bind_front(&Scheduler::BatchPredForSchedule, this);
-    const auto proj = std::identity();
+    const auto comp = std::bind_front(&Scheduler::Compare, this);
+    const auto proj = std::bind_front(&Scheduler::Project, this);
+    const auto bproj =
+        std::bind_front(&internal::Subset<size_type, value_type>::sum);
 
     // clang-format off
     #pragma omp parallel for
@@ -154,8 +154,8 @@ class Scheduler {
                                    ? global_batch_size_
                                    : last_global_batch_size_;
 
-      // `samples` may not be sorted in order of their predicates; sort them
-      // first for partitioning.
+      // `samples` may not be sorted in order of their projected values;
+      // sort them first for partitioning.
       auto samples = std::vector<size_type>(
           std::next(first, offset), std::next(first, offset + num_samples));
       std::sort(samples.begin(), samples.end(), comp);
@@ -191,23 +191,22 @@ class Scheduler {
         // attention heads.
         auto num_microbatches = num_samples / micro_batch_size_;
         auto microbatches =
-            std::vector<internal::Subset<value_type, size_type>>(
+            std::vector<internal::Subset<size_type, value_type>>(
                 num_microbatches);
         internal::Partition(samples.begin(), samples.end(),
-                            microbatches.begin(), pred, proj, num_microbatches);
+                            microbatches.begin(), num_microbatches, proj);
 
         num_microbatches /= data_parallel_world_size_;
         auto batch = std::vector<internal::Subset<
-            value_type, internal::Subset<value_type, size_type>>>(
+            internal::Subset<size_type, value_type>, value_type>>(
             data_parallel_world_size_);
         internal::Partition(microbatches.begin(), microbatches.end(),
-                            batch.begin(), bpred, proj,
-                            data_parallel_world_size_);
+                            batch.begin(), data_parallel_world_size_, bproj);
 
         for (size_type rank = 0; rank < data_parallel_world_size_; ++rank) {
           // The partitioned per-replica batches are guaranteed to be sorted in
-          // order of their predicates, while the micro-batches in each of the
-          // replicas are not; they must be sorted to prevent pipeline bubbles.
+          // order of their projected values, while the micro-batches in each of
+          // the replicas are not; they be sorted to prevent pipeline bubbles.
           auto &per_replica_batch = batch[rank];
           std::sort(per_replica_batch.begin(), per_replica_batch.end());
 
@@ -231,11 +230,11 @@ class Scheduler {
         const auto num_remainders =
             data_parallel_world_size_ * last_micro_batch_size_;
         auto last_microbatches =
-            std::vector<internal::Subset<value_type, size_type>>(
+            std::vector<internal::Subset<size_type, value_type>>(
                 data_parallel_world_size_);
         internal::Partition(std::prev(samples.end(), num_remainders),
-                            samples.end(), last_microbatches.begin(), pred,
-                            proj, data_parallel_world_size_);
+                            samples.end(), last_microbatches.begin(),
+                            data_parallel_world_size_, proj);
 
         for (size_type rank = 0; rank < data_parallel_world_size_; ++rank) {
           auto &per_replica_microbatch = last_microbatches[rank];
@@ -252,19 +251,18 @@ class Scheduler {
         auto num_microbatches =
             (num_samples - num_remainders) / micro_batch_size_;
         auto microbatches =
-            std::vector<internal::Subset<value_type, size_type>>(
+            std::vector<internal::Subset<size_type, value_type>>(
                 num_microbatches);
         internal::Partition(samples.begin(),
                             std::prev(samples.end(), num_remainders),
-                            microbatches.begin(), pred, proj, num_microbatches);
+                            microbatches.begin(), num_microbatches, proj);
 
         num_microbatches /= data_parallel_world_size_;
         auto batch = std::vector<internal::Subset<
-            value_type, internal::Subset<value_type, size_type>>>(
+            internal::Subset<size_type, value_type>, value_type>>(
             data_parallel_world_size_);
         internal::Partition(microbatches.begin(), microbatches.end(),
-                            batch.begin(), bpred, proj,
-                            data_parallel_world_size_);
+                            batch.begin(), data_parallel_world_size_, bproj);
 
         for (size_type rank = 0; rank < data_parallel_world_size_; ++rank) {
           auto &per_replica_batch = batch[rank];
@@ -313,25 +311,17 @@ class Scheduler {
  private:
   // Helper functions for Schedule()
   //
-  // Scheduler::CompareForSchedule()
+  // Scheduler::Compare()
   //
-  // Compares the two given indices based on their predicates.
-  bool CompareForSchedule(size_type lhs, size_type rhs) const {
-    return preds_[lhs] < preds_[rhs];
+  // Compares the two given indices based on their projected values.
+  bool Compare(size_type lhs, size_type rhs) const {
+    return projections_[lhs] < projections_[rhs];
   }
 
-  // Scheduler::PredForSchedule()
+  // Scheduler::Project()
   //
-  // Returns the predicate for a given index.
-  value_type PredForSchedule(size_type index) const { return preds_[index]; }
-
-  // Scheduler::BatchPredForSchedule()
-  //
-  // Returns the predicate for a given subset.
-  value_type BatchPredForSchedule(
-      const internal::Subset<value_type, size_type> &subset) const {
-    return subset.sum();
-  }
+  // Returns the projected value corresponding to the given index.
+  value_type Project(size_type index) const { return projections_[index]; }
 
  protected:
   size_type data_parallel_world_size_;
@@ -340,7 +330,7 @@ class Scheduler {
   size_type last_micro_batch_size_;
   size_type micro_batch_size_;
   size_type num_microbatches_;
-  std::vector<typename SymIntAdaptor::return_type> preds_;
+  std::vector<typename SymIntAdaptor::return_type> projections_;
 };
 
 }  // namespace flatflow

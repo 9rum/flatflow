@@ -67,11 +67,7 @@ class Subset {
 
   Subset &operator=(Subset &&other) = default;
 
-  Result &sum() { return sum_; }
-
   Result sum() const { return sum_; }
-
-  std::vector<Value> &items() { return items_; }
 
   const std::vector<Value> &items() const { return items_; }
 
@@ -136,8 +132,6 @@ class Solution {
   Solution(Solution &&other) = default;
 
   Solution &operator=(Solution &&other) = default;
-
-  Result &difference() { return difference_; }
 
   Result difference() const { return difference_; }
 
