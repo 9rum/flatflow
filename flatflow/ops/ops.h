@@ -165,6 +165,60 @@ symbolic_trace_impl<Operator::ADD_TENSOR>(
   return poly;
 }
 
+// flatflow::symbolic_trace_impl<ADDMM>()
+//
+// Implements a symbolic transformation for `addmm`.
+//
+// func: addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1,
+//             Scalar alpha=1) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::ADDMM>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
+
+  CHECK_NE(args->Get(1), nullptr);
+  auto shape1 = args->Get(1)->shape();
+  CHECK_NE(shape1, nullptr);
+  CHECK_EQ(shape1->size(), static_cast<flatbuffers::uoffset_t>(2));
+
+  CHECK_NE(args->Get(2), nullptr);
+  auto shape2 = args->Get(2)->shape();
+  CHECK_NE(shape2, nullptr);
+  CHECK_EQ(shape2->size(), static_cast<flatbuffers::uoffset_t>(2));
+
+  // addmm performs a matrix multiplication of the matrices `mat1` and `mat2`.
+  // The matrix `self` is added to the final result.
+  // `alpha` and `beta` are scaling factors on matrix-vector product between
+  // `mat1` and `mat2` and the added matrix `self` respectively.
+  // If `mat1` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
+  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
+  // For scaling and addition, it requires additional 3 x n x p FLOPs,
+  // so totally n x p x (2 x m + 3) FLOPs are required.
+  auto n = shape1->Get(0);
+  CHECK_NE(n, nullptr);
+  CHECK_NE(n->data(), nullptr);
+  auto m = shape1->Get(1);
+  CHECK_NE(m, nullptr);
+  CHECK_NE(m->data(), nullptr);
+
+  CHECK_NE(shape2->Get(0), nullptr);
+  CHECK_NE(shape2->Get(0)->data(), nullptr);
+  CHECK_EQ(m->data()->Get(0), shape2->Get(0)->data()->Get(0));
+  CHECK_EQ(m->data()->Get(1), shape2->Get(0)->data()->Get(1));
+
+  auto p = shape2->Get(1);
+  CHECK_NE(p, nullptr);
+  CHECK_NE(p->data(), nullptr);
+
+  const auto poly = make_polynomial(m->data()->Get(0), m->data()->Get(1)) << 1;
+
+  return make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) * (poly + 3);
+}
+
 // flatflow::symbolic_trace_impl<ARANGE>()
 //
 // Implements a symbolic transformation for `arange`.
@@ -377,6 +431,37 @@ symbolic_trace_impl<Operator::GT_TENSOR>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<LT_TENSOR>()
+//
+// Implements a symbolic transformation for `lt.Tensor`.
+//
+// func: lt.Tensor(Tensor self, Tensor other) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::LT_TENSOR>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // lt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
+  return make_polynomial();
+}
+
+// flatflow::symbolic_trace_impl<MASKED_FILL_SCALAR>()
+//
+// Implements a symbolic transformation for `masked_fill.Scalar`.
+//
+// func: masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::MASKED_FILL_SCALAR>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // masked_fill.Scalar is an out-of-place version of masked_fill_.Scalar,
+  // so it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<MEAN_DIM>()
 //
 // Implements a symbolic transformation for `mean.dim`.
@@ -526,6 +611,68 @@ symbolic_trace_impl<Operator::MUL_TENSOR>(
   return poly;
 }
 
+// flatflow::symbolic_trace_impl<NATIVE_LAYER_NORM>()
+//
+// Implements a symbolic transformation for `native_layer_norm`.
+//
+// func: native_layer_norm(Tensor input, SymInt[] normalized_shape,
+//                         Tensor? weight, Tensor? bias,
+//                         float eps) -> (Tensor, Tensor, Tensor)
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
+
+  // native_layer_norm applies layer normalization over a mini-batch of inputs
+  // `input`. The mean and standard-deviation are calculated over the last `D`
+  // dimensions, where `D` is the dimension of `normalized_shape`. `weight` and
+  // `bias` are learnable affine transform parameters of `normalized_shape`.
+  CHECK_NE(args->Get(1), nullptr);
+  CHECK_NE(args->Get(1)->shape(), nullptr);
+  const auto D = args->Get(1)->shape()->size();
+
+  CHECK_NE(args->Get(2), nullptr);
+  CHECK_NE(args->Get(2)->shape(), nullptr);
+  CHECK_EQ(args->Get(2)->shape()->size(), D);
+
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(7);
+
+  for (flatbuffers::uoffset_t dim = 0; dim < D; ++dim) {
+    CHECK_NE(args->Get(1)->shape()->Get(dim), nullptr);
+    CHECK_NE(args->Get(1)->shape()->Get(dim)->data(), nullptr);
+    CHECK_NE(args->Get(2)->shape()->Get(dim), nullptr);
+    CHECK_NE(args->Get(2)->shape()->Get(dim)->data(), nullptr);
+    CHECK_EQ(args->Get(1)->shape()->Get(dim)->data()->Get(0),
+             args->Get(2)->shape()->Get(dim)->data()->Get(0));
+    CHECK_EQ(args->Get(1)->shape()->Get(dim)->data()->Get(1),
+             args->Get(2)->shape()->Get(dim)->data()->Get(1));
+
+    const auto index = shape->size() - 1 - dim;
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  poly += 4;
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size() - D; ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<NEG>()
 //
 // Implements a symbolic transformation for `neg`.
@@ -553,6 +700,21 @@ symbolic_trace_impl<Operator::NEG>(
   }
 
   return poly;
+}
+
+// flatflow::symbolic_trace_impl<PERMUTE>()
+//
+// Implements a symbolic transformation for `permute`.
+//
+// func: permute(Tensor(a) self, int[] dims) -> Tensor(a)
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::PERMUTE>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // permute is a tensor view operation, so technically it has zero FLOPs.
+  return make_polynomial();
 }
 
 // flatflow::symbolic_trace_impl<POW_TENSOR_SCALAR>()
@@ -681,6 +843,22 @@ symbolic_trace_impl<Operator::SLICE_TENSOR>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<SPLIT_TENSOR>()
+//
+// Implements a symbolic transformation for `split.Tensor`.
+//
+// func: split.Tensor(Tensor(a -> *) self, SymInt split_size,
+//                    int dim=0) -> Tensor(a)[]
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::SPLIT_TENSOR>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // split.Tensor splits a tensor into chunks, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<T>()
 //
 // Implements a symbolic transformation for `t`.
@@ -693,6 +871,36 @@ symbolic_trace_impl<Operator::T>([[maybe_unused]] const flatbuffers::Vector<
                                  [[maybe_unused]] const TensorMetadata *meta) {
   // t is a dimension swap, so technically it has zero FLOPs.
   return make_polynomial();
+}
+
+// flatflow::symbolic_trace_impl<TANH>()
+//
+// Implements a symbolic transformation for `tanh`.
+//
+// func: tanh(Tensor self) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::TANH>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // tanh applies the hyperbolic tangent (tanh) function to `self`
+  // in element-wise.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(6);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
 }
 
 // flatflow::symbolic_trace_impl<TRANSPOSE_INT>()
@@ -784,6 +992,8 @@ symbolic_trace_impl<Operator::VIEW>(
 //   `symbolic_trace_impl`, which can be caught at compile time.
 // * Finally, register the new operator to the operator table by calling
 //   `OperatorRegistry::registerOperator` in the constructor below.
+//   For the Python frontend, add the ATen counterpart and enumerator value as
+//   key and value respectively to the operator table in `flatflow/ops/ops.py`.
 class OperatorRegistry {
  public:
   // Constructors and assignment operators
@@ -809,6 +1019,7 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::_UNSAFE_VIEW>);
     registerOperator(Operator::ADD_TENSOR,
                      &symbolic_trace_impl<Operator::ADD_TENSOR>);
+    registerOperator(Operator::ADDMM, &symbolic_trace_impl<Operator::ADDMM>);
     registerOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
     registerOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
@@ -822,6 +1033,10 @@ class OperatorRegistry {
     registerOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     registerOperator(Operator::GT_TENSOR,
                      &symbolic_trace_impl<Operator::GT_TENSOR>);
+    registerOperator(Operator::LT_TENSOR,
+                     &symbolic_trace_impl<Operator::LT_TENSOR>);
+    registerOperator(Operator::MASKED_FILL_SCALAR,
+                     &symbolic_trace_impl<Operator::MASKED_FILL_SCALAR>);
     registerOperator(Operator::MEAN_DIM,
                      &symbolic_trace_impl<Operator::MEAN_DIM>);
     registerOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
@@ -829,7 +1044,11 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::MUL_SCALAR>);
     registerOperator(Operator::MUL_TENSOR,
                      &symbolic_trace_impl<Operator::MUL_TENSOR>);
+    registerOperator(Operator::NATIVE_LAYER_NORM,
+                     &symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>);
     registerOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
+    registerOperator(Operator::PERMUTE,
+                     &symbolic_trace_impl<Operator::PERMUTE>);
     registerOperator(Operator::POW_TENSOR_SCALAR,
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
     registerOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
@@ -837,7 +1056,10 @@ class OperatorRegistry {
     registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     registerOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
+    registerOperator(Operator::SPLIT_TENSOR,
+                     &symbolic_trace_impl<Operator::SPLIT_TENSOR>);
     registerOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
+    registerOperator(Operator::TANH, &symbolic_trace_impl<Operator::TANH>);
     registerOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
     registerOperator(Operator::TRIU, &symbolic_trace_impl<Operator::TRIU>);

@@ -15,13 +15,13 @@
 add_subdirectory(internal)
 
 add_executable(
-  ops_test
-  ops_test.cc)
+  gpt3_ops_test
+  gpt3_ops_test.cc)
 target_include_directories(
-  ops_test
+  gpt3_ops_test
   PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(
-  ops_test
+  gpt3_ops_test
   PRIVATE absl::check
   PRIVATE absl::flat_hash_map
   PRIVATE absl::log
@@ -31,22 +31,59 @@ target_link_libraries(
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
 target_compile_options(
-  ops_test
+  gpt3_ops_test
   PRIVATE -Wall -Wextra)
 if(FLATFLOW_ENABLE_ASAN)
   target_compile_options(
-    ops_test
+    gpt3_ops_test
     PRIVATE -fsanitize=address)
   target_link_options(
-    ops_test
+    gpt3_ops_test
     PRIVATE -fsanitize=address)
 endif()
 if(FLATFLOW_ENABLE_UBSAN)
   target_compile_options(
-    ops_test
+    gpt3_ops_test
     PRIVATE -fsanitize=undefined)
   target_link_options(
-    ops_test
+    gpt3_ops_test
     PRIVATE -fsanitize=undefined)
 endif()
-gtest_discover_tests(ops_test)
+gtest_discover_tests(gpt3_ops_test)
+
+add_executable(
+  llama3_ops_test
+  llama3_ops_test.cc)
+target_include_directories(
+  llama3_ops_test
+  PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(
+  llama3_ops_test
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  llama3_ops_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    llama3_ops_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    llama3_ops_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    llama3_ops_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    llama3_ops_test
+    PRIVATE -fsanitize=undefined)
+endif()
+gtest_discover_tests(llama3_ops_test)

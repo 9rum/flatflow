@@ -30,6 +30,7 @@ enum Operator: ushort {
   _TO_COPY,           // _to_copy
   _UNSAFE_VIEW,       // _unsafe_view
   ADD_TENSOR,         // add.Tensor
+  ADDMM,              // addmm
   ARANGE,             // arange
   ARANGE_START,       // arange.start
   BMM,                // bmm
@@ -40,17 +41,23 @@ enum Operator: ushort {
   EXPAND,             // expand
   FULL,               // full
   GT_TENSOR,          // gt.Tensor
+  LT_TENSOR,          // lt.Tensor
+  MASKED_FILL_SCALAR, // masked_fill.Scalar
   MEAN_DIM,           // mean.dim
   MM,                 // mm
   MUL_SCALAR,         // mul.Scalar
   MUL_TENSOR,         // mul.Tensor
+  NATIVE_LAYER_NORM,  // native_layer_norm
   NEG,                // neg
+  PERMUTE,            // permute
   POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
   RSQRT,              // rsqrt
   SILU,               // silu
   SIN,                // sin
   SLICE_TENSOR,       // slice.Tensor
+  SPLIT_TENSOR,       // split.Tensor
   T,                  // t
+  TANH,               // tanh
   TRANSPOSE_INT,      // transpose.int
   TRIU,               // triu
   UNSQUEEZE,          // unsqueeze
