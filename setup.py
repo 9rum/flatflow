@@ -80,15 +80,14 @@ class BuildExtension(build_ext):
 cwd = os.path.dirname(__file__)
 
 
-def get_flatflow_version() -> str:
+def get_flatflow_version() -> str:  # type: ignore[return]
     filename = os.path.join(cwd, "flatflow", "__init__.py")
     tree = ast.parse(open(filename).read(), filename)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
             for target in node.targets:
                 if isinstance(target, ast.Name) and target.id == "__version__":
-                    return str(node.value.s)
-    raise RuntimeError("Unable to find version")
+                    return node.value.value
 
 
 readme = open(os.path.join(cwd, "README.md")).read().strip()
