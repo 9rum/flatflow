@@ -48,8 +48,18 @@ class SymbolicTraceTest : public testing::Test {
   }
 };
 
-// This test verifies whether the current implementation of operator registry
-// supports all the operators included in GPT-3.
+// This test verifies whether symbolic tracing works as intended for GPT-3.
+// Specifically, this test answers to the following questions:
+//
+// * Does the current implementation of operator registry support all the
+//   operators included in GPT-3?
+// * Does symbolic tracing work deterministically on the same model?
+//
+// Note that the original GPT-3 models have thousands of nodes when converted to
+// computational graphs; this produces hundreds of thousands of lines of code
+// when generated, severely slowing down the build. To this end, this test
+// emulates GPT-3 where an unique pair of operator and symbolic shapes appears
+// only once, limiting the computational graph to have only 56 nodes.
 TEST_F(SymbolicTraceTest, GPT3) {
   auto builder = flatbuffers::FlatBufferBuilder();
 

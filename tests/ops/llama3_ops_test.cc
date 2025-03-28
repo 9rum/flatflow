@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "flatflow/ops/ops.h"
-
 #include <vector>
 
 #include "absl/base/log_severity.h"
@@ -27,6 +25,7 @@
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/node_generated.h"
 #include "flatflow/ops/operator_generated.h"
+#include "flatflow/ops/ops.h"
 
 namespace {
 
@@ -49,20 +48,8 @@ class SymbolicTraceTest : public testing::Test {
   }
 };
 
-// This test checks whether symbolic tracing works as intended for Llama 3.
-// Specifically, this test answers the following questions:
-//
-// * Does the current implementation of operator registry support all the
-//   operators included in Llama 3?
-// * Does symbolic tracing work deterministically on the same model?
-//
-// Note that the original Llama 3 models have thousands of nodes when
-// converted to graphs; 3887 nodes for the 8B, 9567 nodes for the 70B.
-// This produces hundreds of thousands of lines of code when generated, severely
-// slowing down the build; 60,178 lines for the 8B, 148,226 lines for the 70B.
-// To this end, this test emulates Llama 3 where a unique pair of operator and
-// symbolic shapes appears only once, limiting the computational graph to have
-// only 95 nodes.
+// This test checks whether the current implementation of operator registry
+// supports all the operators included in Llama 3.
 TEST_F(SymbolicTraceTest, Llama3) {
   auto builder = flatbuffers::FlatBufferBuilder();
 
