@@ -13,12 +13,11 @@
 # limitations under the License.
 
 import warnings
-from collections.abc import Mapping, Sequence
 
 import flatbuffers
 import torch
 import torch.fx
-from torch._ops import OpOverload
+from torch._ops import OpOverload, OpOverloadPacket
 
 from flatflow.ops.graph_generated import (
     GraphAddNodes,
@@ -45,7 +44,7 @@ aten = torch._ops.ops.aten  # type: ignore[has-type]
 
 __all__ = ["serialize"]
 
-_OPS_TABLE: Mapping[OpOverload, int] = {
+_OPS_TABLE = {
     aten._softmax: Operator._SOFTMAX,
     aten._to_copy: Operator._TO_COPY,
     aten._unsafe_view: Operator._UNSAFE_VIEW,
@@ -88,7 +87,7 @@ _OPS_TABLE: Mapping[OpOverload, int] = {
 class UnsupportedOperatorWarning(UserWarning):
     """Warning that signals the presence of unsupported operators."""
 
-    def __init__(self, args: Sequence[OpOverload]) -> None:
+    def __init__(self, args) -> None:
         self.args = tuple(set(args))
 
     def __str__(self) -> str:
@@ -127,12 +126,14 @@ def is_accessor_node(node: torch.fx.Node) -> bool:
 
 
 def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
-    """Serializes the given graph."""
+    """Serializes the given computational graph."""
     blacklist = []
     nodes = []
 
     for node in graph.nodes:
-        if not is_accessor_node(node) and isinstance(node.target, OpOverload):
+        if not is_accessor_node(node) and isinstance(
+            node.target, (OpOverload, OpOverloadPacket)
+        ):
             if node.target not in _OPS_TABLE:
                 blacklist.append(node.target)
                 continue
