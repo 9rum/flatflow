@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import warnings
+from collections.abc import Mapping, Sequence
+from typing import Union
 
 import flatbuffers
 import torch
@@ -44,7 +46,7 @@ aten = torch._ops.ops.aten  # type: ignore[has-type]
 
 __all__ = ["serialize"]
 
-_OPS_TABLE = {
+_OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten._softmax: Operator._SOFTMAX,
     aten._to_copy: Operator._TO_COPY,
     aten._unsafe_view: Operator._UNSAFE_VIEW,
@@ -87,7 +89,7 @@ _OPS_TABLE = {
 class UnsupportedOperatorWarning(UserWarning):
     """Warning that signals the presence of unsupported operators."""
 
-    def __init__(self, args) -> None:
+    def __init__(self, args: Sequence[Union[OpOverload, OpOverloadPacket]]) -> None:
         self.args = tuple(set(args))
 
     def __str__(self) -> str:
