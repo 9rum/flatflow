@@ -19,7 +19,7 @@ add_executable(
   gpt3_ops_test.cc)
 target_include_directories(
   gpt3_ops_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   gpt3_ops_test
   PRIVATE absl::check
@@ -56,7 +56,7 @@ add_executable(
   llama3_ops_test.cc)
 target_include_directories(
   llama3_ops_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   llama3_ops_test
   PRIVATE absl::check

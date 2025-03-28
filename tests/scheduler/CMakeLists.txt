@@ -19,7 +19,7 @@ add_executable(
   scheduler_test.cc)
 target_include_directories(
   scheduler_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   scheduler_test
   PRIVATE absl::check

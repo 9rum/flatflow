@@ -17,7 +17,7 @@ add_executable(
   partition_test.cc)
 target_include_directories(
   partition_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   partition_test
   PRIVATE absl::check
@@ -51,7 +51,7 @@ add_executable(
   scatter_test.cc)
 target_include_directories(
   scatter_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   scatter_test
   PRIVATE absl::check

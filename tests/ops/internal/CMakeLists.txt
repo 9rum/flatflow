@@ -17,7 +17,7 @@ add_executable(
   polynomial_test.cc)
 target_include_directories(
   polynomial_test
-  PRIVATE ${CMAKE_SOURCE_DIR})
+  PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(
   polynomial_test
   PRIVATE GTest::gtest_main)
