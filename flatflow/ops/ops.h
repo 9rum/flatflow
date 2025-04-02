@@ -969,12 +969,12 @@ symbolic_trace_impl<Operator::VIEW>(
 //
 // A `flatflow::OperatorRegistry` holds the key information to identify
 // operators and generate optimized computation plans. It has an operator table
-// in a form of `absl::flat_hash_map<Operator, std::_Bind_front_t<...>>`,
-// where each value contains a mapping from a pair of the corresponding operator
-// and symbolic shapes to a symbolic expression for the absolute number of
-// floating point operations (FLOPs), which we call symbolic transformation.
+// in a form of `absl::flat_hash_map<Operator, ...>`, where each value contains
+// a mapping from a pair of the corresponding operator and symbolic shapes to a
+// symbolic expression for absolute number of floating point operations (FLOPs),
+// which we call symbolic transformation.
 // These expressions are created by measuring the absolute number of FLOPs or
-// multiply-accumulates (MACs) for FMA instructions required by each pair of
+// multiply-accumulates (MACs) for FMA instructions required for each pair of
 // operator and symbolic shapes, for a given size such as sequence length.
 //
 // NOTE: To register a new operator, please follow the instructions below:
@@ -1085,7 +1085,7 @@ class OperatorRegistry {
           const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
           const TensorMetadata *)) {
     // TODO: Check if the insertion took place.
-    ops_table_.try_emplace(target, std::bind_front(func));
+    ops_table_.try_emplace(target, func);
   }
 
   // OperatorRegistry::deregisterOperator()
@@ -1108,8 +1108,11 @@ class OperatorRegistry {
   }
 
  protected:
-  absl::flat_hash_map<Operator, decltype(std::bind_front(
-                                    symbolic_trace_impl<Operator::MM>))>
+  absl::flat_hash_map<
+      Operator,
+      internal::polynomial<typename SymIntAdaptor::return_type> (*)(
+          const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
+          const TensorMetadata *)>
       ops_table_;
 };
 
