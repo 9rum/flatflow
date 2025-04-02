@@ -143,8 +143,7 @@ class Scheduler {
 
     const auto comp = std::bind_front(&Scheduler::Compare, this);
     const auto proj = std::bind_front(&Scheduler::Project, this);
-    const auto bproj =
-        std::bind_front(&internal::Subset<size_type, value_type>::sum);
+    const auto bproj = &internal::Subset<size_type, value_type>::sum;
 
     // clang-format off
     #pragma omp parallel for
