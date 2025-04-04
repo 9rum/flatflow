@@ -54,21 +54,15 @@ class polynomial {
 
   polynomial(const std::array<T, 3> &data) : data_(data) {}
 
-  polynomial(const polynomial &other) : data_(other.data()) {}
+  polynomial(const polynomial &other) = default;
 
-  polynomial &operator=(const polynomial &other) {
-    data_ = other.data();
-    return *this;
-  }
+  polynomial &operator=(const polynomial &other) = default;
 
   polynomial(std::array<T, 3> &&data) : data_(std::move(data)) {}
 
-  polynomial(polynomial &&other) : data_(std::move(other.data())) {}
+  polynomial(polynomial &&other) = default;
 
-  polynomial &operator=(polynomial &&other) {
-    data_ = std::move(other.data());
-    return *this;
-  }
+  polynomial &operator=(polynomial &&other) = default;
 
   // Accessors
   //
