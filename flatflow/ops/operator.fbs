@@ -49,6 +49,7 @@ enum Operator: ushort {
   MUL_TENSOR,         // mul.Tensor
   NATIVE_LAYER_NORM,  // native_layer_norm
   NEG,                // neg
+  ONES,               // ones
   PERMUTE,            // permute
   POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
   RSQRT,              // rsqrt
