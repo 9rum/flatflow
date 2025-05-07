@@ -875,6 +875,42 @@ symbolic_trace_impl<Operator::SPLIT_TENSOR>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<SUB_TENSOR>()
+//
+// Implements a symbolic transformation for `sub.Tensor`.
+//
+// func: sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::SUB_TENSOR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // sub.Tensor subtracts `other`, scaled by `alpha`, from `self`.
+  //
+  // NOTE: As in the case of mul.Tensor, we have found that sub.Scalar is
+  // replaced by sub.Tensor with a single argument due to constant folding.
+  // That is, if two arguments are given, one subtraction and one multiplication
+  // are required for each element; but if there is only one argument, just one
+  // subtraction occurs for each element. sub.Tensor also supports broadcasting
+  // to a common shape, necessitating the use of output shape.
+  CHECK_NE(args, nullptr);
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(args->size());
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<T>()
 //
 // Implements a symbolic transformation for `t`.
@@ -1075,6 +1111,8 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
     registerOperator(Operator::SPLIT_TENSOR,
                      &symbolic_trace_impl<Operator::SPLIT_TENSOR>);
+    registerOperator(Operator::SUB_TENSOR,
+                     &symbolic_trace_impl<Operator::SUB_TENSOR>);
     registerOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
     registerOperator(Operator::TANH, &symbolic_trace_impl<Operator::TANH>);
     registerOperator(Operator::TRANSPOSE_INT,

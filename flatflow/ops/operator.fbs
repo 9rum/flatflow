@@ -57,6 +57,7 @@ enum Operator: ushort {
   SIN,                // sin
   SLICE_TENSOR,       // slice.Tensor
   SPLIT_TENSOR,       // split.Tensor
+  SUB_TENSOR,         // sub.Tensor
   T,                  // t
   TANH,               // tanh
   TRANSPOSE_INT,      // transpose.int
