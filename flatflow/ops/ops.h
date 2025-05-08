@@ -796,6 +796,35 @@ symbolic_trace_impl<Operator::RSQRT>(
   return poly;
 }
 
+// flatflow::symbolic_trace_impl<RSUB_SCALAR>()
+//
+// Implements a symbolic transformation for `rsub.Scalar`.
+//
+// func: rsub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::RSUB_SCALAR>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // rsub.Scalar subtracts `self`, scaled by `alpha`, from `other`.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(2);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<SILU>()
 //
 // Implements a symbolic transformation for `silu`.
@@ -1105,6 +1134,8 @@ class OperatorRegistry {
     registerOperator(Operator::POW_TENSOR_SCALAR,
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
     registerOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
+    registerOperator(Operator::RSUB_SCALAR,
+                     &symbolic_trace_impl<Operator::RSUB_SCALAR>);
     registerOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
     registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     registerOperator(Operator::SLICE_TENSOR,

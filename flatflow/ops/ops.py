@@ -74,6 +74,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten.permute: Operator.PERMUTE,
     aten.pow.Tensor_Scalar: Operator.POW_TENSOR_SCALAR,
     aten.rsqrt: Operator.RSQRT,
+    aten.rsub.Scalar: Operator.RSUB_SCALAR,
     aten.silu: Operator.SILU,
     aten.sin: Operator.SIN,
     aten.slice.Tensor: Operator.SLICE_TENSOR,

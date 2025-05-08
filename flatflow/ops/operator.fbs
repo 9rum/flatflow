@@ -53,6 +53,7 @@ enum Operator: ushort {
   PERMUTE,            // permute
   POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
   RSQRT,              // rsqrt
+  RSUB_SCALAR,        // rsub.Scalar
   SILU,               // silu
   SIN,                // sin
   SLICE_TENSOR,       // slice.Tensor
