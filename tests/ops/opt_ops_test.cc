@@ -1186,9 +1186,9 @@ TEST_F(SymbolicTraceTest, OPT) {
       flatflow::symbolic_trace(graph);  // 20762 s0^2 + 986864653 s0
 
   EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 986885415UL);
-  EXPECT_EQ(trace(1024), 1032319939584UL);
-  EXPECT_EQ(trace(2048), 2108180948992UL);
+  EXPECT_EQ(trace(1), 986885415);
+  EXPECT_EQ(trace(1024), 1032319939584);
+  EXPECT_EQ(trace(2048), 2108180948992);
 }
 
 }  // namespace
