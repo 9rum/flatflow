@@ -763,6 +763,36 @@ symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>(
   return poly;
 }
 
+// flatflow::symbolic_trace_impl<RELU>()
+//
+// Implements a symbolic transformation for `relu`.
+//
+// func: relu(Tensor self) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::RELU>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // relu applies the rectified linear unit (ReLU) function to `self` in
+  // element-wise.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<RSQRT>()
 //
 // Implements a symbolic transformation for `rsqrt`.
@@ -1133,6 +1163,7 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::PERMUTE>);
     registerOperator(Operator::POW_TENSOR_SCALAR,
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
+    registerOperator(Operator::RELU, &symbolic_trace_impl<Operator::RELU>);
     registerOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
     registerOperator(Operator::RSUB_SCALAR,
                      &symbolic_trace_impl<Operator::RSUB_SCALAR>);
