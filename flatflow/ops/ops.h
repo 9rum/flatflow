@@ -367,6 +367,42 @@ symbolic_trace_impl<Operator::COS>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<CUMSUM>()
+//
+// Implements a symbolic transformation for `cumsum`.
+//
+// func: cumsum(Tensor self, int dim, *, ScalarType? dtype=None) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::CUMSUM>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // cumsum returns the cumulative sum of elements of `self` in the dimension
+  // `dim`.
+  //
+  // NOTE: Its absolute number of FLOPs depends on the value of `dim`, which
+  // cannot be deduced from the tensor metadata since cumsum always returns a
+  // tensor with the same shape as `self`; the exact number of FLOPs is obtained
+  // by subtracting one from the corresponding dimension and then multiplying
+  // the size of the remaining dimensions, but here we ignore that subtraction.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(1);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<EMBEDDING>()
 //
 // Implements a symbolic transformation for `embedding`.
@@ -1138,6 +1174,7 @@ class OperatorRegistry {
     registerOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
     registerOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
     registerOperator(Operator::COS, &symbolic_trace_impl<Operator::COS>);
+    registerOperator(Operator::CUMSUM, &symbolic_trace_impl<Operator::CUMSUM>);
     registerOperator(Operator::EMBEDDING,
                      &symbolic_trace_impl<Operator::EMBEDDING>);
     registerOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);

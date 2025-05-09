@@ -58,6 +58,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten.cat: Operator.CAT,
     aten.clone: Operator.CLONE,
     aten.cos: Operator.COS,
+    aten.cumsum: Operator.CUMSUM,
     aten.embedding: Operator.EMBEDDING,
     aten.expand: Operator.EXPAND,
     aten.full: Operator.FULL,

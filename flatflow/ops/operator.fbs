@@ -37,6 +37,7 @@ enum Operator: ushort {
   CAT,                // cat
   CLONE,              // clone
   COS,                // cos
+  CUMSUM,             // cumsum
   EMBEDDING,          // embedding
   EXPAND,             // expand
   FULL,               // full
