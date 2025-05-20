@@ -51,6 +51,7 @@ enum Operator: ushort {
   NATIVE_LAYER_NORM,  // native_layer_norm
   NEG,                // neg
   ONES,               // ones
+  ONES_LIKE,          // ones_like
   PERMUTE,            // permute
   POW_TENSOR_SCALAR,  // pow.Tensor_Scalar
   RELU,               // relu

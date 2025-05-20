@@ -754,6 +754,23 @@ symbolic_trace_impl<Operator::ONES>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<ONES_LIKE>()
+//
+// Implements a symbolic transformation for `ones_like`.
+//
+// func: ones_like(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
+//                 Device? device=None, bool? pin_memory=None,
+//                 MemoryFormat? memory_format=None) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::ONES_LIKE>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // ones_like creates a tensor, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<PERMUTE>()
 //
 // Implements a symbolic transformation for `permute`.
@@ -1196,6 +1213,8 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>);
     registerOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
     registerOperator(Operator::ONES, &symbolic_trace_impl<Operator::ONES>);
+    registerOperator(Operator::ONES_LIKE,
+                     &symbolic_trace_impl<Operator::ONES_LIKE>);
     registerOperator(Operator::PERMUTE,
                      &symbolic_trace_impl<Operator::PERMUTE>);
     registerOperator(Operator::POW_TENSOR_SCALAR,
