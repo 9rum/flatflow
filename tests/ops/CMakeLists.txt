@@ -15,6 +15,43 @@
 add_subdirectory(internal)
 
 add_executable(
+  gemma3_ops_test
+  gemma3_ops_test.cc)
+target_include_directories(
+  gemma3_ops_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  gemma3_ops_test
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_compile_options(
+  gemma3_ops_test
+  PRIVATE -Wall -Wextra)
+if(FLATFLOW_ENABLE_ASAN)
+  target_compile_options(
+    gemma3_ops_test
+    PRIVATE -fsanitize=address)
+  target_link_options(
+    gemma3_ops_test
+    PRIVATE -fsanitize=address)
+endif()
+if(FLATFLOW_ENABLE_UBSAN)
+  target_compile_options(
+    gemma3_ops_test
+    PRIVATE -fsanitize=undefined)
+  target_link_options(
+    gemma3_ops_test
+    PRIVATE -fsanitize=undefined)
+endif()
+gtest_discover_tests(gemma3_ops_test)
+
+add_executable(
   gpt3_ops_test
   gpt3_ops_test.cc)
 target_include_directories(

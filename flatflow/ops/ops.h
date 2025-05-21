@@ -452,6 +452,36 @@ symbolic_trace_impl<Operator::FULL>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<GELU>()
+//
+// Implements a symbolic transformation for `gelu`.
+//
+// func: gelu(Tensor self, *, str approximate='none') -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::GELU>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // gelu applies the gaussian error linear unit (GELU) function to `self` in
+  // element-wise.
+  CHECK_NE(meta, nullptr);
+
+  auto shape = meta->shape();
+  CHECK_NE(shape, nullptr);
+
+  auto poly = make_polynomial(14);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
+    CHECK_NE(shape->Get(index), nullptr);
+    CHECK_NE(shape->Get(index)->data(), nullptr);
+    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
+                            shape->Get(index)->data()->Get(1));
+  }
+
+  return poly;
+}
+
 // flatflow::symbolic_trace_impl<GT_TENSOR>()
 //
 // Implements a symbolic transformation for `gt.Tensor`.
@@ -1242,6 +1272,7 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::EMBEDDING>);
     registerOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     registerOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
+    registerOperator(Operator::GELU, &symbolic_trace_impl<Operator::GELU>);
     registerOperator(Operator::GT_TENSOR,
                      &symbolic_trace_impl<Operator::GT_TENSOR>);
     registerOperator(Operator::LT_TENSOR,

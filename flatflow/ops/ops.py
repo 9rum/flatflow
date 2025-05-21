@@ -62,6 +62,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten.embedding: Operator.EMBEDDING,
     aten.expand: Operator.EXPAND,
     aten.full: Operator.FULL,
+    aten.gelu: Operator.GELU,
     aten.gt.Tensor: Operator.GT_TENSOR,
     aten.lt.Tensor: Operator.LT_TENSOR,
     aten.masked_fill.Scalar: Operator.MASKED_FILL_SCALAR,

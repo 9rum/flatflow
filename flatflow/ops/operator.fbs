@@ -41,6 +41,7 @@ enum Operator: ushort {
   EMBEDDING,          // embedding
   EXPAND,             // expand
   FULL,               // full
+  GELU,               // gelu
   GT_TENSOR,          // gt.Tensor
   LT_TENSOR,          // lt.Tensor
   MASKED_FILL_SCALAR, // masked_fill.Scalar
