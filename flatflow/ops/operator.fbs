@@ -68,4 +68,5 @@ enum Operator: ushort {
   TRIU,               // triu
   UNSQUEEZE,          // unsqueeze
   VIEW,               // view
+  WHERE_SELF,         // where.self
 }

@@ -1129,6 +1129,21 @@ symbolic_trace_impl<Operator::VIEW>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<WHERE_SELF>()
+//
+// Implements a symbolic transformation for `where.self`.
+//
+// func: where.self(Tensor condition, Tensor self, Tensor other) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::WHERE_SELF>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // where.self is an element-wise branching operation, so it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::OperatorRegistry
 //
 // A `flatflow::OperatorRegistry` holds the key information to identify
@@ -1239,6 +1254,8 @@ class OperatorRegistry {
     registerOperator(Operator::UNSQUEEZE,
                      &symbolic_trace_impl<Operator::UNSQUEEZE>);
     registerOperator(Operator::VIEW, &symbolic_trace_impl<Operator::VIEW>);
+    registerOperator(Operator::WHERE_SELF,
+                     &symbolic_trace_impl<Operator::WHERE_SELF>);
   }
 
   OperatorRegistry(const OperatorRegistry &other) = default;

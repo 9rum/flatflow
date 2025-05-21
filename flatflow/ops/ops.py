@@ -89,6 +89,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten.triu: Operator.TRIU,
     aten.unsqueeze: Operator.UNSQUEEZE,
     aten.view: Operator.VIEW,
+    aten.where.self: Operator.WHERE_SELF,
 }
 
 
