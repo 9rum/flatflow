@@ -908,6 +908,22 @@ symbolic_trace_impl<Operator::RSUB_SCALAR>(
   return poly;
 }
 
+// flatflow::symbolic_trace_impl<SCALAR_TENSOR>()
+//
+// Implements a symbolic transformation for `scalar_tensor`.
+//
+// func: scalar_tensor(Scalar s, *, ScalarType? dtype=None, Layout? layout=None,
+//                     Device? device=None, bool? pin_memory=None) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::SCALAR_TENSOR>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // scalar_tensor creates a tensor, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<SILU>()
 //
 // Implements a symbolic transformation for `silu`.
@@ -1238,6 +1254,8 @@ class OperatorRegistry {
     registerOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
     registerOperator(Operator::RSUB_SCALAR,
                      &symbolic_trace_impl<Operator::RSUB_SCALAR>);
+    registerOperator(Operator::SCALAR_TENSOR,
+                     &symbolic_trace_impl<Operator::SCALAR_TENSOR>);
     registerOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
     registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     registerOperator(Operator::SLICE_TENSOR,

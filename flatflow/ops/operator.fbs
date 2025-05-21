@@ -57,6 +57,7 @@ enum Operator: ushort {
   RELU,               // relu
   RSQRT,              // rsqrt
   RSUB_SCALAR,        // rsub.Scalar
+  SCALAR_TENSOR,      // scalar_tensor
   SILU,               // silu
   SIN,                // sin
   SLICE_TENSOR,       // slice.Tensor
