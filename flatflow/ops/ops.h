@@ -1098,6 +1098,21 @@ symbolic_trace_impl<Operator::TRANSPOSE_INT>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<TRIL>()
+//
+// Implements a symbolic transformation for `tril`.
+//
+// func: tril(Tensor self, int diagonal=0) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::TRIL>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // tril is a masking operation, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<TRIU>()
 //
 // Implements a symbolic transformation for `triu`.
@@ -1268,6 +1283,7 @@ class OperatorRegistry {
     registerOperator(Operator::TANH, &symbolic_trace_impl<Operator::TANH>);
     registerOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
+    registerOperator(Operator::TRIL, &symbolic_trace_impl<Operator::TRIL>);
     registerOperator(Operator::TRIU, &symbolic_trace_impl<Operator::TRIU>);
     registerOperator(Operator::UNSQUEEZE,
                      &symbolic_trace_impl<Operator::UNSQUEEZE>);

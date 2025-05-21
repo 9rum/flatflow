@@ -66,6 +66,7 @@ enum Operator: ushort {
   T,                  // t
   TANH,               // tanh
   TRANSPOSE_INT,      // transpose.int
+  TRIL,               // tril
   TRIU,               // triu
   UNSQUEEZE,          // unsqueeze
   VIEW,               // view
