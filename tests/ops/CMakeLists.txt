@@ -30,25 +30,8 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  gemma3_ops_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    gemma3_ops_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    gemma3_ops_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    gemma3_ops_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    gemma3_ops_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(gemma3_ops_test)
+target_enable_sanitizers(gemma3_ops_test)
 gtest_discover_tests(gemma3_ops_test)
 
 add_executable(
@@ -67,25 +50,8 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  gpt3_ops_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    gpt3_ops_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    gpt3_ops_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    gpt3_ops_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    gpt3_ops_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(gpt3_ops_test)
+target_enable_sanitizers(gpt3_ops_test)
 gtest_discover_tests(gpt3_ops_test)
 
 add_executable(
@@ -104,25 +70,8 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  llama3_ops_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    llama3_ops_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    llama3_ops_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    llama3_ops_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    llama3_ops_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(llama3_ops_test)
+target_enable_sanitizers(llama3_ops_test)
 gtest_discover_tests(llama3_ops_test)
 
 add_executable(
@@ -141,23 +90,6 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  opt_ops_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    opt_ops_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    opt_ops_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    opt_ops_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    opt_ops_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(opt_ops_test)
+target_enable_sanitizers(opt_ops_test)
 gtest_discover_tests(opt_ops_test)

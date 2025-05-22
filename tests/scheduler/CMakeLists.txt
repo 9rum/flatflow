@@ -30,23 +30,6 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  scheduler_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    scheduler_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    scheduler_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    scheduler_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    scheduler_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(scheduler_test)
+target_enable_sanitizers(scheduler_test)
 gtest_discover_tests(scheduler_test)

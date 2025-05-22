@@ -25,25 +25,8 @@ target_link_libraries(
   PRIVATE absl::log_initialize
   PRIVATE absl::str_format
   PRIVATE GTest::gtest_main)
-target_compile_options(
-  partition_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    partition_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    partition_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    partition_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    partition_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(partition_test)
+target_enable_sanitizers(partition_test)
 gtest_discover_tests(partition_test)
 
 add_executable(
@@ -57,23 +40,6 @@ target_link_libraries(
   PRIVATE absl::check
   PRIVATE GTest::gtest_main
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  scatter_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    scatter_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    scatter_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    scatter_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    scatter_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(scatter_test)
+target_enable_sanitizers(scatter_test)
 gtest_discover_tests(scatter_test)

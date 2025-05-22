@@ -29,22 +29,5 @@ target_link_libraries(
   PRIVATE flatbuffers
   PRIVATE gRPC::grpc++
   PRIVATE OpenMP::OpenMP_CXX)
-target_compile_options(
-  _C
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    _C
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    _C
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    _C
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    _C
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(_C)
+target_enable_sanitizers(_C)

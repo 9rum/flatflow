@@ -21,23 +21,6 @@ target_include_directories(
 target_link_libraries(
   polynomial_test
   PRIVATE GTest::gtest_main)
-target_compile_options(
-  polynomial_test
-  PRIVATE -Wall -Wextra)
-if(FLATFLOW_ENABLE_ASAN)
-  target_compile_options(
-    polynomial_test
-    PRIVATE -fsanitize=address)
-  target_link_options(
-    polynomial_test
-    PRIVATE -fsanitize=address)
-endif()
-if(FLATFLOW_ENABLE_UBSAN)
-  target_compile_options(
-    polynomial_test
-    PRIVATE -fsanitize=undefined)
-  target_link_options(
-    polynomial_test
-    PRIVATE -fsanitize=undefined)
-endif()
+target_enable_warnings(polynomial_test)
+target_enable_sanitizers(polynomial_test)
 gtest_discover_tests(polynomial_test)
