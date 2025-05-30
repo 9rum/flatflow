@@ -75,6 +75,26 @@ target_enable_sanitizers(llama3_ops_test)
 gtest_discover_tests(llama3_ops_test)
 
 add_executable(
+  mistral3_ops_test
+  mistral3_ops_test.cc)
+target_include_directories(
+  mistral3_ops_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  mistral3_ops_test
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_enable_warnings(mistral3_ops_test)
+target_enable_sanitizers(mistral3_ops_test)
+gtest_discover_tests(mistral3_ops_test)
+
+add_executable(
   opt_ops_test
   opt_ops_test.cc)
 target_include_directories(
