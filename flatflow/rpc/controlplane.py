@@ -22,13 +22,6 @@ from numpy.typing import ArrayLike
 
 from flatflow.ops import serialize
 from flatflow.rpc.controlplane_generated import (
-    BroadcastRequestAddEpoch,
-    BroadcastRequestAddIndices,
-    BroadcastRequestAddRank,
-    BroadcastRequestEnd,
-    BroadcastRequestStart,
-    BroadcastRequestStartIndicesVector,
-    BroadcastResponse,
     InitRequestAddGlobalBatchSize,
     InitRequestAddGraph,
     InitRequestAddMicroBatchSize,
@@ -36,6 +29,13 @@ from flatflow.rpc.controlplane_generated import (
     InitRequestEnd,
     InitRequestStart,
     InitRequestStartSizesVector,
+    ScatterRequestAddEpoch,
+    ScatterRequestAddIndices,
+    ScatterRequestAddRank,
+    ScatterRequestEnd,
+    ScatterRequestStart,
+    ScatterRequestStartIndicesVector,
+    ScatterResponse,
 )
 from flatflow.rpc.controlplane_grpc_fb import ControlPlaneStub
 from flatflow.rpc.empty_generated import EmptyEnd, EmptyStart
@@ -97,9 +97,7 @@ class ControlPlaneClient(object):
 
         self.stub.Init(bytes(builder.Output()))
 
-    def Broadcast(
-        self, epoch: int, indices: Optional[Sequence[int]] = None
-    ) -> ArrayLike:
+    def Scatter(self, epoch: int, indices: Optional[Sequence[int]] = None) -> ArrayLike:
         """Returns the reordered computation schedule for the next training epoch.
 
         Args:
@@ -113,21 +111,21 @@ class ControlPlaneClient(object):
 
         if self.rank == 0:
             assert indices is not None
-            BroadcastRequestStartIndicesVector(builder, len(indices))
+            ScatterRequestStartIndicesVector(builder, len(indices))
             for index in reversed(indices):
                 builder.PrependUint64(index)
             _indices = builder.EndVector()
 
-        BroadcastRequestStart(builder)
-        BroadcastRequestAddEpoch(builder, epoch)
-        BroadcastRequestAddRank(builder, self.rank)
+        ScatterRequestStart(builder)
+        ScatterRequestAddEpoch(builder, epoch)
+        ScatterRequestAddRank(builder, self.rank)
         if self.rank == 0:
-            BroadcastRequestAddIndices(builder, _indices)
-        request = BroadcastRequestEnd(builder)
+            ScatterRequestAddIndices(builder, _indices)
+        request = ScatterRequestEnd(builder)
         builder.Finish(request)
 
-        response = self.stub.Broadcast(bytes(builder.Output()))
-        return BroadcastResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
+        response = self.stub.Scatter(bytes(builder.Output()))
+        return ScatterResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
 
     def Finalize(self) -> None:
         """Terminates the training environment."""

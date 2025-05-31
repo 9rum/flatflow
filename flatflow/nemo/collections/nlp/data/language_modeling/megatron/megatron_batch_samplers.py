@@ -137,13 +137,13 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
     def __iter__(self):
         indices = list(range(len(self.dataset)))
-        model_parallel_group = parallel_state.get_model_parallel_group() 
+        model_parallel_group = parallel_state.get_model_parallel_group()
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
         # receive the reordered computation schedule from the control plane
         if is_model_parallel_src:
-            self.schedule = self.client.Broadcast(self.epoch, indices)
+            self.schedule = self.client.Scatter(self.epoch, indices)
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
 
@@ -163,7 +163,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
             num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
             batch = batch + [-1] * num_pad
-            yield batch    
+            yield batch
 
         self.consumed_samples = 0
 

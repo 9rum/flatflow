@@ -24,13 +24,13 @@ table InitRequest {
   sizes:             [uint] (required);
 }
 
-table BroadcastRequest {
+table ScatterRequest {
   epoch:   ulong;
   rank:    ulong;
   indices: [ulong];
 }
 
-table BroadcastResponse {
+table ScatterResponse {
   indices: [ulong] (required);
 }
 
@@ -38,8 +38,8 @@ rpc_service ControlPlane {
   /// RPC for initializing training environment.
   Init(InitRequest): Empty;
 
-  /// RPC for broadcasting schedule to all workers.
-  Broadcast(BroadcastRequest): BroadcastResponse;
+  /// RPC for sending computation schedule to all workers.
+  Scatter(ScatterRequest): ScatterResponse;
 
   /// RPC for terminating training environment.
   Finalize(Empty): Empty;

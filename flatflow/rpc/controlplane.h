@@ -49,7 +49,7 @@ namespace flatflow {
 //
 // Its primitives are based on the syntax of message passing interface (MPI);
 // the control plane always starts with `Init` and ends with `Finalize`.
-// At the beginning of each training epoch, `Broadcast` is called to reorder
+// At the beginning of each training epoch, `Scatter` is called to reorder
 // the computation schedule of the data plane.
 class ControlPlaneServiceImpl final : public ControlPlane::Service {
  public:
@@ -125,14 +125,14 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     return grpc::Status::OK;
   }
 
-  // ControlPlaneServiceImpl::Broadcast()
+  // ControlPlaneServiceImpl::Scatter()
   //
   // Exchanges the given computation schedule with the reordered
   // computation schedule from the scheduler.
-  grpc::Status Broadcast(
+  grpc::Status Scatter(
       grpc::ServerContext *context,
-      const flatbuffers::grpc::Message<BroadcastRequest> *request,
-      flatbuffers::grpc::Message<BroadcastResponse> *response) override {
+      const flatbuffers::grpc::Message<ScatterRequest> *request,
+      flatbuffers::grpc::Message<ScatterResponse> *response) override {
     CHECK_NE(context, nullptr);
     CHECK_NE(request, nullptr);
     CHECK_NE(response, nullptr);
@@ -143,7 +143,7 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     const auto rank = args->rank();
 
     // clang-format off
-    LOG(INFO) << absl::StrFormat("Broadcast called from %s (rank %u)", context->peer(), rank);
+    LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), rank);
     // clang-format on
 
     if (rank == 0) {
@@ -179,9 +179,9 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
 
     auto builder = flatbuffers::grpc::MessageBuilder();
     const auto resp =
-        CreateBroadcastResponse(builder, builder.CreateVector(indices));
+        CreateScatterResponse(builder, builder.CreateVector(indices));
     builder.Finish(resp);
-    *response = builder.ReleaseMessage<BroadcastResponse>();
+    *response = builder.ReleaseMessage<ScatterResponse>();
 
     return grpc::Status::OK;
   }
