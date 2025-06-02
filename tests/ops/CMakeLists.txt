@@ -115,6 +115,26 @@ target_enable_sanitizers(opt_ops_test)
 gtest_discover_tests(opt_ops_test)
 
 add_executable(
+  phi4_ops_test
+  phi4_ops_test.cc)
+target_include_directories(
+  phi4_ops_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  phi4_ops_test
+  PRIVATE absl::check
+  PRIVATE absl::flat_hash_map
+  PRIVATE absl::log
+  PRIVATE absl::log_initialize
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+target_enable_warnings(phi4_ops_test)
+target_enable_sanitizers(phi4_ops_test)
+gtest_discover_tests(phi4_ops_test)
+
+add_executable(
   qwen3_ops_test
   qwen3_ops_test.cc)
 target_include_directories(
