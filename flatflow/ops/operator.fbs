@@ -31,6 +31,7 @@ enum Operator: ushort {
   _UNSAFE_VIEW,       // _unsafe_view
   ADD_TENSOR,         // add.Tensor
   ADDMM,              // addmm
+  ALIAS,              // alias
   ARANGE,             // arange
   ARANGE_START,       // arange.start
   BMM,                // bmm

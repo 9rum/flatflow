@@ -52,6 +52,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
     aten._unsafe_view: Operator._UNSAFE_VIEW,
     aten.add.Tensor: Operator.ADD_TENSOR,
     aten.addmm: Operator.ADDMM,
+    aten.alias: Operator.ALIAS,
     aten.arange: Operator.ARANGE,
     aten.arange.start: Operator.ARANGE_START,
     aten.bmm: Operator.BMM,

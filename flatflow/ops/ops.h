@@ -219,6 +219,21 @@ symbolic_trace_impl<Operator::ADDMM>(
          make_polynomial(p->data()->Get(0), p->data()->Get(1)) * (poly + 3);
 }
 
+// flatflow::symbolic_trace_impl<ALIAS>()
+//
+// Implements a symbolic transformation for `alias`.
+//
+// func: alias(Tensor(a) self) -> Tensor(a)
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::ALIAS>(
+    [[maybe_unused]] const flatbuffers::Vector<
+        flatbuffers::Offset<TensorMetadata>> *args,
+    [[maybe_unused]] const TensorMetadata *meta) {
+  // alias is a tensor view operation, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<ARANGE>()
 //
 // Implements a symbolic transformation for `arange`.
@@ -1260,6 +1275,7 @@ class OperatorRegistry {
     registerOperator(Operator::ADD_TENSOR,
                      &symbolic_trace_impl<Operator::ADD_TENSOR>);
     registerOperator(Operator::ADDMM, &symbolic_trace_impl<Operator::ADDMM>);
+    registerOperator(Operator::ALIAS, &symbolic_trace_impl<Operator::ALIAS>);
     registerOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
     registerOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
