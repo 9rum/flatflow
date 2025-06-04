@@ -19,6 +19,7 @@ from typing import Union
 import flatbuffers
 import torch
 import torch.fx
+from torch._library.custom_ops import CustomOpDef
 from torch._ops import OpOverload, OpOverloadPacket
 
 from flatflow.ops.graph_generated import (
@@ -46,7 +47,7 @@ aten = torch._ops.ops.aten  # type: ignore[has-type]
 
 __all__ = ["serialize"]
 
-_OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
+_OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
     aten._softmax: Operator._SOFTMAX,
     aten._to_copy: Operator._TO_COPY,
     aten._unsafe_view: Operator._UNSAFE_VIEW,
@@ -100,7 +101,9 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket], int] = {
 class UnsupportedOperatorWarning(UserWarning):
     """Warning that signals the presence of unsupported operators."""
 
-    def __init__(self, args: Sequence[Union[OpOverload, OpOverloadPacket]]) -> None:
+    def __init__(
+        self, args: Sequence[Union[OpOverload, OpOverloadPacket, CustomOpDef]]
+    ) -> None:
         self.args = tuple(set(args))
 
     def __str__(self) -> str:
@@ -145,7 +148,7 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
 
     for node in graph.nodes:
         if not is_accessor_node(node) and isinstance(
-            node.target, (OpOverload, OpOverloadPacket)
+            node.target, (OpOverload, OpOverloadPacket, CustomOpDef)
         ):
             if node.target not in _OPS_TABLE:
                 blacklist.append(node.target)
