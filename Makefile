@@ -10,7 +10,7 @@ FLATFLOW_BUILD_TESTS ?= OFF
 FLATFLOW_ENABLE_ASAN ?= OFF
 FLATFLOW_ENABLE_UBSAN ?= OFF
 
-.PHONY: all generate test clean
+.PHONY: all generate degenerate test clean
 
 all:
 	@mkdir -p build && \
@@ -46,6 +46,27 @@ generate:
 		rmdir tmp/ops && \
 		rmdir tmp/rpc && \
 		rmdir tmp
+
+degenerate:
+	@rm flatflow/ops/graph_generated.h \
+    flatflow/ops/graph_generated.py \
+    flatflow/ops/graph_generated.pyi \
+    flatflow/ops/node_generated.h \
+    flatflow/ops/node_generated.py \
+    flatflow/ops/node_generated.pyi \
+    flatflow/ops/operator_generated.h \
+    flatflow/ops/operator_generated.py \
+    flatflow/ops/operator_generated.pyi \
+    flatflow/rpc/controlplane.grpc.fb.cc \
+    flatflow/rpc/controlplane.grpc.fb.h \
+    flatflow/rpc/controlplane_generated.h \
+    flatflow/rpc/controlplane_generated.py \
+    flatflow/rpc/controlplane_generated.pyi \
+    flatflow/rpc/controlplane_grpc_fb.py \
+    flatflow/rpc/controlplane_grpc_fb.pyi \
+    flatflow/rpc/empty_generated.h \
+    flatflow/rpc/empty_generated.py \
+    flatflow/rpc/empty_generated.pyi
 
 test:
 	@ctest --test-dir build
