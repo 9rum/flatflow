@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <future>
 #include <iterator>
+#include <tuple>
 #include <vector>
 
 #include "absl/base/log_severity.h"
@@ -192,6 +193,7 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
   grpc::Status Finalize(grpc::ServerContext *context,
                         const flatbuffers::grpc::Message<Empty> *request,
                         flatbuffers::grpc::Message<Empty> *response) override {
+    std::ignore = request;
     CHECK_NE(context, nullptr);
     CHECK_NE(response, nullptr);
 
@@ -273,7 +275,10 @@ void run(uint16_t port,
   static auto server = builder.BuildAndStart();
   CHECK_NE(server, nullptr);
 
-  auto handler = [](int signal) { server->Shutdown(); };
+  auto handler = [](int signal) {
+    std::ignore = signal;
+    server->Shutdown();
+  };
   if (std::signal(SIGTERM, handler) == SIG_ERR) {
     LOG(ERROR) << "Failed to change handling of SIGTERM";
   }

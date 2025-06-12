@@ -63,6 +63,18 @@ internal::polynomial<typename SymIntAdaptor::return_type> symbolic_trace_impl(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
     const TensorMetadata *) = delete;
 
+// Disable -Wunused-parameter so we are allowed to avoid repeated use of the
+// unused attribute (standard `[[maybe_unused]]` since C++17, otherwise
+// `ABSL_ATTRIBUTE_UNUSED`).
+#if defined(__GNUC__) || defined(__clang__)
+// Clang also supports these GCC pragmas.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#endif  // defined(__GNUC__) || defined(__clang__)
+
 // flatflow::symbolic_trace_impl<_SOFTMAX>()
 //
 // Implements a symbolic transformation for `_softmax`.
@@ -71,8 +83,7 @@ internal::polynomial<typename SymIntAdaptor::return_type> symbolic_trace_impl(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::_SOFTMAX>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // _softmax applies the softmax function to `self`.
   //
@@ -107,9 +118,8 @@ symbolic_trace_impl<Operator::_SOFTMAX>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::_TO_COPY>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // _to_copy copies a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -122,9 +132,8 @@ symbolic_trace_impl<Operator::_TO_COPY>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::_UNSAFE_VIEW>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -175,7 +184,7 @@ template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ADDMM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
 
@@ -227,9 +236,8 @@ symbolic_trace_impl<Operator::ADDMM>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ALIAS>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // alias is a tensor view operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -243,9 +251,8 @@ symbolic_trace_impl<Operator::ALIAS>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ARANGE>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // arange returns a tensor, so it has zero FLOPs.
   return make_polynomial();
 }
@@ -260,9 +267,8 @@ symbolic_trace_impl<Operator::ARANGE>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ARANGE_START>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // arange.start returns a tensor, so it has zero FLOPs.
   return make_polynomial();
 }
@@ -276,7 +282,7 @@ template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::BMM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(2));
 
@@ -340,9 +346,8 @@ symbolic_trace_impl<Operator::BMM>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::CAT>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // cat concatenates tensors in the given dimension, so it has zero FLOPs.
   return make_polynomial();
 }
@@ -355,9 +360,8 @@ symbolic_trace_impl<Operator::CAT>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::CLONE>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // clone copies a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -370,9 +374,8 @@ symbolic_trace_impl<Operator::CLONE>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::COS>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // cos returns a new tensor with the cosine of the elements of `self`.
   //
   // NOTE: Its absolute number of FLOPs is implementation-dependent, typically
@@ -390,8 +393,7 @@ symbolic_trace_impl<Operator::COS>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::CUMSUM>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // cumsum returns the cumulative sum of elements of `self` in the dimension
   // `dim`.
@@ -427,9 +429,8 @@ symbolic_trace_impl<Operator::CUMSUM>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::EMBEDDING>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -443,9 +444,8 @@ symbolic_trace_impl<Operator::EMBEDDING>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::EXPAND>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // expand is a tensor view operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -460,9 +460,8 @@ symbolic_trace_impl<Operator::EXPAND>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::FULL>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // full creates a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -475,8 +474,7 @@ symbolic_trace_impl<Operator::FULL>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::GELU>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // gelu applies the gaussian error linear unit (GELU) function to `self` in
   // element-wise.
@@ -505,9 +503,8 @@ symbolic_trace_impl<Operator::GELU>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::GT_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // gt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
   return make_polynomial();
 }
@@ -520,9 +517,8 @@ symbolic_trace_impl<Operator::GT_TENSOR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::LT_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // lt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
   return make_polynomial();
 }
@@ -535,9 +531,8 @@ symbolic_trace_impl<Operator::LT_TENSOR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::MASKED_FILL_SCALAR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // masked_fill.Scalar is an out-of-place version of masked_fill_.Scalar,
   // so it has zero FLOPs.
   return make_polynomial();
@@ -553,7 +548,7 @@ template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::MEAN_DIM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const TensorMetadata *meta) {
   // mean.dim returns the mean value of each row of `self` in the given
   // dimension `dim`.
   CHECK_NE(args, nullptr);
@@ -584,7 +579,7 @@ template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::MM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(2));
 
@@ -634,8 +629,7 @@ symbolic_trace_impl<Operator::MM>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::MUL_SCALAR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // mul.Scalar multiplies `self` by `other` in element-wise.
   CHECK_NE(meta, nullptr);
@@ -663,8 +657,7 @@ symbolic_trace_impl<Operator::MUL_SCALAR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::MUL_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // mul.Tensor multiplies `self` by `other` in element-wise.
   //
@@ -703,7 +696,7 @@ template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const TensorMetadata *meta) {
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
 
@@ -762,8 +755,7 @@ symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::NEG>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // neg returns a new tensor with the negative of the elements of `self`.
   CHECK_NE(meta, nullptr);
@@ -792,9 +784,8 @@ symbolic_trace_impl<Operator::NEG>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ONES>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // ones creates a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -809,9 +800,8 @@ symbolic_trace_impl<Operator::ONES>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::ONES_LIKE>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // ones_like creates a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -824,9 +814,8 @@ symbolic_trace_impl<Operator::ONES_LIKE>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::PERMUTE>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // permute is a tensor view operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -839,8 +828,7 @@ symbolic_trace_impl<Operator::PERMUTE>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // pow.Tensor_Scalar takes the power of each element in `self`
   // with `exponent`.
@@ -869,8 +857,7 @@ symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::RELU>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // relu applies the rectified linear unit (ReLU) function to `self` in
   // element-wise.
@@ -899,8 +886,7 @@ symbolic_trace_impl<Operator::RELU>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::RSQRT>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // rsqrt computes the element-wise reciprocal square root of `self`.
   //
@@ -932,8 +918,7 @@ symbolic_trace_impl<Operator::RSQRT>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::RSUB_SCALAR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // rsub.Scalar subtracts `self`, scaled by `alpha`, from `other`.
   CHECK_NE(meta, nullptr);
@@ -962,9 +947,8 @@ symbolic_trace_impl<Operator::RSUB_SCALAR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::SCALAR_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // scalar_tensor creates a tensor, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -977,8 +961,7 @@ symbolic_trace_impl<Operator::SCALAR_TENSOR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::SILU>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // silu applies the sigmoid linear unit (SiLU) function to `self`
   // in element-wise.
@@ -1007,9 +990,8 @@ symbolic_trace_impl<Operator::SILU>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::SIN>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // sin returns a new tensor with the sine of the elements of `self`.
   //
   // NOTE: For the same reason as cos, we approximate this to zero FLOPs.
@@ -1025,9 +1007,8 @@ symbolic_trace_impl<Operator::SIN>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::SLICE_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // slice.Tensor is a tensor view operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1041,9 +1022,8 @@ symbolic_trace_impl<Operator::SLICE_TENSOR>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::SPLIT_TENSOR>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // split.Tensor splits a tensor into chunks, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1091,9 +1071,9 @@ symbolic_trace_impl<Operator::SUB_TENSOR>(
 // func: t(Tensor(a) self) -> Tensor(a)
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
-symbolic_trace_impl<Operator::T>([[maybe_unused]] const flatbuffers::Vector<
-                                     flatbuffers::Offset<TensorMetadata>> *args,
-                                 [[maybe_unused]] const TensorMetadata *meta) {
+symbolic_trace_impl<Operator::T>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // t is a dimension swap, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1106,8 +1086,7 @@ symbolic_trace_impl<Operator::T>([[maybe_unused]] const flatbuffers::Vector<
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::TANH>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // tanh applies the hyperbolic tangent (tanh) function to `self`
   // in element-wise.
@@ -1136,9 +1115,8 @@ symbolic_trace_impl<Operator::TANH>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::TRANSPOSE_INT>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // transpose.int is a dimension swap, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1151,9 +1129,8 @@ symbolic_trace_impl<Operator::TRANSPOSE_INT>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::TRIL>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // tril is a masking operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1166,9 +1143,8 @@ symbolic_trace_impl<Operator::TRIL>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::TRIU>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // triu is a masking operation, so technically it has zero FLOPs.
   return make_polynomial();
 }
@@ -1181,9 +1157,8 @@ symbolic_trace_impl<Operator::TRIU>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::UNSQUEEZE>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // unsqueeze inserts a singleton dimension at the specified position,
   // so it has zero FLOPs.
   return make_polynomial();
@@ -1197,9 +1172,8 @@ symbolic_trace_impl<Operator::UNSQUEEZE>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::VIEW>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // view is a tensor view operation, so technically it has zero FLOPs.
   // See https://pytorch.org/docs/stable/tensor_view.html.
   return make_polynomial();
@@ -1213,12 +1187,17 @@ symbolic_trace_impl<Operator::VIEW>(
 template <>
 internal::polynomial<typename SymIntAdaptor::return_type>
 symbolic_trace_impl<Operator::WHERE_SELF>(
-    [[maybe_unused]] const flatbuffers::Vector<
-        flatbuffers::Offset<TensorMetadata>> *args,
-    [[maybe_unused]] const TensorMetadata *meta) {
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
   // where.self is an element-wise branching operation, so it has zero FLOPs.
   return make_polynomial();
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif  // defined(__GNUC__) || defined(__clang__)
 
 // flatflow::OperatorRegistry
 //

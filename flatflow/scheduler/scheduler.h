@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
+#include <tuple>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -290,12 +291,12 @@ class Scheduler {
   // Scheduler::on_epoch_begin()
   //
   // A callback to be called at the beginning of an epoch.
-  void on_epoch_begin([[maybe_unused]] size_type epoch) const noexcept {}
+  void on_epoch_begin(size_type epoch) const noexcept { std::ignore = epoch; }
 
   // Scheduler::on_epoch_end()
   //
   // A callback to be called at the end of an epoch.
-  void on_epoch_end([[maybe_unused]] size_type epoch) const noexcept {}
+  void on_epoch_end(size_type epoch) const noexcept { std::ignore = epoch; }
 
   // Scheduler::on_train_begin()
   //
