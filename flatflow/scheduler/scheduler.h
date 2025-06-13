@@ -133,8 +133,8 @@ class Scheduler {
   // at the granularity of mini-batch, which we call iterative reordering.
   // This may produce somewhat suboptimal training performance due to the
   // constraints in optimization scope, yet still maintains the as-if rule;
-  // the observable behavior of the model before and after reordering is
-  // transparent.
+  // the observable behavior of the model remains transparent even after
+  // reordering.
   template <typename InputIterator, typename OutputIterator>
   OutputIterator Schedule(InputIterator first, InputIterator last,
                           OutputIterator result) const {
