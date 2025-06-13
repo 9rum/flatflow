@@ -18,7 +18,6 @@
 #include "absl/log/globals.h"
 #include "absl/log/initialize.h"
 #include "absl/log/internal/globals.h"
-#include "absl/log/log.h"
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
