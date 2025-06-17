@@ -232,10 +232,8 @@ class ComputeProfiler:
 
 
 class MemoryProfiler:
-    def __init__(self, enabled: bool = True):
-        self.enabled = enabled
-        self.output_file = self._get_output_filename()
 
+    @staticmethod
     def _get_output_filename(self) -> str:
         dp_rank = parallel_state.get_data_parallel_rank()
         pp_rank = parallel_state.get_pipeline_model_parallel_rank()
@@ -243,10 +241,11 @@ class MemoryProfiler:
         rank = os.environ.get("LOCAL_RANK", "0")
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"memory_profile_rank{rank}_dp{dp_rank}_pp{pp_rank}_tp{tp_rank}_{timestamp}.jsonl"
-
+    
+    @staticmethod
     @contextlib.contextmanager
     def profile(self, tag: str = ""):
-        if not self.enabled or not torch.cuda.is_available():
+        if not torch.cuda.is_available():
             yield
             return
 
@@ -274,6 +273,7 @@ class MemoryProfiler:
 
             self.save_log(tag, new_data)
 
+    @staticmethod
     def save_log(self, tag: str, new_data: Dict[str, Any]):
         try:
             os.makedirs(os.path.dirname(self.output_file) if os.path.dirname(self.output_file) else ".", exist_ok=True)
