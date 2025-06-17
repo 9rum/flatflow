@@ -10,7 +10,7 @@ FLATFLOW_BUILD_TESTS ?= OFF
 FLATFLOW_ENABLE_ASAN ?= OFF
 FLATFLOW_ENABLE_UBSAN ?= OFF
 
-.PHONY: all generate degenerate test clean
+.PHONY: all generate degenerate check clean
 
 all:
 	@mkdir -p build && \
@@ -68,7 +68,7 @@ degenerate:
     flatflow/rpc/empty_generated.py \
     flatflow/rpc/empty_generated.pyi
 
-test:
+check:
 	@ctest --test-dir build
 
 clean:
