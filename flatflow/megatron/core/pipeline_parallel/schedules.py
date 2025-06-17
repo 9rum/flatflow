@@ -8,8 +8,6 @@ from typing import Iterator, List, Union
 
 import nvtx
 import torch
-from torch.autograd.variable import Variable
-
 from megatron.core import parallel_state
 from megatron.core.enums import ModelType
 from megatron.core.pipeline_parallel import p2p_communication
@@ -21,6 +19,9 @@ from megatron.core.utils import (
     get_model_type,
     get_model_xattn,
 )
+from torch.autograd.variable import Variable
+
+import flatflow.torch.profiler
 
 # Types
 Shape = Union[List[int], torch.Size]
@@ -369,15 +370,16 @@ def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, c
         output_tensor[0] = config.grad_scale_func(output_tensor[0])
 
     if enable_profile and not forward_only:
-        nvtx_ctx = nvtx.annotate(message="backward", color="blue", domain="backward", category=f"{global_microbatch_id}")
-        nvtx_ctx.__enter__()
-        try:
-            if config.deallocate_pipeline_outputs:
-                custom_backward(output_tensor[0], output_tensor_grad[0])
-            else:
-                torch.autograd.backward(output_tensor[0], grad_tensors=output_tensor_grad[0])
-        finally:
-            nvtx_ctx.__exit__(None, None, None)
+        with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"backward-{global_microbatch_id}"):
+            nvtx_ctx = nvtx.annotate(message="backward", color="blue", domain="backward", category=f"{global_microbatch_id}")
+            nvtx_ctx.__enter__()
+            try:
+                if config.deallocate_pipeline_outputs:
+                    custom_backward(output_tensor[0], output_tensor_grad[0])
+                else:
+                    torch.autograd.backward(output_tensor[0], grad_tensors=output_tensor_grad[0])
+            finally:
+                nvtx_ctx.__exit__(None, None, None)
     else:
         if config.deallocate_pipeline_outputs:
             custom_backward(output_tensor[0], output_tensor_grad[0])

@@ -26,18 +26,30 @@ from nemo.collections.common.metrics import MetricStringToTorchMetric
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
 )
-from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_chat_dataset import GPTSFTChatDataset
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import GPTSFTDataset, GPTSFTPackedDataset
+from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import (
+    BlendableDataset,
+)
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_chat_dataset import (
+    GPTSFTChatDataset,
+)
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import (
+    GPTSFTDataset,
+    GPTSFTPackedDataset,
+)
 from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
     MegatronPretrainingBatchSampler,
 )
-from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
+from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import (
+    MegatronGPTModel,
+)
 from nemo.collections.nlp.modules.common.megatron.utils import (
     average_losses_across_data_parallel_group,
     get_iterator_k_split,
 )
-from nemo.collections.nlp.modules.common.text_generation_utils import generate, get_computeprob_response
+from nemo.collections.nlp.modules.common.text_generation_utils import (
+    generate,
+    get_computeprob_response,
+)
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.utils import AppState, logging
@@ -1077,12 +1089,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     )
 
             if self.enable_profile and not forward_only:
-                nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
-                nvtx_ctx.__enter__()
-                try:
-                    output_tensor = model(**forward_args)
-                finally:
-                    nvtx_ctx.__exit__(None, None, None)
+                with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}"):
+                    nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
+                    nvtx_ctx.__enter__()
+                    try:
+                        output_tensor = model(**forward_args)
+                    finally:
+                        nvtx_ctx.__exit__(None, None, None)
             else:
                 output_tensor = model(**forward_args)
 
