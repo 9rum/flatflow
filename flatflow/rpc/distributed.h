@@ -244,7 +244,7 @@ void run(std::uint16_t port) {
   }
 
   auto builder = grpc::ServerBuilder();
-  const auto addr = absl::StrFormat("[::]:%u", port);
+  const auto addr = absl::StrFormat("[::1]:%u", port);
   builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
 
   static auto service = DistributedControlPlane();
