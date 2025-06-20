@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef FLATFLOW_RPC_CONTROLPLANE_H_
-#define FLATFLOW_RPC_CONTROLPLANE_H_
+#ifndef FLATFLOW_RPC_DISTRIBUTED_H_
+#define FLATFLOW_RPC_DISTRIBUTED_H_
 
 #include <grpcpp/grpcpp.h>
 
 #include <csignal>
 #include <cstdint>
 #include <future>
-#include <iterator>
 #include <tuple>
 #include <vector>
 
@@ -41,50 +40,37 @@
 
 namespace flatflow {
 
-// flatflow::ControlPlaneServiceImpl
+// flatflow::DistributedControlPlane
 //
-// A `flatflow::ControlPlaneServiceImpl` is an intermediary to communicate
-// between the scheduler and data plane. It is responsible for exchanging the
-// original computation schedule from the data plane with the reordered
+// A `flatflow::DistributedControlPlane` is an intermediary for communication
+// between the scheduler and the data plane. It is responsible for exchanging
+// the original computation schedule from the data plane with the reordered
 // computation schedule and invoking callbacks exposed by the scheduler.
 //
 // Its primitives are based on the syntax of message passing interface (MPI);
 // the control plane always starts with `Init` and ends with `Finalize`.
 // At the beginning of each training epoch, `Scatter` is called to reorder
 // the computation schedule of the data plane.
-class ControlPlaneServiceImpl final : public ControlPlane::Service {
+class DistributedControlPlane : public ControlPlane::Service {
  public:
   using size_type = typename Scheduler::size_type;
 
   // Constructors and assignment operators
   //
   // There are only basic constructors and assignment operators to allow copy
-  // elision, except for the one to open communication channels to synchronize
-  // the data plane upon initialization. The actual initialization is handled
-  // through `Init`.
-  ControlPlaneServiceImpl() {}
+  // elision. The actual initialization is handled through `Init`.
+  DistributedControlPlane() {}
 
-  ControlPlaneServiceImpl(size_type data_parallel_world_size)
-      : data_parallel_world_size_(data_parallel_world_size) {
-    producers_.reserve(data_parallel_world_size);
-    consumers_.reserve(data_parallel_world_size);
+  DistributedControlPlane(const DistributedControlPlane &other) = default;
 
-    for (size_type rank = 0; rank < data_parallel_world_size; ++rank) {
-      producers_.emplace_back();
-      consumers_.emplace_back(producers_[rank].get_future());
-    }
-  }
-
-  ControlPlaneServiceImpl(const ControlPlaneServiceImpl &other) = default;
-
-  ControlPlaneServiceImpl &operator=(const ControlPlaneServiceImpl &other) =
+  DistributedControlPlane &operator=(const DistributedControlPlane &other) =
       default;
 
-  ControlPlaneServiceImpl(ControlPlaneServiceImpl &&other) = default;
+  DistributedControlPlane(DistributedControlPlane &&other) = default;
 
-  ControlPlaneServiceImpl &operator=(ControlPlaneServiceImpl &&other) = default;
+  DistributedControlPlane &operator=(DistributedControlPlane &&other) = default;
 
-  ~ControlPlaneServiceImpl() override {
+  ~DistributedControlPlane() override {
     // The signal should be first validated as the program may have been
     // terminated via an external signal such as keyboard interrupt without
     // calling `Finalize`.
@@ -93,7 +79,7 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     }
   }
 
-  // ControlPlaneServiceImpl::Init()
+  // DistributedControlPlane::Init()
   //
   // Initializes the training environment.
   grpc::Status Init(grpc::ServerContext *context,
@@ -103,14 +89,19 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     CHECK_NE(request, nullptr);
     CHECK_NE(response, nullptr);
 
-    LOG(INFO) << absl::StrFormat("Init called from %s", context->peer());
-
     const auto args = request->GetRoot();
     CHECK_NE(args, nullptr);
+
+    rank_ = args->rank();
+
+    // clang-format off
+    LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), rank_);
+    // clang-format on
 
     const auto sizes = args->sizes();
     CHECK_NE(sizes, nullptr);
 
+    data_parallel_world_size_ = args->data_parallel_world_size();
     global_batch_size_ = args->global_batch_size();
     scheduler_ = Scheduler(data_parallel_world_size_, global_batch_size_,
                            args->micro_batch_size(), sizes->begin(),
@@ -126,7 +117,7 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     return grpc::Status::OK;
   }
 
-  // ControlPlaneServiceImpl::Scatter()
+  // DistributedControlPlane::Scatter()
   //
   // Exchanges the given computation schedule with the reordered
   // computation schedule from the scheduler.
@@ -138,56 +129,42 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     CHECK_NE(request, nullptr);
     CHECK_NE(response, nullptr);
 
+    // clang-format off
+    LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), rank_);
+    // clang-format on
+
     const auto args = request->GetRoot();
     CHECK_NE(args, nullptr);
 
-    const auto rank = args->rank();
-
-    // clang-format off
-    LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), rank);
-    // clang-format on
-
-    if (rank == 0) {
-      if (!indices_.empty()) {
-        _call_callbacks_on_epoch_end();
-      }
-
-      epoch_ = args->epoch();
-      _call_callbacks_on_epoch_begin();
-
-      const auto indices = args->indices();
-      CHECK_NE(indices, nullptr);
-
-      indices_.resize(indices->size());
-      scheduler_.Schedule(indices->begin(), indices->end(), indices_.begin());
-
-      for (size_type rank = 0; rank < data_parallel_world_size_; ++rank) {
-        producers_[rank].set_value();
-      }
+    // If there is a previous computation schedule, the callback should not be
+    // called as it is the beginning of the first epoch.
+    if (!indices_.empty()) {
+      _call_callbacks_on_epoch_end();
     }
 
-    consumers_[rank].get();
+    epoch_ = args->epoch();
+    _call_callbacks_on_epoch_begin();
 
-    // The promise-future communication channel is disposable; each worker
-    // should reset its own channel after receiving a fanout signal.
-    producers_[rank] = std::promise<void>();
-    consumers_[rank] = producers_[rank].get_future();
+    const auto indices = args->indices();
+    CHECK_NE(indices, nullptr);
 
-    auto indices =
-        std::vector<size_type>(indices_.size() / data_parallel_world_size_);
-    internal::Scatter(indices_.begin(), indices_.end(), indices.begin(),
-                      data_parallel_world_size_, rank, global_batch_size_);
+    auto schedule = std::vector<size_type>(indices->size());
+    scheduler_.Schedule(indices->begin(), indices->end(), schedule.begin());
+
+    indices_.resize(schedule.size() / data_parallel_world_size_);
+    internal::Scatter(schedule.begin(), schedule.end(), indices_.begin(),
+                      data_parallel_world_size_, rank_, global_batch_size_);
 
     auto builder = flatbuffers::grpc::MessageBuilder();
     const auto resp =
-        CreateScatterResponse(builder, builder.CreateVector(indices));
+        CreateScatterResponse(builder, builder.CreateVector(indices_));
     builder.Finish(resp);
     *response = builder.ReleaseMessage<ScatterResponse>();
 
     return grpc::Status::OK;
   }
 
-  // ControlPlaneServiceImpl::Finalize()
+  // DistributedControlPlane::Finalize()
   //
   // Terminates the training environment.
   grpc::Status Finalize(grpc::ServerContext *context,
@@ -197,12 +174,15 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     CHECK_NE(context, nullptr);
     CHECK_NE(response, nullptr);
 
-    LOG(INFO) << absl::StrFormat("Finalize called from %s", context->peer());
+    // clang-format off
+    LOG(INFO) << absl::StrFormat("Finalize called from %s (rank %u)", context->peer(), rank_);
+    // clang-format on
 
     // The launch policy should be `std::launch::async`; otherwise a deadlock
     // will occur.
     signal_ = std::async(std::launch::async, std::raise, SIGTERM);
 
+    _call_callbacks_on_epoch_end();
     _call_callbacks_on_train_end();
 
     auto builder = flatbuffers::grpc::MessageBuilder();
@@ -213,29 +193,29 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
     return grpc::Status::OK;
   }
 
- private:
-  // ControlPlaneServiceImpl::_call_callbacks_on_epoch_begin()
+ protected:
+  // DistributedControlPlane::_call_callbacks_on_epoch_begin()
   //
   // Calls every callback's `on_epoch_begin` hook.
   void _call_callbacks_on_epoch_begin() const noexcept {
     scheduler_.on_epoch_begin(epoch_);
   }
 
-  // ControlPlaneServiceImpl::_call_callbacks_on_epoch_end()
+  // DistributedControlPlane::_call_callbacks_on_epoch_end()
   //
   // Calls every callback's `on_epoch_end` hook.
   void _call_callbacks_on_epoch_end() const noexcept {
     scheduler_.on_epoch_end(epoch_);
   }
 
-  // ControlPlaneServiceImpl::_call_callbacks_on_train_begin()
+  // DistributedControlPlane::_call_callbacks_on_train_begin()
   //
   // Calls every callback's `on_train_begin` hook.
   void _call_callbacks_on_train_begin() const noexcept {
     scheduler_.on_train_begin();
   }
 
-  // ControlPlaneServiceImpl::_call_callbacks_on_train_end()
+  // DistributedControlPlane::_call_callbacks_on_train_end()
   //
   // Calls every callback's `on_train_end` hook.
   void _call_callbacks_on_train_end() const noexcept {
@@ -245,9 +225,8 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
   size_type data_parallel_world_size_;
   size_type epoch_;
   size_type global_batch_size_;
+  size_type rank_;
   std::vector<size_type> indices_;
-  std::vector<std::promise<void>> producers_;
-  std::vector<std::future<void>> consumers_;
   std::future<int> signal_;
   Scheduler scheduler_;
 };
@@ -258,8 +237,7 @@ class ControlPlaneServiceImpl final : public ControlPlane::Service {
 // via foreign function interface (FFI); that is, there is no direct entry point
 // to the control plane and the actual initialization and termination are made
 // through `Init` and `Finalize`, respectively.
-void run(uint16_t port,
-         typename ControlPlaneServiceImpl::size_type data_parallel_world_size) {
+void run(std::uint16_t port) {
   if (!absl::log_internal::IsInitialized()) {
     absl::InitializeLog();
     absl::SetStderrThreshold(absl::LogSeverity::kInfo);
@@ -269,7 +247,7 @@ void run(uint16_t port,
   const auto addr = absl::StrFormat("[::]:%u", port);
   builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
 
-  static auto service = ControlPlaneServiceImpl(data_parallel_world_size);
+  static auto service = DistributedControlPlane();
   builder.RegisterService(&service);
 
   static auto server = builder.BuildAndStart();
@@ -288,4 +266,4 @@ void run(uint16_t port,
 
 }  // namespace flatflow
 
-#endif  // FLATFLOW_RPC_CONTROLPLANE_H_
+#endif  // FLATFLOW_RPC_DISTRIBUTED_H_

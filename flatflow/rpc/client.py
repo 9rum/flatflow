@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections.abc import Sequence
-from typing import Optional
 
 import flatbuffers
 import grpc
@@ -22,16 +21,17 @@ from numpy.typing import ArrayLike
 
 from flatflow.ops import serialize
 from flatflow.rpc.controlplane_generated import (
+    InitRequestAddDataParallelWorldSize,
     InitRequestAddGlobalBatchSize,
     InitRequestAddGraph,
     InitRequestAddMicroBatchSize,
+    InitRequestAddRank,
     InitRequestAddSizes,
     InitRequestEnd,
     InitRequestStart,
     InitRequestStartSizesVector,
     ScatterRequestAddEpoch,
     ScatterRequestAddIndices,
-    ScatterRequestAddRank,
     ScatterRequestEnd,
     ScatterRequestStart,
     ScatterRequestStartIndicesVector,
@@ -47,37 +47,37 @@ class ControlPlaneClient(object):
     """A client class that simplifies communication with the control plane.
 
     Args:
-        rank (int): Rank of the current process within the data-parallel group.
         channel (grpc.Channel): A channel object.
     """
 
-    rank: int
     stub: ControlPlaneStub
 
-    def __init__(self, rank: int, channel: grpc.Channel) -> None:
-        self.rank = rank
+    def __init__(self, channel: grpc.Channel) -> None:
         # Block until the control plane is ready.
         grpc.channel_ready_future(channel).result()
         self.stub = ControlPlaneStub(channel)
 
     def Init(
         self,
+        data_parallel_world_size: int,
         global_batch_size: int,
         micro_batch_size: int,
+        rank: int,
         graph: torch.fx.Graph,
         sizes: Sequence[int],
     ) -> None:
         """Initializes the training environment.
 
         Args:
+            data_parallel_world_size (int): Number of processes within the data-parallel
+                group.
             global_batch_size (int): The global batch size.
             micro_batch_size (int): The micro-batch size.
+            rank (int): Rank of the current process within the data-parallel group.
             graph (torch.fx.Graph): A computational graph traced from the given model.
             sizes (Sequence[int]): A vector representing the mapping from an index to
                 the user-defined size of the corresponding data sample.
         """
-        assert self.rank == 0
-
         builder = flatbuffers.Builder()
 
         _graph = serialize(builder, graph)
@@ -88,8 +88,10 @@ class ControlPlaneClient(object):
         _sizes = builder.EndVector()
 
         InitRequestStart(builder)
+        InitRequestAddDataParallelWorldSize(builder, data_parallel_world_size)
         InitRequestAddGlobalBatchSize(builder, global_batch_size)
         InitRequestAddMicroBatchSize(builder, micro_batch_size)
+        InitRequestAddRank(builder, rank)
         InitRequestAddGraph(builder, _graph)
         InitRequestAddSizes(builder, _sizes)
         request = InitRequestEnd(builder)
@@ -97,30 +99,26 @@ class ControlPlaneClient(object):
 
         self.stub.Init(bytes(builder.Output()))
 
-    def Scatter(self, epoch: int, indices: Optional[Sequence[int]] = None) -> ArrayLike:
+    def Scatter(self, epoch: int, indices: Sequence[int]) -> ArrayLike:
         """Returns the reordered computation schedule for the next training epoch.
 
         Args:
             epoch (int): The epoch number.
-            indices (Sequence[int], optional): The original computation schedule.
+            indices (Sequence[int]): The original computation schedule.
 
         Returns:
             ArrayLike: The reordered computation schedule.
         """
         builder = flatbuffers.Builder()
 
-        if self.rank == 0:
-            assert indices is not None
-            ScatterRequestStartIndicesVector(builder, len(indices))
-            for index in reversed(indices):
-                builder.PrependUint64(index)
-            _indices = builder.EndVector()
+        ScatterRequestStartIndicesVector(builder, len(indices))
+        for index in reversed(indices):
+            builder.PrependUint64(index)
+        _indices = builder.EndVector()
 
         ScatterRequestStart(builder)
         ScatterRequestAddEpoch(builder, epoch)
-        ScatterRequestAddRank(builder, self.rank)
-        if self.rank == 0:
-            ScatterRequestAddIndices(builder, _indices)
+        ScatterRequestAddIndices(builder, _indices)
         request = ScatterRequestEnd(builder)
         builder.Finish(request)
 
@@ -129,8 +127,6 @@ class ControlPlaneClient(object):
 
     def Finalize(self) -> None:
         """Terminates the training environment."""
-        assert self.rank == 0
-
         builder = flatbuffers.Builder()
 
         EmptyStart(builder)

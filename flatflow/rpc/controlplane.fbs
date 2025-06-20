@@ -18,16 +18,17 @@ include "flatflow/rpc/empty.fbs";
 namespace flatflow;
 
 table InitRequest {
-  global_batch_size: ulong;
-  micro_batch_size:  ulong;
-  graph:             Graph (required);
-  sizes:             [uint] (required);
+  data_parallel_world_size: ulong;
+  global_batch_size:        ulong;
+  micro_batch_size:         ulong;
+  rank:                     ulong;
+  graph:                    Graph (required);
+  sizes:                    [uint] (required);
 }
 
 table ScatterRequest {
   epoch:   ulong;
-  rank:    ulong;
-  indices: [ulong];
+  indices: [ulong] (required);
 }
 
 table ScatterResponse {
