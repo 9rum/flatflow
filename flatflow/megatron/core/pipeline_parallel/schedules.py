@@ -8,6 +8,8 @@ from typing import Iterator, List, Union
 
 import nvtx
 import torch
+from torch.autograd.variable import Variable
+
 from megatron.core import parallel_state
 from megatron.core.enums import ModelType
 from megatron.core.pipeline_parallel import p2p_communication
@@ -19,7 +21,6 @@ from megatron.core.utils import (
     get_model_type,
     get_model_xattn,
 )
-from torch.autograd.variable import Variable
 
 import flatflow.torch.profiler
 

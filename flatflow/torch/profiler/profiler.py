@@ -232,7 +232,6 @@ class ComputeProfiler:
 
 
 class MemoryProfiler:
-
     @staticmethod
     def _get_output_filename() -> str:
         dp_rank = parallel_state.get_data_parallel_rank()
