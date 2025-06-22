@@ -1089,7 +1089,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     )
 
             if self.enable_profile and not forward_only:
-                with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}"):
+                meta_info = {
+                    "global_bs": get_current_global_batch_size(),
+                    "micro_bs": get_micro_batch_size(),
+                    "tok_total": forward_args['input_ids'].size(1)
+                }
+
+                with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}", **meta_info):
                     nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
                     nvtx_ctx.__enter__()
                     try:

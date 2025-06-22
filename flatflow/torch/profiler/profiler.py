@@ -243,7 +243,7 @@ class MemoryProfiler:
     
     @staticmethod
     @contextlib.contextmanager
-    def profile(tag: str = ""):
+    def profile(tag: str = "", **metadata):
         if not torch.cuda.is_available():
             yield
             return
@@ -267,8 +267,13 @@ class MemoryProfiler:
                 "reserved_mb": reserved_diff,
                 "timestamp": datetime.datetime.now().isoformat(),
                 "rank": int(os.environ.get("LOCAL_RANK", 0)),
-                "world_size": int(os.environ.get("WORLD_SIZE", 1))
+                "world_size": int(os.environ.get("WORLD_SIZE", 1)),
             }
+
+            if metadata:
+                for k, v in metadata.items():
+                    if k not in new_data:
+                        new_data[k] = v
 
             MemoryProfiler.save_log(tag, new_data, MemoryProfiler._get_output_filename())
 
