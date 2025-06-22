@@ -234,17 +234,16 @@ class ComputeProfiler:
 class MemoryProfiler:
 
     @staticmethod
-    def _get_output_filename(self) -> str:
+    def _get_output_filename() -> str:
         dp_rank = parallel_state.get_data_parallel_rank()
         pp_rank = parallel_state.get_pipeline_model_parallel_rank()
         tp_rank = parallel_state.get_tensor_model_parallel_rank()
         rank = os.environ.get("LOCAL_RANK", "0")
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"memory_profile_rank{rank}_dp{dp_rank}_pp{pp_rank}_tp{tp_rank}_{timestamp}.jsonl"
+        return f"memory_profile_rank{rank}_dp{dp_rank}_pp{pp_rank}_tp{tp_rank}.jsonl"
     
     @staticmethod
     @contextlib.contextmanager
-    def profile(self, tag: str = ""):
+    def profile(tag: str = ""):
         if not torch.cuda.is_available():
             yield
             return
@@ -271,16 +270,16 @@ class MemoryProfiler:
                 "world_size": int(os.environ.get("WORLD_SIZE", 1))
             }
 
-            self.save_log(tag, new_data)
+            MemoryProfiler.save_log(tag, new_data, MemoryProfiler._get_output_filename())
 
     @staticmethod
-    def save_log(self, tag: str, new_data: Dict[str, Any]):
+    def save_log(tag: str, new_data: Dict[str, Any], output_file: str):
         try:
-            os.makedirs(os.path.dirname(self.output_file) if os.path.dirname(self.output_file) else ".", exist_ok=True)
+            os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
 
             record = {"tag": tag, **new_data}
-            with open(self.output_file, 'a') as f:
+            with open(output_file, 'a') as f:
                 f.write(json.dumps(record) + '\n')
 
         except Exception as e:
-            print(f"Warning: Failed to save memory profile to {self.output_file}: {e}")
+            print(f"Warning: Failed to save memory profile to {output_file}: {e}")
