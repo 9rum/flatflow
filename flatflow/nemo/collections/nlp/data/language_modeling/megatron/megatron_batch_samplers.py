@@ -108,23 +108,25 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         )
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
 
-        addr = os.getenv("MASTER_ADDR")
-        channel = grpc.insecure_channel(f"{addr}:{port}")
-
-        if self.global_rank == 0:
-            run(port, data_parallel_size)
+        # The control-plane runs locally on every data-parallel worker and communicates through the IPv6 loop-back interface (::1) only.  
+        channel = grpc.insecure_channel(f"[::1]:{port}")
 
         self.schedule = []
         self.schedule_size = [0]
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            self.client = ControlPlaneClient(self.data_parallel_rank, channel)
-            if self.data_parallel_rank == 0:
-                self.client.Init(
-                    global_batch_size,
-                    micro_batch_size,
-                    graph,
-                    sizes,
-                )
+            # Launch a local control-plane server instance for this worker.
+            # Network communication is avoided so port conflicts are handled internally by the extension.
+            run(port, data_parallel_size)
+
+            self.client = ControlPlaneClient(channel)
+            self.client.Init(
+                data_parallel_size,
+                global_batch_size,
+                micro_batch_size,
+                self.data_parallel_rank,
+                graph,
+                sizes,
+            )
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -142,7 +144,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
         # receive the reordered computation schedule from the control plane
         if is_model_parallel_src:
-            self.schedule = self.client.Broadcast(self.epoch, list(range(len(self.dataset))))
+            self.schedule = self.client.Scatter(self.epoch, list(range(len(self.dataset))))
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
         else:
@@ -170,5 +172,5 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.consumed_samples = 0
 
     def __del__(self) -> None:
-        if hasattr(self, "client") and self.client.rank == 0:
+        if hasattr(self, "client"):
             self.client.Finalize()
