@@ -108,23 +108,25 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         )
         sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
 
-        addr = os.getenv("MASTER_ADDR")
-        channel = grpc.insecure_channel(f"{addr}:{port}")
-
-        if self.global_rank == 0:
-            run(port, data_parallel_size)
+        # The control-plane runs locally on every data-parallel worker and communicates through the IPv6 loop-back interface (::1) only.  
+        channel = grpc.insecure_channel(f"[::1]:{port}")
 
         self.schedule = []
         self.schedule_size = [0]
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            self.client = ControlPlaneClient(self.data_parallel_rank, channel)
-            if self.data_parallel_rank == 0:
-                self.client.Init(
-                    global_batch_size,
-                    micro_batch_size,
-                    graph,
-                    sizes,
-                )
+            # Launch a local control-plane server instance for this worker.
+            # Network communication is avoided so port conflicts are handled internally by the extension.
+            run(port, data_parallel_size)
+
+            self.client = ControlPlaneClient(channel)
+            self.client.Init(
+                data_parallel_size,
+                global_batch_size,
+                micro_batch_size,
+                self.data_parallel_rank,
+                graph,
+                sizes,
+            )
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -136,37 +138,39 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        indices = list(range(len(self.dataset)))
         model_parallel_group = parallel_state.get_model_parallel_group()
         model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
         is_model_parallel_src = (self.global_rank == model_parallel_src_rank)
 
         # receive the reordered computation schedule from the control plane
         if is_model_parallel_src:
-            self.schedule = self.client.Scatter(self.epoch, indices)
+            self.schedule = self.client.Scatter(self.epoch, list(range(len(self.dataset))))
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
+        else:
+            self.schedule_size = [0] # Initialize for broadcast
 
         torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
         if not is_model_parallel_src:
             self.schedule = [0] * self.schedule_size[0]
         torch.distributed.broadcast_object_list(self.schedule, src=model_parallel_src_rank, group=model_parallel_group)
+        
+        micro_batch = []
+        for idx_from_schedule in self.schedule:
+            micro_batch.append(idx_from_schedule)
+            if len(micro_batch) == self._global_batch_size_on_this_data_parallel_rank:
+                self.consumed_samples += len(micro_batch)
+                yield micro_batch
+                micro_batch = []
 
-        batch = []
-        for idx in range(self.schedule_size[0]):
-            batch.append(self.schedule[idx])
-            if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                self.consumed_samples += self._global_batch_size_on_this_data_parallel_rank
-                yield batch
-                batch = []
-
-        if len(batch) > 0 and not self.drop_last and self.pad_samples_to_global_batch_size:
-            num_pad = self._global_batch_size_on_this_data_parallel_rank - len(batch)
-            batch = batch + [-1] * num_pad
-            yield batch
-
+        if len(micro_batch) > 0 and not self.drop_last:
+            if self.pad_samples_to_global_batch_size:
+                num_pad = self._global_batch_size_on_this_data_parallel_rank - len(micro_batch)
+                micro_batch = micro_batch + [-1] * num_pad
+            yield micro_batch
+            self.consumed_samples += len(micro_batch)
         self.consumed_samples = 0
 
     def __del__(self) -> None:
-        if hasattr(self, "client") and self.client.rank == 0:
+        if hasattr(self, "client"):
             self.client.Finalize()
