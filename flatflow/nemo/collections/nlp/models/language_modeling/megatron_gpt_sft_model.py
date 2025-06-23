@@ -1077,12 +1077,26 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     )
 
             if self.enable_profile and not forward_only:
-                nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
-                nvtx_ctx.__enter__()
-                try:
-                    output_tensor = model(**forward_args)
-                finally:
-                    nvtx_ctx.__exit__(None, None, None)
+                # Build runtime batch metadata; for concat-based dataset the logical
+                # micro-batch size equals the number of sample_ids concatenated.
+                if "sample_ids" in batch and isinstance(batch["sample_ids"], (list, tuple)):
+                    micro_bs_logic = len(batch["sample_ids"])  # logical micro-batch size
+                else:
+                    micro_bs_logic = forward_args["input_ids"].size(0)
+
+                meta_info = {
+                    "micro_bs": micro_bs_logic,
+                    "global_bs": micro_bs_logic * parallel_state.get_data_parallel_world_size(),
+                    "tok_total": forward_args["input_ids"].numel(),
+                }
+
+                with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}", **meta_info):
+                    nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
+                    nvtx_ctx.__enter__()
+                    try:
+                        output_tensor = model(**forward_args)
+                    finally:
+                        nvtx_ctx.__exit__(None, None, None)
             else:
                 output_tensor = model(**forward_args)
 

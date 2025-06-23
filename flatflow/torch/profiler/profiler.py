@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
+import datetime
 import json
 import multiprocessing as mp
+import os
 import re
 import time
 from collections import defaultdict
-from typing import Any
+from typing import Any, Dict
 
+import torch
 import torch.distributed
 from megatron.core import parallel_state
 
@@ -228,106 +232,58 @@ class ComputeProfiler:
 
 
 class MemoryProfiler:
-    def __init__(self, rank, layers, layer_events):
-        self.rank = rank
-        self.world_size = torch.distributed.get_world_size()
-        self.current_batch_id = 0
-        self.hook_handles = []
-        self.last_stage_rank = parallel_state.get_pipeline_model_parallel_last_rank()
-        self.mp_group = parallel_state.get_model_parallel_group()
-        self.mp_src_rank = torch.distributed.get_process_group_ranks(self.mp_group)[0]
-        self.pp_group = parallel_state.get_pipeline_model_parallel_group()
-        self.memory_tracker = defaultdict(float)
-        self.memory_buffer = {}
-        self.layers = layers
-        self.layer_events = layer_events
-        self.times = defaultdict(float)
-        for name in self.layers.keys():
-            self.register_hooks(name)
+    @staticmethod
+    def _get_output_filename() -> str:
+        dp_rank = parallel_state.get_data_parallel_rank()
+        pp_rank = parallel_state.get_pipeline_model_parallel_rank()
+        tp_rank = parallel_state.get_tensor_model_parallel_rank()
+        rank = os.environ.get("LOCAL_RANK", "0")
+        return f"memory_profile_rank{rank}_dp{dp_rank}_pp{pp_rank}_tp{tp_rank}.jsonl"
+    
+    @staticmethod
+    @contextlib.contextmanager
+    def profile(tag: str = "", **metadata):
+        if not torch.cuda.is_available():
+            yield
+            return
 
-    def register_hooks(self, name):
-        events = self.layer_events[name]
-        layer = self.layers[name]
+        torch.cuda.synchronize()
+        start_allocated = torch.cuda.memory_allocated()
+        start_reserved = torch.cuda.memory_reserved()
 
-        def forward_pre_hook(module, _):
-            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
-            self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
+        try:
+            yield
+        finally:
+            torch.cuda.synchronize()
+            end_allocated = torch.cuda.memory_allocated()
+            end_reserved = torch.cuda.memory_reserved()
 
-        def forward_hook(module, _, _1):
-            batch_key = "forward_" + self._generate_batch_key(self.current_batch_id)
-            if batch_key in self.memory_buffer:
-                self.memory_tracker[batch_key] += (
-                    torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
-                )
+            allocated_diff = (end_allocated - start_allocated) / 1024**2
+            reserved_diff = (end_reserved - start_reserved) / 1024**2
 
-        def backward_pre_hook(module, _):
-            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
-            self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
+            new_data = {
+                "allocated_mb": allocated_diff,
+                "reserved_mb": reserved_diff,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "rank": int(os.environ.get("LOCAL_RANK", 0)),
+                "world_size": int(os.environ.get("WORLD_SIZE", 1)),
+            }
 
+            if metadata:
+                for k, v in metadata.items():
+                    if k not in new_data:
+                        new_data[k] = v
 
-        def backward_hook(module, _, _1):
-            batch_key = "backward_" + self._generate_batch_key(self.current_batch_id)
-            if batch_key in self.memory_buffer:
-                self.memory_tracker[batch_key] += (
-                    torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
-                )
+            MemoryProfiler.save_log(tag, new_data, MemoryProfiler._get_output_filename())
 
-        self.hook_handles.append(layer.register_forward_pre_hook(forward_pre_hook))
-        self.hook_handles.append(layer.register_forward_hook(forward_hook))
+    @staticmethod
+    def save_log(tag: str, new_data: Dict[str, Any], output_file: str):
+        try:
+            os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
 
-        self.hook_handles.append(layer.register_full_backward_pre_hook(backward_pre_hook))
-        self.hook_handles.append(layer.register_full_backward_hook(backward_hook))
+            record = {"tag": tag, **new_data}
+            with open(output_file, 'a') as f:
+                f.write(json.dumps(record) + '\n')
 
-    def _generate_batch_key(self, microbatch_id: int) -> str:
-        data_parallel_rank = parallel_state.get_data_parallel_rank()
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        return f"dp{data_parallel_rank}_pp{pipeline_parallel_rank}_tp{tensor_parallel_rank}_batch{microbatch_id}"
-
-    def set_microbatch_id(self, microbatch_id: int):
-        self.current_batch_id = microbatch_id
-
-    def record_start(self, module: Any, input: Any) -> None:
-        batch_key = self._generate_batch_key(self.current_batch_id)
-        self.memory_buffer[batch_key] = torch.cuda.memory_allocated() / 1024 / 1024
-
-    def record_end(self, module: Any, input: Any, output: Any) -> None:
-        batch_key = self._generate_batch_key(self.current_batch_id)
-        if batch_key in self.memory_buffer:
-            self.memory_tracker[batch_key] += (
-                torch.cuda.memory_allocated() / 1024 / 1024 - self.memory_buffer[batch_key]
-            )
-
-    def save_memory_log(self):
-        memory_gather_object = (
-            [None]
-            * parallel_state.get_pipeline_model_parallel_world_size()
-            * parallel_state.get_tensor_model_parallel_world_size()
-        )
-
-        torch.distributed.all_gather_object(memory_gather_object, self.memory_tracker, group=self.mp_group)
-
-        if self.rank == self.mp_src_rank:
-            tp_max_memory = defaultdict(float)
-            for data in memory_gather_object:
-                if data:
-                    for key, value in data.items():
-                        base_key = re.sub(r"_tp_\d+", "", key)
-                        tp_max_memory[base_key] = max(tp_max_memory[base_key], value)
-
-            processed_memory = defaultdict(float)
-            for key, value in tp_max_memory.items():
-                base_key = re.sub(r"_pp\d+", "", key)
-                processed_memory[base_key] += value
-
-        else:
-            processed_memory = None
-
-        memory_object = [None] * self.world_size if self.rank == 0 else None
-
-        torch.distributed.gather_object(obj=processed_memory, object_gather_list=memory_object, dst=0)
-        if self.rank == 0:
-            assert memory_object is not None
-            revised = [memory for memory in memory_object if memory is not None]
-            with open("memory_profile.json", "w") as f:
-                json.dump(revised, f, indent=4)
+        except Exception as e:
+            print(f"Warning: Failed to save memory profile to {output_file}: {e}")
