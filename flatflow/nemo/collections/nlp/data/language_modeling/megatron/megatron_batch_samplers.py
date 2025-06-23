@@ -14,18 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import grpc
 import torch.distributed
 import torch.fx
 from megatron.core import parallel_state
-from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
-    BaseMegatronBatchSampler,
-)
+from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import BaseMegatronBatchSampler
 
 from flatflow import sys
-from flatflow.rpc import ControlPlaneClient, run
+from flatflow.rpc import ControlPlaneClient, run  # type: ignore[attr-defined]
 from flatflow.torch.utils.data.dataset import Dataset
 
 __all__ = ["MegatronPretrainingBatchSampler"]
@@ -54,9 +50,8 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             replicas. If ``False``, the sampler will add extra indices to make
             the data evenly divisible across the replicas. (default: ``False``)
         graph (torch.fx.Graph): The exported computational graph.
-        pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``)
-        port (int, optional): Port on the master node (rank 0) to be used for initializing
-            the communicator server. (default: ``50051``)
+        pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``).
+        port (int, optional): Port to be used for initializing the control plane (default: ``50051``).
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
@@ -106,19 +101,19 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
         )
-        sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
-
-        # The control-plane runs locally on every data-parallel worker and communicates through the IPv6 loop-back interface (::1) only.  
-        channel = grpc.insecure_channel(f"[::1]:{port}")
-
         self.schedule = []
         self.schedule_size = [0]
-        if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
-            # Launch a local control-plane server instance for this worker.
-            # Network communication is avoided so port conflicts are handled internally by the extension.
-            run(port, data_parallel_size)
 
+        if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
+            # Launch a control plane for this worker. Network communication is avoided
+            # so port conflicts are handled internally by the extension.
+            run(port)
+
+            # The control plane runs locally on every data parallel worker and
+            # communicates through the IPv6 loopback interface only.
+            channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
+            sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
             self.client.Init(
                 data_parallel_size,
                 global_batch_size,
@@ -148,13 +143,13 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
         else:
-            self.schedule_size = [0] # Initialize for broadcast
+            self.schedule_size = [0]
 
         torch.distributed.broadcast_object_list(self.schedule_size, src=model_parallel_src_rank, group=model_parallel_group)
         if not is_model_parallel_src:
             self.schedule = [0] * self.schedule_size[0]
         torch.distributed.broadcast_object_list(self.schedule, src=model_parallel_src_rank, group=model_parallel_group)
-        
+
         micro_batch = []
         for idx_from_schedule in self.schedule:
             micro_batch.append(idx_from_schedule)
@@ -163,7 +158,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
                 yield micro_batch
                 micro_batch = []
 
-        if len(micro_batch) > 0 and not self.drop_last:
+        if 0 < len(micro_batch) and not self.drop_last:
             if self.pad_samples_to_global_batch_size:
                 num_pad = self._global_batch_size_on_this_data_parallel_rank - len(micro_batch)
                 micro_batch = micro_batch + [-1] * num_pad
