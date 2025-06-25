@@ -52,7 +52,10 @@ generate:
 		rmdir tmp
 
 degenerate:
-	@rm flatflow/ops/graph_generated.h \
+	@rm flatflow/ops/dtype_generated.h \
+		flatflow/ops/dtype_generated.py \
+		flatflow/ops/dtype_generated.pyi \
+		flatflow/ops/graph_generated.h \
 		flatflow/ops/graph_generated.py \
 		flatflow/ops/graph_generated.pyi \
 		flatflow/ops/node_generated.h \
