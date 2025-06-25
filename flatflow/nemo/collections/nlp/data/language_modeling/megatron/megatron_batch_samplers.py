@@ -51,7 +51,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             the data evenly divisible across the replicas. (default: ``False``)
         graph (torch.fx.Graph): The exported computational graph.
         pad_samples_to_global_batch_size (bool, optional): If ``True``, then the sampler will pad (default: ``False``).
-        port (int, optional): Port to be used for initializing the control plane (default: ``50051``).
+
     .. warning::
         In distributed mode, calling the :meth:`set_epoch` method at
         the beginning of each epoch **before** creating the :class:`DataLoader` iterator
@@ -70,7 +70,6 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         drop_last: bool,
         graph: torch.fx.Graph,
         pad_samples_to_global_batch_size=False,
-        port: int = 50051,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -107,7 +106,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         if self.pipeline_parallel_rank == 0 and self.tensor_parallel_rank == 0:
             # Launch a control plane for this worker. Network communication is avoided
             # so port conflicts are handled internally by the extension.
-            run(port)
+            port = run()
 
             # The control plane runs locally on every data parallel worker and
             # communicates through the IPv6 loopback interface only.

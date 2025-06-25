@@ -29,9 +29,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils imp
 from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_chat_dataset import GPTSFTChatDataset
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import GPTSFTDataset, GPTSFTPackedDataset
-from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import (
-    MegatronPretrainingBatchSampler,
-)
+from nemo.collections.nlp.data.language_modeling.megatron.megatron_batch_samplers import MegatronPretrainingBatchSampler
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
 from nemo.collections.nlp.modules.common.megatron.utils import (
     average_losses_across_data_parallel_group,
@@ -910,6 +908,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if self.use_flatflow and is_train:
 
             batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
+                dataset=dataset,
                 total_samples=len(dataset),
                 consumed_samples=consumed_samples,
                 micro_batch_size=data_cfg.micro_batch_size,
@@ -917,9 +916,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 data_parallel_rank=parallel_state.get_data_parallel_rank(),
                 data_parallel_size=parallel_state.get_data_parallel_world_size(),
                 drop_last=data_cfg.drop_last,
-                pad_samples_to_global_batch_size=not data_cfg.drop_last,
-                dataset=dataset,
                 graph=_export(self.model_path),
+                pad_samples_to_global_batch_size=not data_cfg.drop_last,
             )
             data_loader_cls = flatflow.torch.utils.data.DataLoader
         else:

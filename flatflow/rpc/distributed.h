@@ -18,7 +18,6 @@
 #include <grpcpp/grpcpp.h>
 
 #include <csignal>
-#include <cstdint>
 #include <future>
 #include <tuple>
 #include <vector>
@@ -178,12 +177,12 @@ class DistributedControlPlane : public ControlPlane::Service {
     LOG(INFO) << absl::StrFormat("Finalize called from %s (rank %u)", context->peer(), rank_);
     // clang-format on
 
+    _call_callbacks_on_epoch_end();
+    _call_callbacks_on_train_end();
+
     // The launch policy should be `std::launch::async`; otherwise a deadlock
     // will occur.
     signal_ = std::async(std::launch::async, std::raise, SIGTERM);
-
-    _call_callbacks_on_epoch_end();
-    _call_callbacks_on_train_end();
 
     auto builder = flatbuffers::grpc::MessageBuilder();
     const auto empty = CreateEmpty(builder);
@@ -237,21 +236,24 @@ class DistributedControlPlane : public ControlPlane::Service {
 // via foreign function interface (FFI); that is, there is no direct entry point
 // to the control plane and the actual initialization and termination are made
 // through `Init` and `Finalize`, respectively.
-void run(std::uint16_t port) {
+int run() {
   if (!absl::log_internal::IsInitialized()) {
     absl::InitializeLog();
     absl::SetStderrThreshold(absl::LogSeverity::kInfo);
   }
 
+  // The operating system selects an available ephemeral port and `port` gets
+  // populated with the selected port number.
   auto builder = grpc::ServerBuilder();
-  const auto addr = absl::StrFormat("[::1]:%u", port);
-  builder.AddListeningPort(addr, grpc::InsecureServerCredentials());
+  auto port = 0;
+  builder.AddListeningPort("[::1]:0", grpc::InsecureServerCredentials(), &port);
 
   static auto service = DistributedControlPlane();
   builder.RegisterService(&service);
 
   static auto server = builder.BuildAndStart();
   CHECK_NE(server, nullptr);
+  CHECK_NE(port, 0);
 
   auto handler = [](int signal) {
     std::ignore = signal;
@@ -261,7 +263,9 @@ void run(std::uint16_t port) {
     LOG(ERROR) << "Failed to change handling of SIGTERM";
   }
 
-  LOG(INFO) << absl::StrFormat("Control plane started on %s", addr);
+  LOG(INFO) << absl::StrFormat("Control plane started on [::1]:%d", port);
+
+  return port;
 }
 
 }  // namespace flatflow
