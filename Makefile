@@ -30,6 +30,8 @@ generate:
 		mv flatflow/rpc/__init__.py tmp/rpc && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums --no-emit-min-max-enum-values flatflow/ops/operator.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
+		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums --no-emit-min-max-enum-values flatflow/ops/dtype.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/dtype.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/node.fbs && \
 		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/node.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --keep-prefix flatflow/ops/graph.fbs && \
@@ -41,6 +43,8 @@ generate:
 		git apply flatflow/ops/node_generated.diff && \
 		rm flatflow/ops/Operator.py && \
 		rm flatflow/rpc/Operator.py && \
+		rm flatflow/ops/ScalarType.py && \
+		rm flatflow/rpc/ScalarType.py && \
 		mv tmp/ops/__init__.py flatflow/ops && \
 		mv tmp/rpc/__init__.py flatflow/rpc && \
 		rmdir tmp/ops && \
