@@ -114,10 +114,10 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             self.client = ControlPlaneClient(channel)
             sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
             self.client.Init(
+                data_parallel_rank,
                 data_parallel_size,
                 global_batch_size,
                 micro_batch_size,
-                self.data_parallel_rank,
                 graph,
                 sizes,
             )

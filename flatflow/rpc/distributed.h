@@ -91,10 +91,10 @@ class DistributedControlPlane : public ControlPlane::Service {
     const auto args = request->GetRoot();
     CHECK_NE(args, nullptr);
 
-    rank_ = args->rank();
+    data_parallel_rank_ = args->data_parallel_rank();
 
     // clang-format off
-    LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), rank_);
+    LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
     const auto sizes = args->sizes();
@@ -129,7 +129,7 @@ class DistributedControlPlane : public ControlPlane::Service {
     CHECK_NE(response, nullptr);
 
     // clang-format off
-    LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), rank_);
+    LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
     const auto args = request->GetRoot();
@@ -152,7 +152,8 @@ class DistributedControlPlane : public ControlPlane::Service {
 
     indices_.resize(schedule.size() / data_parallel_world_size_);
     internal::Scatter(schedule.begin(), schedule.end(), indices_.begin(),
-                      data_parallel_world_size_, rank_, global_batch_size_);
+                      data_parallel_world_size_, data_parallel_rank_,
+                      global_batch_size_);
 
     auto builder = flatbuffers::grpc::MessageBuilder();
     const auto resp =
@@ -174,7 +175,7 @@ class DistributedControlPlane : public ControlPlane::Service {
     CHECK_NE(response, nullptr);
 
     // clang-format off
-    LOG(INFO) << absl::StrFormat("Finalize called from %s (rank %u)", context->peer(), rank_);
+    LOG(INFO) << absl::StrFormat("Finalize called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
     _call_callbacks_on_epoch_end();
@@ -221,10 +222,10 @@ class DistributedControlPlane : public ControlPlane::Service {
     scheduler_.on_train_end();
   }
 
+  size_type data_parallel_rank_;
   size_type data_parallel_world_size_;
   size_type epoch_;
   size_type global_batch_size_;
-  size_type rank_;
   std::vector<size_type> indices_;
   std::future<int> signal_;
   Scheduler scheduler_;

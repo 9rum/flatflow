@@ -21,11 +21,11 @@ from numpy.typing import ArrayLike
 
 from flatflow.ops import serialize
 from flatflow.rpc.controlplane_generated import (
+    InitRequestAddDataParallelRank,
     InitRequestAddDataParallelWorldSize,
     InitRequestAddGlobalBatchSize,
     InitRequestAddGraph,
     InitRequestAddMicroBatchSize,
-    InitRequestAddRank,
     InitRequestAddSizes,
     InitRequestEnd,
     InitRequestStart,
@@ -59,21 +59,22 @@ class ControlPlaneClient(object):
 
     def Init(
         self,
+        data_parallel_rank: int,
         data_parallel_world_size: int,
         global_batch_size: int,
         micro_batch_size: int,
-        rank: int,
         graph: torch.fx.Graph,
         sizes: Sequence[int],
     ) -> None:
         """Initializes the training environment.
 
         Args:
+            data_parallel_rank (int): Rank of the current process within the
+                data-parallel group.
             data_parallel_world_size (int): Number of processes within the data-parallel
                 group.
             global_batch_size (int): The global batch size.
             micro_batch_size (int): The micro-batch size.
-            rank (int): Rank of the current process within the data-parallel group.
             graph (torch.fx.Graph): A computational graph traced from the given model.
             sizes (Sequence[int]): A vector representing the mapping from an index to
                 the user-defined size of the corresponding data sample.
@@ -88,10 +89,10 @@ class ControlPlaneClient(object):
         _sizes = builder.EndVector()
 
         InitRequestStart(builder)
+        InitRequestAddDataParallelRank(builder, data_parallel_rank)
         InitRequestAddDataParallelWorldSize(builder, data_parallel_world_size)
         InitRequestAddGlobalBatchSize(builder, global_batch_size)
         InitRequestAddMicroBatchSize(builder, micro_batch_size)
-        InitRequestAddRank(builder, rank)
         InitRequestAddGraph(builder, _graph)
         InitRequestAddSizes(builder, _sizes)
         request = InitRequestEnd(builder)
