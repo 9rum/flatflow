@@ -27,19 +27,21 @@ namespace flatflow;
 /// Note that these data types are incomplete and more data types will be added
 /// in the future.
 enum ScalarType: ubyte {
-  FLOAT32,        // float32
-  FLOAT64,        // float64
-  FLOAT16,        // float16
-  BFLOAT16,       // bfloat16
-  UINT8,          // uint8
-  UINT16,         // uint16
-  UINT32,         // uint32
-  UINT64,         // uint64
-  INT8,           // int8
-  INT16,          // int16
-  INT32,          // int32
-  INT64,          // int64
-  BOOL,           // bool
-  FLOAT8_E4M3FN,  // float8_e4m3fn
-  FLOAT8_E5M2,    // float8_e5m2
+  FLOAT32,          // float32
+  FLOAT64,          // float64
+  FLOAT16,          // float16
+  BFLOAT16,         // bfloat16
+  UINT8,            // uint8
+  UINT16,           // uint16
+  UINT32,           // uint32
+  UINT64,           // uint64
+  INT8,             // int8
+  INT16,            // int16
+  INT32,            // int32
+  INT64,            // int64
+  BOOL,             // bool
+  FLOAT8_E4M3FN,    // float8_e4m3fn
+  FLOAT8_E4M3FNUZ,  // float8_e4m3fnuz
+  FLOAT8_E5M2,      // float8_e5m2
+  FLOAT8_E5M2FNUZ,  // float8_e5m2fnuz
 }
