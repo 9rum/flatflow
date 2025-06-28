@@ -1,25 +1,25 @@
 diff --git a/flatflow/ops/node_generated.h b/flatflow/ops/node_generated.h
-index b03af34..6c56e14 100644
+index 89084ab..0c68232 100644
 --- a/flatflow/ops/node_generated.h
 +++ b/flatflow/ops/node_generated.h
-@@ -92,7 +92,7 @@ struct TensorMetadataBuilder {
+@@ -91,7 +91,7 @@ struct TensorMetadataBuilder {
+
  inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
      ::flatbuffers::FlatBufferBuilder &_fbb,
-     ::flatbuffers::Offset<::flatbuffers::Vector<const flatflow::SymInt *>> shape = 0,
--    flatflow::ScalarType dtype = flatflow::ScalarType_FLOAT32) {
-+    flatflow::ScalarType dtype = flatflow::ScalarType::FLOAT32) {
+-    flatflow::ScalarType dtype = flatflow::ScalarType_FLOAT32,
++    flatflow::ScalarType dtype = flatflow::ScalarType::FLOAT32,
+     ::flatbuffers::Offset<::flatbuffers::Vector<const flatflow::SymInt *>> shape = 0) {
    TensorMetadataBuilder builder_(_fbb);
    builder_.add_shape(shape);
-   builder_.add_dtype(dtype);
-@@ -102,7 +102,7 @@ inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
+@@ -101,7 +101,7 @@ inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
+
  inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadataDirect(
      ::flatbuffers::FlatBufferBuilder &_fbb,
-     const std::vector<flatflow::SymInt> *shape = nullptr,
--    flatflow::ScalarType dtype = flatflow::ScalarType_FLOAT32) {
-+    flatflow::ScalarType dtype = flatflow::ScalarType::FLOAT32) {
+-    flatflow::ScalarType dtype = flatflow::ScalarType_FLOAT32,
++    flatflow::ScalarType dtype = flatflow::ScalarType::FLOAT32,
+     const std::vector<flatflow::SymInt> *shape = nullptr) {
    auto shape__ = shape ? _fbb.CreateVectorOfStructs<flatflow::SymInt>(*shape) : 0;
    return flatflow::CreateTensorMetadata(
-       _fbb,
 @@ -171,7 +171,7 @@ struct NodeBuilder {
 
  inline ::flatbuffers::Offset<Node> CreateNode(

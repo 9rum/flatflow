@@ -242,6 +242,21 @@ symbolic_trace_impl<Operator::ALIAS>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<ALL_DIM>()
+//
+// Implements a symbolic transformation for `all.dim`.
+//
+// func: all.dim(Tensor self, int dim, bool keepdim=False) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::ALL_DIM>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // all.dim tests if all elements in the row evaluate to true, so technically
+  // it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<ARANGE>()
 //
 // Implements a symbolic transformation for `arange`.
@@ -270,6 +285,21 @@ symbolic_trace_impl<Operator::ARANGE_START>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // arange.start returns a tensor, so it has zero FLOPs.
+  return make_polynomial();
+}
+
+// flatflow::symbolic_trace_impl<BITWISE_NOT>()
+//
+// Implements a symbolic transformation for `bitwise_not`.
+//
+// func: bitwise_not(Tensor self) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::BITWISE_NOT>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // bitwise_not computes the bitwise NOT of the given input tensor, so
+  // technically it has zero FLOPs.
   return make_polynomial();
 }
 
@@ -366,6 +396,20 @@ symbolic_trace_impl<Operator::CLONE>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<COPY>()
+//
+// Implements a symbolic transformation for `copy`.
+//
+// func: copy(Tensor self, Tensor src, bool non_blocking=False) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::COPY>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // copy copies a tensor, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<COS>()
 //
 // Implements a symbolic transformation for `cos`.
@@ -432,6 +476,20 @@ symbolic_trace_impl<Operator::EMBEDDING>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
+// flatflow::symbolic_trace_impl<EQ_SCALAR>()
+//
+// Implements a symbolic transformation for `eq.Scalar`.
+//
+// func: eq.Scalar(Tensor self, Scalar other) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::EQ_SCALAR>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // eq.Scalar computes element-wise equality, so it has zero FLOPs.
   return make_polynomial();
 }
 
@@ -1013,6 +1071,22 @@ symbolic_trace_impl<Operator::SLICE_TENSOR>(
   return make_polynomial();
 }
 
+// flatflow::symbolic_trace_impl<SLICE_SCATTER>()
+//
+// Implements a symbolic transformation for `slice_scatter`.
+//
+// func: slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None,
+//                     SymInt? end=None, SymInt step=1) -> Tensor
+template <>
+internal::polynomial<typename SymIntAdaptor::return_type>
+symbolic_trace_impl<Operator::SLICE_SCATTER>(
+    const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
+    const TensorMetadata *meta) {
+  // slice_scatter embeds the values of `src` into `self` at the given
+  // dimension, so technically it has zero FLOPs.
+  return make_polynomial();
+}
+
 // flatflow::symbolic_trace_impl<SPLIT_TENSOR>()
 //
 // Implements a symbolic transformation for `split.Tensor`.
@@ -1255,16 +1329,23 @@ class OperatorRegistry {
                      &symbolic_trace_impl<Operator::ADD_TENSOR>);
     registerOperator(Operator::ADDMM, &symbolic_trace_impl<Operator::ADDMM>);
     registerOperator(Operator::ALIAS, &symbolic_trace_impl<Operator::ALIAS>);
+    registerOperator(Operator::ALL_DIM,
+                     &symbolic_trace_impl<Operator::ALL_DIM>);
     registerOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
     registerOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
+    registerOperator(Operator::BITWISE_NOT,
+                     &symbolic_trace_impl<Operator::BITWISE_NOT>);
     registerOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
     registerOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
     registerOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
+    registerOperator(Operator::COPY, &symbolic_trace_impl<Operator::COPY>);
     registerOperator(Operator::COS, &symbolic_trace_impl<Operator::COS>);
     registerOperator(Operator::CUMSUM, &symbolic_trace_impl<Operator::CUMSUM>);
     registerOperator(Operator::EMBEDDING,
                      &symbolic_trace_impl<Operator::EMBEDDING>);
+    registerOperator(Operator::EQ_SCALAR,
+                     &symbolic_trace_impl<Operator::EQ_SCALAR>);
     registerOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
     registerOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
     registerOperator(Operator::GELU, &symbolic_trace_impl<Operator::GELU>);
@@ -1301,6 +1382,8 @@ class OperatorRegistry {
     registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
     registerOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
+    registerOperator(Operator::SLICE_SCATTER,
+                     &symbolic_trace_impl<Operator::SLICE_SCATTER>);
     registerOperator(Operator::SPLIT_TENSOR,
                      &symbolic_trace_impl<Operator::SPLIT_TENSOR>);
     registerOperator(Operator::SUB_TENSOR,

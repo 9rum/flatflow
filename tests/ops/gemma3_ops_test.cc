@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <vector>
 
 #include "absl/base/log_severity.h"
@@ -21,6 +22,7 @@
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
+#include "flatflow/ops/dtype_generated.h"
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/node_generated.h"
 #include "flatflow/ops/operator_generated.h"
@@ -28,7 +30,7 @@
 
 namespace {
 
-flatflow::SymInt CreateSymInt(int64_t x, int64_t y) {
+flatflow::SymInt CreateSymInt(std::int64_t x, std::int64_t y) {
   return flatflow::SymInt(flatbuffers::make_span({x, y}));
 }
 
@@ -53,1430 +55,1692 @@ TEST_F(SymbolicTraceTest, Gemma3) {
   auto builder = flatbuffers::FlatBufferBuilder();
 
   auto target = flatflow::Operator::EMBEDDING;
+  auto dtype = flatflow::ScalarType::BFLOAT16;
   auto sym_int0 = CreateSymInt(262144, 0);
   auto sym_int1 = CreateSymInt(1152, 0);
   auto shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  auto arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  auto arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  auto arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  auto arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   auto sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  auto meta = flatflow::CreateTensorMetadata(builder, shape);
+  auto meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node0 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node1 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node2 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::ARANGE_START;
   args = builder.CreateVector(
       std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node3 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node4 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::FULL;
   args = builder.CreateVector(
       std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node5 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::TRIU;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node6 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::ARANGE;
   args = builder.CreateVector(
       std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node7 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node8 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::GT_TENSOR;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BOOL;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node9 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BOOL;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node10 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node11 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node12 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node13 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node14 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node15 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node16 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node17 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node18 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::INT64;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node19 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::VIEW;
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(128, 0);
-  sym_int2 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(128, 0);
-  sym_int2 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node20 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::EXPAND;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node21 = flatflow::CreateNode(builder, target, args, meta);
-
   target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node22 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::BMM;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(128, 0);
+  sym_int2 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node21 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(128, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node23 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node22 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(128, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node23 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::BMM;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(128, 0);
+  sym_int2 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node24 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::TRANSPOSE_INT;
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(128, 0);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(128, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node25 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::TRANSPOSE_INT;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(128, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node25 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node26 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::CAT;
   args = builder.CreateVector(
       std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node26 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::COS;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node27 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_TENSOR;
+  target = flatflow::Operator::COS;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node28 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::SIN;
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node29 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::_TO_COPY;
+  target = flatflow::Operator::SIN;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node30 = flatflow::CreateNode(builder, target, args, meta);
 
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node31 = flatflow::CreateNode(builder, target, args, meta);
+
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(0, 1);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node31 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node32 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   auto sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node32 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::SLICE_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node33 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::EXPAND;
+  target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node34 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::ONES_LIKE;
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node35 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::TRIL;
+  target = flatflow::Operator::ONES_LIKE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BOOL;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node36 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::TRIL;
+  dtype = flatflow::ScalarType::BOOL;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BOOL;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node37 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SCALAR_TENSOR;
   args = builder.CreateVector(
       std::vector<flatbuffers::Offset<flatflow::TensorMetadata>>());
+  dtype = flatflow::ScalarType::BFLOAT16;
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node37 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::WHERE_SELF;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  auto arg2 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1, arg2});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node38 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::_TO_COPY;
+  target = flatflow::Operator::WHERE_SELF;
+  dtype = flatflow::ScalarType::BOOL;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts());
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  auto arg2 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1, arg2});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node39 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::POW_TENSOR_SCALAR;
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node40 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MEAN_DIM;
+  target = flatflow::Operator::POW_TENSOR_SCALAR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node41 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::ADD_TENSOR;
+  target = flatflow::Operator::MEAN_DIM;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node42 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::RSQRT;
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node43 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  target = flatflow::Operator::RSQRT;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
+  sym_int2 = CreateSymInt(1, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node44 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::_TO_COPY;
-  sym_int0 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node45 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::ADD_TENSOR;
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node46 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node47 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node47 = flatflow::CreateNode(builder, target, args, meta);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node48 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node49 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::T;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1024, 0);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(1024, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node48 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node50 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node49 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MM;
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1152, 0);
-  sym_int1 = CreateSymInt(1024, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1024, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node50 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1024, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1024, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node51 = flatflow::CreateNode(builder, target, args, meta);
 
+  target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(1152, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(1024, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(1024, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node52 = flatflow::CreateNode(builder, target, args, meta);
+
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(1024, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1024, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node52 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::TRANSPOSE_INT;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node53 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::T;
-  sym_int0 = CreateSymInt(256, 0);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1024, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1152, 0);
-  sym_int1 = CreateSymInt(256, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(4, 0);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node54 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MM;
-  sym_int0 = CreateSymInt(0, 1);
+  target = flatflow::Operator::TRANSPOSE_INT;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(4, 0);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node55 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::T;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(256, 0);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(256, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(256, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node55 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(256, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node56 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1, 0);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(1152, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(256, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(256, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node57 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::TRANSPOSE_INT;
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(256, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node58 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1, 0);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node58 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::_TO_COPY;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node59 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::POW_TENSOR_SCALAR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node60 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MEAN_DIM;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node61 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::ADD_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node62 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::RSQRT;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node63 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node64 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::_TO_COPY;
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node65 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::ADD_TENSOR;
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node66 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node67 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::_TO_COPY;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node68 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::POW_TENSOR_SCALAR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node69 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MEAN_DIM;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node70 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::ADD_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node71 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::RSQRT;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node72 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(1, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node73 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node74 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::UNSQUEEZE;
+  target = flatflow::Operator::TRANSPOSE_INT;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
+  sym_int2 = CreateSymInt(1, 0);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node60 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node61 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::POW_TENSOR_SCALAR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node62 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MEAN_DIM;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node63 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node64 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::RSQRT;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node65 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node66 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node67 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node68 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node69 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node70 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node71 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::POW_TENSOR_SCALAR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node72 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MEAN_DIM;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node73 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node74 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::RSQRT;
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node75 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(1, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node76 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::SLICE_TENSOR;
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::FLOAT32;
+  sym_int0 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(128, 0);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node77 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::NEG;
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::FLOAT32;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(128, 0);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(128, 0);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node78 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::ADD_TENSOR;
+  target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node79 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node80 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node81 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::NEG;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(128, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node82 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node83 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::_TO_COPY;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node84 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::UNSQUEEZE;
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node84 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(128, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node85 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::NEG;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(128, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(128, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node86 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node87 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::_TO_COPY;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node88 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::UNSQUEEZE;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(1, 0);
@@ -1484,668 +1748,751 @@ TEST_F(SymbolicTraceTest, Gemma3) {
   auto sym_int4 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node85 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::SLICE_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(1, 0);
-  sym_int3 = CreateSymInt(0, 1);
-  sym_int4 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(1, 0);
-  sym_int3 = CreateSymInt(0, 1);
-  sym_int4 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node86 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::EXPAND;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(1, 0);
-  sym_int3 = CreateSymInt(0, 1);
-  sym_int4 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(0, 1);
-  sym_int4 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node87 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(1, 0);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(0, 1);
-  sym_int4 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node88 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::CLONE;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node89 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_SCALAR;
+  target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(1, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  sym_int4 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(1, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  sym_int4 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node90 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::TRANSPOSE_INT;
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(1, 0);
   sym_int3 = CreateSymInt(0, 1);
+  sym_int4 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(4, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  sym_int4 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node91 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_SCALAR;
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(1, 0);
+  sym_int2 = CreateSymInt(4, 0);
   sym_int3 = CreateSymInt(0, 1);
+  sym_int4 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3, sym_int4));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(256, 0);
-  sym_int3 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node92 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::EXPAND;
+  target = flatflow::Operator::CLONE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node93 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::VIEW;
+  target = flatflow::Operator::MUL_SCALAR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node94 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::EXPAND;
+  target = flatflow::Operator::TRANSPOSE_INT;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(256, 0);
-  sym_int3 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(256, 0);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node95 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::VIEW;
+  target = flatflow::Operator::MUL_SCALAR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(256, 0);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(256, 0);
-  sym_int2 = CreateSymInt(0, 1);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(256, 0);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node96 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::BMM;
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(256, 0);
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node97 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node98 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(256, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(256, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node99 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(256, 0);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(256, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node100 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::BMM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(256, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(4, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node101 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node98 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node102 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(1, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
   sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node99 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::_SOFTMAX;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node100 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::EXPAND;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node101 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(4, 0);
-  sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node102 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::BMM;
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(0, 1);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node103 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(4, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(256, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
+  target = flatflow::Operator::_SOFTMAX;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(4, 0);
   sym_int2 = CreateSymInt(0, 1);
-  sym_int3 = CreateSymInt(256, 0);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node104 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::CLONE;
+  target = flatflow::Operator::EXPAND;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(4, 0);
-  sym_int3 = CreateSymInt(256, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node105 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node106 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::BMM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(0, 1);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node107 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(4, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(4, 0);
+  sym_int2 = CreateSymInt(0, 1);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node108 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::CLONE;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(4, 0);
   sym_int3 = CreateSymInt(256, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(4, 0);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node109 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(4, 0);
+  sym_int3 = CreateSymInt(256, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2, sym_int3));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1024, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node106 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::T;
-  sym_int0 = CreateSymInt(1152, 0);
-  sym_int1 = CreateSymInt(1024, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1024, 0);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node107 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::MM;
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1024, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1024, 0);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node108 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::VIEW;
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(1152, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node109 = flatflow::CreateNode(builder, target, args, meta);
-
-  target = flatflow::Operator::ADD_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(1152, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node110 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::T;
-  sym_int0 = CreateSymInt(6912, 0);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(1024, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1024, 0);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(1152, 0);
-  sym_int1 = CreateSymInt(6912, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node111 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(1024, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1024, 0);
+  sym_int1 = CreateSymInt(1152, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1152, 0);
-  sym_int1 = CreateSymInt(6912, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(6912, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node112 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(6912, 0);
+  sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
+  sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node113 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::GELU;
+  target = flatflow::Operator::ADD_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
+  sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
+  sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(1152, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node114 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MUL_TENSOR;
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0, arg1});
-  sym_int0 = CreateSymInt(1, 0);
-  sym_int1 = CreateSymInt(0, 1);
-  sym_int2 = CreateSymInt(6912, 0);
-  shape = builder.CreateVectorOfStructs(
-      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node115 = flatflow::CreateNode(builder, target, args, meta);
-
   target = flatflow::Operator::T;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(6912, 0);
+  sym_int1 = CreateSymInt(1152, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(6912, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(6912, 0);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node115 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1152, 0);
+  sym_int1 = CreateSymInt(6912, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(6912, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node116 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(6912, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(6912, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
-  args = builder.CreateVector({arg0});
-  sym_int0 = CreateSymInt(0, 1);
-  sym_int1 = CreateSymInt(6912, 0);
-  shape =
-      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
   auto node117 = flatflow::CreateNode(builder, target, args, meta);
 
-  target = flatflow::Operator::MM;
-  sym_int0 = CreateSymInt(0, 1);
+  target = flatflow::Operator::GELU;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node118 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MUL_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node119 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::T;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(6912, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(6912, 0);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node120 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(1, 0);
+  sym_int1 = CreateSymInt(0, 1);
+  sym_int2 = CreateSymInt(6912, 0);
+  shape = builder.CreateVectorOfStructs(
+      CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(6912, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node121 = flatflow::CreateNode(builder, target, args, meta);
+
+  target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(0, 1);
+  sym_int1 = CreateSymInt(6912, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
+  sym_int0 = CreateSymInt(6912, 0);
+  sym_int1 = CreateSymInt(1152, 0);
+  shape =
+      builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node118 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node122 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::SLICE_TENSOR;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(1152, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node119 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node123 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::T;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(262144, 0);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(262144, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node120 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node124 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::MM;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(1152, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1152, 0);
   sym_int1 = CreateSymInt(262144, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg1 = flatflow::CreateTensorMetadata(builder, shape);
+  arg1 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0, arg1});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(262144, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node121 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node125 = flatflow::CreateNode(builder, target, args, meta);
 
   target = flatflow::Operator::VIEW;
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(0, 1);
   sym_int1 = CreateSymInt(262144, 0);
   shape =
       builder.CreateVectorOfStructs(CreateVectorOfSymInts(sym_int0, sym_int1));
-  arg0 = flatflow::CreateTensorMetadata(builder, shape);
+  arg0 = flatflow::CreateTensorMetadata(builder, dtype, shape);
   args = builder.CreateVector({arg0});
+  dtype = flatflow::ScalarType::BFLOAT16;
   sym_int0 = CreateSymInt(1, 0);
   sym_int1 = CreateSymInt(0, 1);
   sym_int2 = CreateSymInt(262144, 0);
   shape = builder.CreateVectorOfStructs(
       CreateVectorOfSymInts(sym_int0, sym_int1, sym_int2));
-  meta = flatflow::CreateTensorMetadata(builder, shape);
-  auto node122 = flatflow::CreateNode(builder, target, args, meta);
+  meta = flatflow::CreateTensorMetadata(builder, dtype, shape);
+  auto node126 = flatflow::CreateNode(builder, target, args, meta);
 
   auto nodes = builder.CreateVector(
       {node0,   node1,   node2,   node3,   node4,   node5,   node6,   node7,
@@ -2163,7 +2510,7 @@ TEST_F(SymbolicTraceTest, Gemma3) {
        node96,  node97,  node98,  node99,  node100, node101, node102, node103,
        node104, node105, node106, node107, node108, node109, node110, node111,
        node112, node113, node114, node115, node116, node117, node118, node119,
-       node120, node121, node122});
+       node120, node121, node122, node123, node124, node125, node126});
   auto root = flatflow::CreateGraph(builder, nodes);
   builder.Finish(root);
 

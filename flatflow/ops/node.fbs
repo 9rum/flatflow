@@ -25,8 +25,8 @@ struct SymInt {
 /// `TensorMetadata` is a structure containing pertinent information
 /// about a tensor within a PyTorch program.
 table TensorMetadata {
-  shape: [SymInt] (required);
   dtype: ScalarType;
+  shape: [SymInt] (required);
 }
 
 /// `Node` is a data structure that represents individual operations in the

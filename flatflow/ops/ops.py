@@ -22,6 +22,7 @@ import torch.fx
 from torch._library.custom_ops import CustomOpDef
 from torch._ops import OpOverload, OpOverloadPacket
 
+from flatflow.ops.dtype_generated import ScalarType
 from flatflow.ops.graph_generated import (
     GraphAddNodes,
     GraphEnd,
@@ -36,6 +37,7 @@ from flatflow.ops.node_generated import (
     NodeEnd,
     NodeStart,
     NodeStartArgsVector,
+    TensorMetadataAddDtype,
     TensorMetadataAddShape,
     TensorMetadataEnd,
     TensorMetadataStart,
@@ -47,6 +49,26 @@ aten = torch._ops.ops.aten  # type: ignore[has-type]
 
 __all__ = ["serialize"]
 
+_DTYPE_TABLE: Mapping[torch.dtype, int] = {
+    torch.float32: ScalarType.FLOAT32,
+    torch.float64: ScalarType.FLOAT64,
+    torch.float16: ScalarType.FLOAT16,
+    torch.bfloat16: ScalarType.BFLOAT16,
+    torch.uint8: ScalarType.UINT8,
+    torch.uint16: ScalarType.UINT16,
+    torch.uint32: ScalarType.UINT32,
+    torch.uint64: ScalarType.UINT64,
+    torch.int8: ScalarType.INT8,
+    torch.int16: ScalarType.INT16,
+    torch.int32: ScalarType.INT32,
+    torch.int64: ScalarType.INT64,
+    torch.bool: ScalarType.BOOL,
+    torch.float8_e4m3fn: ScalarType.FLOAT8_E4M3FN,
+    torch.float8_e4m3fnuz: ScalarType.FLOAT8_E4M3FNUZ,
+    torch.float8_e5m2: ScalarType.FLOAT8_E5M2,
+    torch.float8_e5m2fnuz: ScalarType.FLOAT8_E5M2FNUZ,
+}
+
 _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
     aten._softmax: Operator._SOFTMAX,
     aten._to_copy: Operator._TO_COPY,
@@ -54,14 +76,18 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
     aten.add.Tensor: Operator.ADD_TENSOR,
     aten.addmm: Operator.ADDMM,
     aten.alias: Operator.ALIAS,
+    aten.all.dim: Operator.ALL_DIM,
     aten.arange: Operator.ARANGE,
     aten.arange.start: Operator.ARANGE_START,
+    aten.bitwise_not: Operator.BITWISE_NOT,
     aten.bmm: Operator.BMM,
     aten.cat: Operator.CAT,
     aten.clone: Operator.CLONE,
+    aten.copy: Operator.COPY,
     aten.cos: Operator.COS,
     aten.cumsum: Operator.CUMSUM,
     aten.embedding: Operator.EMBEDDING,
+    aten.eq.Scalar: Operator.EQ_SCALAR,
     aten.expand: Operator.EXPAND,
     aten.full: Operator.FULL,
     aten.gelu: Operator.GELU,
@@ -85,6 +111,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
     aten.silu: Operator.SILU,
     aten.sin: Operator.SIN,
     aten.slice.Tensor: Operator.SLICE_TENSOR,
+    aten.slice_scatter: Operator.SLICE_SCATTER,
     aten.split.Tensor: Operator.SPLIT_TENSOR,
     aten.sub.Tensor: Operator.SUB_TENSOR,
     aten.t: Operator.T,
@@ -158,6 +185,8 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
 
             for arg in node.args:
                 if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
+                    assert arg.meta["tensor_meta"].dtype in _DTYPE_TABLE
+                    dtype = _DTYPE_TABLE[arg.meta["tensor_meta"].dtype]
                     shape = []
 
                     for maybe_sym_int in arg.meta["tensor_meta"].shape:
@@ -174,6 +203,7 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
                     _shape = builder.EndVector()
 
                     TensorMetadataStart(builder)
+                    TensorMetadataAddDtype(builder, dtype)
                     TensorMetadataAddShape(builder, _shape)
                     _arg = TensorMetadataEnd(builder)
                     args.append(_arg)
@@ -186,6 +216,9 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             shape = []
 
             if "tensor_meta" in node.meta:
+                assert node.meta["tensor_meta"].dtype in _DTYPE_TABLE
+                dtype = _DTYPE_TABLE[node.meta["tensor_meta"].dtype]
+
                 for maybe_sym_int in node.meta["tensor_meta"].shape:
                     if isinstance(maybe_sym_int, torch.SymInt):
                         expr = maybe_sym_int.node.expr
@@ -200,6 +233,8 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             _shape = builder.EndVector()
 
             TensorMetadataStart(builder)
+            if "tensor_meta" in node.meta:
+                TensorMetadataAddDtype(builder, dtype)
             TensorMetadataAddShape(builder, _shape)
             _meta = TensorMetadataEnd(builder)
 

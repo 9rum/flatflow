@@ -32,14 +32,18 @@ enum Operator: ushort {
   ADD_TENSOR,          // add.Tensor
   ADDMM,               // addmm
   ALIAS,               // alias
+  ALL_DIM,             // all.dim
   ARANGE,              // arange
   ARANGE_START,        // arange.start
+  BITWISE_NOT,         // bitwise_not
   BMM,                 // bmm
   CAT,                 // cat
   CLONE,               // clone
+  COPY,                // copy
   COS,                 // cos
   CUMSUM,              // cumsum
   EMBEDDING,           // embedding
+  EQ_SCALAR,           // eq.Scalar
   EXPAND,              // expand
   FULL,                // full
   GELU,                // gelu
@@ -63,6 +67,7 @@ enum Operator: ushort {
   SILU,                // silu
   SIN,                 // sin
   SLICE_TENSOR,        // slice.Tensor
+  SLICE_SCATTER,       // slice_scatter
   SPLIT_TENSOR,        // split.Tensor
   SUB_TENSOR,          // sub.Tensor
   T,                   // t
