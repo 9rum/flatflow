@@ -1,8 +1,8 @@
-diff --git a/flatflow/ops/node_generated.h b/flatflow/ops/node_generated.h
-index 89084ab..0c68232 100644
---- a/flatflow/ops/node_generated.h
-+++ b/flatflow/ops/node_generated.h
-@@ -91,7 +91,7 @@ struct TensorMetadataBuilder {
+diff --git a/flatflow/ops/graph_generated.h b/flatflow/ops/graph_generated.h
+index 7bfa271..aeaff0d 100644
+--- a/flatflow/ops/graph_generated.h
++++ b/flatflow/ops/graph_generated.h
+@@ -94,7 +94,7 @@ struct TensorMetadataBuilder {
 
  inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
      ::flatbuffers::FlatBufferBuilder &_fbb,
@@ -11,7 +11,7 @@ index 89084ab..0c68232 100644
      ::flatbuffers::Offset<::flatbuffers::Vector<const flatflow::SymInt *>> shape = 0) {
    TensorMetadataBuilder builder_(_fbb);
    builder_.add_shape(shape);
-@@ -101,7 +101,7 @@ inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
+@@ -104,7 +104,7 @@ inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadata(
 
  inline ::flatbuffers::Offset<TensorMetadata> CreateTensorMetadataDirect(
      ::flatbuffers::FlatBufferBuilder &_fbb,
@@ -20,7 +20,7 @@ index 89084ab..0c68232 100644
      const std::vector<flatflow::SymInt> *shape = nullptr) {
    auto shape__ = shape ? _fbb.CreateVectorOfStructs<flatflow::SymInt>(*shape) : 0;
    return flatflow::CreateTensorMetadata(
-@@ -171,7 +171,7 @@ struct NodeBuilder {
+@@ -174,7 +174,7 @@ struct NodeBuilder {
 
  inline ::flatbuffers::Offset<Node> CreateNode(
      ::flatbuffers::FlatBufferBuilder &_fbb,
@@ -29,7 +29,7 @@ index 89084ab..0c68232 100644
      ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<flatflow::TensorMetadata>>> args = 0,
      ::flatbuffers::Offset<flatflow::TensorMetadata> meta = 0) {
    NodeBuilder builder_(_fbb);
-@@ -183,7 +183,7 @@ inline ::flatbuffers::Offset<Node> CreateNode(
+@@ -186,7 +186,7 @@ inline ::flatbuffers::Offset<Node> CreateNode(
 
  inline ::flatbuffers::Offset<Node> CreateNodeDirect(
      ::flatbuffers::FlatBufferBuilder &_fbb,

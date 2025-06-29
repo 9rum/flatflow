@@ -22,15 +22,12 @@ import torch.fx
 from torch._library.custom_ops import CustomOpDef
 from torch._ops import OpOverload, OpOverloadPacket
 
-from flatflow.ops.dtype_generated import ScalarType
 from flatflow.ops.graph_generated import (
+    CreateSymInt,
     GraphAddNodes,
     GraphEnd,
     GraphStart,
     GraphStartNodesVector,
-)
-from flatflow.ops.node_generated import (
-    CreateSymInt,
     NodeAddArgs,
     NodeAddMeta,
     NodeAddTarget,
@@ -44,6 +41,7 @@ from flatflow.ops.node_generated import (
     TensorMetadataStartShapeVector,
 )
 from flatflow.ops.operator_generated import Operator
+from flatflow.ops.scalar_type_generated import ScalarType
 
 aten = torch._ops.ops.aten  # type: ignore[has-type]
 

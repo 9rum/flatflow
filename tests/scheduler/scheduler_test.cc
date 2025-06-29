@@ -36,10 +36,9 @@
 #include "flatbuffers/flatbuffers.h"
 #include "gtest/gtest.h"
 
-#include "flatflow/ops/dtype_generated.h"
 #include "flatflow/ops/graph_generated.h"
-#include "flatflow/ops/node_generated.h"
 #include "flatflow/ops/operator_generated.h"
+#include "flatflow/ops/scalar_type_generated.h"
 
 namespace {
 

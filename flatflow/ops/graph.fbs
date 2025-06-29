@@ -12,9 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-include "flatflow/ops/node.fbs";
+include "flatflow/ops/operator.fbs";
+include "flatflow/ops/scalar_type.fbs";
 
 namespace flatflow;
+
+/// `SymInt` records a value within the symbolic shape of a tensor.
+struct SymInt {
+  data: [long:2];
+}
+
+/// `TensorMetadata` is a structure containing pertinent information
+/// about a tensor within a PyTorch program.
+table TensorMetadata {
+  dtype: ScalarType;
+  shape: [SymInt] (required);
+}
+
+/// `Node` is a data structure that represents individual operations in the
+/// computational graph. Each node contains an opcode identifying operators
+/// and the input/output shapes of the operator. Unlike `torch.fx.Node`,
+/// this excludes operations other than callsites to ATen operators;
+/// i.e., operations whose `op` property are not `call_function`.
+table Node {
+  target: Operator;
+  args:   [TensorMetadata] (required);
+  meta:   TensorMetadata (required);
+}
 
 /// `Graph` is the main data structure for tracing a given model at the
 /// intermediate representation (IR) level. It consists of a series of `Node`s,

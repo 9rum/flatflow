@@ -29,7 +29,6 @@
 
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/internal/polynomial.h"
-#include "flatflow/ops/node_generated.h"
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/types.h"
 
