@@ -68,9 +68,6 @@ class BuildExtension(build_ext):
             "cmake",
             "--build",
             os.curdir,
-            "--config",
-            ext.cmake_build_type,
-            "-j",
         ]
         cmd = " ".join(args)
         logging.info(f"-- Building: {cmd}")
