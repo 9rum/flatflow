@@ -191,7 +191,9 @@ class polynomial {
   //
   // Reduces coefficients.
   polynomial &normalize() {
-    return division(std::gcd(std::gcd(data_[0], data_[1]), data_[2]));
+    constexpr auto kZero = static_cast<value_type>(0);
+    const auto divisor = std::gcd(std::gcd(data_[0], data_[1]), data_[2]);
+    return divisor == kZero ? *this : division(divisor);
   }
 
  protected:
