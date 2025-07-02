@@ -24,7 +24,7 @@ from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-import flatflow.nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset
+
 import nvtx
 import packaging
 import torch
@@ -1687,7 +1687,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             else:
                 dataset_config = GPTDatasetConfig(**kwargs)
                 if self.use_flatflow:
-                    dataset_type = flatflow.nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset.GPTDataset
+                    dataset_type = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTDataset
                 else:
                     dataset_type = MockGPTDataset if mock_dataset else GPTDataset
 
