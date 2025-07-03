@@ -44,3 +44,14 @@ function(target_enable_sanitizers target)
   target_enable_asan(${target})
   target_enable_ubsan(${target})
 endfunction()
+
+function(target_enable_lto target)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(
+      ${target}
+      PRIVATE -flto=auto)
+    target_link_options(
+      ${target}
+      PRIVATE -flto=auto)
+  endif()
+endfunction()

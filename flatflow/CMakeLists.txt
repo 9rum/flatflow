@@ -31,3 +31,4 @@ target_link_libraries(
   PRIVATE OpenMP::OpenMP_CXX)
 target_enable_warnings(_C)
 target_enable_sanitizers(_C)
+target_enable_lto(_C)
