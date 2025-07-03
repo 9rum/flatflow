@@ -43,16 +43,17 @@ class PartitionTest : public testing::Test {
     }
   }
 
-  static constexpr auto kMicroBatchSize = static_cast<size_t>(1 << 3);
-  static constexpr auto kNumMicrobatches = static_cast<size_t>(1 << 12);
+  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 3);
+  static constexpr auto kNumMicrobatches = static_cast<std::size_t>(1 << 12);
 };
 
 TEST_F(PartitionTest, BLDMWithEmptyItems) {
-  auto indices = std::vector<size_t>();
+  auto indices = std::vector<std::size_t>();
 
-  auto projs = std::vector<uint32_t>();
+  auto projs = std::vector<std::uint32_t>();
 
-  auto subsets = std::vector<flatflow::internal::Subset<size_t, uint32_t>>();
+  auto subsets =
+      std::vector<flatflow::internal::Subset<std::size_t, std::uint32_t>>();
   const auto result = flatflow::internal::Partition(
       indices.begin(), indices.end(), subsets.begin(), 0,
       [&](auto index) { return projs[index]; });
@@ -65,10 +66,10 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto indices = std::vector<size_t>(kMicroBatchSize * kNumMicrobatches);
+  auto indices = std::vector<std::size_t>(kMicroBatchSize * kNumMicrobatches);
   std::iota(indices.begin(), indices.end(), 0);
 
-  auto projs = std::vector<uint32_t>();
+  auto projs = std::vector<std::uint32_t>();
   projs.reserve(kMicroBatchSize * kNumMicrobatches);
 
   while (projs.size() < projs.capacity()) {
@@ -80,8 +81,9 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
 
   std::sort(projs.begin(), projs.end());
 
-  auto subsets = std::vector<flatflow::internal::Subset<size_t, uint32_t>>(
-      kNumMicrobatches);
+  auto subsets =
+      std::vector<flatflow::internal::Subset<std::size_t, std::uint32_t>>(
+          kNumMicrobatches);
   const auto result = flatflow::internal::Partition(
       indices.begin(), indices.end(), subsets.begin(), kNumMicrobatches,
       [&](auto index) { return projs[index]; });
@@ -91,7 +93,7 @@ TEST_F(PartitionTest, BLDMWithGaltonIntegerDistribution) {
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
-  projs = std::vector<uint32_t>();
+  projs = std::vector<std::uint32_t>();
   projs.reserve(kNumMicrobatches);
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {
@@ -106,10 +108,10 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
   auto distribution = std::lognormal_distribution(5.252, 0.293);
   auto generator = std::default_random_engine();
 
-  auto indices = std::vector<size_t>(kMicroBatchSize * kNumMicrobatches);
+  auto indices = std::vector<std::size_t>(kMicroBatchSize * kNumMicrobatches);
   std::iota(indices.begin(), indices.end(), 0);
 
-  auto projs = std::vector<double_t>();
+  auto projs = std::vector<double>();
   projs.reserve(kMicroBatchSize * kNumMicrobatches);
 
   while (projs.size() < projs.capacity()) {
@@ -121,7 +123,7 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
 
   std::sort(projs.begin(), projs.end());
 
-  auto subsets = std::vector<flatflow::internal::Subset<size_t, double_t>>(
+  auto subsets = std::vector<flatflow::internal::Subset<std::size_t, double>>(
       kNumMicrobatches);
   const auto result = flatflow::internal::Partition(
       indices.begin(), indices.end(), subsets.begin(), kNumMicrobatches,
@@ -132,7 +134,7 @@ TEST_F(PartitionTest, BLDMWithGaltonRealDistribution) {
 
   EXPECT_TRUE(std::is_sorted(subsets.cbegin(), subsets.cend()));
 
-  projs = std::vector<double_t>();
+  projs = std::vector<double>();
   projs.reserve(kNumMicrobatches);
 
   std::for_each(subsets.cbegin(), subsets.cend(), [&](const auto &subset) {

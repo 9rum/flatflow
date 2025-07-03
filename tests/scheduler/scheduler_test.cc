@@ -59,30 +59,32 @@ class SchedChecker : public flatflow::Scheduler {
   // * Does each batch of the reordered computation plan have the same
   //   composition as that of the original computation plan? That is, does
   //   partial reordering maintain the observable behavior of the model?
-  void Check(const std::vector<size_t> &schedule) const {
+  void Check(const std::vector<std::size_t> &schedule) const {
     const auto total_size = schedule.size();
-    auto indices = std::vector<size_t>(total_size);
+    auto indices = std::vector<std::size_t>(total_size);
 
     const auto result =
         Schedule(schedule.begin(), schedule.end(), indices.begin());
     EXPECT_EQ(std::distance(result, indices.end()), 0);
 
-    EXPECT_EQ(std::set<size_t>(indices.begin(), indices.end()),
-              std::set<size_t>(schedule.begin(), schedule.end()));
+    EXPECT_EQ(std::set<std::size_t>(indices.begin(), indices.end()),
+              std::set<std::size_t>(schedule.begin(), schedule.end()));
 
     constexpr auto kZero = static_cast<value_type>(0);
     auto buf = std::vector<std::string>(data_parallel_world_size_);
 
-    for (size_t offset = 0; offset < total_size; offset += global_batch_size_) {
+    for (std::size_t offset = 0; offset < total_size;
+         offset += global_batch_size_) {
       const auto num_samples = offset + global_batch_size_ < total_size
                                    ? global_batch_size_
                                    : last_global_batch_size_;
 
-      EXPECT_EQ(
-          std::set<size_t>(std::next(indices.begin(), offset),
-                           std::next(indices.begin(), offset + num_samples)),
-          std::set<size_t>(std::next(schedule.begin(), offset),
-                           std::next(schedule.begin(), offset + num_samples)));
+      EXPECT_EQ(std::set<std::size_t>(
+                    std::next(indices.begin(), offset),
+                    std::next(indices.begin(), offset + num_samples)),
+                std::set<std::size_t>(
+                    std::next(schedule.begin(), offset),
+                    std::next(schedule.begin(), offset + num_samples)));
 
       const auto num_microbatches_per_replica =
           (num_samples / data_parallel_world_size_ - 1) / micro_batch_size_;
@@ -90,31 +92,32 @@ class SchedChecker : public flatflow::Scheduler {
                                              ? micro_batch_size_
                                              : last_micro_batch_size_;
 
-      for (size_t step = 0; step < num_microbatches_per_replica; ++step) {
+      for (std::size_t step = 0; step < num_microbatches_per_replica; ++step) {
         const auto base = offset + micro_batch_size_ * step;
 
-        for (size_t rank = 0; rank < data_parallel_world_size_; ++rank) {
+        for (std::size_t rank = 0; rank < data_parallel_world_size_; ++rank) {
           const auto first =
               base + num_samples / data_parallel_world_size_ * rank;
           buf[rank] = absl::StrFormat(
               "%d", std::transform_reduce(
                         std::next(indices.begin(), first),
                         std::next(indices.begin(), first + micro_batch_size_),
-                        kZero, std::plus<>(),
-                        [&](size_t index) { return projections_[index]; }));
+                        kZero, std::plus<>(), [&](std::size_t index) {
+                          return projections_[index];
+                        }));
         }
 
         LOG(INFO) << absl::StrFormat("[%s]", absl::StrJoin(buf, " "));
       }
 
-      for (size_t rank = 0; rank < data_parallel_world_size_; ++rank) {
+      for (std::size_t rank = 0; rank < data_parallel_world_size_; ++rank) {
         const auto last =
             offset + num_samples / data_parallel_world_size_ * (rank + 1);
         buf[rank] = absl::StrFormat(
             "%d", std::transform_reduce(
                       std::next(indices.begin(), last - last_micro_batch_size),
                       std::next(indices.begin(), last), kZero, std::plus<>(),
-                      [&](size_t index) { return projections_[index]; }));
+                      [&](std::size_t index) { return projections_[index]; }));
       }
 
       const auto message = absl::StrFormat("[%s]", absl::StrJoin(buf, " "));
@@ -154,12 +157,13 @@ class SchedulerTest : public testing::Test {
     }
   }
 
-  static constexpr auto kDataParallelWorldSize = static_cast<size_t>(1 << 3);
-  static constexpr auto kGlobalBatchSize = static_cast<size_t>(1 << 9);
-  static constexpr auto kMicroBatchSize = static_cast<size_t>(1 << 2);
-  static constexpr auto kNumEpochs = static_cast<size_t>(1 << 1);
-  static constexpr auto kTotalSize = static_cast<size_t>(1 << 15);
-  std::vector<uint32_t> sizes_;
+  static constexpr auto kDataParallelWorldSize =
+      static_cast<std::size_t>(1 << 3);
+  static constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 9);
+  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
+  static constexpr auto kNumEpochs = static_cast<std::size_t>(1 << 1);
+  static constexpr auto kTotalSize = static_cast<std::size_t>(1 << 15);
+  std::vector<std::uint32_t> sizes_;
 };
 
 TEST_F(SchedulerTest, GPT3) {
@@ -1304,10 +1308,10 @@ TEST_F(SchedulerTest, GPT3) {
                    sizes_.begin(), sizes_.end(), graph);
 
   checker.on_train_begin();
-  for (size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+  for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     checker.on_epoch_begin(epoch);
 
-    auto schedule = std::vector<size_t>(kTotalSize);
+    auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
 
     auto generator = std::mt19937();
@@ -1342,12 +1346,13 @@ class SchedulerWithRemainderTest : public testing::Test {
     }
   }
 
-  static constexpr auto kDataParallelWorldSize = static_cast<size_t>(1 << 3);
-  static constexpr auto kGlobalBatchSize = static_cast<size_t>(3 << 8);
-  static constexpr auto kMicroBatchSize = static_cast<size_t>(3 << 1);
-  static constexpr auto kNumEpochs = static_cast<size_t>(1 << 1);
-  static constexpr auto kTotalSize = static_cast<size_t>(1 << 15);
-  std::vector<uint32_t> sizes_;
+  static constexpr auto kDataParallelWorldSize =
+      static_cast<std::size_t>(1 << 3);
+  static constexpr auto kGlobalBatchSize = static_cast<std::size_t>(3 << 8);
+  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(3 << 1);
+  static constexpr auto kNumEpochs = static_cast<std::size_t>(1 << 1);
+  static constexpr auto kTotalSize = static_cast<std::size_t>(1 << 15);
+  std::vector<std::uint32_t> sizes_;
 };
 
 TEST_F(SchedulerWithRemainderTest, GPT3) {
@@ -2492,10 +2497,10 @@ TEST_F(SchedulerWithRemainderTest, GPT3) {
                    sizes_.begin(), sizes_.end(), graph);
 
   checker.on_train_begin();
-  for (size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+  for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     checker.on_epoch_begin(epoch);
 
-    auto schedule = std::vector<size_t>(kTotalSize);
+    auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
 
     auto generator = std::mt19937();
@@ -2530,12 +2535,13 @@ class SchedulerWithRemainderOnlyTest : public testing::Test {
     }
   }
 
-  static constexpr auto kDataParallelWorldSize = static_cast<size_t>(1 << 3);
-  static constexpr auto kGlobalBatchSize = static_cast<size_t>(1 << 9);
-  static constexpr auto kMicroBatchSize = static_cast<size_t>(1 << 2);
-  static constexpr auto kNumEpochs = static_cast<size_t>(1 << 1);
-  static constexpr auto kTotalSize = static_cast<size_t>(4035 << 3);
-  std::vector<uint32_t> sizes_;
+  static constexpr auto kDataParallelWorldSize =
+      static_cast<std::size_t>(1 << 3);
+  static constexpr auto kGlobalBatchSize = static_cast<std::size_t>(1 << 9);
+  static constexpr auto kMicroBatchSize = static_cast<std::size_t>(1 << 2);
+  static constexpr auto kNumEpochs = static_cast<std::size_t>(1 << 1);
+  static constexpr auto kTotalSize = static_cast<std::size_t>(4035 << 3);
+  std::vector<std::uint32_t> sizes_;
 };
 
 TEST_F(SchedulerWithRemainderOnlyTest, GPT3) {
@@ -3680,10 +3686,10 @@ TEST_F(SchedulerWithRemainderOnlyTest, GPT3) {
                    sizes_.begin(), sizes_.end(), graph);
 
   checker.on_train_begin();
-  for (size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
+  for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
     checker.on_epoch_begin(epoch);
 
-    auto schedule = std::vector<size_t>(kTotalSize);
+    auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
 
     auto generator = std::mt19937();
