@@ -30,6 +30,8 @@
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/internal/polynomial.h"
 #include "flatflow/ops/operator_generated.h"
+#include "flatflow/ops/promote_types.h"
+#include "flatflow/ops/scalar_type_generated.h"
 #include "flatflow/types.h"
 
 namespace flatflow {
@@ -41,6 +43,39 @@ struct SymIntAdaptor {
   using return_type = typename remove_cvptr_t<
       decltype(std::declval<SymInt>().data())>::return_type;
 };
+
+// flatflow::Factorize()
+//
+// Maps the given data type to the corresponding arithmetic throughput factor.
+constexpr typename SymIntAdaptor::return_type Factorize(
+    ScalarType dtype) noexcept {
+  switch (dtype) {
+    case ScalarType::INT8:
+    case ScalarType::UINT8:
+    case ScalarType::FLOAT8_E4M3FN:
+    case ScalarType::FLOAT8_E4M3FNUZ:
+    case ScalarType::FLOAT8_E5M2:
+    case ScalarType::FLOAT8_E5M2FNUZ:
+      return 1;
+    case ScalarType::FLOAT16:
+    case ScalarType::BFLOAT16:
+      return 2;
+    case ScalarType::FLOAT32:
+      return 4;
+    case ScalarType::FLOAT64:
+    case ScalarType::BOOL:
+    case ScalarType::INT16:
+    case ScalarType::INT32:
+    case ScalarType::UINT16:
+    case ScalarType::UINT32:
+      return 64;
+    case ScalarType::INT64:
+    case ScalarType::UINT64:
+      return 128;
+    default:
+      return 0;
+  }
+}
 
 // flatflow::make_polynomial()
 //
@@ -62,8 +97,8 @@ internal::polynomial<typename SymIntAdaptor::return_type> symbolic_trace_impl(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
     const TensorMetadata *) = delete;
 
-// Disable -Wunused-parameter so we are allowed to avoid repeated use of the
-// unused attribute (standard `[[maybe_unused]]` since C++17, otherwise
+// Disable unused parameter warnings so we are allowed to avoid repeated use of
+// the unused attribute (standard `[[maybe_unused]]` since C++17, otherwise
 // `ABSL_ATTRIBUTE_UNUSED`).
 #if defined(__GNUC__) || defined(__clang__)
 // Clang also supports these GCC pragmas.
