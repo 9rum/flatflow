@@ -1439,7 +1439,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                             torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
                         ]
                     )
-                    # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
+                    # Could potentially reduce num_valid_tokens_in_microbatch and use that to aggregate instead of len(self._validation_ds)
                     torch.distributed.all_reduce(
                         loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                     )
@@ -1625,7 +1625,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         # E = argmin_e e * N_d >= N, or equivalently E = ceildiv(N, N_d)
         # Where N_d is the total number of samples in a dataset (files), and N is the requested number of samples (provided for every split in the list below).
         # Setting N = 1 we force E to be 1 as well
-        legacy_dataset = self.cfg.data.get("legacy_dataset", False)
+        legacy_dataset = self.cfg.data.get("legacy_dataset", True)
         if self.trainer.limit_val_batches <= 1.0 and isinstance(self.trainer.limit_val_batches, float):
             train_valid_test_num_samples[1] = 1 if legacy_dataset else None
         # Add extra FIM tokens to tokenizer

@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Mapping
 from typing import Optional
 
 import nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset
@@ -50,7 +49,7 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
         get_attention_mask_from_fusion: bool = False,
     ) -> None:
         """
-        GPT dataset for causal language modeling pretraining.
+        GPT dataset for pretraining.
         
         file_path: Path to text files for GPT pretraining. Can be .jsonl files with 'text' field or plain .txt files.
         tokenizer: Tokenizer for the dataset. Instance of a class that inherits TokenizerSpec (ex: SentencePiece).
@@ -181,4 +180,4 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
         if self.input_types is not None:
             raise TypeError("Datasets should not implement `input_types` as they are not checked")
 
-        return self._collate_fn(batch) 
+        return self._collate_fn(batch)
