@@ -24,13 +24,24 @@ from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+
+import nvtx
 import packaging
 import torch
+import torch.export
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
+from torch._decomp import get_decompositions
+from torch.nn.attention import SDPBackend, sdpa_kernel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+import flatflow.megatron.core.pipeline_parallel.schedules
+import flatflow.nemo.collections.nlp.data.language_modeling.megatron
+import flatflow.torch.profiler
+import flatflow.torch.utils.data
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
@@ -434,6 +445,22 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         if self.use_loss_mask and self.transformer_config.sequence_parallel:
             raise ValueError('Loss mask is not supported with sequence parallelism.')
 
+        # FlatFlow settings
+        self.use_flatflow = cfg.get("use_flatflow", True)
+        self.enable_profile = cfg.get("enable_profile", True)
+
+        if self.use_flatflow:
+            if isinstance(self.model, list):
+                config = get_model_config(self.model[0])
+            else:
+                config = get_model_config(self.model)
+            config.variable_seq_lengths = True
+        
+        # Model path for export functionality (if available)
+        self.model_path = cfg.get("restore_from_path", None)
+        if self.model_path and self.model_path.endswith("/model.nemo"):
+            self.model_path = self.model_path.split("/model.nemo")[0]
+
     def set_inference_config(self, inference_config):
         self._inference_config = inference_config
 
@@ -706,6 +733,35 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             if self.use_mcore_dist_optim:
                 module.config.finalize_model_grads_func = finalize_model_grads
 
+        # Handle FlatFlow vs standard data iteration
+        num_microbatches = get_num_microbatches()
+        if not self.use_flatflow or forward_only:
+            # Standard mode - use parent implementation
+            data_iterator = self._make_data_iterator_list(dataloader_iter)
+            seq_length = self.cfg.encoder_seq_length
+            micro_batch_size = self.cfg.micro_batch_size
+        else:
+            # FlatFlow mode - prepare microbatches
+            batch = []
+            iter_count = num_microbatches
+            while len(batch) < iter_count:
+                if isinstance(dataloader_iter, _DataFetcherWrapper):
+                    microbatch, _, _ = next(dataloader_iter)
+                else:
+                    microbatch = next(dataloader_iter)
+                batch.append(microbatch)
+            
+            # Log token counts if enabled
+            log_token_counts = self.cfg.get('log_token_counts', False)
+            if log_token_counts:
+                token_count_avg = sum([mb.get('token_count', mb['tokens'].numel()) for mb in batch]) / (len(batch) * self.cfg.micro_batch_size)
+                self.log('tokens_avg', token_count_avg, prog_bar=True, sync_dist=True, batch_size=1)
+            
+            # seq_length is required but will be ignored for FlatFlow
+            seq_length = sum([mb['tokens'].shape[1] for mb in batch])
+            data_iterator = itertools.chain(batch)
+            micro_batch_size = 1  # FlatFlow uses microbatch size of 1
+
         # run forward and backwards passes for an entire global batch
         # we do this inside training_step to support pipeline parallelism
         fwd_bwd_function = get_forward_backward_func()
@@ -713,12 +769,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         # TODO @akhattar: add num_micro_batches_with_partial_activation_checkpoints when ready
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(forward_only),
-            data_iterator=self._make_data_iterator_list(dataloader_iter),
+            data_iterator=data_iterator,
             model=self.model,
-            num_microbatches=get_num_microbatches(),
+            num_microbatches=num_microbatches,
             forward_only=forward_only,
-            seq_length=self.cfg.encoder_seq_length,
-            micro_batch_size=self.cfg.micro_batch_size,
+            seq_length=seq_length,
+            micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
         )
 
@@ -1184,6 +1240,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             'attention_mask': None if "attention_mask" not in data else data["attention_mask"],
             'position_ids': data["position_ids"],
         }
+        
+        # Add additional fields if present
+        for key in ['token_count', 'sample_ids', 'max_seqlen', 'cu_seqlens', 'cu_seqlens_argmin']:
+            if key in data:
+                batch[key] = data[key]
+                
         if "attention_mask" in data:
             batch['attention_mask'] = data["attention_mask"]
 
@@ -1218,7 +1280,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         return batch
 
     def get_forward_output_and_loss_func(self, validation_step=False, tuning=False):
-        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None):
+        def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None, global_microbatch_id=None, forward_only=False):
 
             # Get data batch
             batch = self.get_batch(dataloader_iter, tuning)
@@ -1291,7 +1353,29 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                         qkv_format='thd',
                     )
 
-            output_tensor = model(**forward_args)
+            # FlatFlow profiling support
+            if self.enable_profile and not forward_only and global_microbatch_id is not None:
+                # Build runtime batch metadata
+                if "sample_ids" in batch and isinstance(batch["sample_ids"], (list, tuple)):
+                    micro_bs_logic = len(batch["sample_ids"])  # logical micro-batch size
+                else:
+                    micro_bs_logic = forward_args["input_ids"].size(0) if forward_args["input_ids"] is not None else 0
+
+                meta_info = {
+                    "micro_bs": micro_bs_logic,
+                    "global_bs": micro_bs_logic * parallel_state.get_data_parallel_world_size(),
+                    "tok_total": forward_args["input_ids"].numel() if forward_args["input_ids"] is not None else 0,
+                }
+
+                with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}", **meta_info):
+                    nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
+                    nvtx_ctx.__enter__()
+                    try:
+                        output_tensor = model(**forward_args)
+                    finally:
+                        nvtx_ctx.__exit__(None, None, None)
+            else:
+                output_tensor = model(**forward_args)
 
             def loss_func(output_tensor):
                 # Loss for a micro-batch (ub)
@@ -1355,7 +1439,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                             torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
                         ]
                     )
-                    # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
+                    # Could potentially reduce num_valid_tokens_in_microbatch and use that to aggregate instead of len(self._validation_ds)
                     torch.distributed.all_reduce(
                         loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                     )
@@ -1541,7 +1625,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         # E = argmin_e e * N_d >= N, or equivalently E = ceildiv(N, N_d)
         # Where N_d is the total number of samples in a dataset (files), and N is the requested number of samples (provided for every split in the list below).
         # Setting N = 1 we force E to be 1 as well
-        legacy_dataset = self.cfg.data.get("legacy_dataset", False)
+        legacy_dataset = self.cfg.data.get("legacy_dataset", True)
         if self.trainer.limit_val_batches <= 1.0 and isinstance(self.trainer.limit_val_batches, float):
             train_valid_test_num_samples[1] = 1 if legacy_dataset else None
         # Add extra FIM tokens to tokenizer
@@ -1602,7 +1686,10 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 dataset_type = GPTFIMDataset
             else:
                 dataset_config = GPTDatasetConfig(**kwargs)
-                dataset_type = MockGPTDataset if mock_dataset else GPTDataset
+                if self.use_flatflow:
+                    dataset_type = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTDataset
+                else:
+                    dataset_type = MockGPTDataset if mock_dataset else GPTDataset
 
             self._train_ds, self._validation_ds, self._test_ds = BlendedMegatronDatasetBuilder(
                 dataset_type,
@@ -1660,13 +1747,35 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         else:
             raise ValueError('cfg.data.dataloader_type not found. Must be "single" or "cyclic"')
 
-        return torch.utils.data.DataLoader(
-            dataset,
-            batch_sampler=batch_sampler,
-            num_workers=self.cfg.data.num_workers,
-            pin_memory=True,
-            persistent_workers=True if self.cfg.data.num_workers > 0 else False,
-        )
+        if self.use_flatflow and dataset_type == 'train':
+            batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
+                total_samples=len(dataset),
+                consumed_samples=consumed_samples,
+                micro_batch_size=self.cfg.micro_batch_size,
+                global_batch_size=self.cfg.global_batch_size,
+                data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                drop_last=drop_last,
+                pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
+                dataset=dataset,
+                graph=_export(self.model_path),
+            )
+            
+            return flatflow.torch.utils.data.DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                num_workers=self.cfg.data.num_workers,
+                pin_memory=True,
+                persistent_workers=True if self.cfg.data.num_workers > 0 else False,
+            )
+        else:
+            return torch.utils.data.DataLoader(
+                dataset,
+                batch_sampler=batch_sampler,
+                num_workers=self.cfg.data.num_workers,
+                pin_memory=True,
+                persistent_workers=True if self.cfg.data.num_workers > 0 else False,
+            )
 
     def setup(self, stage=None):
         """
@@ -1731,7 +1840,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             logging.info(
                 f'Setting up train dataloader with len(len(self._train_ds)): {len(self._train_ds)} and consumed samples: {consumed_samples}'
             )
-            self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples)
+            self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples, dataset_type="train")
 
     def setup_validation_data(self, cfg):
         if hasattr(self, '_validation_ds'):
@@ -2164,3 +2273,17 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             setattr(transformer_config, key, value)
 
         return transformer_config
+
+def _export(model_path):
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    prompt = "How many hours are in a day?"
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
+    decomp_table = get_decompositions([torch.ops.aten.scaled_dot_product_attention])
+    model = AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
+
+    seq_len = torch.export.Dim("seq_len", min=2, max=128)
+    with torch.no_grad(), sdpa_kernel(SDPBackend.MATH):
+        ep = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
+        ep = ep.run_decompositions(decomp_table)
+    return ep.graph
