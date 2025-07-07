@@ -288,20 +288,20 @@ class Scheduler {
     return std::next(result, total_size);
   }
 
-  // Scheduler::on_epoch_begin()
+  // Scheduler::on_epoch_start()
   //
-  // A callback to be called at the beginning of an epoch.
-  void on_epoch_begin(size_type epoch) const noexcept { std::ignore = epoch; }
+  // A callback to be called at the beginning of each training epoch.
+  void on_epoch_start(size_type epoch) const noexcept { std::ignore = epoch; }
 
   // Scheduler::on_epoch_end()
   //
-  // A callback to be called at the end of an epoch.
+  // A callback to be called at the end of each training epoch.
   void on_epoch_end(size_type epoch) const noexcept { std::ignore = epoch; }
 
-  // Scheduler::on_train_begin()
+  // Scheduler::on_train_start()
   //
   // A callback to be called at the beginning of training.
-  void on_train_begin() const noexcept {}
+  void on_train_start() const noexcept {}
 
   // Scheduler::on_train_end()
   //

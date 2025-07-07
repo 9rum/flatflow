@@ -106,7 +106,7 @@ class DistributedControlPlane : public ControlPlane::Service {
                            args->micro_batch_size(), sizes->begin(),
                            sizes->end(), args->graph());
 
-    _call_callbacks_on_train_begin();
+    scheduler_.on_train_start();
 
     auto builder = flatbuffers::grpc::MessageBuilder();
     const auto empty = CreateEmpty(builder);
@@ -138,11 +138,11 @@ class DistributedControlPlane : public ControlPlane::Service {
     // If there is a previous computation schedule, the callback should not be
     // called as it is the beginning of the first epoch.
     if (!indices_.empty()) {
-      _call_callbacks_on_epoch_end();
+      scheduler_.on_epoch_end(epoch_);
     }
 
     epoch_ = args->epoch();
-    _call_callbacks_on_epoch_begin();
+    scheduler_.on_epoch_start(epoch_);
 
     const auto indices = args->indices();
     CHECK_NE(indices, nullptr);
@@ -178,8 +178,8 @@ class DistributedControlPlane : public ControlPlane::Service {
     LOG(INFO) << absl::StrFormat("Finalize called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
-    _call_callbacks_on_epoch_end();
-    _call_callbacks_on_train_end();
+    scheduler_.on_epoch_end(epoch_);
+    scheduler_.on_train_end();
 
     // The launch policy should be `std::launch::async`; otherwise a deadlock
     // will occur.
@@ -194,34 +194,6 @@ class DistributedControlPlane : public ControlPlane::Service {
   }
 
  protected:
-  // DistributedControlPlane::_call_callbacks_on_epoch_begin()
-  //
-  // Calls every callback's `on_epoch_begin` hook.
-  void _call_callbacks_on_epoch_begin() const noexcept {
-    scheduler_.on_epoch_begin(epoch_);
-  }
-
-  // DistributedControlPlane::_call_callbacks_on_epoch_end()
-  //
-  // Calls every callback's `on_epoch_end` hook.
-  void _call_callbacks_on_epoch_end() const noexcept {
-    scheduler_.on_epoch_end(epoch_);
-  }
-
-  // DistributedControlPlane::_call_callbacks_on_train_begin()
-  //
-  // Calls every callback's `on_train_begin` hook.
-  void _call_callbacks_on_train_begin() const noexcept {
-    scheduler_.on_train_begin();
-  }
-
-  // DistributedControlPlane::_call_callbacks_on_train_end()
-  //
-  // Calls every callback's `on_train_end` hook.
-  void _call_callbacks_on_train_end() const noexcept {
-    scheduler_.on_train_end();
-  }
-
   size_type data_parallel_rank_;
   size_type data_parallel_world_size_;
   size_type epoch_;

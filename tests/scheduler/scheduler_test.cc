@@ -1307,9 +1307,9 @@ TEST_F(SchedulerTest, GPT3) {
       SchedChecker(kDataParallelWorldSize, kGlobalBatchSize, kMicroBatchSize,
                    sizes_.begin(), sizes_.end(), graph);
 
-  checker.on_train_begin();
+  checker.on_train_start();
   for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-    checker.on_epoch_begin(epoch);
+    checker.on_epoch_start(epoch);
 
     auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
@@ -2496,9 +2496,9 @@ TEST_F(SchedulerWithRemainderTest, GPT3) {
       SchedChecker(kDataParallelWorldSize, kGlobalBatchSize, kMicroBatchSize,
                    sizes_.begin(), sizes_.end(), graph);
 
-  checker.on_train_begin();
+  checker.on_train_start();
   for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-    checker.on_epoch_begin(epoch);
+    checker.on_epoch_start(epoch);
 
     auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
@@ -3685,9 +3685,9 @@ TEST_F(SchedulerWithRemainderOnlyTest, GPT3) {
       SchedChecker(kDataParallelWorldSize, kGlobalBatchSize, kMicroBatchSize,
                    sizes_.begin(), sizes_.end(), graph);
 
-  checker.on_train_begin();
+  checker.on_train_start();
   for (std::size_t epoch = 0; epoch < kNumEpochs; ++epoch) {
-    checker.on_epoch_begin(epoch);
+    checker.on_epoch_start(epoch);
 
     auto schedule = std::vector<std::size_t>(kTotalSize);
     std::iota(schedule.begin(), schedule.end(), 0);
