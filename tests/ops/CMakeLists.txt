@@ -15,6 +15,22 @@
 add_subdirectory(internal)
 
 add_executable(
+  promote_types_test
+  promote_types_test.cc)
+target_include_directories(
+  promote_types_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  promote_types_test
+  PRIVATE absl::check
+  PRIVATE absl::str_format
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main)
+target_enable_warnings(promote_types_test)
+target_enable_sanitizers(promote_types_test)
+gtest_discover_tests(promote_types_test)
+
+add_executable(
   gemma3_ops_test
   gemma3_ops_test.cc)
 target_include_directories(
