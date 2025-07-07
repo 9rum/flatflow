@@ -1333,7 +1333,7 @@ symbolic_trace_impl<Operator::WHERE_SELF>(
 //   operators. Note that omitting this step will call the base template of
 //   `symbolic_trace_impl`, which can be caught at compile time.
 // * Finally, register the new operator to the operator table by calling
-//   `OperatorRegistry::registerOperator` in the constructor below.
+//   `OperatorRegistry::RegisterOperator` in the constructor below.
 //   For the Python frontend, add the ATen counterpart and enumerator value as
 //   key and value respectively to the operator table in `flatflow/ops/ops.py`.
 class OperatorRegistry {
@@ -1353,85 +1353,85 @@ class OperatorRegistry {
         sizeof(EnumValuesOperator()) / sizeof(Operator);
     ops_table_.reserve(kOpsTableSpace);
 
-    registerOperator(Operator::_SOFTMAX,
+    RegisterOperator(Operator::_SOFTMAX,
                      &symbolic_trace_impl<Operator::_SOFTMAX>);
-    registerOperator(Operator::_TO_COPY,
+    RegisterOperator(Operator::_TO_COPY,
                      &symbolic_trace_impl<Operator::_TO_COPY>);
-    registerOperator(Operator::_UNSAFE_VIEW,
+    RegisterOperator(Operator::_UNSAFE_VIEW,
                      &symbolic_trace_impl<Operator::_UNSAFE_VIEW>);
-    registerOperator(Operator::ADD_TENSOR,
+    RegisterOperator(Operator::ADD_TENSOR,
                      &symbolic_trace_impl<Operator::ADD_TENSOR>);
-    registerOperator(Operator::ADDMM, &symbolic_trace_impl<Operator::ADDMM>);
-    registerOperator(Operator::ALIAS, &symbolic_trace_impl<Operator::ALIAS>);
-    registerOperator(Operator::ALL_DIM,
+    RegisterOperator(Operator::ADDMM, &symbolic_trace_impl<Operator::ADDMM>);
+    RegisterOperator(Operator::ALIAS, &symbolic_trace_impl<Operator::ALIAS>);
+    RegisterOperator(Operator::ALL_DIM,
                      &symbolic_trace_impl<Operator::ALL_DIM>);
-    registerOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
-    registerOperator(Operator::ARANGE_START,
+    RegisterOperator(Operator::ARANGE, &symbolic_trace_impl<Operator::ARANGE>);
+    RegisterOperator(Operator::ARANGE_START,
                      &symbolic_trace_impl<Operator::ARANGE_START>);
-    registerOperator(Operator::BITWISE_NOT,
+    RegisterOperator(Operator::BITWISE_NOT,
                      &symbolic_trace_impl<Operator::BITWISE_NOT>);
-    registerOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
-    registerOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
-    registerOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
-    registerOperator(Operator::COPY, &symbolic_trace_impl<Operator::COPY>);
-    registerOperator(Operator::COS, &symbolic_trace_impl<Operator::COS>);
-    registerOperator(Operator::CUMSUM, &symbolic_trace_impl<Operator::CUMSUM>);
-    registerOperator(Operator::EMBEDDING,
+    RegisterOperator(Operator::BMM, &symbolic_trace_impl<Operator::BMM>);
+    RegisterOperator(Operator::CAT, &symbolic_trace_impl<Operator::CAT>);
+    RegisterOperator(Operator::CLONE, &symbolic_trace_impl<Operator::CLONE>);
+    RegisterOperator(Operator::COPY, &symbolic_trace_impl<Operator::COPY>);
+    RegisterOperator(Operator::COS, &symbolic_trace_impl<Operator::COS>);
+    RegisterOperator(Operator::CUMSUM, &symbolic_trace_impl<Operator::CUMSUM>);
+    RegisterOperator(Operator::EMBEDDING,
                      &symbolic_trace_impl<Operator::EMBEDDING>);
-    registerOperator(Operator::EQ_SCALAR,
+    RegisterOperator(Operator::EQ_SCALAR,
                      &symbolic_trace_impl<Operator::EQ_SCALAR>);
-    registerOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
-    registerOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
-    registerOperator(Operator::GELU, &symbolic_trace_impl<Operator::GELU>);
-    registerOperator(Operator::GT_TENSOR,
+    RegisterOperator(Operator::EXPAND, &symbolic_trace_impl<Operator::EXPAND>);
+    RegisterOperator(Operator::FULL, &symbolic_trace_impl<Operator::FULL>);
+    RegisterOperator(Operator::GELU, &symbolic_trace_impl<Operator::GELU>);
+    RegisterOperator(Operator::GT_TENSOR,
                      &symbolic_trace_impl<Operator::GT_TENSOR>);
-    registerOperator(Operator::LT_TENSOR,
+    RegisterOperator(Operator::LT_TENSOR,
                      &symbolic_trace_impl<Operator::LT_TENSOR>);
-    registerOperator(Operator::MASKED_FILL_SCALAR,
+    RegisterOperator(Operator::MASKED_FILL_SCALAR,
                      &symbolic_trace_impl<Operator::MASKED_FILL_SCALAR>);
-    registerOperator(Operator::MEAN_DIM,
+    RegisterOperator(Operator::MEAN_DIM,
                      &symbolic_trace_impl<Operator::MEAN_DIM>);
-    registerOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
-    registerOperator(Operator::MUL_SCALAR,
+    RegisterOperator(Operator::MM, &symbolic_trace_impl<Operator::MM>);
+    RegisterOperator(Operator::MUL_SCALAR,
                      &symbolic_trace_impl<Operator::MUL_SCALAR>);
-    registerOperator(Operator::MUL_TENSOR,
+    RegisterOperator(Operator::MUL_TENSOR,
                      &symbolic_trace_impl<Operator::MUL_TENSOR>);
-    registerOperator(Operator::NATIVE_LAYER_NORM,
+    RegisterOperator(Operator::NATIVE_LAYER_NORM,
                      &symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>);
-    registerOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
-    registerOperator(Operator::ONES, &symbolic_trace_impl<Operator::ONES>);
-    registerOperator(Operator::ONES_LIKE,
+    RegisterOperator(Operator::NEG, &symbolic_trace_impl<Operator::NEG>);
+    RegisterOperator(Operator::ONES, &symbolic_trace_impl<Operator::ONES>);
+    RegisterOperator(Operator::ONES_LIKE,
                      &symbolic_trace_impl<Operator::ONES_LIKE>);
-    registerOperator(Operator::PERMUTE,
+    RegisterOperator(Operator::PERMUTE,
                      &symbolic_trace_impl<Operator::PERMUTE>);
-    registerOperator(Operator::POW_TENSOR_SCALAR,
+    RegisterOperator(Operator::POW_TENSOR_SCALAR,
                      &symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>);
-    registerOperator(Operator::RELU, &symbolic_trace_impl<Operator::RELU>);
-    registerOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
-    registerOperator(Operator::RSUB_SCALAR,
+    RegisterOperator(Operator::RELU, &symbolic_trace_impl<Operator::RELU>);
+    RegisterOperator(Operator::RSQRT, &symbolic_trace_impl<Operator::RSQRT>);
+    RegisterOperator(Operator::RSUB_SCALAR,
                      &symbolic_trace_impl<Operator::RSUB_SCALAR>);
-    registerOperator(Operator::SCALAR_TENSOR,
+    RegisterOperator(Operator::SCALAR_TENSOR,
                      &symbolic_trace_impl<Operator::SCALAR_TENSOR>);
-    registerOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
-    registerOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
-    registerOperator(Operator::SLICE_TENSOR,
+    RegisterOperator(Operator::SILU, &symbolic_trace_impl<Operator::SILU>);
+    RegisterOperator(Operator::SIN, &symbolic_trace_impl<Operator::SIN>);
+    RegisterOperator(Operator::SLICE_TENSOR,
                      &symbolic_trace_impl<Operator::SLICE_TENSOR>);
-    registerOperator(Operator::SLICE_SCATTER,
+    RegisterOperator(Operator::SLICE_SCATTER,
                      &symbolic_trace_impl<Operator::SLICE_SCATTER>);
-    registerOperator(Operator::SPLIT_TENSOR,
+    RegisterOperator(Operator::SPLIT_TENSOR,
                      &symbolic_trace_impl<Operator::SPLIT_TENSOR>);
-    registerOperator(Operator::SUB_TENSOR,
+    RegisterOperator(Operator::SUB_TENSOR,
                      &symbolic_trace_impl<Operator::SUB_TENSOR>);
-    registerOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
-    registerOperator(Operator::TANH, &symbolic_trace_impl<Operator::TANH>);
-    registerOperator(Operator::TRANSPOSE_INT,
+    RegisterOperator(Operator::T, &symbolic_trace_impl<Operator::T>);
+    RegisterOperator(Operator::TANH, &symbolic_trace_impl<Operator::TANH>);
+    RegisterOperator(Operator::TRANSPOSE_INT,
                      &symbolic_trace_impl<Operator::TRANSPOSE_INT>);
-    registerOperator(Operator::TRIL, &symbolic_trace_impl<Operator::TRIL>);
-    registerOperator(Operator::TRIU, &symbolic_trace_impl<Operator::TRIU>);
-    registerOperator(Operator::UNSQUEEZE,
+    RegisterOperator(Operator::TRIL, &symbolic_trace_impl<Operator::TRIL>);
+    RegisterOperator(Operator::TRIU, &symbolic_trace_impl<Operator::TRIU>);
+    RegisterOperator(Operator::UNSQUEEZE,
                      &symbolic_trace_impl<Operator::UNSQUEEZE>);
-    registerOperator(Operator::VIEW, &symbolic_trace_impl<Operator::VIEW>);
-    registerOperator(Operator::WHERE_SELF,
+    RegisterOperator(Operator::VIEW, &symbolic_trace_impl<Operator::VIEW>);
+    RegisterOperator(Operator::WHERE_SELF,
                      &symbolic_trace_impl<Operator::WHERE_SELF>);
   }
 
@@ -1443,10 +1443,10 @@ class OperatorRegistry {
 
   OperatorRegistry &operator=(OperatorRegistry &&other) = default;
 
-  // OperatorRegistry::registerOperator()
+  // OperatorRegistry::RegisterOperator()
   //
   // Registers `target` to the operator table.
-  void registerOperator(
+  void RegisterOperator(
       Operator target,
       internal::polynomial<typename SymIntAdaptor::return_type> (*func)(
           const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *,
@@ -1455,18 +1455,18 @@ class OperatorRegistry {
     ops_table_.try_emplace(target, func);
   }
 
-  // OperatorRegistry::deregisterOperator()
+  // OperatorRegistry::DeregisterOperator()
   //
   // Removes `target` from the operator table.
-  void deregisterOperator(Operator target) {
+  void DeregisterOperator(Operator target) {
     // TODO: Check the number of elements removed.
     ops_table_.erase(target);
   }
 
-  // OperatorRegistry::dispatch()
+  // OperatorRegistry::Dispatch()
   //
   // Executes the symbolic transformation corresponding to the given operator.
-  internal::polynomial<typename SymIntAdaptor::return_type> dispatch(
+  internal::polynomial<typename SymIntAdaptor::return_type> Dispatch(
       Operator target,
       const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
       const TensorMetadata *meta) const {
@@ -1508,7 +1508,7 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
     auto node = nodes->Get(index);
     CHECK_NE(node, nullptr);
-    poly += registry.dispatch(node->target(), node->args(), node->meta());
+    poly += registry.Dispatch(node->target(), node->args(), node->meta());
   }
 
   LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);
