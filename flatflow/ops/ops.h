@@ -192,12 +192,21 @@ symbolic_trace_impl<Operator::ADD_TENSOR>(
   // addition occurs for each element. add.Tensor also supports broadcasting to
   // a common shape, necessitating the use of output shape.
   CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(args->size());
+  auto poly = make_polynomial(args->size() * Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -763,12 +772,22 @@ symbolic_trace_impl<Operator::MUL_TENSOR>(
   // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
   // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
   // broadcasting.
+  CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -1164,12 +1183,21 @@ symbolic_trace_impl<Operator::SUB_TENSOR>(
   // subtraction occurs for each element. sub.Tensor also supports broadcasting
   // to a common shape, necessitating the use of output shape.
   CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(args->size());
+  auto poly = make_polynomial(args->size() * Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
