@@ -435,6 +435,7 @@ def forward_backward_no_pipelining(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    use_flatflow: bool = False,
     enable_profile: bool = True,
 ):
     """Run forward and backward passes with no pipeline parallelism
@@ -579,6 +580,7 @@ def forward_backward_pipelining_with_interleaving(
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    use_flatflow: bool = False,
     enable_profile: bool = True,
 ):
     """Run interleaved 1F1B schedule (model split into model chunks), with
@@ -593,6 +595,8 @@ def forward_backward_pipelining_with_interleaving(
 
     global total_microbatch_id
     config = get_model_config(model[0])
+    config.batch_p2p_comm=False 
+    config.overlap_p2p_comm=True
     if config.overlap_p2p_comm and config.batch_p2p_comm:
         raise ValueError("Can not use both overlap_p2p_comm and batch_p2p_comm")
 
@@ -1314,12 +1318,13 @@ def forward_backward_pipelining_without_interleaving(
     data_iterator: Union[Iterator, List[Iterator]],
     model: Union[torch.nn.Module, List[torch.nn.Module]],
     num_microbatches: int,
-    seq_length: int,
+    seq_length: Union[int, List[int]],
     micro_batch_size: int,
     decoder_seq_length: int = None,
     forward_only: bool = False,
     collect_non_loss_data: bool = False,
     first_val_step: bool = None,
+    use_flatflow: bool = False,
     enable_profile: bool = True,
 ):
     """Run non-interleaved 1F1B schedule, with communication between pipeline
@@ -1339,6 +1344,7 @@ def forward_backward_pipelining_without_interleaving(
         data_iterator = data_iterator[0]
 
     config = get_model_config(model)
+    config.batch_p2p_comm = False
     if config.overlap_p2p_comm:
         raise ValueError(
             "Non-interleaved pipeline parallelism does not support overlapping p2p communication"

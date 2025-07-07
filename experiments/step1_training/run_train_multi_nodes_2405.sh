@@ -7,7 +7,7 @@
 
 MODELS_DIR=${MODELS_DIR:-"/veronica/models"}
 MODEL_PATH=${MODEL_PATH:-"meta-llama/Llama-3.1-70B"}
-NEMO_MODEL="${MODELS_DIR}/${MODEL_PATH}/model.nemo"
+NEMO_MODEL=${NEMO_MODEL:-"${MODELS_DIR}/${MODEL_PATH}/model.nemo"}
 DATASET_NAME=${DATASET_NAME:-"dolly"}
 
 DATA_DIR=${DATA_DIR:-"/veronica/data/${DATASET_NAME}"}
@@ -21,31 +21,30 @@ BATCH_SIZE=${BATCH_SIZE:-16}
 MICRO_BATCH_SIZE=${MICRO_BATCH_SIZE:-1}
 
 USE_FLATFLOW=${USE_FLATFLOW:-False}
+USE_CHAT=${USE_CHAT:-False}
 RUN_PROFILE=${RUN_PROFILE:-False}
 
-export NCCL_SOCKET_IFNAME=eno3
+# export NCCL_SOCKET_IFNAME=eno3
 export MASTER_ADDR=${MASTER_ADDR}
 export MASTER_PORT=${MASTER_PORT}
 export RANK=${RANK:-0}
 
 NNODES=${NNODES:-1}
 RUN_NAME="${MODEL_PATH}/${DATASET_NAME}_TP${TP_SIZE}_PP${PP_SIZE}_BS${BATCH_SIZE}_MBS${MICRO_BATCH_SIZE}_NNODES${NNODES}_FLATFLOW-${USE_FLATFLOW}"
-
+#    trainer.num_sanity_val_steps=0 \
 
 echo "Start training ${NEMO_MODEL} on ${TRAIN_DATA}"
 echo "Multi-node setting: ${MASTER_ADDR}:${MASTER_PORT} (rank: ${RANK}/${NNODES})"
-torchrun --nproc-per-node 8 --nnodes ${NNODES} --node-rank ${RANK} \
+torchrun --nproc-per-node 4 --nnodes ${NNODES} --node-rank ${RANK} \
     --master-addr ${MASTER_ADDR} --master-port ${MASTER_PORT} \
     /opt/NeMo/examples/nlp/language_modeling/tuning/megatron_gpt_finetuning.py \
        trainer.precision=bf16 \
-       trainer.devices=8 \
+       trainer.devices=4 \
        trainer.num_nodes=${NNODES} \
        trainer.max_steps=-1 \
        trainer.max_epochs=1 \
-       trainer.num_sanity_val_steps=0 \
        trainer.val_check_interval=1.0 \
-       model.use_compute_profile=${RUN_PROFILE} \
-       model.use_memory_profile=${RUN_PROFILE} \
+       model.enable_profile=${RUN_PROFILE} \
        model.use_flatflow=${USE_FLATFLOW} \
        model.restore_from_path=${NEMO_MODEL} \
        model.micro_batch_size=${MICRO_BATCH_SIZE} \
@@ -58,6 +57,7 @@ torchrun --nproc-per-node 8 --nnodes ${NNODES} --node-rank ${RANK} \
        model.optim.lr=5e-6 \
        model.peft.peft_scheme=none \
        model.answer_only_loss=True \
+       model.data.chat=${USE_CHAT} \
        model.data.train_ds.file_names=${TRAIN_DATA} \
        model.data.train_ds.max_seq_length=8192 \
        model.data.train_ds.micro_batch_size=${MICRO_BATCH_SIZE}\
