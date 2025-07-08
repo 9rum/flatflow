@@ -247,9 +247,8 @@ symbolic_trace_impl<Operator::ADDMM>(
   // `alpha` and `beta` are scaling factors on matrix-vector product between
   // `mat1` and `mat2` and the added matrix `self` respectively.
   // If `mat1` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
-  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
-  // For scaling and addition, it requires additional 3 x n x p FLOPs,
-  // so totally n x p x (2 x m + 3) FLOPs are required.
+  // produces a (n x p) tensor with n x m x p MACs.
+  // For scaling and addition, it requires additional 3 x n x p FLOPs.
   auto n = shape1->Get(0);
   CHECK_NE(n, nullptr);
   CHECK_NE(n->data(), nullptr);
@@ -266,10 +265,16 @@ symbolic_trace_impl<Operator::ADDMM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  const auto poly = make_polynomial(m->data()->Get(0), m->data()->Get(1)) << 1;
+  auto dtype = promote_types(args->Get(1)->dtype(), args->Get(2)->dtype());
+  const auto poly =
+      make_polynomial(m->data()->Get(0), m->data()->Get(1)) * Factorize(dtype);
+
+  CHECK_NE(args->Get(0), nullptr);
+  dtype = promote_types(dtype, args->Get(0)->dtype());
 
   return make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-         make_polynomial(p->data()->Get(0), p->data()->Get(1)) * (poly + 3);
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         (poly + 3 * Factorize(dtype));
 }
 
 // flatflow::symbolic_trace_impl<ALIAS>()
@@ -373,8 +378,7 @@ symbolic_trace_impl<Operator::BMM>(
   // bmm performs a batch matrix-matrix product of matrices `self` and `mat2`.
   // `self` and `mat2` must be 3-D tensors each containing the same number of
   // matrices. If `self` is a (b x n x m) tensor and `mat2` is a (b x m x p)
-  // tensor, then it produces a (b x n x p) tensor with b x n x m x p MACs,
-  // i.e., 2 x b x n x m x p FLOPs.
+  // tensor, then it produces a (b x n x p) tensor with b x n x m x p MACs.
   auto b = shape0->Get(0);
   CHECK_NE(b, nullptr);
   CHECK_NE(b->data(), nullptr);
@@ -403,13 +407,11 @@ symbolic_trace_impl<Operator::BMM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  // coef4 is actually zero, since at least one of b, n, m, p is a constant.
-  const auto poly = make_polynomial(b->data()->Get(0), b->data()->Get(1)) *
-                    make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-                    make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
-                    make_polynomial(p->data()->Get(0), p->data()->Get(1));
-
-  return poly << 1;
+  return make_polynomial(b->data()->Get(0), b->data()->Get(1)) *
+         make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
+         make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         Factorize(promote_types(args->Get(0)->dtype(), args->Get(1)->dtype()));
 }
 
 // flatflow::symbolic_trace_impl<CAT>()
@@ -698,7 +700,7 @@ symbolic_trace_impl<Operator::MM>(
 
   // mm performs a matrix multiplication of the matrices `self` and `mat2`.
   // If `self` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
-  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
+  // produces a (n x p) tensor with n x m x p MACs.
   auto n = shape0->Get(0);
   CHECK_NE(n, nullptr);
   CHECK_NE(n->data(), nullptr);
@@ -717,11 +719,10 @@ symbolic_trace_impl<Operator::MM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  const auto poly = make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-                    make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
-                    make_polynomial(p->data()->Get(0), p->data()->Get(1));
-
-  return poly << 1;
+  return make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
+         make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         Factorize(promote_types(args->Get(0)->dtype(), args->Get(1)->dtype()));
 }
 
 // flatflow::symbolic_trace_impl<MUL_SCALAR>()
