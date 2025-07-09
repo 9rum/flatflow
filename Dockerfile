@@ -1,4 +1,4 @@
-# For aarch64 build, use quay.io/pypa/manylinux_2_28_aarch64.
+# For AArch64 build, use quay.io/pypa/manylinux_2_28_aarch64.
 ARG BASE_IMAGE=quay.io/pypa/manylinux_2_28_x86_64
 
 # This should be consistent with the gRPC version in requirements.txt.
