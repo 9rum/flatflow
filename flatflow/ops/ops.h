@@ -816,24 +816,25 @@ symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
 
   // native_layer_norm applies layer normalization over a mini-batch of inputs
-  // `input`. The mean and standard-deviation are calculated over the last `D`
-  // dimensions, where `D` is the dimension of `normalized_shape`. `weight` and
+  // `input`. The mean and standard-deviation are calculated over the last `d`
+  // dimensions, where `d` is the dimension of `normalized_shape`. `weight` and
   // `bias` are learnable affine transform parameters of `normalized_shape`.
   CHECK_NE(args->Get(1), nullptr);
   CHECK_NE(args->Get(1)->shape(), nullptr);
-  const auto D = args->Get(1)->shape()->size();
+  const auto d = args->Get(1)->shape()->size();
 
   CHECK_NE(args->Get(2), nullptr);
   CHECK_NE(args->Get(2)->shape(), nullptr);
-  CHECK_EQ(args->Get(2)->shape()->size(), D);
+  CHECK_EQ(args->Get(2)->shape()->size(), d);
 
   CHECK_NE(args->Get(0), nullptr);
   auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(7);
+  auto dtype = args->Get(0)->dtype();
+  auto last_d = make_polynomial(3 * Factorize(dtype));
 
-  for (flatbuffers::uoffset_t dim = 0; dim < D; ++dim) {
+  for (flatbuffers::uoffset_t dim = 0; dim < d; ++dim) {
     CHECK_NE(args->Get(1)->shape()->Get(dim), nullptr);
     CHECK_NE(args->Get(1)->shape()->Get(dim)->data(), nullptr);
     CHECK_NE(args->Get(2)->shape()->Get(dim), nullptr);
@@ -846,20 +847,26 @@ symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
     const auto index = shape->size() - 1 - dim;
     CHECK_NE(shape->Get(index), nullptr);
     CHECK_NE(shape->Get(index)->data(), nullptr);
-    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
-                            shape->Get(index)->data()->Get(1));
+    last_d *= make_polynomial(shape->Get(index)->data()->Get(0),
+                              shape->Get(index)->data()->Get(1));
   }
 
-  poly += 4;
+  auto poly = make_polynomial(2 * Factorize(dtype));
 
-  for (flatbuffers::uoffset_t index = 0; index < shape->size() - D; ++index) {
+  dtype = promote_types(dtype, args->Get(1)->dtype());
+  poly += Factorize(dtype);
+
+  dtype = promote_types(dtype, args->Get(2)->dtype());
+  poly += Factorize(dtype);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
     CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= make_polynomial(shape->Get(index)->data()->Get(0),
                             shape->Get(index)->data()->Get(1));
   }
 
-  return poly;
+  return last_d + poly;
 }
 
 // flatflow::symbolic_trace_impl<NEG>()
