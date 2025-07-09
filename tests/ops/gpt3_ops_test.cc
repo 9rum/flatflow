@@ -1198,12 +1198,12 @@ TEST_F(SymbolicTraceTest, GPT3) {
   auto graph =
       flatbuffers::GetRoot<flatflow::Graph>(builder.GetBufferPointer());
   const auto trace =
-      flatflow::symbolic_trace(graph);  // 4152 s0^2 + 228843521 s0
+      flatflow::symbolic_trace(graph);  // 1315 s0^2 + 71539204 s0
 
   EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 228847673);
-  EXPECT_EQ(trace(1024), 238689453056);
-  EXPECT_EQ(trace(2048), 486086281216);
+  EXPECT_EQ(trace(1), 71540519);
+  EXPECT_EQ(trace(1024), 74635022336);
+  EXPECT_EQ(trace(2048), 152027799552);
 }
 
 }  // namespace

@@ -1936,13 +1936,12 @@ TEST_F(SymbolicTraceTest, Llama3) {
 
   auto graph =
       flatbuffers::GetRoot<flatflow::Graph>(builder.GetBufferPointer());
-  const auto trace =
-      flatflow::symbolic_trace(graph);  // 16609 s0^2 + 1327619844 s0
+  const auto trace = flatflow::symbolic_trace(graph);  // 443 s0^2 + 34941245 s0
 
   EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 1327636453);
-  EXPECT_EQ(trace(1024), 1376898519040);
-  EXPECT_EQ(trace(2048), 2788628635648);
+  EXPECT_EQ(trace(1), 34941688);
+  EXPECT_EQ(trace(1024), 36244354048);
+  EXPECT_EQ(trace(2048), 73417746432);
 }
 
 }  // namespace
