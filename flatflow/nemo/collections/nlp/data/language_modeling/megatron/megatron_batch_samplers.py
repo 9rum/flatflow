@@ -120,7 +120,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             # communicates through the IPv6 loopback interface only.
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
-            sizes = [sys.getsizeof(self.dataset, index) for index in (self.indices)]
+            sizes = [sys.getsizeof(self.dataset, index) for index in self.indices]
             self.client.Init(
                 data_parallel_rank,
                 data_parallel_size,
