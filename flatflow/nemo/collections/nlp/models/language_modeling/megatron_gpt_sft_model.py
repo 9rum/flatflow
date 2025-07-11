@@ -117,7 +117,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
         self.use_flatflow = cfg.get("use_flatflow", True)
         self.enable_profile = cfg.get("enable_profile", True)
-
+        if self.enable_profile:
+            flatflow.torch.profiler.MemoryProfiler.configure(
+                start_step=cfg.get('memory_profile_start_step', 0),
+                end_step=cfg.get('memory_profile_end_step', None),
+                step_interval=cfg.get('memory_profile_interval', 1),
+                enabled=True
+            )
         if self.use_flatflow:
             if isinstance(self.model, list):
                 config = get_model_config(self.model[0])
@@ -1101,7 +1107,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     "global_bs": micro_bs_logic * parallel_state.get_data_parallel_world_size(),
                     "tok_total": forward_args["input_ids"].numel() if forward_args["input_ids"] is not None else 0,
                 }
-
+                flatflow.torch.profiler.MemoryProfiler.set_step(global_microbatch_id)
                 with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"forward-{global_microbatch_id}", **meta_info):
                     nvtx_ctx = nvtx.annotate(message="forward", color="green", domain="forward", category=f"{global_microbatch_id}")
                     nvtx_ctx.__enter__()
