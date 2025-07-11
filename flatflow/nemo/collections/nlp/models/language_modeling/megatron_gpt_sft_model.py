@@ -119,9 +119,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         self.enable_profile = cfg.get("enable_profile", True)
         if self.enable_profile:
             flatflow.torch.profiler.MemoryProfiler.configure(
-                start_step=cfg.get('memory_profile_start_step', 0),
-                end_step=cfg.get('memory_profile_end_step', None),
-                step_interval=cfg.get('memory_profile_interval', 1),
+                start_step=cfg.get("memory_profile_start_step", 0),
+                end_step=cfg.get("memory_profile_end_step", None),
+                step_interval=cfg.get("memory_profile_interval", 1),
                 enabled=True
             )
         if self.use_flatflow:
@@ -397,13 +397,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         if self.use_flatflow:
             num_microbatches = get_num_microbatches()
             logical_global_step = self.trainer.global_step * num_microbatches
-            micro_batch_size = self.cfg.get ('micro_batch_size', 1)
+            micro_batch_size = self.cfg.get ("micro_batch_size", 1)
             data_parallel_size = self.trainer.world_size // (
-                self.cfg.get ('tensor_model_parallel_size', 1) * self.cfg.get ('pipeline_model_parallel_size', 1)
+                self.cfg.get ("tensor_model_parallel_size", 1) * self.cfg.get ("pipeline_model_parallel_size", 1)
             )
             logical_consumed_samples = logical_global_step * micro_batch_size * num_microbatches * data_parallel_size
-            self.log('global_step', logical_global_step, prog_bar=True, rank_zero_only=True, batch_size=1) 
-            self.log('consumed_samples', logical_consumed_samples, prog_bar=True, rank_zero_only=True, batch_size=1)
+            self.log("global_step", logical_global_step, prog_bar=True, rank_zero_only=True, batch_size=1) 
+            self.log("consumed_samples", logical_consumed_samples, prog_bar=True, rank_zero_only=True, batch_size=1)
         return result
 
     def fwd_bwd_step(self, dataloader_iter, forward_only, first_val_step=None):

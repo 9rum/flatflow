@@ -246,7 +246,7 @@ class MemoryProfiler:
         cls._step_interval = step_interval
         cls._enabled = enabled
         
-        # 환경변수로도 설정 가능
+        # Allow configuration via environment variables
         if os.environ.get("MEMORY_PROFILE_START_STEP"):
             cls._profile_start_step = int(os.environ.get("MEMORY_PROFILE_START_STEP"))
         if os.environ.get("MEMORY_PROFILE_END_STEP"):
@@ -260,7 +260,7 @@ class MemoryProfiler:
               f"end_step={cls._profile_end_step}, interval={cls._step_interval}, enabled={cls._enabled}")
     
     @classmethod
-    def set_step(cls, step: int):
+    def set_step(cls, step):
         cls._current_step = int(step) if isinstance(step, str) else step
     
     @classmethod
@@ -353,7 +353,7 @@ class MemoryProfiler:
         except (OSError, IOError) as io_err:
             print(f"Warning: File I/O error when saving to {output_file}: {io_err}")
         except Exception as e:
-            print(f"Warning: Unexpected error saving memory profile to {output_file}: {e}")
+            print(f"Warning: Failed to save memory profile to {output_file}: {e}")
 
     @staticmethod
     def _serialize(obj):
@@ -366,14 +366,14 @@ class MemoryProfiler:
             return [MemoryProfiler._serialize(item) for item in obj]
         elif isinstance(obj, dict):
             return {k: MemoryProfiler._serialize(v) for k, v in obj.items()}
-        elif hasattr(obj, 'item') and callable(getattr(obj, 'item')) and not isinstance(obj, torch.Tensor):
+        elif hasattr(obj, "item") and callable(getattr(obj, "item")) and not isinstance(obj, torch.Tensor):
             try:
                 return obj.item()
             except (ValueError, TypeError):
                 return str(obj)
         elif isinstance(obj, (int, float, str, bool, type(None))):
             return obj
-        elif hasattr(obj, 'tolist') and callable(getattr(obj, 'tolist')):
+        elif hasattr(obj, "tolist") and callable(getattr(obj, "tolist")):
             try:
                 return obj.tolist()
             except (ValueError, TypeError):
