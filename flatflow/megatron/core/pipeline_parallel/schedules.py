@@ -371,6 +371,7 @@ def backward_step(input_tensor, output_tensor, output_tensor_grad, model_type, c
         output_tensor[0] = config.grad_scale_func(output_tensor[0])
 
     if enable_profile and not forward_only:
+        flatflow.torch.profiler.MemoryProfiler.set_step(global_microbatch_id)
         with flatflow.torch.profiler.MemoryProfiler.profile(tag=f"backward-{global_microbatch_id}"):
             nvtx_ctx = nvtx.annotate(message="backward", color="blue", domain="backward", category=f"{global_microbatch_id}")
             nvtx_ctx.__enter__()
