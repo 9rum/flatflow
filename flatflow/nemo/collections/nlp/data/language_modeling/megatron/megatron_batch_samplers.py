@@ -95,7 +95,15 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         self.dataset = dataset
         self.global_rank = torch.distributed.get_rank()
         self.epoch = 0
-        self.indices = []
+
+        indices = list(range(len(self.dataset)))
+        remainder = len(indices) % self.data_parallel_size
+        if remainder != 0:
+            num_pad = self.data_parallel_size - remainder
+            self.indices = indices + indices[:num_pad]
+        else:
+            self.indices = indices
+
         self.world_size = torch.distributed.get_world_size()
         self.num_data_parallel_group = self.world_size // (
             self.tensor_parallel_world_size * self.pipeline_parallel_world_size
@@ -112,7 +120,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             # communicates through the IPv6 loopback interface only.
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
-            sizes = [sys.getsizeof(self.dataset, index) for index in range(len(self.dataset))]
+            sizes = [sys.getsizeof(self.dataset, index) if index >=0 else 0 for index in range(self.indices)]
             self.client.Init(
                 data_parallel_rank,
                 data_parallel_size,

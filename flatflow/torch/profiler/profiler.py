@@ -279,11 +279,50 @@ class MemoryProfiler:
     @staticmethod
     def save_log(tag: str, new_data: Dict[str, Any], output_file: str):
         try:
-            os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
+            dir_path = os.path.dirname(output_file)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
 
             record = {"tag": tag, **new_data}
-            with open(output_file, 'a') as f:
-                f.write(json.dumps(record) + '\n')
+            metadata = MemoryProfiler._serialize(record)
 
+            try:
+                json_str = json.dumps(metadata)
+            except (TypeError, ValueError) as json_err:
+                print(f"Warning: JSON serialization failed: {json_err}")
+                safe_metadata = {k: str(v) for k, v in metadata.items()}
+                json_str = json.dumps(safe_metadata)
+            
+            with open(output_file, 'a') as f:
+                f.write(json_str + '\n')
+
+        except (OSError, IOError) as io_err:
+            print(f"Warning: File I/O error when saving to {output_file}: {io_err}")
         except Exception as e:
-            print(f"Warning: Failed to save memory profile to {output_file}: {e}")
+            print(f"Warning: Unexpected error saving memory profile to {output_file}: {e}")
+
+    @staticmethod
+    def _serialize(obj):
+        if isinstance(obj, torch.Tensor):
+            if obj.numel() == 1:
+                return obj.item()
+            else:
+                return obj.detach().cpu().tolist()
+        elif isinstance(obj, (list, tuple)):
+            return [MemoryProfiler._serialize(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: MemoryProfiler._serialize(v) for k, v in obj.items()}
+        elif hasattr(obj, 'item') and callable(getattr(obj, 'item')) and not isinstance(obj, torch.Tensor):
+            try:
+                return obj.item()
+            except (ValueError, TypeError):
+                return str(obj)
+        elif isinstance(obj, (int, float, str, bool, type(None))):
+            return obj
+        elif hasattr(obj, 'tolist') and callable(getattr(obj, 'tolist')):
+            try:
+                return obj.tolist()
+            except (ValueError, TypeError):
+                return str(obj)
+        else:
+            return str(obj)
