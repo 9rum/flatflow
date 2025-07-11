@@ -98,9 +98,9 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
         indices = list(range(len(self.dataset)))
         remainder = len(indices) % self.data_parallel_size
-        if remainder != 0:
-            num_pad = self.data_parallel_size - remainder
-            self.indices = indices + indices[:num_pad]
+        if remainder != 0: # truncate the dataset to make it evenly divisible across the number of replicas
+            truncate_size = len(indices) - remainder
+            self.indices = list(range(truncate_size))
         else:
             self.indices = indices
 
@@ -120,7 +120,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             # communicates through the IPv6 loopback interface only.
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
-            sizes = [sys.getsizeof(self.dataset, index) if index >=0 else 0 for index in range(self.indices)]
+            sizes = [sys.getsizeof(self.dataset, index) for index in (self.indices)]
             self.client.Init(
                 data_parallel_rank,
                 data_parallel_size,
@@ -146,7 +146,7 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
 
         # receive the reordered computation schedule from the control plane
         if is_model_parallel_src:
-            self.schedule = self.client.Scatter(self.epoch, list(range(len(self.dataset))))
+            self.schedule = self.client.Scatter(self.epoch, self.indices)
             self.schedule_size = [len(self.schedule)]
             self.epoch += 1
         else:
