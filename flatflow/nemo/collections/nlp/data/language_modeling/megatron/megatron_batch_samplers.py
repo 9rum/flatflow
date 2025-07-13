@@ -129,17 +129,11 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
         torch.distributed.broadcast_object_list(self.indices, model_parallel_src_rank, model_parallel_group)
 
         batch = []
-        num_pad = 0
         for idx in self.indices:  # type: ignore[attr-defined]
-            if idx < len(self.dataset):
-                batch.append(idx)
-            else:
-                num_pad += 1
+            batch.append(idx if idx < len(self.dataset) else -1)
             if len(batch) == self._global_batch_size_on_this_data_parallel_rank:
-                batch.extend([-1] * num_pad)
                 yield batch
                 batch = []
-                num_pad = 0
 
     def __del__(self) -> None:
         if hasattr(self, "client"):
