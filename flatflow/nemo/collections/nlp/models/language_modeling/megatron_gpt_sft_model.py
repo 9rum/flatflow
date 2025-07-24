@@ -1230,7 +1230,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                             final_cu_seqlens_numpy = np.append(relative_cu_seqlens, [-1])
                             microbatch_dict[key] = torch.tensor([[np.argmin(final_cu_seqlens_numpy)]], device=tensor.device, dtype=tensor.dtype)
                         else:
-                            raise RuntimeError(f"Unhandled tensor '{key}' in get_iterator_k_split. Please add specific logic for it.")
+                            raise RuntimeError(f"Unhandled tensor {key} in get_iterator_k_split. Please add specific logic for it.")
 
                     for key, val_list in list_items.items():
                         if key == "token_count":
