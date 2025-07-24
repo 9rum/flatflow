@@ -404,13 +404,13 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         else:
             batch = next(dataloader_iter)
 
-        log_token_counts = self.cfg.get('log_token_counts', False)
+        log_token_counts = self.cfg.get("log_token_counts", False)
         if log_token_counts:
-            token_count_avg = sum(batch['token_count']) / len(batch['token_count'])
+            token_count_avg = sum(batch["token_count"]) / len(batch["token_count"])
 
         # Pass only torch.Tensor to prevent errors when process get_iterator_k_split()
         batch = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
-        _, seq_length = batch['tokens'].shape
+        _, seq_length = batch["tokens"].shape
         data_iter = get_iterator_k_split(batch, num_microbatches) if not self.use_flatflow else self.get_iterator_k_split(batch, num_microbatches)
 
         if log_token_counts:
@@ -1172,11 +1172,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             list_items = {k: v for k, v in batch.items() if isinstance(v, list)}
 
             # --- Start of new logic for cu_seqlens ---
-            if 'cu_seqlens' in tensor_items:
+            if "cu_seqlens" in tensor_items:
 
                 microbatches = []
                 
-                cu_seqlens_tensor = tensor_items['cu_seqlens']
+                cu_seqlens_tensor = tensor_items["cu_seqlens"]
                 cu_seqlens_numpy = cu_seqlens_tensor.squeeze(0).cpu().numpy()[:-1]
                 num_sequences = len(cu_seqlens_numpy) - 1
 
@@ -1207,21 +1207,21 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     # Handle Tensors
                     for key, tensor in tensor_items.items():
                         tensor_squeezed = tensor.squeeze(0)
-                        if key in ['tokens', 'labels', 'loss_mask', 'position_ids']:
+                        if key in ["tokens", "labels", "loss_mask", "position_ids"]:
                             microbatch_dict[key] = tensor_squeezed[start_token_idx:end_token_idx].unsqueeze(0)
-                        elif key == 'cu_seqlens':
+                        elif key == "cu_seqlens":
                             sub_cu_seqlens = cu_seqlens_numpy[start_seq_idx : end_seq_idx + 2]
                             relative_cu_seqlens = sub_cu_seqlens - cu_seqlens_numpy[start_seq_idx]
                             final_cu_seqlens = np.append(relative_cu_seqlens, [-1])
                             microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device, dtype=torch.int32).unsqueeze(0)
-                        elif key == 'attention_mask':
+                        elif key == "attention_mask":
                             # This tensor is a placeholder, copy.
                             microbatch_dict[key] = tensor
-                        elif key == 'max_seqlen':
+                        elif key == "max_seqlen":
                             # Recalculate max_seqlen for the microbatch
                             micro_seqlens = seqlens_numpy[seq_indices]
                             microbatch_dict[key] = torch.tensor([[micro_seqlens.max()]], device=tensor.device, dtype=tensor.dtype)
-                        elif key == 'cu_seqlens_argmin':
+                        elif key == "cu_seqlens_argmin":
                             # Recalculate argmin for the new cu_seqlens of the microbatch
                             # This depends on the 'cu_seqlens' key being processed first if we reuse the value.
                             # For safety, we recalculate it here.
@@ -1230,10 +1230,10 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                             final_cu_seqlens_numpy = np.append(relative_cu_seqlens, [-1])
                             microbatch_dict[key] = torch.tensor([[np.argmin(final_cu_seqlens_numpy)]], device=tensor.device, dtype=tensor.dtype)
                         else:
-                            raise RuntimeError(f"Unhandled tensor '{key}' in flatflow_get_iterator_k_split. Please add specific logic for it.")
+                            raise RuntimeError(f"Unhandled tensor '{key}' in get_iterator_k_split. Please add specific logic for it.")
 
                     for key, val_list in list_items.items():
-                        if key == 'token_count':
+                        if key == "token_count":
                             # Recalculate token_count for the microbatch
                             microbatch_dict[key] = [end_token_idx - start_token_idx]
                         else:
