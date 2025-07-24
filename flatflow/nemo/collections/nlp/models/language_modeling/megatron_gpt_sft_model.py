@@ -1213,11 +1213,11 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         elif key == 'cu_seqlens':
                             sub_cu_seqlens = cu_seqlens_numpy[start_seq_idx : end_seq_idx + 2]
                             relative_cu_seqlens = sub_cu_seqlens - cu_seqlens_numpy[start_seq_idx]
-                            # Add sentinel back
+
                             final_cu_seqlens = np.append(relative_cu_seqlens, [-1])
-                            microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device).unsqueeze(0)
+                            microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device, dtype=torch.int32).unsqueeze(0)
                         elif key == 'attention_mask':
-                            # This tensor is a placeholder, just copy it.
+                            # This tensor is a placeholder, copy.
                             microbatch_dict[key] = tensor
                         elif key == 'max_seqlen':
                             microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device, dtype=torch.int32).unsqueeze(0)
