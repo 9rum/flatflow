@@ -1204,7 +1204,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     start_token_idx = cu_seqlens_numpy[start_seq_idx]
                     end_token_idx = cu_seqlens_numpy[end_seq_idx + 1]
                     seqlens_numpy = np.diff(cu_seqlens_numpy)
-                    
                     # Handle Tensors
                     for key, tensor in tensor_items.items():
                         tensor_squeezed = tensor.squeeze(0)
@@ -1213,14 +1212,15 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         elif key == 'cu_seqlens':
                             sub_cu_seqlens = cu_seqlens_numpy[start_seq_idx : end_seq_idx + 2]
                             relative_cu_seqlens = sub_cu_seqlens - cu_seqlens_numpy[start_seq_idx]
-
                             final_cu_seqlens = np.append(relative_cu_seqlens, [-1])
                             microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device, dtype=torch.int32).unsqueeze(0)
                         elif key == 'attention_mask':
                             # This tensor is a placeholder, copy.
                             microbatch_dict[key] = tensor
                         elif key == 'max_seqlen':
-                            microbatch_dict[key] = torch.from_numpy(final_cu_seqlens).to(device=tensor.device, dtype=torch.int32).unsqueeze(0)
+                            # Recalculate max_seqlen for the microbatch
+                            micro_seqlens = seqlens_numpy[seq_indices]
+                            microbatch_dict[key] = torch.tensor([[micro_seqlens.max()]], device=tensor.device, dtype=tensor.dtype)
                         elif key == 'cu_seqlens_argmin':
                             # Recalculate argmin for the new cu_seqlens of the microbatch
                             # This depends on the 'cu_seqlens' key being processed first if we reuse the value.
