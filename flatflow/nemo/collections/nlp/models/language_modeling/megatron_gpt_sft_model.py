@@ -80,13 +80,11 @@ try:
 except (ImportError, ModuleNotFoundError):
     HAVE_MEGATRON_CORE = False
 
-__all__ = ['MegatronGPTSFTModel']
+__all__ = ["MegatronGPTSFTModel"]
 
 
 class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
-    """
-    Megatron GPT Supervised Fine-Tuning
-    """
+    """Megatron GPT Supervised Fine-Tuning"""
 
     def __init__(self, cfg: DictConfig, trainer: Trainer):
         super().__init__(cfg, trainer=trainer)
@@ -1164,18 +1162,16 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
     def get_iterator_k_split(self, batch: Union[Dict, List[torch.Tensor]], num_microbatches: int, enforce_divisible_batch: Optional[bool] = True):
         if isinstance(batch, dict):
             discard_items = [k for k, v in batch.items() if not isinstance(v, (torch.Tensor, list))]
-            if len(discard_items) > 0:
+            if discard_items:
                 print(f"Warning: {discard_items} are not tensors or lists, they will be discarded")
 
             batch = {k: v for k, v in batch.items() if isinstance(v, (torch.Tensor, list))}
             tensor_items = {k: v for k, v in batch.items() if isinstance(v, torch.Tensor)}
             list_items = {k: v for k, v in batch.items() if isinstance(v, list)}
 
-            # --- Start of new logic for cu_seqlens ---
             if "cu_seqlens" in tensor_items:
-
                 microbatches = []
-                
+
                 cu_seqlens_tensor = tensor_items["cu_seqlens"]
                 cu_seqlens_numpy = cu_seqlens_tensor.squeeze(0).cpu().numpy()[:-1]
                 num_sequences = len(cu_seqlens_numpy) - 1
