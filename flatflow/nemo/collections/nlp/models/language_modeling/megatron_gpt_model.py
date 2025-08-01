@@ -1684,6 +1684,32 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
         # Megatron sampler
         if hasattr(self.cfg.data, 'dataloader_type') and self.cfg.data.dataloader_type is not None:
+            if self.use_flatflow and dataset_type == 'train':
+                data_sampler = (
+                    flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingSampler
+                    if self.cfg.data.get('legacy_dataset', False)
+                    else flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronCorePretrainingSampler
+                )
+                batch_sampler = data_sampler(
+                    total_samples=len(dataset),
+                    consumed_samples=consumed_samples,
+                    micro_batch_size=self.cfg.micro_batch_size,
+                    global_batch_size=self.cfg.global_batch_size,
+                    data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                    data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                    drop_last=drop_last,
+                    pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
+                    dataset=dataset,
+                    graph=_export(self.model_path),
+                )
+                
+                return flatflow.torch.utils.data.DataLoader(
+                    dataset,
+                    batch_sampler=batch_sampler,
+                    num_workers=self.cfg.data.num_workers,
+                    pin_memory=True,
+                    persistent_workers=True if self.cfg.data.num_workers > 0 else False,
+                )
             data_sampler = (
                 MegatronPretrainingSampler
                 if self.cfg.data.get('legacy_dataset', False)
@@ -1715,35 +1741,13 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         else:
             raise ValueError('cfg.data.dataloader_type not found. Must be "single" or "cyclic"')
 
-        if self.use_flatflow and dataset_type == 'train':
-            batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
-                total_samples=len(dataset),
-                consumed_samples=consumed_samples,
-                micro_batch_size=self.cfg.micro_batch_size,
-                global_batch_size=self.cfg.global_batch_size,
-                data_parallel_rank=parallel_state.get_data_parallel_rank(),
-                data_parallel_size=parallel_state.get_data_parallel_world_size(),
-                drop_last=drop_last,
-                pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
-                dataset=dataset,
-                graph=_export(self.model_path),
-            )
-            
-            return flatflow.torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                num_workers=self.cfg.data.num_workers,
-                pin_memory=True,
-                persistent_workers=True if self.cfg.data.num_workers > 0 else False,
-            )
-        else:
-            return torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                num_workers=self.cfg.data.num_workers,
-                pin_memory=True,
-                persistent_workers=True if self.cfg.data.num_workers > 0 else False,
-            )
+        return torch.utils.data.DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
+            num_workers=self.cfg.data.num_workers,
+            pin_memory=True,
+            persistent_workers=True if self.cfg.data.num_workers > 0 else False,
+        )
 
     def setup(self, stage=None):
         """
