@@ -1,3 +1,5 @@
+# Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/data/language_modeling/megatron/data_samplers.py
+# Copyright (c) 2025, The FlatFlow Authors.
 # Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +16,12 @@
 
 """Dataloaders."""
 
-import abc
-from itertools import chain
-from typing import Optional
-
-import torch
-import nemo.collections.nlp.data.language_modeling.megatron.data_samplers
-
-from nemo.utils import logging
 import grpc
 import torch.distributed
 import torch.fx
 from megatron.core import parallel_state
+from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
+
 from flatflow import sys
 from flatflow.rpc import ControlPlaneClient, run
 from flatflow.torch.utils.data import Dataset
@@ -34,7 +30,7 @@ __all__ = ["MegatronPretrainingSampler", "MegatronCorePretrainingSampler"]
 
 
 class MegatronPretrainingSampler(
-    nemo.collections.nlp.data.language_modeling.megatron.data_samplers.MegatronPretrainingSampler
+    BaseMegatronPretrainingSampler
 ):
     """Megatron-LM style pre-training sampler.
 
@@ -79,7 +75,14 @@ class MegatronPretrainingSampler(
         )
         self.dataset = dataset
         self.epoch = 0
-
+        
+        if drop_last:
+            self.total_size = len(dataset) // global_batch_size * global_batch_size
+        else:
+            self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
+        num_samples = self.total_size // data_parallel_size
+        self.indices = [0] * num_samples
+        
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         if pipeline_parallel_rank == 0 and tensor_parallel_rank == 0:
@@ -123,13 +126,12 @@ class MegatronPretrainingSampler(
 
         # Receive the reordered computation schedule from the control plane.
         if is_model_parallel_src:
-            indices = list(range(self.total_samples))
-            self._indices = self.client.Scatter(self.epoch, indices)
+            self.indices = self.client.Scatter(self.epoch, list(range(self.total_size)))
             self.epoch += 1
-        torch.distributed.broadcast_object_list(self._indices, model_parallel_src_rank, model_parallel_group)
+        torch.distributed.broadcast_object_list(self.indices, model_parallel_src_rank, model_parallel_group)
 
         batch = []
-        for idx in self._indices:  # type: ignore[attr-defined]
+        for idx in self.indices:  # type: ignore[attr-defined]
             batch.append(idx)
             if len(batch) == self.micro_batch_times_data_parallel_size:
                 start, end = self.get_start_end_idx()
