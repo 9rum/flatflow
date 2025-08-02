@@ -61,6 +61,7 @@ class MegatronPretrainingSampler(
         data_parallel_size: int,
         drop_last: bool,
         graph: torch.fx.Graph,
+        pad_samples_to_global_batch_size: bool = False,
         *args, **kwargs,
     ) -> None:
         super().__init__(
@@ -71,6 +72,7 @@ class MegatronPretrainingSampler(
             data_parallel_rank=data_parallel_rank,
             data_parallel_size=data_parallel_size,
             drop_last=drop_last,
+            pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
             *args, **kwargs,
         )
         self.dataset = dataset
@@ -79,6 +81,7 @@ class MegatronPretrainingSampler(
         if drop_last:
             self.total_size = len(dataset) // global_batch_size * global_batch_size
         else:
+            assert pad_samples_to_global_batch_size
             self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
         num_samples = self.total_size // data_parallel_size
         self.indices = [0] * num_samples
@@ -98,7 +101,7 @@ class MegatronPretrainingSampler(
                 sys.getsizeof(dataset, index)
                 if index < len(dataset)
                 else sys.getsizeof(dataset, len(dataset) - 1)
-                for index in range(self.total_samples)
+                for index in range(self.total_size)
             ]
             self.client.Init(
                 data_parallel_rank,
@@ -138,9 +141,13 @@ class MegatronPretrainingSampler(
                 yield batch[start:end]   # yield per micro_batch_size
                 batch = []
 
-        if len(batch) and not self.drop_last:
-            start, end = self.get_start_end_idx()
-            yield batch[start:end]
+        # Check the last partial batch and see drop_last is set
+        if len(batch) > 0 and not self.drop_last:
+            assert (
+                not self.pad_samples_to_global_batch_size
+            ), 'with pad_samples_to_global_batch_size all batches should be complete'
+            start_idx, end_idx = self.get_start_end_idx()
+            yield batch[start_idx:end_idx]
 
     def __del__(self) -> None:
         if hasattr(self, "client"):
