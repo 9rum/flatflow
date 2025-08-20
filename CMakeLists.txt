@@ -25,8 +25,7 @@ option(FLATFLOW_ENABLE_UBSAN "If ON, enable UndefinedBehaviorSanitizer" OFF)
 
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-include(utils)
+include(${PROJECT_SOURCE_DIR}/cmake/utils.cmake)
 
 find_package(OpenMP REQUIRED)
 
