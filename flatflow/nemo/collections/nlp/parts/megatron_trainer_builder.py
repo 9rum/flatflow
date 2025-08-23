@@ -22,10 +22,14 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelSummary
 
 from nemo.utils import logging
+from nemo.utils.callbacks.dist_ckpt_io import (
+    AsyncFinalizerCallback,
+)
 
 import nemo.collections.nlp.parts.megatron_trainer_builder
 
 from nemo.collections.nlp.parts.nlp_overrides import (
+    CustomProgressBar,
     NLPFSDPStrategy,
     GradScaler,
     NLPDDPStrategyNotebook,
@@ -33,6 +37,7 @@ from nemo.collections.nlp.parts.nlp_overrides import (
 )
 
 from flatflow.megatron.core.bpipe import bpipe_state
+from flatflow.nemo.collections.common.metrics import FLOPsMeasurementCallback
 
 class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder.MegatronTrainerBuilder):
     """
@@ -73,6 +78,26 @@ class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder
             dist_ckpt_parallel_save=self.cfg.model.get('dist_ckpt_parallel_dist_opt', True),
         )
 
+    def _callbacks(self, callbacks: Optional[list]) -> list:
+        """
+        Returns:
+            callbacks: list of callbacks passed to Trainer.callbacks.
+        """
+        if callbacks is None:
+            callbacks = []
+        # enable_progress_bar is True by default. If cfg.trainer.enable_progress_bar=False, CustomProgressBar is not appended to callbacks
+        if 'enable_progress_bar' not in self.cfg.trainer or self.cfg.trainer.enable_progress_bar:
+            callbacks.append(CustomProgressBar())
+
+        # exp_manager == None is valid and indicates no exp_manager should be initialized
+        if (self.cfg.get('exp_manager', {}) or {}).get('checkpoint_callback_params', {}).get('async_save', False):
+            callbacks.append(AsyncFinalizerCallback())
+
+        # exp_manager == None is valid and indicates no exp_manager should be initialized
+        if (self.cfg.get('exp_manager', {}) or {}).get('log_tflops_per_sec_per_gpu', True):
+            callbacks.append(FLOPsMeasurementCallback(self.cfg))
+
+        return callbacks
         
 class MegatronLMPPTrainerBuilder(MegatronTrainerBuilder):
     """Builder for scripts where grad scaler is turned off for pipeline parallel LM model. E.g. PEFT tuning scripts"""
