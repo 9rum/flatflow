@@ -1606,6 +1606,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.tokenizer.add_special_tokens({'additional_special_tokens': fim_tokens})
 
         if legacy_dataset:
+            #TODO: add flatflow version here
             self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
                 cfg=self.cfg,
                 trainer=self.trainer,
