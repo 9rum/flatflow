@@ -3,7 +3,7 @@
 # https://docs.nvidia.com/nemo-framework/user-guide/latest/modelalignment/sft.html#obtain-a-pretrained-model
 
 MODELS_DIR=${MODELS_DIR:-"/veronica/models"}
-MODEL_PATH=${MODEL_PATH:-"meta-llama/Llama-3.1-70B"}
+MODEL_PATH=${MODEL_PATH:-"meta-llama/Llama-3.2-1B"}
 
 if [ ! -e "${MODELS_DIR}/${MODEL_PATH}" ]; then
     if [ ! -n ${TOKEN} ]; then
