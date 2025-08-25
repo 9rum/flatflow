@@ -17,10 +17,10 @@
 from collections.abc import Mapping
 from typing import Optional
 
-import nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset
 import numpy as np
 import torch
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset import GPTSFTDataset as NeMoGPTSFTDataset
 from nemo.utils import logging
 
 from flatflow.nemo.core.classes import Dataset
@@ -28,7 +28,7 @@ from flatflow.nemo.core.classes import Dataset
 __all__ = ["GPTSFTDataset"]
 
 
-class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset.GPTSFTDataset):
+class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
     def __init__(
         self,
         file_path: str,
@@ -83,7 +83,7 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
         is_test: Whether this dataset is the test split.
         output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
         """
-        nemo.collections.nlp.data.language_modeling.megatron.gpt_sft_dataset.GPTSFTDataset.__init__(
+        NeMoGPTSFTDataset.__init__(
             self,
             file_path,
             tokenizer,
@@ -114,12 +114,20 @@ class GPTSFTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatro
             get_attention_mask_from_fusion=get_attention_mask_from_fusion,
         )
 
+        """
+        NOTE: The `token_count` is used by FlatFlow scheduler via `__sizeof__` before sampling and collation.
+        So, the 'teacher-forcing alignment' should happen here, before `__sizeof__`, in contrast to `NeMoGPTSFPTDataset`
+        where it happens inside `collate_fn`.
+
+        Re-calculation of `token_count`, not simply imposing `-= 1`, is to support `GPTSFTChatDataset` whose
+        `_process_example` doesn't set it.
+        """
         self.processed_dataset = [None] * len(self.indexed_dataset)
         for index in range(len(self.indexed_dataset)):
             self.processed_dataset[index] = self._process_example(self.indexed_dataset[index])
             self.processed_dataset[index]["labels"] = self.processed_dataset[index]["input_ids"][1:]
             self.processed_dataset[index]["input_ids"] = self.processed_dataset[index]["input_ids"][:-1]
-            self.processed_dataset[index]["token_count"] -= 1
+            self.processed_dataset[index]["token_count"] = len(self.processed_dataset[index]["input_ids"])
 
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):  # type: ignore[arg-type]
