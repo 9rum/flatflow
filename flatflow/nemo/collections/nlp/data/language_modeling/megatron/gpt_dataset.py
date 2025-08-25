@@ -1,5 +1,5 @@
 # Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/data/language_modeling/megatron/gpt_dataset.py
-# Copyright (c) 2024, The FlatFlow Authors.
+# Copyright (c) 2024-2025, The FlatFlow Authors.
 # Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +16,10 @@
 
 from typing import Optional
 
-import nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset
 import numpy as np
 import torch
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset
 from nemo.utils import logging
 
 from flatflow.nemo.core.classes import Dataset
@@ -27,7 +27,17 @@ from flatflow.nemo.core.classes import Dataset
 __all__ = ["GPTDataset"]
 
 
-class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset.GPTDataset):
+class GPTDataset(Dataset, NeMoGPTDataset):
+    """
+    Dataset for GPT pretraining, compatible with FlatFlow scheduler.
+
+    `indexed_dataset` built from `NeMoGPTDataset.__init__` is used primarily. While `doc_idx`, `sample_idx`,
+    and `shuffle_idx`, are ignored because these are built according to the concat-then-chunk scheme.
+
+    NOTE: Currently it does not support multi-epoch training by itself, for which `samples_mapping`-like virtualization
+    needs to be implemented in the future.
+    """
+
     def __init__(
         self,
         file_path: str,
@@ -49,8 +59,6 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
         get_attention_mask_from_fusion: bool = False,
     ) -> None:
         """
-        GPT dataset for pretraining.
-        
         file_path: Path to text files for GPT pretraining. Can be .jsonl files with 'text' field or plain .txt files.
         tokenizer: Tokenizer for the dataset. Instance of a class that inherits TokenizerSpec (ex: SentencePiece).
         max_seq_length (int): maximum sequence length for each dataset examples. Examples will either be truncated to fit this length or dropped if they cannot be truncated.
@@ -67,7 +75,8 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
         ceil_to_power_2: Whether to pad sequence length to power of 2.
         get_attention_mask_from_fusion: Whether to get attention mask from fusion.
         """
-        nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset.GPTDataset.__init__(
+
+        NeMoGPTDataset.__init__(
             self,
             file_path,
             tokenizer,
@@ -88,76 +97,71 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
             get_attention_mask_from_fusion=get_attention_mask_from_fusion,
         )
 
-        # Don't preprocess all data in memory for large pretraining datasets
-        # Instead, process on-the-fly in __getitem__
+    def __len__(self):
+        return len(self.indexed_dataset.sizes)
 
     def __getitem__(self, idx):
-        if isinstance(idx, np.int64):  # type: ignore[arg-type]
-            idx = idx.item()
+        item = self.indexed_dataset.get(idx)
+        if self.add_extra_token:
+            tokens = item[:-1].contiguous()
+            labels = item[1:].contiguous()
+        else:
+            tokens = text
+            labels = torch.roll(text, shifts=-1, dims=0)
+            labels[-1] = -1
 
-        if self.samples_mapping is not None:
-            assert idx < len(self.samples_mapping)
-            idx, _, _ = self.samples_mapping[idx]
-            if isinstance(idx, np.uint32):  # type: ignore[arg-type]
-                idx = idx.item()
+        if self.create_inputs or not self.cached_inputs:
+            attention_mask, loss_mask, position_ids = _create_ltor_masks_and_position_ids(
+                tokens, self.eos_id, self.reset_position_ids, self.reset_attention_mask, self.eod_mask_loss,
+            )
+            if not self.create_inputs:
+                self.cached_attention_mask = attention_mask
+                self.cached_loss_mask = loss_mask
+                self.cached_position_ids = position_ids
+                self.cached_inputs = True
+        else:
+            attention_mask = self.cached_attention_mask
+            loss_mask = self.cached_loss_mask
+            position_ids = self.cached_position_ids
+        loss_mask[labels == -1] = 0.0
+        tokens[tokens == -1] = 0
+        labels[labels == -1] = 0
 
-        assert idx < len(self.indexed_dataset)
-        auto_gen_idx = idx < 0
-        if auto_gen_idx:
-            idx += len(self)
+        # Negative index comes when we pad the last batch in MegatronPretrainingBatchSampler
+        # We make the loss_mask zero to mask out loss from these samples
+        if idx < 0:
+            logging.debug("Got negative index. Masking loss from this sample")
+            loss_mask = torch.zeros_like(loss_mask)
 
-        try:
-            # Process the example on-the-fly for memory efficiency
-            example = self._process_example(self.indexed_dataset[idx])
-            
-            # For causal language modeling, labels are input_ids shifted by 1
-            labels = example["input_ids"][1:]
-            input_ids = example["input_ids"][:-1]
-            token_count = example["token_count"] - 1
-            
-            if auto_gen_idx:
-                example["__AUTOGENERATED__"] = True
-        except Exception as e:
-            logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
-            raise e
-
-        return {
-            "input_ids": input_ids,
-            "labels": labels,
-            "loss_mask": [0] * token_count if auto_gen_idx else [1] * token_count,
-            "seqlen": token_count,
-        }
+        if self.get_attention_mask_from_fusion:
+            return {
+                "tokens": tokens,
+                "labels": labels,
+                "loss_mask": loss_mask,
+                "position_ids": position_ids,
+                "seqlen": len(tokens),
+            }
+        else:
+            return {
+                "tokens": tokens,
+                "labels": labels,
+                "attention_mask": attention_mask,
+                "loss_mask": loss_mask,
+                "position_ids": position_ids,
+                "seqlen": len(tokens),
+            }
 
     def __sizeof__(self, idx):
-        if isinstance(idx, np.int64):  # type: ignore[arg-type]
-            idx = idx.item()
-
-        if self.samples_mapping is not None:
-            assert idx < len(self.samples_mapping)
-            idx, _, _ = self.samples_mapping[idx]
-            if isinstance(idx, np.uint32):  # type: ignore[arg-type]
-                idx = idx.item()
-
-        assert idx < len(self.indexed_dataset)
-        if idx < 0:
-            idx += len(self)
-
-        try:
-            example = self._process_example(self.indexed_dataset[idx])
-        except Exception as e:
-            logging.error(f"Error while loading example {idx} from dataset {self.file_path}")
-            raise e
-
-        return example["token_count"] - 1  # -1 for causal LM shift
+        self.indexed_dataset.sizes[idx]
 
     def _collate_fn(self, batch):
-        input_ids = np.concatenate([item["input_ids"] for item in batch])
+        tokens = np.concatenate([item["tokens"] for item in batch])
         labels = np.concatenate([item["labels"] for item in batch])
         loss_mask = np.concatenate([item["loss_mask"] for item in batch])
-        position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
-        token_count = input_ids.shape[0]
+        position_ids = np.concatenate([item["position_ids"] for item in batch])
+        token_count = tokens.shape[0]
 
-        assert input_ids.shape[0] == position_ids.shape[0]
+        assert tokens.shape[0] == position_ids.shape[0]
 
         seqlens = np.array([item["seqlen"] for item in batch])
         cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]])
@@ -165,7 +169,7 @@ class GPTDataset(Dataset, nemo.collections.nlp.data.language_modeling.megatron.g
         max_seqlen = seqlens.max(keepdims=True)
 
         return {
-            "tokens": torch.LongTensor(input_ids).unsqueeze(0),
+            "tokens": torch.LongTensor(tokens).unsqueeze(0),
             "labels": torch.LongTensor(labels).unsqueeze(0),
             "loss_mask": torch.LongTensor(loss_mask).unsqueeze(0),
             "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
