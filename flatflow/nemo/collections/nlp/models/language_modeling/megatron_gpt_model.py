@@ -1758,7 +1758,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 drop_last=drop_last,
                 pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
                 dataset=dataset,
-                graph=_export(self.model_path),
+                graph=_export(self.model, self.tokenizer.tokenizer),
             )
             
             return flatflow.torch.utils.data.DataLoader(
@@ -1835,7 +1835,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.setup_transformer_engine_cp_groups()
 
     def setup_training_data(self, cfg):
-        if hasattr(self, '_train_ds'):
+        if self._train_ds is not None:
             consumed_samples = self.compute_consumed_samples(0)
             logging.info(
                 f'Setting up train dataloader with len(len(self._train_ds)): {len(self._train_ds)} and consumed samples: {consumed_samples}'
@@ -1843,7 +1843,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples, dataset_type="train")
 
     def setup_validation_data(self, cfg):
-        if hasattr(self, '_validation_ds'):
+        if self._validation_ds is not None:
             consumed_samples = 0
             logging.info(
                 f'Setting up validation dataloader with len(len(self._validation_ds)): {len(self._validation_ds)} and consumed samples: {consumed_samples}'
@@ -1863,7 +1863,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             )
 
     def setup_test_data(self, cfg):
-        if hasattr(self, '_test_ds'):
+        if self._test_ds is not None:
             if self._test_ds is not None:
                 consumed_samples = 0
                 logging.info(
@@ -2274,13 +2274,11 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         return transformer_config
 
-def _export(model_path):
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+def _export(model, tokenizer):
     prompt = "How many hours are in a day?"
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     torch.backends.cuda.enable_mem_efficient_sdp(False)
     decomp_table = get_decompositions([torch.ops.aten.scaled_dot_product_attention])
-    model = AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
 
     seq_len = torch.export.Dim("seq_len", min=2, max=128)
     with torch.no_grad(), sdpa_kernel(SDPBackend.MATH):

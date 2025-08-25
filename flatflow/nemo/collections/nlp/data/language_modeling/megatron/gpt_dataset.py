@@ -110,19 +110,11 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             labels = torch.roll(text, shifts=-1, dims=0)
             labels[-1] = -1
 
-        if self.create_inputs or not self.cached_inputs:
-            attention_mask, loss_mask, position_ids = _create_ltor_masks_and_position_ids(
-                tokens, self.eos_id, self.reset_position_ids, self.reset_attention_mask, self.eod_mask_loss,
-            )
-            if not self.create_inputs:
-                self.cached_attention_mask = attention_mask
-                self.cached_loss_mask = loss_mask
-                self.cached_position_ids = position_ids
-                self.cached_inputs = True
-        else:
-            attention_mask = self.cached_attention_mask
-            loss_mask = self.cached_loss_mask
-            position_ids = self.cached_position_ids
+        # Derived from nemo...megatron/gpt_dataset.py:_create_ltor_masks_and_position_ids, which has a bug(L#538).
+        loss_mask = torch.ones(len(tokens), dtype=torch.float)
+        if self.eod_mask_loss:
+            loss_mask[tokens == self.eos_id] = 0.0
+
         loss_mask[labels == -1] = 0.0
         tokens[tokens == -1] = 0
         labels[labels == -1] = 0
@@ -133,23 +125,12 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             logging.debug("Got negative index. Masking loss from this sample")
             loss_mask = torch.zeros_like(loss_mask)
 
-        if self.get_attention_mask_from_fusion:
-            return {
-                "tokens": tokens,
-                "labels": labels,
-                "loss_mask": loss_mask,
-                "position_ids": position_ids,
-                "seqlen": len(tokens),
-            }
-        else:
-            return {
-                "tokens": tokens,
-                "labels": labels,
-                "attention_mask": attention_mask,
-                "loss_mask": loss_mask,
-                "position_ids": position_ids,
-                "seqlen": len(tokens),
-            }
+        return {
+            "tokens": tokens,
+            "labels": labels,
+            "loss_mask": loss_mask,
+            "seqlen": len(tokens),
+        }
 
     def __sizeof__(self, idx):
         self.indexed_dataset.sizes[idx]
@@ -158,7 +139,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         tokens = np.concatenate([item["tokens"] for item in batch])
         labels = np.concatenate([item["labels"] for item in batch])
         loss_mask = np.concatenate([item["loss_mask"] for item in batch])
-        position_ids = np.concatenate([item["position_ids"] for item in batch])
+        position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
         token_count = tokens.shape[0]
 
         assert tokens.shape[0] == position_ids.shape[0]
