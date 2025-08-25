@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Reference: https://docs.nvidia.com/nemo-framework/user-guide/latest/playbooks/llama2sft.html#supervised-fine-tuning-playbook
+# Reference: https://docs.nvidia.com/nemo-framework/user-guide/24.07/playbooks/singlenodepretrain.html
 # Usages
 # - USE_FLATFLOW=True MASTER_ADDR={MASTER_ADDR} MASTER_PORT={MASTER_PORT} RANK=0 NNODES=2 BATCH_SIZE=16 MICRO_BATCH_SIZE=4 PP_SIZE=4 MODEL_PATH=meta-llama/Llama-3.1-8B DATASET_NAME=quality HF_TOKEN={TOKEN} WANDB_API_KEY={KEY} bash run_pretrain_multi_nodes.sh
 # - USE_FLATFLOW=True MASTER_ADDR={MASTER_ADDR} MASTER_PORT={MASTER_PORT} RANK=1 NNODES=2 BATCH_SIZE=16 MICRO_BATCH_SIZE=4 PP_SIZE=4 MODEL_PATH=meta-llama/Llama-3.1-8B DATASET_NAME=quality HF_TOKEN={TOKEN} WANDB_API_KEY={KEY} bash run_pretrain_multi_nodes.sh
