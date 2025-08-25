@@ -10,8 +10,7 @@ FLATFLOW_BUILD_TESTS ?= OFF
 FLATFLOW_ENABLE_ASAN ?= OFF
 FLATFLOW_ENABLE_UBSAN ?= OFF
 
-.PHONY: all generate degenerate check clean
-
+.PHONY: all
 all:
 	@mkdir -p build && \
 		cd build && \
@@ -23,6 +22,7 @@ all:
 		-DFLATFLOW_ENABLE_UBSAN=$(FLATFLOW_ENABLE_UBSAN) && \
 		$(MAKE)
 
+.PHONY: generate
 generate:
 	@mkdir -p tmp/ops && \
 		mkdir -p tmp/rpc && \
@@ -49,6 +49,7 @@ generate:
 		rmdir tmp/rpc && \
 		rmdir tmp
 
+.PHONY: degenerate
 degenerate:
 	@rm flatflow/ops/graph_generated.h \
 		flatflow/ops/graph_generated.py \
@@ -70,8 +71,10 @@ degenerate:
 		flatflow/rpc/empty_generated.py \
 		flatflow/rpc/empty_generated.pyi
 
+.PHONY: check
 check:
 	@ctest --test-dir build
 
+.PHONY: clean
 clean:
 	@rm -r build

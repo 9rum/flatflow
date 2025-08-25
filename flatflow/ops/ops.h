@@ -124,12 +124,13 @@ symbolic_trace_impl<Operator::_SOFTMAX>(
   // NOTE: _softmax requires five FLOPs for each element.
   // Approximate FLOPs breakdown can be found at
   // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(5);
+  auto poly = make_polynomial(5 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -191,12 +192,21 @@ symbolic_trace_impl<Operator::ADD_TENSOR>(
   // addition occurs for each element. add.Tensor also supports broadcasting to
   // a common shape, necessitating the use of output shape.
   CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(args->size());
+  auto poly = make_polynomial(args->size() * Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -237,9 +247,8 @@ symbolic_trace_impl<Operator::ADDMM>(
   // `alpha` and `beta` are scaling factors on matrix-vector product between
   // `mat1` and `mat2` and the added matrix `self` respectively.
   // If `mat1` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
-  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
-  // For scaling and addition, it requires additional 3 x n x p FLOPs,
-  // so totally n x p x (2 x m + 3) FLOPs are required.
+  // produces a (n x p) tensor with n x m x p MACs.
+  // For scaling and addition, it requires additional 3 x n x p FLOPs.
   auto n = shape1->Get(0);
   CHECK_NE(n, nullptr);
   CHECK_NE(n->data(), nullptr);
@@ -256,10 +265,16 @@ symbolic_trace_impl<Operator::ADDMM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  const auto poly = make_polynomial(m->data()->Get(0), m->data()->Get(1)) << 1;
+  auto dtype = promote_types(args->Get(1)->dtype(), args->Get(2)->dtype());
+  const auto poly =
+      make_polynomial(m->data()->Get(0), m->data()->Get(1)) * Factorize(dtype);
+
+  CHECK_NE(args->Get(0), nullptr);
+  dtype = promote_types(dtype, args->Get(0)->dtype());
 
   return make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-         make_polynomial(p->data()->Get(0), p->data()->Get(1)) * (poly + 3);
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         (poly + 3 * Factorize(dtype));
 }
 
 // flatflow::symbolic_trace_impl<ALIAS>()
@@ -363,8 +378,7 @@ symbolic_trace_impl<Operator::BMM>(
   // bmm performs a batch matrix-matrix product of matrices `self` and `mat2`.
   // `self` and `mat2` must be 3-D tensors each containing the same number of
   // matrices. If `self` is a (b x n x m) tensor and `mat2` is a (b x m x p)
-  // tensor, then it produces a (b x n x p) tensor with b x n x m x p MACs,
-  // i.e., 2 x b x n x m x p FLOPs.
+  // tensor, then it produces a (b x n x p) tensor with b x n x m x p MACs.
   auto b = shape0->Get(0);
   CHECK_NE(b, nullptr);
   CHECK_NE(b->data(), nullptr);
@@ -393,13 +407,11 @@ symbolic_trace_impl<Operator::BMM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  // coef4 is actually zero, since at least one of b, n, m, p is a constant.
-  const auto poly = make_polynomial(b->data()->Get(0), b->data()->Get(1)) *
-                    make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-                    make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
-                    make_polynomial(p->data()->Get(0), p->data()->Get(1));
-
-  return poly << 1;
+  return make_polynomial(b->data()->Get(0), b->data()->Get(1)) *
+         make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
+         make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         Factorize(promote_types(args->Get(0)->dtype(), args->Get(1)->dtype()));
 }
 
 // flatflow::symbolic_trace_impl<CAT>()
@@ -481,12 +493,13 @@ symbolic_trace_impl<Operator::CUMSUM>(
   // tensor with the same shape as `self`; the exact number of FLOPs is obtained
   // by subtracting one from the corresponding dimension and then multiplying
   // the size of the remaining dimensions, but here we ignore that subtraction.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -570,12 +583,13 @@ symbolic_trace_impl<Operator::GELU>(
     const TensorMetadata *meta) {
   // gelu applies the gaussian error linear unit (GELU) function to `self` in
   // element-wise.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(14);
+  auto poly = make_polynomial(14 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -645,12 +659,11 @@ symbolic_trace_impl<Operator::MEAN_DIM>(
   // dimension `dim`.
   CHECK_NE(args, nullptr);
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
-
   CHECK_NE(args->Get(0), nullptr);
   auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -687,7 +700,7 @@ symbolic_trace_impl<Operator::MM>(
 
   // mm performs a matrix multiplication of the matrices `self` and `mat2`.
   // If `self` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it
-  // produces a (n x p) tensor with n x m x p MACs, i.e., 2 x n x m x p FLOPs.
+  // produces a (n x p) tensor with n x m x p MACs.
   auto n = shape0->Get(0);
   CHECK_NE(n, nullptr);
   CHECK_NE(n->data(), nullptr);
@@ -706,11 +719,10 @@ symbolic_trace_impl<Operator::MM>(
   CHECK_NE(p, nullptr);
   CHECK_NE(p->data(), nullptr);
 
-  const auto poly = make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
-                    make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
-                    make_polynomial(p->data()->Get(0), p->data()->Get(1));
-
-  return poly << 1;
+  return make_polynomial(n->data()->Get(0), n->data()->Get(1)) *
+         make_polynomial(m->data()->Get(0), m->data()->Get(1)) *
+         make_polynomial(p->data()->Get(0), p->data()->Get(1)) *
+         Factorize(promote_types(args->Get(0)->dtype(), args->Get(1)->dtype()));
 }
 
 // flatflow::symbolic_trace_impl<MUL_SCALAR>()
@@ -724,12 +736,13 @@ symbolic_trace_impl<Operator::MUL_SCALAR>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // mul.Scalar multiplies `self` by `other` in element-wise.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -760,12 +773,22 @@ symbolic_trace_impl<Operator::MUL_TENSOR>(
   // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
   // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
   // broadcasting.
+  CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -793,24 +816,25 @@ symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
   CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(3));
 
   // native_layer_norm applies layer normalization over a mini-batch of inputs
-  // `input`. The mean and standard-deviation are calculated over the last `D`
-  // dimensions, where `D` is the dimension of `normalized_shape`. `weight` and
+  // `input`. The mean and standard-deviation are calculated over the last `d`
+  // dimensions, where `d` is the dimension of `normalized_shape`. `weight` and
   // `bias` are learnable affine transform parameters of `normalized_shape`.
   CHECK_NE(args->Get(1), nullptr);
   CHECK_NE(args->Get(1)->shape(), nullptr);
-  const auto D = args->Get(1)->shape()->size();
+  const auto d = args->Get(1)->shape()->size();
 
   CHECK_NE(args->Get(2), nullptr);
   CHECK_NE(args->Get(2)->shape(), nullptr);
-  CHECK_EQ(args->Get(2)->shape()->size(), D);
+  CHECK_EQ(args->Get(2)->shape()->size(), d);
 
   CHECK_NE(args->Get(0), nullptr);
   auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(7);
+  auto dtype = args->Get(0)->dtype();
+  auto last_d = make_polynomial(3 * Factorize(dtype));
 
-  for (flatbuffers::uoffset_t dim = 0; dim < D; ++dim) {
+  for (flatbuffers::uoffset_t dim = 0; dim < d; ++dim) {
     CHECK_NE(args->Get(1)->shape()->Get(dim), nullptr);
     CHECK_NE(args->Get(1)->shape()->Get(dim)->data(), nullptr);
     CHECK_NE(args->Get(2)->shape()->Get(dim), nullptr);
@@ -823,20 +847,26 @@ symbolic_trace_impl<Operator::NATIVE_LAYER_NORM>(
     const auto index = shape->size() - 1 - dim;
     CHECK_NE(shape->Get(index), nullptr);
     CHECK_NE(shape->Get(index)->data(), nullptr);
-    poly *= make_polynomial(shape->Get(index)->data()->Get(0),
-                            shape->Get(index)->data()->Get(1));
+    last_d *= make_polynomial(shape->Get(index)->data()->Get(0),
+                              shape->Get(index)->data()->Get(1));
   }
 
-  poly += 4;
+  auto poly = make_polynomial(2 * Factorize(dtype));
 
-  for (flatbuffers::uoffset_t index = 0; index < shape->size() - D; ++index) {
+  dtype = promote_types(dtype, args->Get(1)->dtype());
+  poly += Factorize(dtype);
+
+  dtype = promote_types(dtype, args->Get(2)->dtype());
+  poly += Factorize(dtype);
+
+  for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
     CHECK_NE(shape->Get(index)->data(), nullptr);
     poly *= make_polynomial(shape->Get(index)->data()->Get(0),
                             shape->Get(index)->data()->Get(1));
   }
 
-  return poly;
+  return last_d + poly;
 }
 
 // flatflow::symbolic_trace_impl<NEG>()
@@ -850,12 +880,13 @@ symbolic_trace_impl<Operator::NEG>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // neg returns a new tensor with the negative of the elements of `self`.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -924,12 +955,13 @@ symbolic_trace_impl<Operator::POW_TENSOR_SCALAR>(
     const TensorMetadata *meta) {
   // pow.Tensor_Scalar takes the power of each element in `self`
   // with `exponent`.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -953,12 +985,13 @@ symbolic_trace_impl<Operator::RELU>(
     const TensorMetadata *meta) {
   // relu applies the rectified linear unit (ReLU) function to `self` in
   // element-wise.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(1);
+  auto poly = make_polynomial(Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -985,12 +1018,13 @@ symbolic_trace_impl<Operator::RSQRT>(
   // NOTE: rsqrt requires two FLOPs for each element.
   // Approximate FLOPs breakdown can be found at
   // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(2);
+  auto poly = make_polynomial(2 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -1013,12 +1047,13 @@ symbolic_trace_impl<Operator::RSUB_SCALAR>(
     const flatbuffers::Vector<flatbuffers::Offset<TensorMetadata>> *args,
     const TensorMetadata *meta) {
   // rsub.Scalar subtracts `self`, scaled by `alpha`, from `other`.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(2);
+  auto poly = make_polynomial(2 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -1057,12 +1092,13 @@ symbolic_trace_impl<Operator::SILU>(
     const TensorMetadata *meta) {
   // silu applies the sigmoid linear unit (SiLU) function to `self`
   // in element-wise.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(4);
+  auto poly = make_polynomial(4 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -1155,12 +1191,21 @@ symbolic_trace_impl<Operator::SUB_TENSOR>(
   // subtraction occurs for each element. sub.Tensor also supports broadcasting
   // to a common shape, necessitating the use of output shape.
   CHECK_NE(args, nullptr);
+  CHECK_GT(args->size(), static_cast<flatbuffers::uoffset_t>(0));
+  CHECK_NE(args->Get(0), nullptr);
+  auto dtype = args->Get(0)->dtype();
+
+  if (1 < args->size()) {
+    CHECK_NE(args->Get(1), nullptr);
+    dtype = promote_types(dtype, args->Get(1)->dtype());
+  }
+
   CHECK_NE(meta, nullptr);
 
   auto shape = meta->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(args->size());
+  auto poly = make_polynomial(args->size() * Factorize(dtype));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);
@@ -1198,12 +1243,13 @@ symbolic_trace_impl<Operator::TANH>(
     const TensorMetadata *meta) {
   // tanh applies the hyperbolic tangent (tanh) function to `self`
   // in element-wise.
-  CHECK_NE(meta, nullptr);
-
-  auto shape = meta->shape();
+  CHECK_NE(args, nullptr);
+  CHECK_EQ(args->size(), static_cast<flatbuffers::uoffset_t>(1));
+  CHECK_NE(args->Get(0), nullptr);
+  auto shape = args->Get(0)->shape();
   CHECK_NE(shape, nullptr);
 
-  auto poly = make_polynomial(6);
+  auto poly = make_polynomial(6 * Factorize(args->Get(0)->dtype()));
 
   for (flatbuffers::uoffset_t index = 0; index < shape->size(); ++index) {
     CHECK_NE(shape->Get(index), nullptr);

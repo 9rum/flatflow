@@ -232,6 +232,54 @@ class ComputeProfiler:
 
 
 class MemoryProfiler:
+    _current_step = 0
+    _profile_start_step = None
+    _profile_end_step = None
+    _enabled = True
+    _step_interval = 1  # profile N step at a time
+    
+    @classmethod
+    def configure(cls, start_step: int = None, end_step: int = None, 
+                  step_interval: int = 1, enabled: bool = True):
+        cls._profile_start_step = start_step
+        cls._profile_end_step = end_step
+        cls._step_interval = step_interval
+        cls._enabled = enabled
+        
+        # Allow configuration via environment variables
+        if os.environ.get("MEMORY_PROFILE_START_STEP"):
+            cls._profile_start_step = int(os.environ.get("MEMORY_PROFILE_START_STEP"))
+        if os.environ.get("MEMORY_PROFILE_END_STEP"):
+            cls._profile_end_step = int(os.environ.get("MEMORY_PROFILE_END_STEP"))
+        if os.environ.get("MEMORY_PROFILE_INTERVAL"):
+            cls._step_interval = int(os.environ.get("MEMORY_PROFILE_INTERVAL"))
+        if os.environ.get("MEMORY_PROFILE_ENABLED"):
+            cls._enabled = os.environ.get("MEMORY_PROFILE_ENABLED").lower() == "true"
+            
+        print(f"MemoryProfiler configured: start_step={cls._profile_start_step}, "
+              f"end_step={cls._profile_end_step}, interval={cls._step_interval}, enabled={cls._enabled}")
+    
+    @classmethod
+    def set_step(cls, step):
+        cls._current_step = int(step) if isinstance(step, str) else step
+    
+    @classmethod
+    def increment_step(cls):
+        cls._current_step += 1
+    
+    @classmethod
+    def should_profile(cls) -> bool:
+        if not cls._enabled:
+            return False
+        if cls._profile_start_step is not None and cls._current_step < cls._profile_start_step:
+            return False
+        if cls._profile_end_step is not None and cls._current_step > cls._profile_end_step:
+            return False
+        if cls._step_interval > 1 and cls._current_step % cls._step_interval != 0:
+            return False
+            
+        return True
+    
     @staticmethod
     def _get_output_filename() -> str:
         dp_rank = parallel_state.get_data_parallel_rank()
@@ -240,9 +288,14 @@ class MemoryProfiler:
         rank = os.environ.get("LOCAL_RANK", "0")
         return f"memory_profile_rank{rank}_dp{dp_rank}_pp{pp_rank}_tp{tp_rank}.jsonl"
     
-    @staticmethod
+    @classmethod
     @contextlib.contextmanager
-    def profile(tag: str = "", **metadata):
+    def profile(cls, tag: str = "", **metadata):
+        # Return if profiling is not needed
+        if not cls.should_profile():
+            yield
+            return
+            
         if not torch.cuda.is_available():
             yield
             return
@@ -262,6 +315,7 @@ class MemoryProfiler:
             reserved_diff = (end_reserved - start_reserved) / 1024**2
 
             new_data = {
+                "step": cls._current_step,
                 "allocated_mb": allocated_diff,
                 "reserved_mb": reserved_diff,
                 "timestamp": datetime.datetime.now().isoformat(),
@@ -274,16 +328,55 @@ class MemoryProfiler:
                     if k not in new_data:
                         new_data[k] = v
 
-            MemoryProfiler.save_log(tag, new_data, MemoryProfiler._get_output_filename())
+            cls.save_log(tag, new_data, cls._get_output_filename())
 
     @staticmethod
     def save_log(tag: str, new_data: Dict[str, Any], output_file: str):
         try:
-            os.makedirs(os.path.dirname(output_file) if os.path.dirname(output_file) else ".", exist_ok=True)
+            dir_path = os.path.dirname(output_file)
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
 
             record = {"tag": tag, **new_data}
-            with open(output_file, 'a') as f:
-                f.write(json.dumps(record) + '\n')
+            metadata = MemoryProfiler._serialize(record)
 
+            try:
+                json_str = json.dumps(metadata)
+            except (TypeError, ValueError) as json_err:
+                print(f"Warning: JSON serialization failed: {json_err}")
+                safe_metadata = {k: str(v) for k, v in metadata.items()}
+                json_str = json.dumps(safe_metadata)
+            
+            with open(output_file, 'a') as f:
+                f.write(json_str + '\n')
+
+        except (OSError, IOError) as io_err:
+            print(f"Warning: File I/O error when saving to {output_file}: {io_err}")
         except Exception as e:
             print(f"Warning: Failed to save memory profile to {output_file}: {e}")
+
+    @staticmethod
+    def _serialize(obj):
+        if isinstance(obj, torch.Tensor):
+            if obj.numel() == 1:
+                return obj.item()
+            else:
+                return obj.detach().cpu().tolist()
+        elif isinstance(obj, (list, tuple)):
+            return [MemoryProfiler._serialize(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: MemoryProfiler._serialize(v) for k, v in obj.items()}
+        elif hasattr(obj, "item") and callable(getattr(obj, "item")) and not isinstance(obj, torch.Tensor):
+            try:
+                return obj.item()
+            except (ValueError, TypeError):
+                return str(obj)
+        elif isinstance(obj, (int, float, str, bool, type(None))):
+            return obj
+        elif hasattr(obj, "tolist") and callable(getattr(obj, "tolist")):
+            try:
+                return obj.tolist()
+            except (ValueError, TypeError):
+                return str(obj)
+        else:
+            return str(obj)

@@ -2268,12 +2268,12 @@ TEST_F(SymbolicTraceTest, Qwen3) {
   auto graph =
       flatbuffers::GetRoot<flatflow::Graph>(builder.GetBufferPointer());
   const auto trace =
-      flatflow::symbolic_trace(graph);  // 16609 s0^2 + 1488062332 s0
+      flatflow::symbolic_trace(graph);  // 8417 s0^2 + 744125559 s0
 
   EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 1488078941);
-  EXPECT_EQ(trace(1024), 1541191626752);
-  EXPECT_EQ(trace(2048), 3117214851072);
+  EXPECT_EQ(trace(1), 744133976);
+  EXPECT_EQ(trace(1024), 770810436608);
+  EXPECT_EQ(trace(2048), 1559272601600);
 }
 
 }  // namespace

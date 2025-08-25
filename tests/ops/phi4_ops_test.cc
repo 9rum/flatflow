@@ -1992,12 +1992,12 @@ TEST_F(SymbolicTraceTest, Phi4) {
   auto graph =
       flatbuffers::GetRoot<flatflow::Graph>(builder.GetBufferPointer());
   const auto trace =
-      flatflow::symbolic_trace(graph);  // 20761 s0^2 + 1709332100 s0
+      flatflow::symbolic_trace(graph);  // 10521 s0^2 + 854758151 s0
 
   EXPECT_EQ(trace(0), 0);
-  EXPECT_EQ(trace(1), 1709352861);
-  EXPECT_EQ(trace(1024), 1772125556736);
-  EXPECT_EQ(trace(2048), 3587790086144);
+  EXPECT_EQ(trace(1), 854768672);
+  EXPECT_EQ(trace(1024), 886304414720);
+  EXPECT_EQ(trace(2048), 1794672965632);
 }
 
 }  // namespace
