@@ -41,8 +41,7 @@ def get_args():
     parser.add_argument("--need-pad-id", action="store_true")
     parser.add_argument("--max-seq-len", type=int, default=8192)
     parser.add_argument("--output-prefix", type=str, required=True)
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def main():
@@ -81,7 +80,7 @@ def main():
 
     fin.close()
     fout.close()
-    np.save(f"{args.output_prefix}{filename}_chunk_meta.npy", np.array(num_tokens))
+    np.save(f"{args.output_prefix}{filename}_chunk_meta.npy", np.array(token_counts))
     print(f"Took {time.monotonic() - now}s for per-doc chunking")
 
 
