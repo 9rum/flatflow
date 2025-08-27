@@ -17,13 +17,12 @@ def get_tokenizer(args):
         library=args.tokenizer_library,
         model_name=args.tokenizer_type,
     )
-    if args.need_pad_id:
-        if (
-            not hasattr(tokenizer, "pad_id")
-            or tokenizer.pad_id is None  # type: ignore
-            or tokenizer.pad_id < 0  # type: ignore
-        ):
-            tokenizer.add_special_tokens({"pad_token": "<pad>"})  # type: ignore
+    if (
+        not hasattr(tokenizer, "pad_id")
+        or tokenizer.pad_id is None  # type: ignore
+        or tokenizer.pad_id < 0  # type: ignore
+    ):
+        tokenizer.add_special_tokens({"pad_token": "<pad>"})  # type: ignore
     return tokenizer
 
 
@@ -38,7 +37,6 @@ def get_args():
         choices=["sentencepiece", "megatron", "huggingface", "tabular"],
     )
     parser.add_argument("--tokenizer-type", type=str, required=True)
-    parser.add_argument("--need-pad-id", action="store_true")
     parser.add_argument("--max-seq-len", type=int, default=8192)
     parser.add_argument("--output-prefix", type=str, required=True)
     return parser.parse_args()

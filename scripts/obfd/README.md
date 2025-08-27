@@ -20,7 +20,6 @@ $ python3 scripts/obfd/chunk.py \
     --tokenizer-library=LIBRARY \
     --tokenizer-type=MODEL_NAME \
     --output-prefix=PATH_TO_OUTPUT_DIR \
-    --need-pad-id \
     --max-seq-len=MAX_SEQ_LEN
 ```
 
@@ -33,7 +32,6 @@ $ python3 scripts/obfd/chunk.py \
     --tokenizer-library=huggingface \
     --tokenizer-type=meta-llama/Llama-3.2-1B \
     --output-prefix=PATH_TO_OUTPUT_DIR \
-    --need-pad-id \
     --max-seq-len=8192
 ```
 
