@@ -62,6 +62,8 @@ def main():
         data = json.loads(line)
         text = data[args.json_key]
         ids = tokenizer.text_to_ids(text)
+        ids.insert(0, tokenizer.bos_id)  # type: ignore
+        ids.append(tokenizer.eos_id)  # type: ignore
         num_tokens = len(ids)
 
         if args.max_seq_len < num_tokens:
@@ -70,13 +72,14 @@ def main():
             for idx in range(0, num_tokens, args.max_seq_len):
                 chunk_ids = ids[idx : idx + args.max_seq_len]
                 chunk_text = tokenizer.ids_to_text(chunk_ids)
-                token_counts.append(len(chunk_ids))
                 fout.write(
                     json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
                 )
+                token_counts.append(len(chunk_ids))
         else:
+            text = tokenizer.ids_to_text(ids)
+            fout.write(json.dumps({args.json_key: text}, ensure_ascii=False) + "\n")
             token_counts.append(num_tokens)
-            fout.write(json.dumps(data, ensure_ascii=False) + "\n")
 
     fin.close()
     fout.close()
