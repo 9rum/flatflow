@@ -24,7 +24,7 @@ $ python3 scripts/obfd/chunk.py \
     --max-seq-len=MAX_SEQ_LEN
 ```
 
-If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Hugging Face Llma 3.2 1B with maximum sequence length of 8192, then run the following command:
+If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Llama 3.2 1B with context length of 8192, then run the following command:
 
 ```bash
 $ python3 scripts/obfd/chunk.py \
