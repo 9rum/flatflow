@@ -133,6 +133,7 @@ model:
       tunable_base_param_names: ["self_attention", "word_embeddings"]
 
   data:
+    chat: False
     train_ds:
       # Example of how to specify paths to multiple datasets
       # file_names:

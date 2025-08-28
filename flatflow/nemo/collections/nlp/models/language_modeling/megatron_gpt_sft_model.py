@@ -303,18 +303,23 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
         pad_seq_length_to_mult *= self.cfg.get('context_parallel_size', 1)
 
         dataset_kwargs = {}
+
         for file_path, num_samples in zip(data_cfg.file_names, num_train_samples_per_dataset):
             # flatflow is applied only for training
             if self.use_flatflow and is_train:
-                dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTDataset
-            elif self.cfg.data.get("chat", False):
-                dataset_cls = GPTSFTChatDataset
-            elif packed_sequence:
-                dataset_cls = GPTSFTPackedDataset
-                dataset_kwargs = {'return_cu_seqlen': data_cfg.get("packed_sequence_return_cu_seqlen", True)}
-                assert data_cfg.micro_batch_size == 1, "Micro batch size must be 1 if using packed sequence"
+                if self.cfg.data.get("chat", False):
+                    dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTChatDataset
+                else:
+                    dataset_cls = flatflow.nemo.collections.nlp.data.language_modeling.megatron.GPTSFTDataset
             else:
-                dataset_cls = GPTSFTDataset
+                if self.cfg.data.get("chat", False):
+                    dataset_cls = GPTSFTChatDataset
+                elif packed_sequence:
+                    dataset_cls = GPTSFTPackedDataset
+                    dataset_kwargs = {'return_cu_seqlen': data_cfg.get("packed_sequence_return_cu_seqlen", True)}
+                    assert data_cfg.micro_batch_size == 1, "Micro batch size must be 1 if using packed sequence"
+                else:
+                    dataset_cls = GPTSFTDataset
 
             # TODO(akoumparouli): MCore assumes/requires equal length input sequences.
             if not data_cfg.get('pad_to_max_length', False) and self.cfg.get('expert_model_parallel_size', 1) > 1:
@@ -428,9 +433,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             module.config.no_sync_func = no_sync_func
             module.config.grad_sync_func = grad_sync_func
             module.config.param_sync_func = param_sync_func
-
+        
         fwd_bwd_function = flatflow.megatron.core.pipeline_parallel.schedules.get_forward_backward_func()
-
+        # I think we can remove use_flatflow since if we are using this megatron_gpt_sft_model.py, we already assume we are using flatflow.
         losses_reduced_per_micro_batch = fwd_bwd_function(
             forward_step_func=self.get_forward_output_and_loss_func(tuning=True, validation_step=forward_only),
             data_iterator=self._make_data_iterator_list(data_iter),
@@ -440,6 +445,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
+            # use_flatflow=self.use_flatflow,
             enable_profile=self.enable_profile,
         )
 
@@ -991,7 +997,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
 
             # Get data batch
             batch = self.get_batch(dataloader_iter, tuning)
-
             # Transfer needed data to GPU
             required_keys = set()
             max_seqlen = batch['max_seqlen'].squeeze() if 'max_seqlen' in batch else None
@@ -1012,10 +1017,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 key: val.cuda(non_blocking=True) if key in required_keys and isinstance(val, torch.Tensor) else None
                 for key, val in batch.items()
             }
-
             # slice batch along sequence dimension for context parallelism
             batch = self.get_batch_on_this_context_parallel_rank(batch)
-
             # Model forward pass
             forward_args = {
                 'input_ids': batch['tokens'],
@@ -1059,7 +1062,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         max_seqlen_kv=max_seqlen,
                         qkv_format='thd',
                     )
-
             if self.enable_profile and not forward_only:
                 # Build runtime batch metadata; for concat-based dataset the logical
                 # micro-batch size equals the number of sample_ids concatenated.
@@ -1083,7 +1085,6 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                         nvtx_ctx.__exit__(None, None, None)
             else:
                 output_tensor = model(**forward_args)
-
             def loss_func(output_tensor):
                 # Loss for a micro-batch (ub)
                 loss_for_ub = self.loss_func(batch['loss_mask'], batch['num_valid_tokens_in_ub'], output_tensor)
@@ -1154,9 +1155,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 else:
                     reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
                     return loss_for_ub * cp_size, {'avg': reduced_loss}
-
             return output_tensor, loss_func
-
         return fwd_output_and_loss_func
 
     def get_iterator_k_split(self, batch: Union[Dict, List[torch.Tensor]], num_microbatches: int, enforce_divisible_batch: Optional[bool] = True):
