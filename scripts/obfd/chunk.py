@@ -61,6 +61,8 @@ def main():
         data = json.loads(line)
         text = data[args.json_key]
         ids = tokenizer.text_to_ids(text)
+        if not ids:
+            continue
         ids.insert(0, tokenizer.bos_id)  # type: ignore
         ids.append(tokenizer.eos_id)  # type: ignore
         num_tokens = len(ids)
