@@ -55,6 +55,7 @@ def main():
     fin = open(args.input, "r", encoding="utf-8")
     fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "w", encoding="utf-8")
     token_counts = []
+    offsets = [0]
 
     for line in tqdm(fin):
         data = json.loads(line)
@@ -70,18 +71,21 @@ def main():
             for idx in range(0, num_tokens, args.max_seq_len):
                 chunk_ids = ids[idx : idx + args.max_seq_len]
                 chunk_text = tokenizer.ids_to_text(chunk_ids)
-                fout.write(
-                    json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
-                )
+                s = json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
+                fout.write(s)
                 token_counts.append(len(chunk_ids))
+                offsets.append(offsets[-1] + len(s))
         else:
             text = tokenizer.ids_to_text(ids)
-            fout.write(json.dumps({args.json_key: text}, ensure_ascii=False) + "\n")
+            s = json.dumps({args.json_key: text}, ensure_ascii=False) + "\n"
+            fout.write(s)
             token_counts.append(num_tokens)
+            offsets.append(offsets[-1] + len(s))
 
     fin.close()
     fout.close()
     np.save(f"{args.output_prefix}{filename}_chunk_meta.npy", np.array(token_counts))
+    np.save(f"{args.output_prefix}{filename}_chunk_idx.npy", np.array(offsets))
     print(f"Took {time.monotonic() - now}s for per-doc chunking")
 
 

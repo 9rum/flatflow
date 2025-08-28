@@ -38,6 +38,6 @@ $ python3 scripts/obfd/chunk.py \
 > [!CAUTION]
 > This script assumes that the dataset files are merged into a single .jsonl file.
 
-This may produce a .jsonl file containing the chunked documents, and its metadata .npy file.
+This may produce a .jsonl file containing the chunked documents, and its metadata .npy files.
 
 ## Best-fit packing
