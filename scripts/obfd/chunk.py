@@ -84,7 +84,7 @@ def main():
 
     fin.close()
     fout.close()
-    np.save(f"{args.output_prefix}{filename}_chunk_meta.npy", np.array(token_counts))
+    np.save(f"{args.output_prefix}{filename}_chunk_cnt.npy", np.array(token_counts))
     np.save(f"{args.output_prefix}{filename}_chunk_idx.npy", np.array(offsets))
     print(f"Took {time.monotonic() - now}s for per-doc chunking")
 
