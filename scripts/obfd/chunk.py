@@ -57,7 +57,7 @@ def main():
     token_counts = []
     offsets = [0]
 
-    for line in tqdm(fin):
+    for line in tqdm(fin, desc="Chunking documents"):
         data = json.loads(line)
         text = data[args.json_key]
         ids = tokenizer.text_to_ids(text)
