@@ -41,3 +41,35 @@ $ python3 scripts/obfd/chunk.py \
 This may produce a .jsonl file containing the chunked documents, and its metadata .npy files.
 
 ## Best-fit packing
+
+You may obtain a .jsonl file containing the chunked documents and two .npy files.
+The file that ends with `_chunk_cnt.npy` contains token counts, and the file ending in `_chunk_idx.npy` contains byte offsets.
+Run the following command to perform document packing:
+
+```bash
+$ python3 scripts/obfd/best_fit.py \
+    --input=PATH_TO_JSON_FILE \
+    --counts=PATH_TO_COUNTS_FILE \
+    --offsets=PATH_TO_OFFSETS_FILE \
+    --json-key=JSON_KEY \
+    --tokenizer-library=LIBRARY \
+    --tokenizer-type=MODEL_NAME \
+    --output-prefix=PATH_TO_OUTPUT_DIR \
+    --max-seq-len=MAX_SEQ_LEN
+```
+
+For the example above, run the following command:
+
+```bash
+$ python3 scripts/obfd/best_fit.py \
+    --input=PATH_TO_JSON_FILE \
+    --counts=PATH_TO_COUNTS_FILE \
+    --offsets=PATH_TO_OFFSETS_FILE \
+    --json-key=content \
+    --tokenizer-library=huggingface \
+    --tokenizer-type=meta-llama/Llama-3.2-1B \
+    --output-prefix=PATH_TO_OUTPUT_DIR \
+    --max-seq-len=8192
+```
+
+This may produce a .bin file containing the packed sequences, and its byte offsets .idx file.
