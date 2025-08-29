@@ -16,6 +16,7 @@ def get_tokenizer(args):
     tokenizer = get_nmt_tokenizer(
         library=args.tokenizer_library,
         model_name=args.tokenizer_type,
+        use_fast=True,
     )
     if (
         not hasattr(tokenizer, "pad_id")
@@ -54,6 +55,8 @@ def main():
     filename = os.path.splitext(os.path.basename(args.input))[0]
     fin = open(args.input, "r", encoding="utf-8")
     fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "w", encoding="utf-8")
+
+    max_seq_len = args.max_seq_len
     token_counts = []
     offsets = [0]
 
@@ -67,11 +70,11 @@ def main():
         ids.append(tokenizer.eos_id)  # type: ignore
         num_tokens = len(ids)
 
-        if args.max_seq_len < num_tokens:
+        if max_seq_len < num_tokens:
             # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
             # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
-            for idx in range(0, num_tokens, args.max_seq_len):
-                chunk_ids = ids[idx : idx + args.max_seq_len]
+            for idx in range(0, num_tokens, max_seq_len):
+                chunk_ids = ids[idx : idx + max_seq_len]
                 chunk_text = tokenizer.ids_to_text(chunk_ids)
                 s = json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
                 fout.write(s)

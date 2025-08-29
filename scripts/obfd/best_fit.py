@@ -50,6 +50,7 @@ def get_tokenizer(args):
     tokenizer = get_nmt_tokenizer(
         library=args.tokenizer_library,
         model_name=args.tokenizer_type,
+        use_fast=True,
     )
     if (
         not hasattr(tokenizer, "pad_id")
@@ -86,9 +87,10 @@ def main():
     assert os.path.exists(args.counts), f"File does not exist: {args.counts}"
     assert os.path.exists(args.offsets), f"File does not exist: {args.offsets}"
 
+    max_seq_len = args.max_seq_len
     token_counts = np.load(args.counts)
     offsets = np.load(args.offsets)
-    bins = best_fit_decreasing(token_counts, args.max_seq_len)
+    bins = best_fit_decreasing(token_counts, max_seq_len)
 
     tokenizer = get_tokenizer(args)
 
@@ -112,7 +114,7 @@ def main():
             num_tokens += item[1]
 
         # pad to fit the sequence to the model's context length
-        ids.extend([tokenizer.pad_id] * (args.max_seq_len - num_tokens))  # type: ignore
+        ids.extend([tokenizer.pad_id] * (max_seq_len - num_tokens))  # type: ignore
         builder.add_item(torch.IntTensor(ids))
         builder.end_document()
 
