@@ -24,7 +24,6 @@ from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-
 import nvtx
 import packaging
 import torch
@@ -764,7 +763,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         # run forward and backwards passes for an entire global batch
         # we do this inside training_step to support pipeline parallelism
-        fwd_bwd_function = get_forward_backward_func()
+        fwd_bwd_function = flatflow.megatron.core.pipeline_parallel.schedules.get_forward_backward_func()
 
         # TODO @akhattar: add num_micro_batches_with_partial_activation_checkpoints when ready
         losses_reduced_per_micro_batch = fwd_bwd_function(
@@ -776,6 +775,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             seq_length=seq_length,
             micro_batch_size=micro_batch_size,
             first_val_step=first_val_step,
+            enable_profile=self.enable_profile,
         )
 
         # only the last stages of the pipeline return losses
@@ -1635,6 +1635,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.tokenizer.add_special_tokens({'additional_special_tokens': fim_tokens})
 
         if legacy_dataset:
+            #TODO: add flatflow version here
             self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
                 cfg=self.cfg,
                 trainer=self.trainer,
@@ -1716,6 +1717,32 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
         # Megatron sampler
         if hasattr(self.cfg.data, 'dataloader_type') and self.cfg.data.dataloader_type is not None:
+            if self.use_flatflow and dataset_type == 'train':
+                data_sampler = (
+                    flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingSampler
+                    if self.cfg.data.get('legacy_dataset', False)
+                    else flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronCorePretrainingSampler
+                )
+                batch_sampler = data_sampler(
+                    total_samples=len(dataset),
+                    consumed_samples=consumed_samples,
+                    micro_batch_size=self.cfg.micro_batch_size,
+                    global_batch_size=self.cfg.global_batch_size,
+                    data_parallel_rank=parallel_state.get_data_parallel_rank(),
+                    data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                    drop_last=drop_last,
+                    pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
+                    dataset=dataset,
+                    graph=_export(self.model_path),
+                )
+                
+                return flatflow.torch.utils.data.DataLoader(
+                    dataset,
+                    batch_sampler=batch_sampler,
+                    num_workers=self.cfg.data.num_workers,
+                    pin_memory=True,
+                    persistent_workers=True if self.cfg.data.num_workers > 0 else False,
+                )
             data_sampler = (
                 MegatronPretrainingSampler
                 if self.cfg.data.get('legacy_dataset', False)

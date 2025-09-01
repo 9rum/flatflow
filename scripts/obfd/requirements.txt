@@ -1,0 +1,4 @@
+nemo-toolkit==2.0.0
+numpy
+torch
+tqdm
