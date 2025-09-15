@@ -56,7 +56,7 @@ def main():
     fin = open(args.input, "r", encoding="utf-8")
     fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "w", encoding="utf-8")
 
-    max_seq_len = args.max_seq_len
+    max_seq_len = args.max_seq_len + 1
     token_counts = []
     offsets = [0]
 

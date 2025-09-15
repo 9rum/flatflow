@@ -87,7 +87,7 @@ def main():
     assert os.path.exists(args.counts), f"File does not exist: {args.counts}"
     assert os.path.exists(args.offsets), f"File does not exist: {args.offsets}"
 
-    max_seq_len = args.max_seq_len
+    max_seq_len = args.max_seq_len + 1
     token_counts = np.load(args.counts)
     offsets = np.load(args.offsets)
     bins = best_fit_decreasing(token_counts, max_seq_len)
