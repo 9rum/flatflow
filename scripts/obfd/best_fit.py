@@ -40,10 +40,19 @@ def best_fit_decreasing(counts: np.ndarray, bin_size: int):
     return bins
 
 
-def read_jsonl_at(file: str, index: int, offsets: np.ndarray):
-    f = open(file, "r", encoding="utf-8")
-    f.seek(offsets[index])
-    return json.loads(f.readline())
+def read_jsonl_at(path, index, offsets):
+    with open(path, 'r', encoding='utf-8') as f:
+        if index >= len(offsets) or offsets[index] >= os.path.getsize(path):
+            raise ValueError(f"Invalid offset {offsets[index]} for index {index}")
+        f.seek(offsets[index])
+        line = f.readline().strip()
+        if not line:
+            raise ValueError(f"Empty line at offset {offsets[index]} for index {index}")
+        try:
+            return json.loads(line)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON at offset {offsets[index]}: {line}") from e
+
 
 
 def get_tokenizer(args):
@@ -52,12 +61,6 @@ def get_tokenizer(args):
         model_name=args.tokenizer_type,
         use_fast=True,
     )
-    if (
-        not hasattr(tokenizer, "pad_id")
-        or tokenizer.pad_id is None  # type: ignore
-        or tokenizer.pad_id < 0  # type: ignore
-    ):
-        tokenizer.add_special_tokens({"pad_token": "<pad>"})  # type: ignore
     return tokenizer
 
 
@@ -114,7 +117,7 @@ def main():
             num_tokens += item[1]
 
         # pad to fit the sequence to the model's context length
-        ids.extend([tokenizer.pad_id] * (max_seq_len - num_tokens))  # type: ignore
+        ids.extend([tokenizer.eos_id] * (max_seq_len - num_tokens))  # type: ignore
         builder.add_item(torch.IntTensor(ids))
         builder.end_document()
 
