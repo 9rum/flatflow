@@ -11,18 +11,19 @@ import numpy as np
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
 from tqdm import tqdm
 
+
 def ids_to_text(tokenizer, ids):
     tokens = tokenizer.ids_to_tokens(ids)
     text = tokenizer.tokens_to_text(tokens)
     return text
 
+
 def get_tokenizer(args):
-    tokenizer = get_nmt_tokenizer(
+    return get_nmt_tokenizer(
         library=args.tokenizer_library,
         model_name=args.tokenizer_type,
         use_fast=True,
     )
-    return tokenizer
 
 
 def get_args():
@@ -52,51 +53,49 @@ def main():
     print(f"Processing file {args.input}")
     filename = os.path.splitext(os.path.basename(args.input))[0]
     fin = open(args.input, "r", encoding="utf-8")
-    fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "w", encoding="utf-8")
+    fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "wb")
 
     max_seq_len = args.max_seq_len + 1
     token_counts = []
     offsets = [0]
 
-    with open(f"{args.output_prefix}{filename}_chunk.jsonl", "wb") as fout_bytes:
-        for line in tqdm(fin, desc="Chunking documents"):
-            if not line.strip():
-                continue
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            
-            text = data.get(args.json_key, "")
-            if not text:
-                continue
-            
-            ids = tokenizer.text_to_ids(text)
-            if not ids:
-                continue
-            
-            ids.insert(0, tokenizer.bos_id)
-            ids.append(tokenizer.eos_id)
-            num_tokens = len(ids)
-            
-            if max_seq_len < num_tokens:
-                # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
-                # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
-                for idx in range(0, num_tokens, max_seq_len):
-                    chunk_ids = ids[idx : idx + max_seq_len]
-                    chunk_text = ids_to_text(tokenizer, chunk_ids)
-                    s = json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
-                    s_bytes = s.encode('utf-8')
-                    fout_bytes.write(s_bytes)
-                    token_counts.append(len(chunk_ids))
-                    offsets.append(offsets[-1] + len(s_bytes))
-            else:
-                text = ids_to_text(tokenizer, ids)
-                s = json.dumps({args.json_key: text}, ensure_ascii=False) + "\n"
-                s_bytes = s.encode('utf-8')
-                fout_bytes.write(s_bytes)
-                token_counts.append(num_tokens)
-                offsets.append(offsets[-1] + len(s_bytes))
+    for line in tqdm(fin, desc="Chunking documents"):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        text = data[args.json_key]
+        if not text:
+            continue
+        ids = tokenizer.text_to_ids(text)
+        if not ids:
+            continue
+
+        ids.insert(0, tokenizer.bos_id)
+        ids.append(tokenizer.eos_id)
+        num_tokens = len(ids)
+
+        if max_seq_len < num_tokens:
+            # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
+            # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
+            for idx in range(0, num_tokens, max_seq_len):
+                chunk_ids = ids[idx : idx + max_seq_len]
+                chunk_text = ids_to_text(tokenizer, chunk_ids)
+                s = json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
+                s = s.encode()
+                fout.write(s)
+                token_counts.append(len(chunk_ids))
+                offsets.append(offsets[-1] + len(s))
+        else:
+            text = ids_to_text(tokenizer, ids)
+            s = json.dumps({args.json_key: text}, ensure_ascii=False) + "\n"
+            s = s.encode()
+            fout.write(s)
+            token_counts.append(num_tokens)
+            offsets.append(offsets[-1] + len(s))
 
     fin.close()
     fout.close()

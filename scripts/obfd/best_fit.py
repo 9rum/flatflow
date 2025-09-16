@@ -40,28 +40,21 @@ def best_fit_decreasing(counts: np.ndarray, bin_size: int):
     return bins
 
 
-def read_jsonl_at(path, index, offsets):
-    with open(path, 'r', encoding='utf-8') as f:
-        if index >= len(offsets) or offsets[index] >= os.path.getsize(path):
-            raise ValueError(f"Invalid offset {offsets[index]} for index {index}")
+def read_jsonl_at(path: str, index: int, offsets: np.ndarray):
+    assert index < len(offsets) and offsets[index] < os.path.getsize(path)
+    with open(path, "r", encoding="utf-8") as f:
         f.seek(offsets[index])
         line = f.readline().strip()
-        if not line:
-            raise ValueError(f"Empty line at offset {offsets[index]} for index {index}")
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON at offset {offsets[index]}: {line}") from e
-
+        assert line, f"Empty line at offset {offsets[index]} for index {index}"
+        return json.loads(line)
 
 
 def get_tokenizer(args):
-    tokenizer = get_nmt_tokenizer(
+    return get_nmt_tokenizer(
         library=args.tokenizer_library,
         model_name=args.tokenizer_type,
         use_fast=True,
     )
-    return tokenizer
 
 
 def get_args():
