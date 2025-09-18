@@ -48,9 +48,11 @@ Run the following command to perform document packing:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --input=PATH_TO_JSON_FILE \
+    --tokens=PATH_TO_TOKENS_JSON_FILE \
+    --labels=PATH_TO_LABELS_JSON_FILE \
     --counts=PATH_TO_COUNTS_FILE \
-    --offsets=PATH_TO_OFFSETS_FILE \
+    --token-offsets=PATH_TO_TOKEN_OFFSETS_FILE \
+    --label-offsets=PATH_TO_LABEL_OFFSETS_FILE \
     --json-key=JSON_KEY \
     --tokenizer-library=LIBRARY \
     --tokenizer-type=MODEL_NAME \
@@ -62,9 +64,11 @@ For the example above, run the following command:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --input=PATH_TO_JSON_FILE \
+    --tokens=PATH_TO_TOKENS_JSON_FILE \
+    --labels=PATH_TO_LABELS_JSON_FILE \
     --counts=PATH_TO_COUNTS_FILE \
-    --offsets=PATH_TO_OFFSETS_FILE \
+    --token-offsets=PATH_TO_TOKEN_OFFSETS_FILE \
+    --label-offsets=PATH_TO_LABEL_OFFSETS_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
     --tokenizer-type=meta-llama/Llama-3.2-1B \
@@ -72,4 +76,4 @@ $ python3 scripts/obfd/best_fit.py \
     --max-seq-len=8192
 ```
 
-This may produce a .bin file containing the packed sequences, and its byte offsets .idx file.
+This may produce .bin files containing the packed sequences, and its byte offsets .idx files.

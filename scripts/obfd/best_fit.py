@@ -59,9 +59,11 @@ def get_tokenizer(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=str, required=True)
+    parser.add_argument("--tokens", type=str, required=True)
+    parser.add_argument("--labels", type=str, required=True)
     parser.add_argument("--counts", type=str, required=True)
-    parser.add_argument("--offsets", type=str, required=True)
+    parser.add_argument("--token-offsets", type=str, required=True)
+    parser.add_argument("--label-offsets", type=str, required=True)
     parser.add_argument("--json-key", type=str, default="content")
     parser.add_argument(
         "--tokenizer-library",
@@ -79,42 +81,59 @@ def main():
     now = time.monotonic()
 
     args = get_args()
-    assert os.path.exists(args.input), f"File does not exist: {args.input}"
+    assert os.path.exists(args.tokens), f"File does not exist: {args.tokens}"
+    assert os.path.exists(args.labels), f"File does not exist: {args.labels}"
     assert os.path.exists(args.counts), f"File does not exist: {args.counts}"
-    assert os.path.exists(args.offsets), f"File does not exist: {args.offsets}"
+    assert os.path.exists(args.token_offsets), f"File does not exist: {args.token_offsets}"
+    assert os.path.exists(args.label_offsets), f"File does not exist: {args.label_offsets}"
 
-    max_seq_len = args.max_seq_len + 1
     token_counts = np.load(args.counts)
-    offsets = np.load(args.offsets)
-    bins = best_fit_decreasing(token_counts, max_seq_len)
+    token_offsets = np.load(args.token_offsets)
+    label_offsets = np.load(args.label_offsets)
+    bins = best_fit_decreasing(token_counts, args.max_seq_len)
 
     tokenizer = get_tokenizer(args)
 
-    output_bin_file = f"{args.output_prefix}_{args.json_key}_document.bin"
-    output_idx_file = f"{args.output_prefix}_{args.json_key}_document.idx"
-    builder = indexed_dataset.make_builder(
-        output_bin_file,
+    tokens_bin_file = f"{args.output_prefix}_{args.json_key}_document.bin"
+    tokens_idx_file = f"{args.output_prefix}_{args.json_key}_document.idx"
+    tokens_builder = indexed_dataset.make_builder(
+        tokens_bin_file,
+        impl="mmap",
+        vocab_size=tokenizer.vocab_size,
+    )
+
+    labels_bin_file = f"{args.output_prefix}_{args.json_key}_label.bin"
+    labels_idx_file = f"{args.output_prefix}_{args.json_key}_label.idx"
+    labels_builder = indexed_dataset.make_builder(
+        labels_bin_file,
         impl="mmap",
         vocab_size=tokenizer.vocab_size,
     )
 
     for items in tqdm(bins, desc="Saving packed sequences"):
-        ids = []
+        token_ids = []
+        label_ids = []
         num_tokens = 0
 
         for item in items:
-            data = read_jsonl_at(args.input, item[0], offsets)
-            text = data[args.json_key]
-            chunk_ids = tokenizer.text_to_ids(text)
-            ids.extend(chunk_ids)
             num_tokens += item[1]
+            data = read_jsonl_at(args.tokens, item[0], token_offsets)
+            text = data[args.json_key]
+            token_ids.extend(tokenizer.text_to_ids(text))
+            data = read_jsonl_at(args.labels, item[0], label_offsets)
+            text = data[args.json_key]
+            label_ids.extend(tokenizer.text_to_ids(text))
 
         # pad to fit the sequence to the model's context length
-        ids.extend([tokenizer.eos_id] * (max_seq_len - num_tokens))  # type: ignore
-        builder.add_item(torch.IntTensor(ids))
-        builder.end_document()
+        token_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+        tokens_builder.add_item(torch.IntTensor(token_ids))
+        tokens_builder.end_document()
+        label_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+        labels_builder.add_item(torch.IntTensor(label_ids))
+        labels_builder.end_document()
 
-    builder.finalize(output_idx_file)
+    tokens_builder.finalize(tokens_idx_file)
+    labels_builder.finalize(labels_idx_file)
     print(f"Took {time.monotonic() - now}s for best-fit packing")
 
 
