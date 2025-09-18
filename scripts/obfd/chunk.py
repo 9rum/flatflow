@@ -13,9 +13,7 @@ from tqdm import tqdm
 
 
 def ids_to_text(tokenizer, ids):
-    tokens = tokenizer.ids_to_tokens(ids)
-    text = tokenizer.tokens_to_text(tokens)
-    return text
+    return tokenizer.tokens_to_text(tokenizer.ids_to_tokens(ids))
 
 
 def get_tokenizer(args):
@@ -53,11 +51,12 @@ def main():
     print(f"Processing file {args.input}")
     filename = os.path.splitext(os.path.basename(args.input))[0]
     fin = open(args.input, "r", encoding="utf-8")
-    fout = open(f"{args.output_prefix}{filename}_chunk.jsonl", "wb")
+    fout_tokens = open(f"{args.output_prefix}{filename}_tokens.jsonl", "wb")
+    fout_labels = open(f"{args.output_prefix}{filename}_labels.jsonl", "wb")
 
-    max_seq_len = args.max_seq_len + 1
     token_counts = []
-    offsets = [0]
+    token_offsets = [0]
+    label_offsets = [0]
 
     for line in tqdm(fin, desc="Chunking documents"):
         line = line.strip()
@@ -74,33 +73,54 @@ def main():
         if not ids:
             continue
 
-        ids.insert(0, tokenizer.bos_id)
-        ids.append(tokenizer.eos_id)
-        num_tokens = len(ids)
+        token_ids = [tokenizer.bos_id, *ids]
+        label_ids = [*ids, tokenizer.eos_id]
+        num_tokens = len(token_ids)
 
-        if max_seq_len < num_tokens:
+        if args.max_seq_len < num_tokens:
             # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
             # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
-            for idx in range(0, num_tokens, max_seq_len):
-                chunk_ids = ids[idx : idx + max_seq_len]
-                chunk_text = ids_to_text(tokenizer, chunk_ids)
-                s = json.dumps({args.json_key: chunk_text}, ensure_ascii=False) + "\n"
+            for idx in range(0, num_tokens, args.max_seq_len):
+                token_chunk_ids = token_ids[idx : idx + args.max_seq_len]
+                token_chunk_text = ids_to_text(tokenizer, token_chunk_ids)
+                s = (
+                    json.dumps({args.json_key: token_chunk_text}, ensure_ascii=False)
+                    + "\n"
+                )
                 s = s.encode()
-                fout.write(s)
-                token_counts.append(len(chunk_ids))
-                offsets.append(offsets[-1] + len(s))
+                fout_tokens.write(s)
+                token_offsets.append(token_offsets[-1] + len(s))
+                token_counts.append(len(token_chunk_ids))
+
+                label_chunk_ids = label_ids[idx : idx + args.max_seq_len]
+                label_chunk_text = ids_to_text(tokenizer, label_chunk_ids)
+                s = (
+                    json.dumps({args.json_key: label_chunk_text}, ensure_ascii=False)
+                    + "\n"
+                )
+                s = s.encode()
+                fout_labels.write(s)
+                label_offsets.append(label_offsets[-1] + len(s))
         else:
-            text = ids_to_text(tokenizer, ids)
-            s = json.dumps({args.json_key: text}, ensure_ascii=False) + "\n"
+            token_text = ids_to_text(tokenizer, token_ids)
+            s = json.dumps({args.json_key: token_text}, ensure_ascii=False) + "\n"
             s = s.encode()
-            fout.write(s)
+            fout_tokens.write(s)
+            token_offsets.append(token_offsets[-1] + len(s))
             token_counts.append(num_tokens)
-            offsets.append(offsets[-1] + len(s))
+
+            label_text = ids_to_text(tokenizer, label_ids)
+            s = json.dumps({args.json_key: label_text}, ensure_ascii=False) + "\n"
+            s = s.encode()
+            fout_labels.write(s)
+            label_offsets.append(label_offsets[-1] + len(s))
 
     fin.close()
-    fout.close()
-    np.save(f"{args.output_prefix}{filename}_chunk_cnt.npy", np.array(token_counts))
-    np.save(f"{args.output_prefix}{filename}_chunk_idx.npy", np.array(offsets))
+    fout_tokens.close()
+    fout_labels.close()
+    np.save(f"{args.output_prefix}{filename}_cnt.npy", np.array(token_counts))
+    np.save(f"{args.output_prefix}{filename}_token_idx.npy", np.array(token_offsets))
+    np.save(f"{args.output_prefix}{filename}_label_idx.npy", np.array(label_offsets))
     print(f"Took {time.monotonic() - now}s for per-doc chunking")
 
 

@@ -38,12 +38,12 @@ $ python3 scripts/obfd/chunk.py \
 > [!CAUTION]
 > This script assumes that the dataset files are merged into a single .jsonl file.
 
-This may produce a .jsonl file containing the chunked documents, and its metadata .npy files.
+This may produce .jsonl files containing the chunked tokens and labels, and its metadata .npy files.
 
 ## Best-fit packing
 
-You may obtain a .jsonl file containing the chunked documents and two .npy files.
-The file that ends with `_chunk_cnt.npy` contains token counts, and the file ending in `_chunk_idx.npy` contains byte offsets.
+You may obtain .jsonl files containing the chunked tokens and labels, and three .npy files.
+The file that ends with `_cnt.npy` contains token counts, and the files ending in `_idx.npy` contain byte offsets.
 Run the following command to perform document packing:
 
 ```bash
