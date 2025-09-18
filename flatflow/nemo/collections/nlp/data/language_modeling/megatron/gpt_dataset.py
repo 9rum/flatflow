@@ -101,10 +101,10 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         return len(self.indexed_dataset.sizes)
 
     def __getitem__(self, idx):
-        item = self.indexed_dataset.get(idx)
+        text = self.indexed_dataset.get(idx)
         if self.add_extra_token:
-            tokens = item[:-1].contiguous()
-            labels = item[1:].contiguous()
+            tokens = text[:-1].contiguous()
+            labels = text[1:].contiguous()
         else:
             tokens = text
             labels = torch.roll(text, shifts=-1, dims=0)

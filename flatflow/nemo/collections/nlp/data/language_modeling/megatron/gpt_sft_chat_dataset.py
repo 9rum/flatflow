@@ -1,5 +1,5 @@
 # Adapted from https://github.com/NVIDIA/NeMo/blob/v2.0.0/nemo/collections/nlp/data/language_modeling/megatron/gpt_sft_chat_dataset.py
-# Copyright (c) 2024-2025, The FlatFlow Authors.
+# Copyright (c) 2025, The FlatFlow Authors.
 # Copyright (c) 2023, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,21 +25,21 @@ class GPTSFTChatDataset(GPTSFTDataset, NeMoGPTSFTChatDataset):
     """
     It inherits and utilizes methods from parent classes as below:
 
-    flatflow.nemo...GPTSFTDataset to be compatible with FlatFlow scheduler.
+    flatflow.nemo...GPTSFTDataset to be compatible with FlatFlow
     - `__init__`
     - `__getitem__`
     - `__sizeof__`
-    - `_collaten_fn`
+    - `_collate_fn`
     - `collate_fn`
 
-    NeMoGPTSFTChatDataset to be compatible with NeMo framework's data format
+    nemo...GPTSFTChatDataset to be compatible with NeMo
     - `_process_example`
     """
 
     def _build_loss_mask(self, processed_example):
         """Build loss mask using the `mask` field of processed examples.
 
-        The original logic is found in `NeMoGPTSFTChatDataset.collate_fn`.
+        The original logic can be found in `nemo...GPTSFTChatDataset.collate_fn`.
         """
-        loss_mask = processed_example['mask'][1:].tolist()
+        loss_mask = processed_example["mask"][1:].tolist()
         return loss_mask
