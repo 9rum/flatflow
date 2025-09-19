@@ -454,7 +454,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             else:
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
-        
+
         # Model path for export functionality (if available)
         self.model_path = cfg.get("restore_from_path", None)
         if self.model_path and self.model_path.endswith("/model.nemo"):
@@ -749,13 +749,13 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 else:
                     microbatch = next(dataloader_iter)
                 batch.append(microbatch)
-            
+
             # Log token counts if enabled
             log_token_counts = self.cfg.get('log_token_counts', False)
             if log_token_counts:
                 token_count_avg = sum([mb.get('token_count', mb['tokens'].numel()) for mb in batch]) / (len(batch) * self.cfg.micro_batch_size)
                 self.log('tokens_avg', token_count_avg, prog_bar=True, sync_dist=True, batch_size=1)
-            
+
             # seq_length is required but will be ignored for FlatFlow
             seq_length = sum([mb['tokens'].shape[1] for mb in batch])
             data_iterator = itertools.chain(batch)
@@ -1240,12 +1240,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             'attention_mask': None if "attention_mask" not in data else data["attention_mask"],
             'position_ids': data["position_ids"],
         }
-        
+
         # Add additional fields if present
         for key in ['token_count', 'sample_ids', 'max_seqlen', 'cu_seqlens', 'cu_seqlens_argmin']:
             if key in data:
                 batch[key] = data[key]
-                
+
         if "attention_mask" in data:
             batch['attention_mask'] = data["attention_mask"]
 
@@ -1735,7 +1735,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     dataset=dataset,
                     graph=_export(self.model_path),
                 )
-                
+
                 return flatflow.torch.utils.data.DataLoader(
                     dataset,
                     batch_sampler=batch_sampler,
@@ -1787,7 +1787,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 dataset=dataset,
                 graph=_export(self.model, self.tokenizer.tokenizer),
             )
-            
+
             return flatflow.torch.utils.data.DataLoader(
                 dataset,
                 batch_sampler=batch_sampler,
