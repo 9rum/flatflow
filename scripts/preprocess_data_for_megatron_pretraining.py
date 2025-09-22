@@ -44,7 +44,9 @@ def main():
     output_bin_file = f"{args.output_prefix}_{args.json_key}_document.bin"
     output_idx_file = f"{args.output_prefix}_{args.json_key}_document.idx"
     builder = indexed_dataset.make_builder(
-        output_bin_file, impl="mmap", vocab_size=tokenizer.vocab_size
+        output_bin_file,
+        impl="mmap",
+        vocab_size=tokenizer.vocab_size,
     )
 
     with open(args.input, "r", encoding="utf-8") as f:
