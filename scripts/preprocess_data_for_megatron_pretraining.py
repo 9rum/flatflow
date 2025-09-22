@@ -66,8 +66,8 @@ def main():
                 continue
 
             ids = [tokenizer.bos_id, *ids, tokenizer.eos_id]
-            for idx in range(0, len(ids), args.args.max_seq_len):
-                chunk_ids = ids[idx : idx + args.args.max_seq_len + 1]
+            for idx in range(0, len(ids), args.max_seq_len):
+                chunk_ids = ids[idx : idx + args.max_seq_len + 1]
                 if 1 < len(chunk_ids):
                     builder.add_item(torch.IntTensor(chunk_ids))
                     builder.end_document()
