@@ -37,6 +37,14 @@ from omegaconf.dictconfig import DictConfig
 
 
 class OBFDDataset(GPTDataset):
+    """Dataset for `Fewer Truncations Improve Language Modeling`.
+
+    You should add the following options to the `data` section in the config file:
+      - use_obfd (bool)
+      - obfd_token_data_prefix (list)
+      - obfd_label_data_prefix (list)
+    """
+
     def __init__(
         self,
         cfg,
@@ -68,9 +76,7 @@ class OBFDDataset(GPTDataset):
         )
         self.indexed_label_dataset = indexed_label_dataset
         assert np.max(documents) < indexed_label_dataset.sizes.shape[0]
-        # self.add_extra_token = 1
-        # if self.no_seqlen_plus_one_input_tokens:
-        #     self.add_extra_token = 0
+        self.add_extra_token = 0
 
         # Build index mappings.
         self.label_doc_idx, self.label_sample_idx, self.label_shuffle_idx = (
