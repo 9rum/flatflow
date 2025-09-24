@@ -35,6 +35,8 @@ from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import
 from nemo.utils import logging
 from omegaconf.dictconfig import DictConfig
 
+__all__ = ["build_obfd_datasets"]
+
 
 class OBFDDataset(GPTDataset):
     """Dataset for `Fewer Truncations Improve Language Modeling`.
