@@ -1,4 +1,4 @@
-How to setup of FlashAttention3
+## How to setup of FlashAttention3
 
 ```bash
 git clone https://github.com/Dao-AILab/flash-attention.git
