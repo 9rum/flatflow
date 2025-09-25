@@ -35,12 +35,12 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 from torch._decomp import get_decompositions
 from torch.nn.attention import SDPBackend, sdpa_kernel
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import flatflow.megatron.core.pipeline_parallel.schedules
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
 import flatflow.torch.utils.data
+from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
@@ -454,6 +454,8 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             else:
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
+
+        self.use_obfd = cfg.data.get("use_obfd", False)
 
         # Model path for export functionality (if available)
         self.model_path = cfg.get("restore_from_path", None)
@@ -1635,19 +1637,34 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.tokenizer.add_special_tokens({'additional_special_tokens': fim_tokens})
 
         if legacy_dataset:
-            #TODO: add flatflow version here
-            self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
-                cfg=self.cfg,
-                trainer=self.trainer,
-                data_prefix=self.cfg.data.data_prefix,
-                data_impl=self.cfg.data.data_impl,
-                splits_string=self.cfg.data.splits_string,
-                train_valid_test_num_samples=train_valid_test_num_samples,
-                seq_length=self.cfg.data.seq_length,
-                seed=self.cfg.seed,
-                skip_warmup=self.cfg.data.get('skip_warmup', True),
-                tokenizer=self.tokenizer,
-            )
+            #TODO: add FlatFlow version here
+            if self.use_obfd:
+                self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    token_data_prefix=self.cfg.data.obfd_token_data_prefix,
+                    label_data_prefix=self.cfg.data.obfd_label_data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
+            else:
+                self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    data_prefix=self.cfg.data.data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
         else:
             # Function needed for mcore GPTDataset
             is_dataset_built_on_rank = lambda: True
