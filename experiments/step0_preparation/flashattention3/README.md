@@ -2,7 +2,7 @@
 
 ```bash
 git clone https://github.com/Dao-AILab/flash-attention.git
-cd hopper
+cd flash-attention/hopper
 python setup.py install
 
 # Advise : This cp logic is based on the condition that you are running nemo:24.09 so if python version is different please modify to your right version.
