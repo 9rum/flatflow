@@ -6950,7 +6950,7 @@ class DotProductAttention(TransformerEngineBaseModule):
                 use_unfused_attention = _attention_backends["use_unfused_attention"]
             # print(f"HAHAHA {use_flash_attention=} {use_fused_attention=} {use_unfused_attention=}")
             if use_flash_attention:
-                
+
                 if core_attention_bias_type == "alibi":
                     alibi_slopes, _ = get_alibi(
                         query_layer.shape[-2],
