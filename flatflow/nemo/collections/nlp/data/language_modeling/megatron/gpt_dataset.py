@@ -15,17 +15,250 @@
 # limitations under the License.
 
 from typing import Optional
-
+import os 
+import time
 import numpy as np
 import torch
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset
 from nemo.utils import logging
-
+from omegaconf.dictconfig import DictConfig
 from flatflow.nemo.core.classes import Dataset
+import flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset
+from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import make_dataset as make_indexed_dataset
+from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
+    get_datasets_weights_and_num_samples,
+    get_train_valid_test_split_,
+)
+__all__ = ["build_train_valid_test_datasets","GPTDataset"]
 
-__all__ = ["GPTDataset"]
+def get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap=False):
+    """Build indexed dataset."""
+    logging.info(' > building dataset index ...')
 
+    start_time = time.time()
+    indexed_dataset = make_indexed_dataset(data_prefix, data_impl, skip_warmup, delay_data_mmap=delay_data_mmap)
+    logging.info(' > finished creating indexed dataset in {:4f} ' 'seconds'.format(time.time() - start_time))
+    logging.info('    number of documents: {}'.format(indexed_dataset.sizes.shape[0]))
+
+    return indexed_dataset
+def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
+    def _build_dataset(current_data_prefix, current_num_samples):
+        delay_data_mmap = cfg.data.get('delay_data_mmap', False)
+        indexed_dataset = get_indexed_dataset_(current_data_prefix, data_impl, skip_warmup, delay_data_mmap)
+        total_num_of_documents = indexed_dataset.sizes.shape[0]
+        # Print stats about the splits.
+        logging.info(' > dataset split:')
+        logging.info('     Total {} documents is : {} '.format(name, total_num_of_documents))
+        drop_last = True
+        if name == "valid":
+            drop_last = cfg.data.get("validation_drop_last", True)
+        dataset = GPTDataset(
+            cfg,
+            trainer,
+            tokenizer,
+            name,
+            current_data_prefix,
+            np.arange(start=0, stop=total_num_of_documents, step=1, dtype=np.int32),
+            indexed_dataset,
+            current_num_samples,
+            seq_length,
+            seed,
+            drop_last=drop_last,
+        )
+        return dataset
+
+    if len(data_prefix) == 1:
+        return _build_dataset(data_prefix[0], num_samples)
+
+    else:
+        output = get_datasets_weights_and_num_samples(data_prefix, num_samples)
+        prefixes, weights, datasets_num_samples = output
+        datasets = []
+        for i in range(len(prefixes)):
+            dataset = _build_dataset(prefixes[i], datasets_num_samples[i])
+            datasets.append(dataset)
+        return flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(datasets, weights, num_samples)
+
+
+def build_train_valid_test_datasets(
+    cfg,
+    trainer,
+    data_prefix,
+    data_impl,
+    splits_string,
+    train_valid_test_num_samples,
+    seq_length,
+    seed,
+    skip_warmup,
+    tokenizer,
+):
+    if isinstance(data_prefix, DictConfig):
+        assert (
+            data_prefix.get('train') is not None
+            and data_prefix.get('test') is not None
+            and data_prefix.get('validation') is not None
+        ), f"Data prefix dictionary should have train, test and validation keys.  data_prefix currently has only {data_prefix.keys()}"
+        if cfg.data.splits_string is not None:
+            logging.warning(cfg.data.splits_string + " ignored since data prefix is of type dictionary.")
+        train_ds = build_dataset(
+            cfg,
+            trainer,
+            data_prefix["train"],
+            data_impl,
+            int(train_valid_test_num_samples[0]),
+            seq_length,
+            seed,
+            skip_warmup,
+            tokenizer,
+            "train",
+        )
+        validation_ds = build_dataset(
+            cfg,
+            trainer,
+            data_prefix["validation"],
+            data_impl,
+            int(train_valid_test_num_samples[1]),
+            seq_length,
+            seed,
+            skip_warmup,
+            tokenizer,
+            "valid",
+        )
+        test_ds = build_dataset(
+            cfg,
+            trainer,
+            data_prefix["test"],
+            data_impl,
+            int(train_valid_test_num_samples[2]),
+            seq_length,
+            seed,
+            skip_warmup,
+            tokenizer,
+            "test",
+        )
+        return train_ds, validation_ds, test_ds
+
+    else:
+        # Single dataset.
+        if len(data_prefix) == 1:
+            return _build_train_valid_test_datasets(
+                cfg,
+                trainer,
+                data_prefix[0],
+                data_impl,
+                splits_string,
+                train_valid_test_num_samples,
+                seq_length,
+                seed,
+                skip_warmup,
+                tokenizer,
+            )
+
+        # Blending dataset.
+        # Parse the values.
+        output = get_datasets_weights_and_num_samples(data_prefix, train_valid_test_num_samples)
+        prefixes, weights, datasets_train_valid_test_num_samples = output
+
+        # Build individual datasets.
+        train_datasets = []
+        valid_datasets = []
+        test_datasets = []
+        for i in range(len(prefixes)):
+            train_ds, valid_ds, test_ds = _build_train_valid_test_datasets(
+                cfg,
+                trainer,
+                prefixes[i],
+                data_impl,
+                splits_string,
+                datasets_train_valid_test_num_samples[i],
+                seq_length,
+                seed,
+                skip_warmup,
+                tokenizer,
+            )
+            if train_ds:
+                train_datasets.append(train_ds)
+            if valid_ds:
+                valid_datasets.append(valid_ds)
+            if test_ds:
+                test_datasets.append(test_ds)
+
+        train_n, valid_n, test_n = map(sum, zip(*datasets_train_valid_test_num_samples))
+
+        # Blend.
+        blending_train_dataset = None
+        if train_datasets:
+            blending_train_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(train_datasets, weights, train_n)
+        blending_valid_dataset = None
+        if valid_datasets:
+            blending_valid_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(valid_datasets, weights, valid_n)
+        blending_test_dataset = None
+        if test_datasets:
+            blending_test_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(test_datasets, weights, test_n)
+
+        return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
+
+
+def _build_train_valid_test_datasets(
+    cfg,
+    trainer,
+    data_prefix,
+    data_impl,
+    splits_string,
+    train_valid_test_num_samples,
+    seq_length,
+    seed,
+    skip_warmup,
+    tokenizer,
+):
+    """Build train, valid, and test datasets."""
+
+    # Indexed dataset.
+    delay_data_mmap = cfg.data.get('delay_data_mmap', False)
+    indexed_dataset = get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap)
+
+    total_num_of_documents = indexed_dataset.sizes.shape[0]
+    splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
+
+    # Print stats about the splits.
+    logging.info(' > dataset split:')
+    def print_split_stats(name, index):
+        logging.info('    {}:'.format(name))
+        logging.info(
+            '     document indices in [{}, {}) total of {} '
+            'documents'.format(splits[index], splits[index + 1], splits[index + 1] - splits[index])
+        )
+
+    print_split_stats('train', 0)
+    print_split_stats('validation', 1)
+    print_split_stats('test', 2)
+
+    def build_dataset(index, name):
+        dataset = None
+        if splits[index + 1] > splits[index]:
+            documents = np.arange(start=splits[index], stop=splits[index + 1], step=1, dtype=np.int32)
+            drop_last = True
+            if name == "valid":
+                drop_last = cfg.data.get("validation_drop_last", True)
+            dataset = GPTDataset(
+                cfg,
+                trainer,
+                tokenizer,
+                name,
+                data_prefix,
+                documents,
+                indexed_dataset,
+                train_valid_test_num_samples[index],
+                seq_length,
+                seed,
+            )
+        return dataset
+
+    train_dataset = build_dataset(0, 'train')
+    valid_dataset = build_dataset(1, 'valid')
+    test_dataset = build_dataset(2, 'test')
+    return (train_dataset, valid_dataset, test_dataset)
 
 class GPTDataset(Dataset, NeMoGPTDataset):
     """
@@ -40,68 +273,45 @@ class GPTDataset(Dataset, NeMoGPTDataset):
 
     def __init__(
         self,
-        file_path: str,
-        tokenizer: TokenizerSpec,
-        max_seq_length: int = 1024,
-        min_seq_length: int = 1,
-        pad_seq_length_to_mult: int = 16,
-        add_bos: bool = False,
-        add_eos: bool = True,
-        max_num_samples: Optional[int] = None,
-        seed: int = 1234,
-        index_mapping_dir: Optional[str] = None,
-        virtual_tokens: int = 0,
-        memmap_workers: Optional[int] = None,
-        truncation_method: str = "right",
-        is_test: bool = False,
-        output_original_text: bool = False,
-        ceil_to_power_2: bool = False,
-        get_attention_mask_from_fusion: bool = False,
+        cfg,
+        trainer,
+        tokenizer,
+        name,
+        data_prefix,
+        documents,
+        indexed_dataset,
+        num_samples,
+        seq_length,
+        seed,
+        drop_last=True,
     ) -> None:
         """
-        file_path: Path to text files for GPT pretraining. Can be .jsonl files with 'text' field or plain .txt files.
-        tokenizer: Tokenizer for the dataset. Instance of a class that inherits TokenizerSpec (ex: SentencePiece).
-        max_seq_length (int): maximum sequence length for each dataset examples. Examples will either be truncated to fit this length or dropped if they cannot be truncated.
-        min_seq_length (int): min length of each data example in the dataset. Data examples will be dropped if they do not meet the min length requirements.
-        add_bos (bool): Whether to add a beginning of sentence token to each data example
-        add_eos (bool): Whether to add an end of sentence token to each data example
-        seed: Random seed for data shuffling.
-        max_num_samples: Maximum number of samples to load. This can be > dataset length if you want to oversample data. If None, all samples will be loaded.
-        index_mapping_dir: Directory to save the index mapping to. If None, will write to the same folder as the dataset.
-        memmap_workers: Number of workers for memory mapping.
-        truncation_method: Truncation from which position. Options: ['left', 'right']
-        is_test: Whether this dataset is the test split.
-        output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
-        ceil_to_power_2: Whether to pad sequence length to power of 2.
-        get_attention_mask_from_fusion: Whether to get attention mask from fusion.
         """
 
         NeMoGPTDataset.__init__(
             self,
-            file_path,
-            tokenizer,
-            max_seq_length=max_seq_length,
-            min_seq_length=min_seq_length,
-            pad_seq_length_to_mult=pad_seq_length_to_mult,
-            add_bos=add_bos,
-            add_eos=add_eos,
-            max_num_samples=max_num_samples,  # type: ignore[arg-type]
+            cfg=cfg,
+            trainer=trainer,
+            tokenizer=tokenizer,
+            name=name,
+            data_prefix=data_prefix,
+            documents=documents,
+            indexed_dataset=indexed_dataset,
+            num_samples=num_samples,
+            seq_length=seq_length,
             seed=seed,
-            index_mapping_dir=index_mapping_dir,  # type: ignore[arg-type]
-            virtual_tokens=virtual_tokens,
-            memmap_workers=memmap_workers,
-            truncation_method=truncation_method,
-            is_test=is_test,
-            output_original_text=output_original_text,
-            ceil_to_power_2=ceil_to_power_2,
-            get_attention_mask_from_fusion=get_attention_mask_from_fusion,
-        )
+            drop_last=drop_last)
 
     def __len__(self):
         return len(self.indexed_dataset.sizes)
 
     def __getitem__(self, idx):
         text = self.indexed_dataset.get(idx)
+        
+        # Convert numpy array to torch tensor if needed
+        if isinstance(text, np.ndarray):
+            text = torch.from_numpy(text)
+        
         if self.add_extra_token:
             tokens = text[:-1].contiguous()
             labels = text[1:].contiguous()
@@ -110,7 +320,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             labels = torch.roll(text, shifts=-1, dims=0)
             labels[-1] = -1
 
-        # Derived from nemo...megatron/gpt_dataset.py:_create_ltor_masks_and_position_ids, which has a bug(L#538).
+        # Derived from nemo...megatron/gpt_dataset.py:_create_ltor_masks_and_position_ids
         loss_mask = torch.ones(len(tokens), dtype=torch.float)
         if self.eod_mask_loss:
             loss_mask[tokens == self.eos_id] = 0.0
@@ -120,7 +330,6 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         labels[labels == -1] = 0
 
         # Negative index comes when we pad the last batch in MegatronPretrainingBatchSampler
-        # We make the loss_mask zero to mask out loss from these samples
         if idx < 0:
             logging.debug("Got negative index. Masking loss from this sample")
             loss_mask = torch.zeros_like(loss_mask)
@@ -133,14 +342,16 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         }
 
     def __sizeof__(self, idx):
-        self.indexed_dataset.sizes[idx]
+        return self.indexed_dataset.sizes[idx]
 
     def _collate_fn(self, batch):
-        tokens = np.concatenate([item["tokens"] for item in batch])
-        labels = np.concatenate([item["labels"] for item in batch])
-        loss_mask = np.concatenate([item["loss_mask"] for item in batch])
+        tokens = np.concatenate([item["tokens"].numpy() for item in batch])
+        labels = np.concatenate([item["labels"].numpy() for item in batch])
+        loss_mask = np.concatenate([item["loss_mask"].numpy() for item in batch])
         position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
-        token_count = tokens.shape[0]
+        
+        # Convert token_count to tensor instead of keeping as int
+        token_count = torch.LongTensor([tokens.shape[0]])
 
         assert tokens.shape[0] == position_ids.shape[0]
 
@@ -152,9 +363,9 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         return {
             "tokens": torch.LongTensor(tokens).unsqueeze(0),
             "labels": torch.LongTensor(labels).unsqueeze(0),
-            "loss_mask": torch.LongTensor(loss_mask).unsqueeze(0),
+            "loss_mask": torch.FloatTensor(loss_mask).unsqueeze(0),  # Changed to FloatTensor
             "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
-            "token_count": [token_count],
+            "token_count": token_count,  # Now a tensor, not a list with int
             "attention_mask": torch.LongTensor([1]),
             "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
             "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
