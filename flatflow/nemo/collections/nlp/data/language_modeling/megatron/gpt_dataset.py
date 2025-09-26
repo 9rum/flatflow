@@ -14,12 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-import os 
 import time
 import numpy as np
 import torch
-from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset
 from nemo.utils import logging
 from omegaconf.dictconfig import DictConfig
@@ -42,6 +39,7 @@ def get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap=Fa
     logging.info('    number of documents: {}'.format(indexed_dataset.sizes.shape[0]))
 
     return indexed_dataset
+
 def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
     def _build_dataset(current_data_prefix, current_num_samples):
         delay_data_mmap = cfg.data.get('delay_data_mmap', False)
@@ -252,6 +250,7 @@ def _build_train_valid_test_datasets(
                 train_valid_test_num_samples[index],
                 seq_length,
                 seed,
+                drop_last,
             )
         return dataset
 
@@ -285,9 +284,6 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         seed,
         drop_last=True,
     ) -> None:
-        """
-        """
-
         NeMoGPTDataset.__init__(
             self,
             cfg=cfg,
@@ -302,23 +298,16 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             seed=seed,
             drop_last=drop_last)
 
-    def __len__(self):
-        return len(self.indexed_dataset.sizes)
 
     def __getitem__(self, idx):
         text = self.indexed_dataset.get(idx)
-        
+
         # Convert numpy array to torch tensor if needed
         if isinstance(text, np.ndarray):
             text = torch.from_numpy(text)
-        
-        if self.add_extra_token:
-            tokens = text[:-1].contiguous()
-            labels = text[1:].contiguous()
-        else:
-            tokens = text
-            labels = torch.roll(text, shifts=-1, dims=0)
-            labels[-1] = -1
+
+        tokens = text[:-1].contiguous()
+        labels = text[1:].contiguous()
 
         # Derived from nemo...megatron/gpt_dataset.py:_create_ltor_masks_and_position_ids
         loss_mask = torch.ones(len(tokens), dtype=torch.float)
@@ -342,14 +331,14 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         }
 
     def __sizeof__(self, idx):
-        return self.indexed_dataset.sizes[idx]
+        return self[idx]["seqlen"]
 
     def _collate_fn(self, batch):
         tokens = np.concatenate([item["tokens"].numpy() for item in batch])
         labels = np.concatenate([item["labels"].numpy() for item in batch])
         loss_mask = np.concatenate([item["loss_mask"].numpy() for item in batch])
         position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
-        
+
         # Convert token_count to tensor instead of keeping as int
         token_count = torch.LongTensor([tokens.shape[0]])
 
@@ -363,9 +352,9 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         return {
             "tokens": torch.LongTensor(tokens).unsqueeze(0),
             "labels": torch.LongTensor(labels).unsqueeze(0),
-            "loss_mask": torch.FloatTensor(loss_mask).unsqueeze(0),  # Changed to FloatTensor
+            "loss_mask": torch.FloatTensor(loss_mask).unsqueeze(0),
             "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
-            "token_count": token_count,  # Now a tensor, not a list with int
+            "token_count": token_count,
             "attention_mask": torch.LongTensor([1]),
             "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
             "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
