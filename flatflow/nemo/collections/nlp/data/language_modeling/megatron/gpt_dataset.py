@@ -14,31 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
 import numpy as np
 import torch
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset, get_indexed_dataset_
 from nemo.utils import logging
 from omegaconf.dictconfig import DictConfig
 from flatflow.nemo.core.classes import Dataset
-import flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset
-from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import make_dataset as make_indexed_dataset
+from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
     get_train_valid_test_split_,
 )
 __all__ = ["build_train_valid_test_datasets","GPTDataset"]
 
-def get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap=False):
-    """Build indexed dataset."""
-    logging.info(' > building dataset index ...')
-
-    start_time = time.time()
-    indexed_dataset = make_indexed_dataset(data_prefix, data_impl, skip_warmup, delay_data_mmap=delay_data_mmap)
-    logging.info(' > finished creating indexed dataset in {:4f} ' 'seconds'.format(time.time() - start_time))
-    logging.info('    number of documents: {}'.format(indexed_dataset.sizes.shape[0]))
-
-    return indexed_dataset
 
 def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
     def _build_dataset(current_data_prefix, current_num_samples):
@@ -76,7 +64,7 @@ def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length,
         for i in range(len(prefixes)):
             dataset = _build_dataset(prefixes[i], datasets_num_samples[i])
             datasets.append(dataset)
-        return flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(datasets, weights, num_samples)
+        return BlendableDataset(datasets, weights, num_samples)
 
 
 def build_train_valid_test_datasets(
@@ -187,13 +175,13 @@ def build_train_valid_test_datasets(
         # Blend.
         blending_train_dataset = None
         if train_datasets:
-            blending_train_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(train_datasets, weights, train_n)
+            blending_train_dataset = BlendableDataset(train_datasets, weights, train_n)
         blending_valid_dataset = None
         if valid_datasets:
-            blending_valid_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(valid_datasets, weights, valid_n)
+            blending_valid_dataset = BlendableDataset(valid_datasets, weights, valid_n)
         blending_test_dataset = None
         if test_datasets:
-            blending_test_dataset = flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset(test_datasets, weights, test_n)
+            blending_test_dataset = BlendableDataset(test_datasets, weights, test_n)
 
         return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
 
