@@ -1637,8 +1637,20 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.tokenizer.add_special_tokens({'additional_special_tokens': fim_tokens})
 
         if legacy_dataset:
-            #TODO: add FlatFlow version here
-            if self.use_obfd:
+            if self.use_flatflow:
+                self._train_ds, self._validation_ds, self._test_ds = flatflow.nemo.collections.nlp.data.language_modeling.megatron.build_train_valid_test_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    data_prefix=self.cfg.data.data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
+            elif self.use_obfd:
                 self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
                     cfg=self.cfg,
                     trainer=self.trainer,
@@ -1652,19 +1664,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     skip_warmup=self.cfg.data.get("skip_warmup", True),
                     tokenizer=self.tokenizer,
                 )
-            elif self.use_flatflow:
-                    self._train_ds, self._validation_ds, self._test_ds = flatflow.nemo.collections.nlp.data.language_modeling.megatron.build_train_valid_test_datasets(
-                        cfg=self.cfg,
-                        trainer=self.trainer,
-                        data_prefix=self.cfg.data.data_prefix,
-                        data_impl=self.cfg.data.data_impl,
-                        splits_string=self.cfg.data.splits_string,
-                        train_valid_test_num_samples=train_valid_test_num_samples,
-                        seq_length=self.cfg.data.seq_length,
-                        seed=self.cfg.seed,
-                        skip_warmup=self.cfg.data.get("skip_warmup", True),
-                        tokenizer=self.tokenizer,
-                    )
             else:
                 self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
                     cfg=self.cfg,
