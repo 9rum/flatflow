@@ -300,11 +300,8 @@ class GPTDataset(Dataset, NeMoGPTDataset):
 
 
     def __getitem__(self, idx):
-        text = self.indexed_dataset.get(idx)
-
-        # Convert numpy array to torch tensor if needed
-        if isinstance(text, np.ndarray):
-            text = torch.from_numpy(text)
+        sample = self.indexed_dataset.get(idx)
+        text = torch.from_numpy(sample.astype(np.int64))
 
         tokens = text[:-1].contiguous()
         labels = text[1:].contiguous()
