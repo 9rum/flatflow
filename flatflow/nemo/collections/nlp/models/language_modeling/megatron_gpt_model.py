@@ -458,7 +458,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         self.use_obfd = cfg.data.get("use_obfd", False)
 
         # Model path for export functionality (if available)
-        self.model_path = cfg.get("restore_from_path", None)
+        self.model_path = cfg.get("model_path", None)
         if self.model_path and self.model_path.endswith("/model.nemo"):
             self.model_path = self.model_path.split("/model.nemo")[0]
 
