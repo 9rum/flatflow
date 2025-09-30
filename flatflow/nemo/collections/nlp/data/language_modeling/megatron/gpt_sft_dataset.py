@@ -169,8 +169,11 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         # apply the chat template to messages
         user_ids = self.tokenizer.apply_chat_template(msgs[:-1], add_generation_prompt=True, return_tensors=None)
         input_ids = self.tokenizer.apply_chat_template(msgs, return_tensors=None)
-        if self.add_eos and input_ids[-1] != self.tokenizer.eos_id and self.tokenizer.eos_id is not None:
-            input_ids[-1] = self.tokenizer.eos_id
+        if self.add_eos and self.tokenizer.eos_id is not None and input_ids[-1] != self.tokenizer.eos_id:
+            if len(input_ids) < self.max_seq_length:
+                input_ids.append(self.tokenizer.eos_id)
+            else:
+                input_ids[-1] = self.tokenizer.eos_id
         answer_ids = input_ids[len(user_ids):]
         
         metadata = {k: v for k, v in example.items() if k != MESSAGES}
