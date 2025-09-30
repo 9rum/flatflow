@@ -35,12 +35,12 @@ from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
 from pytorch_lightning.trainer.trainer import Trainer
 from torch._decomp import get_decompositions
 from torch.nn.attention import SDPBackend, sdpa_kernel
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import flatflow.megatron.core.pipeline_parallel.schedules
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
 import flatflow.torch.utils.data
-from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
@@ -1638,7 +1638,8 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         if legacy_dataset:
             if self.use_flatflow:
-                self._train_ds, self._validation_ds, self._test_ds = flatflow.nemo.collections.nlp.data.language_modeling.megatron.build_train_valid_test_datasets(
+                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_train_valid_test_datasets
+                self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
                     cfg=self.cfg,
                     trainer=self.trainer,
                     data_prefix=self.cfg.data.data_prefix,
@@ -1651,6 +1652,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     tokenizer=self.tokenizer,
                 )
             elif self.use_obfd:
+                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
                 self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
                     cfg=self.cfg,
                     trainer=self.trainer,
@@ -1814,7 +1816,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 drop_last=drop_last,
                 pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
                 dataset=dataset,
-                graph=_export(self.model, self.tokenizer.tokenizer),
+                graph=_export(self.model_path),
             )
 
             return flatflow.torch.utils.data.DataLoader(
@@ -2329,12 +2331,13 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         return transformer_config
 
-def _export(model, tokenizer):
+def _export(model_path):
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
     prompt = "How many hours are in a day?"
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids
     torch.backends.cuda.enable_mem_efficient_sdp(False)
     decomp_table = get_decompositions([torch.ops.aten.scaled_dot_product_attention])
-
+    model = AutoModelForCausalLM.from_pretrained(model_path, use_cache=False)
     seq_len = torch.export.Dim("seq_len", min=2, max=128)
     with torch.no_grad(), sdpa_kernel(SDPBackend.MATH):
         ep = torch.export.export(model, (input_ids,), dynamic_shapes=({1: seq_len},), strict=False)
