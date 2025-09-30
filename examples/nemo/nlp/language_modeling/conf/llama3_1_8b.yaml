@@ -1,3 +1,5 @@
+run:
+  name: llama3
 trainer:
   num_nodes: 16
   devices: 8
@@ -42,6 +44,7 @@ exp_manager:
 model:
   use_flatflow: false
   use_profile: false
+  model_path: null
   mcore_gpt: true
   micro_batch_size: 1
   global_batch_size: 2048
