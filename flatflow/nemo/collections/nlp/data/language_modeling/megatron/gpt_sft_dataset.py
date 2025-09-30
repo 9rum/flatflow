@@ -182,13 +182,13 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
                 metadata[msg[ROLE]] = msg[CONTENT]
                 
         processed_example={
-            'input_ids': input_ids,
-            'answer_start_idx': len(user_ids),
-            'context_ids': user_ids,
-            'context_length': len(user_ids),
-            'answer_ids': answer_ids,
-            'metadata': metadata,
-            'token_count': len(input_ids)
+            "input_ids": input_ids,
+            "answer_start_idx": len(user_ids),
+            "context_ids": user_ids,
+            "context_length": len(user_ids),
+            "answer_ids": answer_ids,
+            "metadata": metadata,
+            "token_count": len(input_ids)
         }
         
         return processed_example
