@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections.abc import Mapping
-from typing import Optional
+from typing import Optional, Literal
 
 import numpy as np
 import torch
@@ -27,6 +27,12 @@ from flatflow.nemo.core.classes import Dataset
 
 __all__ = ["GPTSFTDataset"]
 
+MESSAGES = "messages"
+ROLE = "role"
+CONTENT = "content"
+SYSTEM = "system"
+USER = "user"
+ASSISTANT = "assistant"
 
 class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
     def __init__(
@@ -35,6 +41,7 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         tokenizer: TokenizerSpec,
         max_seq_length: int = 1024,
         min_seq_length: int = 1,
+        max_prompt_length: int = 512,
         pad_seq_length_to_mult: int = 16,
         add_bos: bool = False,
         add_eos: bool = True,
@@ -52,7 +59,7 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         tokens_to_generate: int = 0,
         memmap_workers: Optional[int] = None,
         hf_dataset: bool = False,
-        truncation_method: str = "right",
+        truncation_method: Literal["left", "right"] = "right",
         special_tokens: Optional[Mapping[str, str]] = None,
         is_test: bool = False,
         output_original_text: bool = False,
@@ -83,37 +90,48 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         is_test: Whether this dataset is the test split.
         output_original_text (bool): if true, will keep the original text in the output alongside the tokenized ids.
         """
-        NeMoGPTSFTDataset.__init__(
-            self,
-            file_path,
-            tokenizer,
-            max_seq_length=max_seq_length,
-            min_seq_length=min_seq_length,
-            pad_seq_length_to_mult=pad_seq_length_to_mult,
-            add_bos=add_bos,
-            add_eos=add_eos,
-            add_sep=add_sep,
-            sep_id=sep_id,  # type: ignore[arg-type]
-            max_num_samples=max_num_samples,  # type: ignore[arg-type]
-            seed=seed,
-            label_key=label_key,
-            answer_only_loss=answer_only_loss,
-            truncation_field=truncation_field,
-            pad_to_max_length=pad_to_max_length,
-            index_mapping_dir=index_mapping_dir,  # type: ignore[arg-type]
-            prompt_template=prompt_template,  # type: ignore[arg-type]
-            virtual_tokens=virtual_tokens,
-            tokens_to_generate=tokens_to_generate,
-            memmap_workers=memmap_workers,
-            hf_dataset=hf_dataset,
-            truncation_method=truncation_method,
-            special_tokens=special_tokens,
-            is_test=is_test,
-            output_original_text=output_original_text,
-            ceil_to_power_2=ceil_to_power_2,
-            get_attention_mask_from_fusion=get_attention_mask_from_fusion,
-        )
+        self.tokenizer = tokenizer
+        self.file_path = file_path
+        self.max_seq_length = max_seq_length
+        self.min_seq_length = min_seq_length
+        self.max_prompt_length = max_prompt_length
+        self.pad_seq_length_to_mult = pad_seq_length_to_mult
+        self.add_bos = add_bos
+        self.add_eos = add_eos
+        self.add_sep = add_sep
+        self.sep_id = sep_id
+        self.max_num_samples = max_num_samples
+        self.seed = seed
+        self.label_key = label_key
+        self.answer_only_loss = answer_only_loss
+        self.truncation_fields = truncation_field.split(',') if truncation_field is not None else []
+        self.pad_to_max_length = pad_to_max_length
+        self.index_mapping_dir = index_mapping_dir
+        self.prompt_template = prompt_template
+        self.virtual_tokens = virtual_tokens
+        self.tokens_to_generate = tokens_to_generate
+        self.memmap_workers = memmap_workers
+        self.hf_dataset = hf_dataset
+        self.truncation_method = truncation_method
+        self.is_test = is_test
+        self.output_original_text = output_original_text
+        self.ceil_to_power_2 = ceil_to_power_2
+        self.get_attention_mask_from_fusion = get_attention_mask_from_fusion
+        self.global_sample_mapping = False
+        self.sanity_check_dist_workers = True
+        self.special_tokens = special_tokens
+        self.has_chat_template = hasattr(tokenizer, "apply_chat_template")
+        
+        NeMoGPTSFTDataset._load_dataset(self)
 
+        if not self.has_chat_template:
+            NeMoGPTSFTDataset._maybe_validate_prompt_template(self)
+
+        if max_prompt_length >= max_seq_length:
+            raise ValueError(f"max_prompt_length ({max_prompt_length}) must be < max_seq_length ({max_seq_length})")
+            
+        NeMoGPTSFTDataset._build_samples_mapping(self)
+        
         """
         NOTE: The `token_count` is used by FlatFlow scheduler via `__sizeof__` before sampling and collation.
         So, the 'teacher-forcing alignment' should happen here, before `__sizeof__`, in contrast to `NeMoGPTSFPTDataset`
@@ -129,6 +147,165 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             self.processed_dataset[index]["input_ids"] = self.processed_dataset[index]["input_ids"][:-1]
             self.processed_dataset[index]["token_count"] = len(self.processed_dataset[index]["input_ids"])
 
+    def _process_example(self, example):
+        if not self.has_chat_template:
+            return NeMoGPTSFTDataset._process_example(self, example)
+        
+        return self._process_with_chat_template(example)
+    
+    def _process_with_chat_template(self, example):
+        # normalize to {"messages": [...]}
+        example = self._ensure_example_format(example)
+        
+        # validate basic conversation structure (SYSTEM optional, ends with ASSISTANT, etc.)
+        if not self._validate_example(example):
+            raise ValueError("Example validation failed: the conversation does not follow the required structure or contains invalid content.")
+        
+        msgs = example[MESSAGES]
+        
+        # truncate if over length limits
+        msgs = self._truncate_example(msgs)
+        
+        # apply the chat template to messages
+        user_ids = self.tokenizer.apply_chat_template(msgs[:-1], add_generation_prompt=True, return_tensors=None)
+        input_ids = self.tokenizer.apply_chat_template(msgs, return_tensors=None)
+        if self.add_eos and self.tokenizer.eos_id is not None and input_ids[-1] != self.tokenizer.eos_id:
+            if len(input_ids) < self.max_seq_length:
+                input_ids.append(self.tokenizer.eos_id)
+            else:
+                input_ids[-1] = self.tokenizer.eos_id
+        answer_ids = input_ids[len(user_ids):]
+        
+        metadata = {k: v for k, v in example.items() if k != MESSAGES}
+        if self.output_original_text:
+            for msg in example[MESSAGES]:
+                metadata[msg[ROLE]] = msg[CONTENT]
+                
+        processed_example={
+            "input_ids": input_ids,
+            "answer_start_idx": len(user_ids),
+            "context_ids": user_ids,
+            "context_length": len(user_ids),
+            "answer_ids": answer_ids,
+            "metadata": metadata,
+            "token_count": len(input_ids)
+        }
+        
+        return processed_example
+    
+    def _truncate_example(self, msgs):
+        
+        prompt_msgs = msgs[:-1]
+        
+        prompt_tpl_ids = self.tokenizer.apply_chat_template(prompt_msgs, add_generation_prompt=True, return_tensors=None)
+        full_tpl_ids = self.tokenizer.apply_chat_template(msgs, return_tensors=None)
+        
+        # skip truncation if prompt and full are within limits
+        if (len(prompt_tpl_ids) <= self.max_prompt_length) and (len(full_tpl_ids) <= self.max_seq_length):
+            return msgs
+        
+        # truncation method: "right" keeps first_k, "left" keeps last_k
+        if self.truncation_method not in ("right", "left"):
+            raise ValueError(f"Unsupported truncation_method: {self.truncation_method}")
+        first_k = lambda seq, k: (seq[:k] if k > 0 else [])
+        last_k  = lambda seq, k: (seq[-k:] if k > 0 else [])
+        _truncate = first_k if self.truncation_method == "right" else last_k
+        
+        # raw token ids (system, user, and assistant)
+        has_system = prompt_msgs[0].get(ROLE) == SYSTEM
+        sys_raw_ids = self.tokenizer.text_to_ids(prompt_msgs[0][CONTENT]) if has_system else []
+        user_raw_ids = self.tokenizer.text_to_ids(prompt_msgs[-1][CONTENT])
+        answer_raw_ids = self.tokenizer.text_to_ids(msgs[-1][CONTENT])
+        
+        # raw token lengths (system, user, and assistant)
+        sys_raw_len = len(sys_raw_ids)
+        user_raw_len = len(user_raw_ids)
+        answer_raw_len = len(answer_raw_ids)
+        
+        # template overhead
+        prompt_tpl_budget = len(prompt_tpl_ids) - (sys_raw_len + user_raw_len)
+        answer_tpl_budget = (len(full_tpl_ids) - len(prompt_tpl_ids)) - answer_raw_len
+        
+        # allocate prompt budget: system first, then user
+        prompt_budget = max(0, self.max_prompt_length - prompt_tpl_budget)
+        sys_keep = min(sys_raw_len, prompt_budget)
+        user_keep = min(user_raw_len, max(0, prompt_budget - sys_keep))
+
+        # truncate system
+        if has_system:
+            sys_ids = _truncate(sys_raw_ids, sys_keep)
+            if sys_keep < sys_raw_len:
+                logging.warning(f"The system message content has been cut off by {self.truncation_method} truncation.")
+            prompt_msgs[0][CONTENT] = self.tokenizer.ids_to_text(sys_ids)
+        
+        # truncate user
+        user_ids = _truncate(user_raw_ids, user_keep)
+        prompt_msgs[-1][CONTENT] = self.tokenizer.ids_to_text(user_ids)
+
+        # truncate answer
+        prompt_raw_ids_len = sys_keep + user_keep
+        answer_keep = max(0, min(answer_raw_len, self.max_seq_length - (prompt_tpl_budget + prompt_raw_ids_len + answer_tpl_budget)))
+        answer_ids = _truncate(answer_raw_ids, answer_keep)
+        msgs[-1][CONTENT] = self.tokenizer.ids_to_text(answer_ids)
+
+        return msgs
+        
+    def _validate_example(self, sample):
+        if sample is None:
+            return False
+        
+        msgs = sample.get(MESSAGES, [])
+        if len(msgs) < 2:
+            return False
+        
+        for idx, msg in enumerate(msgs):
+            if ROLE not in msg or CONTENT not in msg:
+                return False
+        
+            if msg[ROLE] not in [SYSTEM, USER, ASSISTANT]:
+                return False
+            
+            if msg[ROLE] != SYSTEM and isinstance(msg[CONTENT], str) and msg[CONTENT] == "":
+                return False
+            
+            if msg[ROLE] == SYSTEM and idx != 0:
+                return False
+            
+        if msgs[0][ROLE] == SYSTEM:
+            if len(msgs) < 3 or msgs[1][ROLE] != USER:
+                return False
+            start_idx = 1
+        else:
+            if msgs[0][ROLE] != USER:
+                return False
+            start_idx = 0
+        
+        for i in range(start_idx, len(msgs)):
+            expect = USER if (i - start_idx) % 2 == 0 else ASSISTANT
+            if msgs[i][ROLE] != expect:
+                return False
+        
+        if msgs[-1][ROLE] != ASSISTANT:
+            return False
+
+        return True
+
+    def _ensure_example_format(self, example):
+        if isinstance(example, dict) and MESSAGES in example:
+            return example
+        
+        if isinstance(example, list):
+            return {MESSAGES: example}
+        
+        if isinstance(example, dict):
+            user_text = example.get("input")
+            asst_text = example.get("output")
+            metadata = {k: v for k, v in example.items() if k not in ("input", "output")}
+            if user_text and asst_text is not None: 
+                return {MESSAGES: [{ROLE: USER, CONTENT: user_text}, {ROLE: ASSISTANT, CONTENT: asst_text}], **metadata}
+
+        return None
+    
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):  # type: ignore[arg-type]
             idx = idx.item()
@@ -155,7 +332,7 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         return {
             "input_ids": example["input_ids"],
             "labels": example["labels"],
-            "loss_mask": [0] * example["token_count"] if auto_gen_idx else self._build_loss_mask(example),
+            "loss_mask": [0] * example["token_count"] if auto_gen_idx else self._build_loss_mask(example)[1:] + [1.0],
             "seqlen": example["token_count"],
         }
 
