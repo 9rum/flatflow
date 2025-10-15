@@ -40,6 +40,7 @@ torchrun --nproc-per-node 8 --nnodes ${NNODES} --node-rank ${RANK} \
        trainer.sft.val_check_interval=-1 \
        trainer.sft.save_interval=10000000 \
        model.megatron_amp_O2=True \
+       model.model_path=${NEMO_MODEL} \
        model.restore_from_path=${NEMO_MODEL} \
        model.answer_only_loss=True \
        model.tensor_model_parallel_size=${TP_SIZE} \
