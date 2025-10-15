@@ -265,9 +265,6 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             if msg[ROLE] not in [SYSTEM, USER, ASSISTANT]:
                 return False
             
-            if msg[ROLE] != SYSTEM and isinstance(msg[CONTENT], str) and msg[CONTENT] == "":
-                return False
-            
             if msg[ROLE] == SYSTEM and idx != 0:
                 return False
             
