@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import time
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import torch
@@ -14,9 +15,10 @@ from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenize
 from tqdm import tqdm
 
 
-def best_fit_decreasing(counts: np.ndarray, bin_size: int):
-    items = [(idx, cnt) for idx, cnt in enumerate(counts)]
-    items.sort(key=lambda x: x[1], reverse=True)
+def best_fit_decreasing(args):
+    counts, bin_size, start = args
+    items = [(start + idx, cnt) for idx, cnt in enumerate(counts)]
+    items.sort(key=lambda item: item[1], reverse=True)
 
     bins = []
     capacities = []
@@ -38,6 +40,22 @@ def best_fit_decreasing(counts: np.ndarray, bin_size: int):
             capacities.append(bin_size - item[1])
 
     return bins
+
+
+def parallel_best_fit_decreasing(counts: np.ndarray, bin_size: int):
+    n_chunks = cpu_count()
+    n_total = len(counts)
+    chunk_size = (n_total + n_chunks - 1) // n_chunks
+
+    tasks = []
+    for i in range(n_chunks):
+        start = i * chunk_size
+        end = min(start + chunk_size, n_total)
+        chunk = counts[start:end].copy()
+        tasks.append((chunk, bin_size, start))
+
+    pool = Pool(processes=n_chunks)
+    yield from pool.imap(best_fit_decreasing, tasks)
 
 
 def read_jsonl_at(path: str, index: int, offsets: np.ndarray):
@@ -90,7 +108,6 @@ def main():
     token_counts = np.load(args.counts)
     token_offsets = np.load(args.token_offsets)
     label_offsets = np.load(args.label_offsets)
-    bins = best_fit_decreasing(token_counts, args.max_seq_len)
 
     tokenizer = get_tokenizer(args)
 
@@ -110,27 +127,28 @@ def main():
         vocab_size=tokenizer.vocab_size,
     )
 
-    for items in tqdm(bins, desc="Saving packed sequences"):
-        token_ids = []
-        label_ids = []
-        num_tokens = 0
+    for bins in tqdm(parallel_best_fit_decreasing(token_counts, args.max_seq_len), "Iterating bins"):
+        for items in tqdm(bins, desc="Saving packed sequences"):
+            token_ids = []
+            label_ids = []
+            num_tokens = 0
 
-        for item in items:
-            num_tokens += item[1]
-            data = read_jsonl_at(args.tokens, item[0], token_offsets)
-            text = data[args.json_key]
-            token_ids.extend(tokenizer.text_to_ids(text))
-            data = read_jsonl_at(args.labels, item[0], label_offsets)
-            text = data[args.json_key]
-            label_ids.extend(tokenizer.text_to_ids(text))
+            for item in items:
+                num_tokens += item[1]
+                data = read_jsonl_at(args.tokens, item[0], token_offsets)
+                text = data[args.json_key]
+                token_ids.extend(tokenizer.text_to_ids(text))
+                data = read_jsonl_at(args.labels, item[0], label_offsets)
+                text = data[args.json_key]
+                label_ids.extend(tokenizer.text_to_ids(text))
 
-        # pad to fit the sequence to the model's context length
-        token_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
-        tokens_builder.add_item(torch.IntTensor(token_ids))
-        tokens_builder.end_document()
-        label_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
-        labels_builder.add_item(torch.IntTensor(label_ids))
-        labels_builder.end_document()
+            # pad to fit the sequence to the model's context length
+            token_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+            tokens_builder.add_item(torch.IntTensor(token_ids))
+            tokens_builder.end_document()
+            label_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+            labels_builder.add_item(torch.IntTensor(label_ids))
+            labels_builder.end_document()
 
     tokens_builder.finalize(tokens_idx_file)
     labels_builder.finalize(labels_idx_file)
