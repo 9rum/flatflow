@@ -106,7 +106,7 @@ class Scheduler {
     const auto trace = symbolic_trace(graph);
 
     // clang-format off
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(omp_get_num_procs())
     for (size_type index = 0; index < total_size; ++index) {
       projections_[index] = trace(*std::next(first, index));
     }
@@ -147,7 +147,7 @@ class Scheduler {
     const auto bproj = &internal::Subset<size_type, value_type>::sum;
 
     // clang-format off
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(omp_get_num_procs())
     for (size_type offset = 0; offset < total_size;
          offset += global_batch_size_) {
       const auto num_samples = offset + global_batch_size_ < total_size

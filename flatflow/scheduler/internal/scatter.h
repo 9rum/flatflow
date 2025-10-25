@@ -15,6 +15,8 @@
 #ifndef FLATFLOW_SCHEDULER_INTERNAL_SCATTER_H_
 #define FLATFLOW_SCHEDULER_INTERNAL_SCATTER_H_
 
+#include <omp.h>
+
 #include <algorithm>
 #include <iterator>
 
@@ -46,7 +48,7 @@ OutputIterator Scatter(InputIterator first, InputIterator last,
   const auto remainder = (total_size - 1) % stride + 1;
 
   // clang-format off
-  #pragma omp parallel for
+  #pragma omp parallel for num_threads(omp_get_num_procs())
   for (std::iter_difference_t<InputIterator> offset = 0; offset < total_size;
        offset += stride) {
     const auto step = (offset + stride < total_size ? stride : remainder) / n;

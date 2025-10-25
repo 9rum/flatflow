@@ -1550,7 +1550,7 @@ decltype(auto) symbolic_trace(const Graph *graph) {
           typename SymIntAdaptor::return_type> : omp_out += omp_in) \
       initializer(omp_priv = omp_orig)
 
-  #pragma omp parallel for reduction(+ : poly)
+  #pragma omp parallel for reduction(+ : poly) num_threads(omp_get_num_procs())
   for (flatbuffers::uoffset_t index = 0; index < nodes->size(); ++index) {
     auto node = nodes->Get(index);
     CHECK_NE(node, nullptr);
