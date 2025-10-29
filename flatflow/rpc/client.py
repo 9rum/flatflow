@@ -16,8 +16,8 @@ from collections.abc import Sequence
 
 import flatbuffers
 import grpc
+import numpy
 import torch.fx
-from numpy.typing import ArrayLike
 
 from flatflow.ops import serialize
 from flatflow.rpc.controlplane_generated import (
@@ -100,7 +100,7 @@ class ControlPlaneClient(object):
 
         self.stub.Init(bytes(builder.Output()))
 
-    def Scatter(self, epoch: int, indices: Sequence[int]) -> ArrayLike:
+    def Scatter(self, epoch: int, indices: Sequence[int]) -> numpy.ndarray:
         """Returns the reordered computation schedule for the next training epoch.
 
         Args:
@@ -108,7 +108,7 @@ class ControlPlaneClient(object):
             indices (Sequence[int]): The original computation schedule.
 
         Returns:
-            ArrayLike: The reordered computation schedule.
+            numpy.ndarray: The reordered computation schedule.
         """
         builder = flatbuffers.Builder()
 
