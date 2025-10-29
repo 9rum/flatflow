@@ -14,6 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+
 import grpc
 import torch.distributed
 import torch.fx
@@ -92,12 +96,17 @@ class MegatronPretrainingBatchSampler(BaseMegatronBatchSampler):
             # communicates through the IPv6 loopback interface only.
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
-            sizes = [
-                sys.getsizeof(dataset, index)
-                if index < len(dataset)
-                else sys.getsizeof(dataset, len(dataset) - 1)
-                for index in range(self.total_size)
-            ]
+
+            func = partial(sys.getsizeof, dataset)
+            max_workers = len(os.sched_getaffinity(os.getpid()))
+            with ProcessPoolExecutor(max_workers) as executor:
+                sizes = list(executor.map(func, range(len(dataset))))
+
+            if drop_last:
+                sizes = sizes[: self.total_size]
+            else:
+                sizes.extend([sizes[-1]] * (self.total_size - len(dataset)))
+
             self.client.Init(
                 data_parallel_rank,
                 data_parallel_size,

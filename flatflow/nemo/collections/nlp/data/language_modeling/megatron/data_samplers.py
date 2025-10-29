@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Dataloaders."""
+import os
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 
 import grpc
 import torch.distributed
@@ -23,15 +25,13 @@ from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
 
 from flatflow import sys
-from flatflow.rpc import ControlPlaneClient, run
+from flatflow.rpc import ControlPlaneClient, run  # type: ignore[attr-defined]
 from flatflow.torch.utils.data import Dataset
 
 __all__ = ["MegatronPretrainingSampler", "MegatronCorePretrainingSampler"]
 
 
-class MegatronPretrainingSampler(
-    BaseMegatronPretrainingSampler
-):
+class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
     """Megatron-LM style pre-training sampler.
 
     Args:
@@ -62,7 +62,8 @@ class MegatronPretrainingSampler(
         drop_last: bool,
         graph: torch.fx.Graph,
         pad_samples_to_global_batch_size: bool = False,
-        *args, **kwargs,
+        *args,
+        **kwargs,
     ) -> None:
         super().__init__(
             total_samples=total_samples,
@@ -73,11 +74,12 @@ class MegatronPretrainingSampler(
             data_parallel_size=data_parallel_size,
             drop_last=drop_last,
             pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
-            *args, **kwargs,
+            *args,
+            **kwargs,
         )
         self.dataset = dataset
         self.epoch = 0
-        
+
         if drop_last:
             self.total_size = len(dataset) // global_batch_size * global_batch_size
         else:
@@ -85,7 +87,7 @@ class MegatronPretrainingSampler(
             self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
         num_samples = self.total_size // data_parallel_size
         self.indices = [0] * num_samples
-        
+
         pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
         tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
         if pipeline_parallel_rank == 0 and tensor_parallel_rank == 0:
@@ -97,12 +99,17 @@ class MegatronPretrainingSampler(
             # communicates through the IPv6 loopback interface only.
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
-            sizes = [
-                sys.getsizeof(dataset, index)
-                if index < len(dataset)
-                else sys.getsizeof(dataset, len(dataset) - 1)
-                for index in range(self.total_size)
-            ]
+
+            func = partial(sys.getsizeof, dataset)
+            max_workers = len(os.sched_getaffinity(os.getpid()))
+            with ProcessPoolExecutor(max_workers) as executor:
+                sizes = list(executor.map(func, range(len(dataset))))
+
+            if drop_last:
+                sizes = sizes[: self.total_size]
+            else:
+                sizes.extend([sizes[-1]] * (self.total_size - len(dataset)))
+
             self.client.Init(
                 data_parallel_rank,
                 data_parallel_size,
@@ -138,14 +145,14 @@ class MegatronPretrainingSampler(
             batch.append(idx)
             if len(batch) == self.micro_batch_times_data_parallel_size:
                 start, end = self.get_start_end_idx()
-                yield batch[start:end]   # yield per micro_batch_size
+                yield batch[start:end]  # yield per micro_batch_size
                 batch = []
 
         # Check the last partial batch and see drop_last is set
         if len(batch) > 0 and not self.drop_last:
             assert (
                 not self.pad_samples_to_global_batch_size
-            ), 'with pad_samples_to_global_batch_size all batches should be complete'
+            ), "with pad_samples_to_global_batch_size all batches should be complete"
             start_idx, end_idx = self.get_start_end_idx()
             yield batch[start_idx:end_idx]
 
@@ -155,7 +162,5 @@ class MegatronPretrainingSampler(
 
 
 class MegatronCorePretrainingSampler(MegatronPretrainingSampler):
-    """_get_padding_indices is different"""
-
     def _get_padding_indices(self, pad_samples_num: int):
         return [None] * pad_samples_num
