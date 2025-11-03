@@ -19,7 +19,6 @@ import os
 import queue
 import warnings
 from contextlib import nullcontext
-from dataclasses import fields
 from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
@@ -29,7 +28,6 @@ import packaging
 import torch
 import torch.export
 from megatron.energon import WorkerConfig, get_train_dataset, get_loader
-from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
@@ -50,7 +48,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
     MegatronPretrainingSampler,
 )
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
+# from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_fim_dataset import GPTFIMDataset, GPTFIMDatasetConfig
 from nemo.collections.nlp.models.language_modeling.megatron.falcon.falcon_spec import get_falcon_layer_spec
 from nemo.collections.nlp.models.language_modeling.megatron.gpt_full_te_layer_autocast_spec import (
@@ -83,7 +81,7 @@ from nemo.collections.nlp.modules.common.transformer.text_generation import (
     TextGeneration,
 )
 from nemo.collections.nlp.parts import utils_funcs
-from nemo.collections.nlp.parts.utils_funcs import activation_to_func, get_last_rank
+from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, NeuralType
@@ -92,37 +90,30 @@ from nemo.utils.import_utils import safe_import, safe_import_from
 from nemo.utils.te_utils import is_float8tensor
 
 try:
-    import megatron.core as core
-    from megatron.core import InferenceParams, parallel_state, tensor_parallel
-    from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
+    from megatron.core import InferenceParams, parallel_state
+    # from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
     from megatron.core.datasets.gpt_dataset import GPTDataset, GPTDatasetConfig, MockGPTDataset
     from megatron.core.datasets.utils import get_blend_from_list
     from megatron.core.dist_checkpointing.dict_utils import dict_list_map_inplace
     from megatron.core.dist_checkpointing.mapping import LocalNonpersitentObject, ShardedObject
     from megatron.core.distributed import DistributedDataParallel as McoreDDP
     from megatron.core.distributed import DistributedDataParallelConfig, finalize_model_grads
-
-    # NeMo's implementation of the get_gpt_layer_ammo_spec function is temporarily used
-    # from megatron.core.inference.gpt.model_specs import get_gpt_layer_ammo_spec
     from megatron.core.models.gpt import GPTModel as MCoreGPTModel
     from megatron.core.models.gpt.gpt_layer_specs import (
         get_gpt_layer_local_spec,
         get_gpt_layer_with_transformer_engine_spec,
     )
-    from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    # from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
     from megatron.core.transformer.transformer_config import TransformerConfig
     from megatron.core.utils import (
         drain_embedding_wgrad_compute,
         get_model_config,
-        init_method_normal,
-        scaled_init_method_normal,
     )
 
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):
-
     TransformerConfig = ApexGuardDefaults
 
     HAVE_MEGATRON_CORE = False
