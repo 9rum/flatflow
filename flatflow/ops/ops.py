@@ -168,7 +168,7 @@ def is_accessor_node(node: torch.fx.Node) -> bool:
 
 def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
     """Serializes the given computational graph."""
-    blacklist = []
+    blocklist = []
     nodes = []
 
     for node in graph.nodes:
@@ -176,7 +176,7 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             node.target, (OpOverload, OpOverloadPacket, CustomOpDef)
         ):
             if node.target not in _OPS_TABLE:
-                blacklist.append(node.target)
+                blocklist.append(node.target)
                 continue
             target = _OPS_TABLE[node.target]
             args = []
@@ -243,8 +243,8 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             _node = NodeEnd(builder)
             nodes.append(_node)
 
-    if blacklist:
-        warnings.warn(UnsupportedOperatorWarning(blacklist), stacklevel=2)
+    if blocklist:
+        warnings.warn(UnsupportedOperatorWarning(blocklist), stacklevel=2)
 
     GraphStartNodesVector(builder, len(nodes))
     for node in reversed(nodes):
