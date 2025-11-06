@@ -1,9 +1,12 @@
+import json
+
+import numpy
 import torch
 from megatron.core.datasets.gpt_dataset import (
     GPTDatasetConfig,
     _get_ltor_masks_and_position_ids,
 )
-from megatron.energon import DefaultTaskEncoder
+from megatron.energon import DefaultTaskEncoder, TextSample
 from torch.utils.data import default_collate
 
 __all__ = ["MegatronTaskEncoder"]
@@ -34,8 +37,8 @@ class MegatronTaskEncoder(DefaultTaskEncoder):
         except Exception:
             self._pad_token_id = -1
 
-    def encode_sample(self, sample: list[int]) -> dict[str, torch.Tensor]:
-        text = torch.tensor(sample, dtype=torch.int64)
+    def encode_sample(self, sample: TextSample) -> dict[str, torch.Tensor]:
+        text = torch.from_numpy(numpy.array(json.loads(sample.text), dtype=numpy.int64))
         tokens = text[:-1].contiguous()
         labels = text[1:].contiguous()
 
