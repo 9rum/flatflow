@@ -1692,7 +1692,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 rank=parallel_state.get_data_parallel_rank(),
                 world_size=parallel_state.get_data_parallel_world_size(),
                 num_workers=self.cfg.data.num_workers,
-                data_parallel_group=None,
+                data_parallel_group=parallel_state.get_data_parallel_group(),
                 seed_offset=self.cfg.seed,
             )
             task_encoder = MegatronTaskEncoder(dataset_config)

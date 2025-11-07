@@ -19,8 +19,7 @@ from pathlib import Path
 
 # To suppress BF16 compile related issue in the CI runs with turing/V100
 import torch._dynamo
-import torch.multiprocessing as mp
-from omegaconf.omegaconf import OmegaConf, open_dict
+from omegaconf.omegaconf import OmegaConf
 
 from nemo.collections.nlp.parts.nlp_overrides import NLPSaveRestoreConnector
 from nemo.core.config import hydra_runner
@@ -31,8 +30,6 @@ from flatflow.nemo.collections.nlp.parts.megatron_trainer_builder import Megatro
 from flatflow.nemo.collections.nlp.models.language_modeling import MegatronGPTModel, MegatronGPTSFTModel
 
 torch._dynamo.config.suppress_errors = True
-
-mp.set_start_method("spawn", force=True)
 
 
 @hydra_runner(config_path="conf", config_name="megatron_gpt_config")
