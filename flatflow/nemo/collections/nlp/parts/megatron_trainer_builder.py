@@ -36,8 +36,7 @@ from nemo.collections.nlp.parts.nlp_overrides import (
     NLPDDPStrategy,
 )
 
-from flatflow.megatron.core.bpipe import bpipe_state
-from flatflow.nemo.collections.common.metrics import FLOPsMeasurementCallback
+from nemo.collections.common.metrics import FLOPsMeasurementCallback
 
 class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder.MegatronTrainerBuilder):
     """
@@ -62,12 +61,6 @@ class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder
             )
 
         assert not self.cfg.model.get("fsdp", False), "FSDP is not supported in BPipe yet"
-
-        # Set BPipe options before setting DDP strategy to ensure proper 
-        # pipeline parallel (PP) behavior. Override PP-related functions 
-        # to integrate BPipe's memory-balanced execution.
-        use_bpipe = self.cfg.model.get("use_bpipe", False)
-        bpipe_state.set_bpipe_option(use_bpipe)
 
         return NLPDDPStrategy(
             no_ddp_communication_hook=True,
@@ -98,7 +91,7 @@ class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder
             callbacks.append(FLOPsMeasurementCallback(self.cfg))
 
         return callbacks
-        
+
 class MegatronLMPPTrainerBuilder(MegatronTrainerBuilder):
     """Builder for scripts where grad scaler is turned off for pipeline parallel LM model. E.g. PEFT tuning scripts"""
 
