@@ -427,7 +427,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         # FlatFlow settings
         self.use_flatflow = cfg.get("use_flatflow", True)
-        self.enable_profile = cfg.get("enable_profile", True)
+        self.enable_profile = cfg.get("enable_profile", False)
 
         if self.use_flatflow:
             if isinstance(self.model, list):
@@ -1687,24 +1687,27 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             #     dataset_config,
             # ).build()
 
-            logging.info("[DEBUG] Using Megatron-Energon dataset")
-            worker_config = WorkerConfig(
-                rank=parallel_state.get_data_parallel_rank(),
-                world_size=parallel_state.get_data_parallel_world_size(),
-                num_workers=self.cfg.data.num_workers,
-                data_parallel_group=parallel_state.get_data_parallel_group(),
-                seed_offset=self.cfg.seed,
-            )
-            task_encoder = MegatronTaskEncoder(dataset_config)
-            self._train_ds = get_train_dataset(
-                path=self.cfg.data.data_prefix,
-                worker_config=worker_config,
-                batch_size=self.cfg.micro_batch_size,  # Size of a batch. If None, do not batch
-                batch_drop_last=True,
-                shuffle_buffer_size=None,  # Size of the sample shuffle buffer before task encoding
-                max_samples_per_sequence=None,  # If set, limit the number of samples per sequence
-                task_encoder=task_encoder,
-            )
+            if parallel_state.get_pipeline_model_parallel_rank() == 0:
+                logging.info("[DEBUG] Using Megatron-Energon dataset")
+                worker_config = WorkerConfig(
+                    rank=parallel_state.get_data_parallel_rank(),
+                    world_size=parallel_state.get_data_parallel_world_size(),
+                    num_workers=self.cfg.data.num_workers,
+                    data_parallel_group=parallel_state.get_data_parallel_group(),
+                    seed_offset=self.cfg.seed,
+                )
+                task_encoder = MegatronTaskEncoder(dataset_config)
+                self._train_ds = get_train_dataset(
+                    path=self.cfg.data.data_prefix,
+                    worker_config=worker_config,
+                    batch_size=self.cfg.micro_batch_size,
+                    batch_drop_last=True,
+                    shuffle_buffer_size=None,  # Size of the sample shuffle buffer before task encoding
+                    max_samples_per_sequence=None,  # If set, limit the number of samples per sequence
+                    task_encoder=task_encoder,
+                )
+            else:
+                self._train_ds = None
             self._validation_ds = None
             self._test_ds = None
 
