@@ -27,7 +27,6 @@ import nvtx
 import packaging
 import torch
 import torch.export
-from megatron.energon import WorkerConfig, get_train_dataset, get_loader
 from omegaconf.dictconfig import DictConfig
 from pytorch_lightning.accelerators import CPUAccelerator
 from pytorch_lightning.loops.fetchers import _DataFetcherWrapper
@@ -40,7 +39,6 @@ import flatflow.megatron.core.pipeline_parallel.schedules
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
 import flatflow.torch.utils.data
-from flatflow.megatron.energon import MegatronTaskEncoder
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
@@ -48,7 +46,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
     MegatronPretrainingSampler,
 )
-# from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_fim_dataset import GPTFIMDataset, GPTFIMDatasetConfig
 from nemo.collections.nlp.models.language_modeling.megatron.falcon.falcon_spec import get_falcon_layer_spec
 from nemo.collections.nlp.models.language_modeling.megatron.gpt_full_te_layer_autocast_spec import (
@@ -91,7 +89,7 @@ from nemo.utils.te_utils import is_float8tensor
 
 try:
     from megatron.core import InferenceParams, parallel_state
-    # from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
+    from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
     from megatron.core.datasets.gpt_dataset import GPTDataset, GPTDatasetConfig, MockGPTDataset
     from megatron.core.datasets.utils import get_blend_from_list
     from megatron.core.dist_checkpointing.dict_utils import dict_list_map_inplace
@@ -1593,49 +1591,48 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             self.tokenizer.add_special_tokens({'additional_special_tokens': fim_tokens})
 
         if legacy_dataset:
-            # if self.use_flatflow:
-            #     from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_train_valid_test_datasets
-            #     self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
-            #         cfg=self.cfg,
-            #         trainer=self.trainer,
-            #         data_prefix=self.cfg.data.data_prefix,
-            #         data_impl=self.cfg.data.data_impl,
-            #         splits_string=self.cfg.data.splits_string,
-            #         train_valid_test_num_samples=train_valid_test_num_samples,
-            #         seq_length=self.cfg.data.seq_length,
-            #         seed=self.cfg.seed,
-            #         skip_warmup=self.cfg.data.get("skip_warmup", True),
-            #         tokenizer=self.tokenizer,
-            #     )
-            # elif self.use_obfd:
-            #     from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
-            #     self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
-            #         cfg=self.cfg,
-            #         trainer=self.trainer,
-            #         token_data_prefix=self.cfg.data.obfd_token_data_prefix,
-            #         label_data_prefix=self.cfg.data.obfd_label_data_prefix,
-            #         data_impl=self.cfg.data.data_impl,
-            #         splits_string=self.cfg.data.splits_string,
-            #         train_valid_test_num_samples=train_valid_test_num_samples,
-            #         seq_length=self.cfg.data.seq_length,
-            #         seed=self.cfg.seed,
-            #         skip_warmup=self.cfg.data.get("skip_warmup", True),
-            #         tokenizer=self.tokenizer,
-            #     )
-            # else:
-            #     self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
-            #         cfg=self.cfg,
-            #         trainer=self.trainer,
-            #         data_prefix=self.cfg.data.data_prefix,
-            #         data_impl=self.cfg.data.data_impl,
-            #         splits_string=self.cfg.data.splits_string,
-            #         train_valid_test_num_samples=train_valid_test_num_samples,
-            #         seq_length=self.cfg.data.seq_length,
-            #         seed=self.cfg.seed,
-            #         skip_warmup=self.cfg.data.get("skip_warmup", True),
-            #         tokenizer=self.tokenizer,
-            #     )
-            raise ValueError("legacy_dataset should be false")
+            if self.use_flatflow:
+                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_train_valid_test_datasets
+                self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    data_prefix=self.cfg.data.data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
+            elif self.use_obfd:
+                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
+                self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    token_data_prefix=self.cfg.data.obfd_token_data_prefix,
+                    label_data_prefix=self.cfg.data.obfd_label_data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
+            else:
+                self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
+                    cfg=self.cfg,
+                    trainer=self.trainer,
+                    data_prefix=self.cfg.data.data_prefix,
+                    data_impl=self.cfg.data.data_impl,
+                    splits_string=self.cfg.data.splits_string,
+                    train_valid_test_num_samples=train_valid_test_num_samples,
+                    seq_length=self.cfg.data.seq_length,
+                    seed=self.cfg.seed,
+                    skip_warmup=self.cfg.data.get("skip_warmup", True),
+                    tokenizer=self.tokenizer,
+                )
         else:
             # Function needed for mcore GPTDataset
             is_dataset_built_on_rank = lambda: True
@@ -1680,33 +1677,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 else:
                     dataset_type = MockGPTDataset if mock_dataset else GPTDataset
 
-            # self._train_ds, self._validation_ds, self._test_ds = BlendedMegatronDatasetBuilder(
-            #     dataset_type,
-            #     train_valid_test_num_samples,
-            #     is_dataset_built_on_rank,
-            #     dataset_config,
-            # ).build()
-
-            logging.info("[DEBUG] Using Megatron-Energon dataset")
-            worker_config = WorkerConfig(
-                rank=parallel_state.get_data_parallel_rank(),
-                world_size=parallel_state.get_data_parallel_world_size(),
-                num_workers=self.cfg.data.num_workers,
-                data_parallel_group=parallel_state.get_data_parallel_group(),
-                seed_offset=self.cfg.seed,
-            )
-            task_encoder = MegatronTaskEncoder(dataset_config)
-            self._train_ds = get_train_dataset(
-                path=self.cfg.data.data_prefix,
-                worker_config=worker_config,
-                batch_size=self.cfg.micro_batch_size,
-                batch_drop_last=True,
-                shuffle_buffer_size=None,  # Size of the sample shuffle buffer before task encoding
-                max_samples_per_sequence=None,  # If set, limit the number of samples per sequence
-                task_encoder=task_encoder,
-            )
-            self._validation_ds = None
-            self._test_ds = None
+            self._train_ds, self._validation_ds, self._test_ds = BlendedMegatronDatasetBuilder(
+                dataset_type,
+                train_valid_test_num_samples,
+                is_dataset_built_on_rank,
+                dataset_config,
+            ).build()
 
         if self._train_ds is not None:
             logging.info(f'Length of train dataset: {len(self._train_ds)}')
@@ -1874,16 +1850,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             logging.info(
                 f'Setting up train dataloader with len(len(self._train_ds)): {len(self._train_ds)} and consumed samples: {consumed_samples}'
             )
-            # self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples, dataset_type="train")
-            logging.info("[DEBUG] Using Megatron-Energon data loader")
-            self._train_dl = get_loader(
-                dataset=self._train_ds,
-                prefetch_factor=cfg.get("prefetch_factor", 2),
-                cache_pool=None,
-                watchdog_timeout_seconds=None,  # If None, the watchdog is disabled
-                watchdog_initial_timeout_seconds=None,  # If None, same as watchdog_timeout_seconds
-                fail_on_timeout=False,  # If True, stops the whole process upon timeout
-            )
+            self._train_dl = self.build_pretraining_data_loader(self._train_ds, consumed_samples, dataset_type="train")
 
     def setup_validation_data(self, cfg):
         if self._validation_ds is not None:
