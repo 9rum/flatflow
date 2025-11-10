@@ -60,8 +60,6 @@ class MegatronTrainerBuilder(nemo.collections.nlp.parts.megatron_trainer_builder
                 find_unused_parameters=False,
             )
 
-        assert not self.cfg.model.get("fsdp", False), "FSDP is not supported in BPipe yet"
-
         return NLPDDPStrategy(
             no_ddp_communication_hook=True,
             gradient_as_bucket_view=self.cfg.model.gradient_as_bucket_view,

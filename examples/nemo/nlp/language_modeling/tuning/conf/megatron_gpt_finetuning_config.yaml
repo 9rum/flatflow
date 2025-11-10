@@ -87,7 +87,6 @@ model:
 
   use_flatflow: False
   enable_profile: True
-  use_bpipe: False
   batch_p2p_comm: False
 
   peft:
