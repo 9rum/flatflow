@@ -41,6 +41,7 @@ import flatflow.torch.profiler
 import flatflow.torch.utils.data
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
+from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronCorePretrainingSampler,
     MegatronPretrainingRandomSampler,
@@ -1697,10 +1698,14 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
     def build_pretraining_data_loader(
         self, dataset, consumed_samples, dataset_type=None, drop_last=True, pad_samples_to_global_batch_size=False
     ):
-        """Buld dataloader given an input dataset."""
+        """Build dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
-        # Megatron sampler
+        if isinstance(dataset, BlendableDataset):
+            collate_fn = dataset.datasets[0].collate_fn
+        else:
+            collate_fn = dataset.collate_fn
+
         if hasattr(self.cfg.data, 'dataloader_type') and self.cfg.data.dataloader_type is not None:
             if self.use_flatflow and dataset_type == 'train':
                 data_sampler = (
@@ -1725,6 +1730,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     dataset,
                     batch_sampler=batch_sampler,
                     num_workers=self.cfg.data.num_workers,
+                    collate_fn=collate_fn,
                     pin_memory=True,
                     persistent_workers=self.cfg.data.num_workers > 0,
                 )
@@ -1777,6 +1783,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 dataset,
                 batch_sampler=batch_sampler,
                 num_workers=self.cfg.data.num_workers,
+                collate_fn=collate_fn,
                 pin_memory=True,
                 persistent_workers=self.cfg.data.num_workers > 0,
             )
