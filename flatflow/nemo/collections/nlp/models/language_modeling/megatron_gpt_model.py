@@ -1593,8 +1593,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         if legacy_dataset:
             if self.use_flatflow:
-                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_train_valid_test_datasets
-                self._train_ds, self._validation_ds, self._test_ds = build_train_valid_test_datasets(
+                self._train_ds, self._validation_ds, self._test_ds = flatflow.nemo.collections.nlp.data.language_modeling.megatron.build_train_valid_test_datasets(
                     cfg=self.cfg,
                     trainer=self.trainer,
                     data_prefix=self.cfg.data.data_prefix,
@@ -1607,8 +1606,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     tokenizer=self.tokenizer,
                 )
             elif self.use_obfd:
-                from flatflow.nemo.collections.nlp.data.language_modeling.megatron import build_obfd_datasets
-                self._train_ds, self._validation_ds, self._test_ds = build_obfd_datasets(
+                self._train_ds, self._validation_ds, self._test_ds = flatflow.nemo.collections.nlp.data.language_modeling.megatron.build_obfd_datasets(
                     cfg=self.cfg,
                     trainer=self.trainer,
                     token_data_prefix=self.cfg.data.obfd_token_data_prefix,
