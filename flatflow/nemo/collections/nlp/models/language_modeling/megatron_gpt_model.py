@@ -1701,10 +1701,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         """Build dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
-        if isinstance(dataset, BlendableDataset):
-            collate_fn = dataset.datasets[0].collate_fn
-        else:
-            collate_fn = dataset.collate_fn
 
         if hasattr(self.cfg.data, 'dataloader_type') and self.cfg.data.dataloader_type is not None:
             if self.use_flatflow and dataset_type == 'train':
@@ -1725,6 +1721,10 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     dataset=dataset,
                     graph=_export(self.model_path),
                 )
+                if isinstance(dataset, BlendableDataset):
+                    collate_fn = dataset.datasets[0].collate_fn
+                else:
+                    collate_fn = dataset.collate_fn
 
                 return flatflow.torch.utils.data.DataLoader(
                     dataset,
@@ -1778,6 +1778,10 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 dataset=dataset,
                 graph=_export(self.model_path),
             )
+            if isinstance(dataset, BlendableDataset):
+                collate_fn = dataset.datasets[0].collate_fn
+            else:
+                collate_fn = dataset.collate_fn
 
             return flatflow.torch.utils.data.DataLoader(
                 dataset,
