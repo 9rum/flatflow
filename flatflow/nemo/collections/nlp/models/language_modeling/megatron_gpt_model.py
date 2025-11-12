@@ -1718,6 +1718,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
                     dataset=dataset,
                     graph=_export(self.model_path),
+                    sizes=self.cfg.data.sizes,
                 )
                 if isinstance(dataset, BlendableDataset):
                     collate_fn = dataset.datasets[0].collate_fn
