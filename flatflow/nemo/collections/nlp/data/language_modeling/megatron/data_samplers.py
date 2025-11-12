@@ -19,7 +19,6 @@ from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
 import grpc
-import numpy
 import torch.distributed
 import torch.fx
 from megatron.core import parallel_state
@@ -101,13 +100,10 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
 
-            if "sizes" in kwargs:
-                sizes = numpy.load(kwargs["sizes"]).tolist()
-            else:
-                func = partial(sys.getsizeof, dataset)
-                max_workers = len(os.sched_getaffinity(os.getpid()))
-                with ProcessPoolExecutor(max_workers) as executor:
-                    sizes = list(executor.map(func, range(len(dataset))))
+            func = partial(sys.getsizeof, dataset)
+            max_workers = len(os.sched_getaffinity(os.getpid()))
+            with ProcessPoolExecutor(max_workers) as executor:
+                sizes = list(executor.map(func, range(len(dataset))))
 
             if drop_last:
                 sizes = sizes[: self.total_size]

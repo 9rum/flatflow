@@ -285,7 +285,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             seq_length=seq_length,
             seed=seed,
             drop_last=drop_last)
-
+        self.sizes = np.load(cfg.data.sizes)
 
     def __getitem__(self, idx):
         sample = self.indexed_dataset.get(idx)
@@ -316,9 +316,9 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         }
 
     def __sizeof__(self, idx):
-        return self[idx]["seqlen"]
+        return self.sizes[idx]
 
-    def _collate_fn(self, batch):
+    def collate_fn(self, batch):
         tokens = np.concatenate([item["tokens"].numpy() for item in batch])
         labels = np.concatenate([item["labels"].numpy() for item in batch])
         loss_mask = np.concatenate([item["loss_mask"].numpy() for item in batch])
@@ -345,9 +345,3 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
             "max_seqlen": torch.IntTensor(max_seqlen).unsqueeze(0),
         }
-
-    def collate_fn(self, batch):
-        if self.input_types is not None:
-            raise TypeError("Datasets should not implement `input_types` as they are not checked")
-
-        return self._collate_fn(batch)
