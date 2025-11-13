@@ -16,15 +16,17 @@
 
 import numpy as np
 import torch
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset, get_indexed_dataset_
-from nemo.utils import logging
-from omegaconf.dictconfig import DictConfig
-from flatflow.nemo.core.classes import Dataset
-from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
     get_datasets_weights_and_num_samples,
     get_train_valid_test_split_,
 )
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset, get_indexed_dataset_
+from nemo.utils import logging
+from omegaconf.dictconfig import DictConfig
+
+from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
+from flatflow.nemo.core.classes import Dataset
+
 __all__ = ["build_train_valid_test_datasets","GPTDataset"]
 
 
@@ -247,6 +249,11 @@ def _build_train_valid_test_datasets(
     test_dataset = build_dataset(2, 'test')
     return (train_dataset, valid_dataset, test_dataset)
 
+
+def count_file_path(prefix_path: str):
+    return prefix_path + "_cnt.npy"
+
+
 class GPTDataset(Dataset, NeMoGPTDataset):
     """
     Dataset for GPT pretraining, compatible with FlatFlow scheduler.
@@ -285,10 +292,10 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             seq_length=seq_length,
             seed=seed,
             drop_last=drop_last)
-        self.sizes = np.load(cfg.data.sizes)
+        self.sizes = np.load(count_file_path(data_prefix))
 
     def __getitem__(self, idx):
-        sample = self.indexed_dataset.get(idx)
+        sample = self.indexed_dataset[idx]
         text = torch.from_numpy(sample.astype(np.int64))
 
         tokens = text[:-1].contiguous()
@@ -316,7 +323,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         }
 
     def __sizeof__(self, idx):
-        return self.sizes[idx]
+        return self.sizes[idx] - 1
 
     def collate_fn(self, batch):
         tokens = np.concatenate([item["tokens"].numpy() for item in batch])
