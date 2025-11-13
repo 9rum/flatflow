@@ -250,8 +250,8 @@ def _build_train_valid_test_datasets(
     return (train_dataset, valid_dataset, test_dataset)
 
 
-def count_file_path(prefix_path: str):
-    return prefix_path + ".cnt"
+def count_file_path(prefix_path: str) -> str:
+    return prefix_path + "_cnt.npy"
 
 
 class GPTDataset(Dataset, NeMoGPTDataset):
