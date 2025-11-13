@@ -251,7 +251,7 @@ def _build_train_valid_test_datasets(
 
 
 def count_file_path(prefix_path: str):
-    return prefix_path + "_cnt.npy"
+    return prefix_path + ".cnt"
 
 
 class GPTDataset(Dataset, NeMoGPTDataset):
@@ -292,7 +292,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             seq_length=seq_length,
             seed=seed,
             drop_last=drop_last)
-        self.sizes = np.load(count_file_path(data_prefix))
+        self._sizes = np.load(count_file_path(data_prefix))
 
     def __getitem__(self, idx):
         sample = self.indexed_dataset[idx]
@@ -323,7 +323,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         }
 
     def __sizeof__(self, idx):
-        return self.sizes[idx] - 1
+        return self._sizes[idx] - 1
 
     def collate_fn(self, batch):
         tokens = np.concatenate([item["tokens"].numpy() for item in batch])
