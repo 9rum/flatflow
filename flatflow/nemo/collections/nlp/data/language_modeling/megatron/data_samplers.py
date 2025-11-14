@@ -16,7 +16,7 @@
 
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 import grpc
@@ -105,7 +105,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             now = time.monotonic()
             func = partial(sys.getsizeof, dataset)
             max_workers = len(os.sched_getaffinity(os.getpid()))
-            with ProcessPoolExecutor(max_workers) as executor:
+            with ThreadPoolExecutor(max_workers) as executor:
                 sizes = list(executor.map(func, range(len(dataset))))
             logging.info(f"Calling __sizeof__ {len(dataset)} times took {time.monotonic() - now}s")
 
