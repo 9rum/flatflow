@@ -1730,6 +1730,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     num_workers=self.cfg.data.num_workers,
                     collate_fn=collate_fn,
                     pin_memory=True,
+                    prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                     persistent_workers=self.cfg.data.num_workers > 0,
                 )
             data_sampler = (
@@ -1787,6 +1788,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 num_workers=self.cfg.data.num_workers,
                 collate_fn=collate_fn,
                 pin_memory=True,
+                prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                 persistent_workers=self.cfg.data.num_workers > 0,
             )
         else:
@@ -1795,6 +1797,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 batch_sampler=batch_sampler,
                 num_workers=self.cfg.data.num_workers,
                 pin_memory=True,
+                prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                 persistent_workers=self.cfg.data.num_workers > 0,
             )
 

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 
@@ -23,6 +24,7 @@ import torch.distributed
 import torch.fx
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
+from nemo.utils import logging
 
 from flatflow import sys
 from flatflow.rpc import ControlPlaneClient, run  # type: ignore[attr-defined]
@@ -100,10 +102,12 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
 
+            now = time.monotonic()
             func = partial(sys.getsizeof, dataset)
             max_workers = len(os.sched_getaffinity(os.getpid()))
             with ProcessPoolExecutor(max_workers) as executor:
                 sizes = list(executor.map(func, range(len(dataset))))
+            logging.info(f"Calling __sizeof__ {len(dataset)} times took {time.monotonic() - now}s")
 
             if drop_last:
                 sizes = sizes[: self.total_size]
@@ -149,7 +153,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
                 batch = []
 
         # Check the last partial batch and see drop_last is set
-        if len(batch) > 0 and not self.drop_last:
+        if batch and not self.drop_last:
             assert (
                 not self.pad_samples_to_global_batch_size
             ), "with pad_samples_to_global_batch_size all batches should be complete"
