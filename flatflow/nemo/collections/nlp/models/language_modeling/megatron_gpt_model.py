@@ -435,7 +435,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 config = get_model_config(self.model)
             config.variable_seq_lengths = True
 
-        self.use_obfd = cfg.data.get("use_obfd", False)
+        self.use_obfd = cfg.get("use_obfd", False)
 
         # Model path for export functionality (if available)
         self.model_path = cfg.get("model_path", None)
