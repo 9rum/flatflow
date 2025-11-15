@@ -322,6 +322,9 @@ class GPTDataset(Dataset, NeMoGPTDataset):
             "seqlen": len(tokens),
         }
 
+    def __len__(self):
+        return len(self.indexed_dataset)
+
     def __sizeof__(self, idx):
         return self._sizes[idx] - 1
 
