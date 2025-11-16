@@ -67,7 +67,7 @@ _DTYPE_TABLE: Mapping[torch.dtype, int] = {
     torch.float8_e5m2fnuz: ScalarType.FLOAT8_E5M2FNUZ,
 }
 
-_OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
+_OPS_TABLE: Mapping[Union[OpOverloadPacket, CustomOpDef], int] = {
     aten._softmax: Operator._SOFTMAX,
     aten._to_copy: Operator._TO_COPY,
     aten._unsafe_view: Operator._UNSAFE_VIEW,
@@ -126,9 +126,7 @@ _OPS_TABLE: Mapping[Union[OpOverload, OpOverloadPacket, CustomOpDef], int] = {
 class UnsupportedOperatorWarning(UserWarning):
     """Warning that signals the presence of unsupported operators."""
 
-    def __init__(
-        self, args: Sequence[Union[OpOverload, OpOverloadPacket, CustomOpDef]]
-    ) -> None:
+    def __init__(self, args: Sequence[Union[OpOverloadPacket, CustomOpDef]]) -> None:
         self.args = tuple(set(args))
 
     def __str__(self) -> str:
@@ -172,13 +170,19 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
     nodes = []
 
     for node in graph.nodes:
-        if not is_accessor_node(node) and isinstance(
-            node.target, (OpOverload, OpOverloadPacket, CustomOpDef)
-        ):
-            if node.target not in _OPS_TABLE:
-                blocklist.append(node.target)
+        if not is_accessor_node(node):
+            if isinstance(node.target, OpOverload):
+                if node.target.overloadpacket not in _OPS_TABLE:
+                    blocklist.append(node.target.overloadpacket)
+                    continue
+                target = _OPS_TABLE[node.target.overloadpacket]
+            elif isinstance(node.target, (OpOverloadPacket, CustomOpDef)):
+                if node.target not in _OPS_TABLE:
+                    blocklist.append(node.target)
+                    continue
+                target = _OPS_TABLE[node.target]
+            else:
                 continue
-            target = _OPS_TABLE[node.target]
             args = []
 
             for arg in node.args:
