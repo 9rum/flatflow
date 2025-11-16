@@ -25,6 +25,9 @@ __all__ = ["BlendableDataset"]
 class BlendableDataset(
     Dataset, nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset
 ):
+    def __len__(self):
+        return sum(len(d) for d in self.datasets)
+
     def __sizeof__(self, idx):
         dataset_idx = self.dataset_index[idx]
         sample_idx = self.dataset_sample_index[idx]
