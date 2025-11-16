@@ -19,6 +19,7 @@
 
 #include <csignal>
 #include <future>
+#include <limits>
 #include <tuple>
 #include <vector>
 
@@ -220,6 +221,8 @@ int run() {
   auto builder = grpc::ServerBuilder();
   auto port = 0;
   builder.AddListeningPort("[::1]:0", grpc::InsecureServerCredentials(), &port);
+  builder.SetMaxReceiveMessageSize(std::numeric_limits<int>::max());
+  builder.SetMaxSendMessageSize(std::numeric_limits<int>::max());
 
   static auto service = DistributedControlPlane();
   builder.RegisterService(&service);
