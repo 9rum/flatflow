@@ -23,7 +23,7 @@ table InitRequest {
   global_batch_size:        ulong;
   micro_batch_size:         ulong;
   graph:                    Graph (required);
-  sizes:                    [uint] (required);
+  sizes:                    [ushort] (required);
 }
 
 table ScatterRequest {
