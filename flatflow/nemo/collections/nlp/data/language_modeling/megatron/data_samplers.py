@@ -14,19 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import time
-from concurrent.futures import ThreadPoolExecutor
-from functools import partial
+# import os
+# import time
+# from concurrent.futures import ThreadPoolExecutor
+# from functools import partial
 
 import grpc
+import numpy
 import torch.distributed
 import torch.fx
 from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
-from nemo.utils import logging
+# from nemo.utils import logging
 
-from flatflow import sys
+# from flatflow import sys
 from flatflow.rpc import ControlPlaneClient, run  # type: ignore[attr-defined]
 from flatflow.torch.utils.data import Dataset
 
@@ -106,17 +107,19 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             channel = grpc.insecure_channel(f"[::1]:{port}", options=options)
             self.client = ControlPlaneClient(channel)
 
-            now = time.monotonic()
-            func = partial(sys.getsizeof, dataset)
-            max_workers = len(os.sched_getaffinity(os.getpid()))
-            with ThreadPoolExecutor(max_workers) as executor:
-                sizes = list(executor.map(func, range(len(dataset))))
-            logging.info(f"Calling __sizeof__ {len(dataset)} times took {time.monotonic() - now}s")
+            # now = time.monotonic()
+            # func = partial(sys.getsizeof, dataset)
+            # max_workers = len(os.sched_getaffinity(os.getpid()))
+            # with ThreadPoolExecutor(max_workers) as executor:
+            #     sizes = list(executor.map(func, range(len(dataset))))
+            # logging.info(f"Calling __sizeof__ {len(dataset)} times took {time.monotonic() - now}s")
 
             if drop_last:
-                sizes = sizes[: self.total_size]
+                # sizes = sizes[: self.total_size]
+                sizes = dataset._sizes[: self.total_size]
             else:
-                sizes.extend([sizes[-1]] * (self.total_size - len(dataset)))
+                # sizes.extend([sizes[-1]] * (self.total_size - len(dataset)))
+                sizes = numpy.append(dataset._sizes, numpy.repeat(dataset._sizes[-1], self.total_size - len(dataset)))
 
             self.client.Init(
                 data_parallel_rank,
