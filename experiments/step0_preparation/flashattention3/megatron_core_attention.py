@@ -107,18 +107,12 @@ except PackageNotFoundError:
         )
 else:
     import flash_attn_3
-    from flash_attn_3.flash_attn_interface import flash_attn_func, flash_attn_varlen_func
-    from flash_attn_3.flash_attn_interface import (
+    from flash_attn_3.flash_attn_interface import (  # pylint: disable=unused-import
+        flash_attn_func,
         flash_attn_varlen_func,
-    )
-    from flash_attn_3.flash_attn_interface import (  # pylint: disable=unused-import
         _flash_attn_forward,
-    )
-    from flash_attn_3.flash_attn_interface import (  # pylint: disable=unused-import
         _flash_attn_backward,
     )
-
-print()
 
 META_QKV = tex.FP8FwdTensors.GEMM1_OUTPUT
 META_DQKV = tex.FP8BwdTensors.GRAD_OUTPUT1
@@ -155,7 +149,6 @@ _attention_backends = {
 }
 
 def maybe_contiguous(x):
-    # float나 int 같은 scalar는 그대로 반환
     if x is None or not hasattr(x, 'stride'):
         return x
     return x.contiguous() if x.stride(-1) != 1 else x
@@ -806,7 +799,6 @@ def get_attention_backend(
     _attention_backends["fused_attention_backend"] = fused_attention_backend
     _attention_backends["use_unfused_attention"] = use_unfused_attention
     _attention_backends["backend_selection_requires_update"] = False
-    print(f"{_attention_backends=}")
     return (
         use_flash_attention,
         use_fused_attention,
@@ -6934,23 +6926,12 @@ class DotProductAttention(TransformerEngineBaseModule):
                     use_unfused_attention,
                     _,
                 ) = get_attention_backend(attention_params)
-                if use_flash_attention:
-                    self.logger.info("Running with FlashAttention backend")
-                elif use_fused_attention:
-                    self.logger.info(
-                        "Running with FusedAttention backend (sub-backend %s)",
-                        int(fused_attention_backend),
-                    )
-                elif use_unfused_attention:
-                    self.logger.info("Running with UnfusedDotProductAttention backend")
             else:
                 use_flash_attention = _attention_backends["use_flash_attention"]
                 use_fused_attention = _attention_backends["use_fused_attention"]
                 fused_attention_backend = _attention_backends["fused_attention_backend"]
                 use_unfused_attention = _attention_backends["use_unfused_attention"]
-            # print(f"HAHAHA {use_flash_attention=} {use_fused_attention=} {use_unfused_attention=}")
             if use_flash_attention:
-
                 if core_attention_bias_type == "alibi":
                     alibi_slopes, _ = get_alibi(
                         query_layer.shape[-2],
