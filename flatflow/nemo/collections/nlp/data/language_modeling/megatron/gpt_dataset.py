@@ -295,7 +295,8 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         self._sizes = np.load(count_file_path(data_prefix))
 
     def __getitem__(self, idx):
-        sample = self.indexed_dataset[idx]
+        sample = self.indexed_dataset.get(idx)
+        logging.info(f"[DEBUG] {idx=} {sample=}")
         text = torch.from_numpy(sample.astype(np.int64))
 
         tokens = text[:-1].contiguous()
