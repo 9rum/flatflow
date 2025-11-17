@@ -296,7 +296,6 @@ class GPTDataset(Dataset, NeMoGPTDataset):
 
     def __getitem__(self, idx):
         sample = self.indexed_dataset.get(idx)
-        logging.info(f"[DEBUG] {idx=} {sample=}")
         text = torch.from_numpy(sample.astype(np.int64))
 
         tokens = text[:-1].contiguous()
