@@ -41,7 +41,6 @@ import flatflow.torch.profiler
 import flatflow.torch.utils.data
 
 from nemo.collections.common.parts.utils import apply_rope_scaling, extend_instance
-from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronCorePretrainingSampler,
     MegatronPretrainingRandomSampler,
@@ -1719,7 +1718,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     dataset=dataset,
                     graph=_export(self.model_path),
                 )
-                if isinstance(dataset, BlendableDataset):
+                if isinstance(dataset, flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset):
                     collate_fn = dataset.datasets[0].collate_fn
                 else:
                     collate_fn = dataset.collate_fn
@@ -1777,7 +1776,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 dataset=dataset,
                 graph=_export(self.model_path),
             )
-            if isinstance(dataset, BlendableDataset):
+            if isinstance(dataset, flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset):
                 collate_fn = dataset.datasets[0].collate_fn
             else:
                 collate_fn = dataset.collate_fn
