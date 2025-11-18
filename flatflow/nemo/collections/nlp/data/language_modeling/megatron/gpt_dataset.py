@@ -20,14 +20,15 @@ from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils imp
     get_datasets_weights_and_num_samples,
     get_train_valid_test_split_,
 )
-from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset as NeMoGPTDataset, get_indexed_dataset_
+from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import get_indexed_dataset_
+from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import deallocate_indexed_dataset_memory
 from nemo.utils import logging
 from omegaconf.dictconfig import DictConfig
 
 from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from flatflow.nemo.core.classes import Dataset
 
-__all__ = ["build_train_valid_test_datasets","GPTDataset"]
+__all__ = ["build_train_valid_test_datasets", "GPTDataset"]
 
 
 def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
@@ -254,16 +255,8 @@ def count_file_path(prefix_path: str) -> str:
     return prefix_path + "_cnt.npy"
 
 
-class GPTDataset(Dataset, NeMoGPTDataset):
-    """
-    Dataset for GPT pretraining, compatible with FlatFlow scheduler.
-
-    `indexed_dataset` built from `NeMoGPTDataset.__init__` is used primarily. While `doc_idx`, `sample_idx`,
-    and `shuffle_idx`, are ignored because these are built according to the concat-then-chunk scheme.
-
-    NOTE: Currently it does not support multi-epoch training by itself, for which `samples_mapping`-like virtualization
-    needs to be implemented in the future.
-    """
+class GPTDataset(Dataset):
+    """Dataset for GPT pre-training."""
 
     def __init__(
         self,
@@ -279,20 +272,36 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         seed,
         drop_last=True,
     ) -> None:
-        NeMoGPTDataset.__init__(
-            self,
-            cfg=cfg,
-            trainer=trainer,
-            tokenizer=tokenizer,
-            name=name,
-            data_prefix=data_prefix,
-            documents=documents,
-            indexed_dataset=indexed_dataset,
-            num_samples=num_samples,
-            seq_length=seq_length,
-            seed=seed,
-            drop_last=drop_last)
+        super().__init__()
+        self.name = name
+        self.indexed_dataset = indexed_dataset
+        self.drop_last = drop_last
+        self.seq_length = seq_length
+        self.get_attention_mask_from_fusion = cfg.get("get_attention_mask_from_fusion", True)
+
+        assert 0 <= np.min(documents)
+        assert np.max(documents) < indexed_dataset.sizes.shape[0]
+
+        self.reset_position_ids = cfg.data.get("reset_position_ids", False)
+        self.reset_attention_mask = cfg.data.get("reset_attention_mask", False)
+        self.eod_mask_loss = cfg.data.get("eod_mask_loss", False)
+        self.create_inputs = any([self.reset_position_ids, self.reset_attention_mask, self.eod_mask_loss])
+        self.cached_inputs = False
+        self.eos_id = tokenizer.eos_id
+        self.no_seqlen_plus_one_input_tokens = cfg.data.get("no_seqlen_plus_one_input_tokens", False)
+        self.add_extra_token = 1
+        if self.no_seqlen_plus_one_input_tokens:
+            self.add_extra_token = 0
+        self.shuffle_documents = cfg.data.get("shuffle_documents", True)
+        self.exchange_indices_distributed = cfg.data.get("exchange_indices_distributed", False)
+
+        deallocate_indexed_dataset_memory(self.indexed_dataset)
+
         self._sizes = np.load(count_file_path(data_prefix))
+        self._sizes -= 1
+
+    def create_data_mmap(self):
+        self.indexed_dataset.create_data_mmap()
 
     def __getitem__(self, idx):
         sample = self.indexed_dataset.get(idx)
@@ -326,7 +335,7 @@ class GPTDataset(Dataset, NeMoGPTDataset):
         return len(self.indexed_dataset)
 
     def __sizeof__(self, idx):
-        return self._sizes[idx] - 1
+        return self._sizes[idx]
 
     def collate_fn(self, batch):
         tokens = np.concatenate([item["tokens"].numpy() for item in batch])
