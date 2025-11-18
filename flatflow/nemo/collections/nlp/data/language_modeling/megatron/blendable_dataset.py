@@ -14,21 +14,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset
+import bisect
+from collections.abc import Iterable
 
-from flatflow import sys
+import numpy
+
 from flatflow.torch.utils.data import Dataset
+from flatflow.nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset
 
 __all__ = ["BlendableDataset"]
 
 
-class BlendableDataset(
-    Dataset, nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset.BlendableDataset
-):
+class BlendableDataset(Dataset):
+    @staticmethod
+    def cumsum(sequence):
+        r, s = [], 0
+        for e in sequence:
+            s += len(e)
+            r.append(s)
+        return r
+
+    def __init__(self, datasets: Iterable[GPTDataset]):
+        self.datasets = list(datasets)
+        assert 0 < len(self.datasets), "datasets should not be an empty iterable"
+        self.cumulative_sizes = self.cumsum(self.datasets)
+        self._sizes = numpy.concatenate([dataset._sizes for dataset in self.datasets])
+
     def __len__(self):
-        return sum(map(len, self.datasets))
+        return self.cumulative_sizes[-1]
+
+    def __getitem__(self, idx):
+        if idx < 0:
+            if len(self) + idx < 0:
+                raise ValueError("absolute value of index should not exceed dataset length")
+            idx += len(self)
+        dataset_idx = bisect.bisect_right(self.cumulative_sizes, idx)
+        if dataset_idx == 0:
+            sample_idx = idx
+        else:
+            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+        return self.datasets[dataset_idx][sample_idx]
 
     def __sizeof__(self, idx):
-        dataset_idx = self.dataset_index[idx]
-        sample_idx = self.dataset_sample_index[idx]
-        return sys.getsizeof(self.datasets[dataset_idx], sample_idx)
+        return self._sizes[idx]
+
+    def create_data_mmap(self):
+        for dataset in self.datasets:
+            dataset.create_data_mmap()

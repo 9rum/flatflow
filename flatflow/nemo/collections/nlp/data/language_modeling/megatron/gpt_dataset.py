@@ -35,7 +35,7 @@ def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length,
     def _build_dataset(current_data_prefix, current_num_samples):
         delay_data_mmap = cfg.data.get('delay_data_mmap', False)
         indexed_dataset = get_indexed_dataset_(current_data_prefix, data_impl, skip_warmup, delay_data_mmap)
-        total_num_of_documents = indexed_dataset.sizes.shape[0]
+        total_num_of_documents = indexed_dataset.sizes.shape[0]  # type: ignore[has-attr]
         # Print stats about the splits.
         logging.info(' > dataset split:')
         logging.info('     Total {} documents is : {} '.format(name, total_num_of_documents))
@@ -67,7 +67,7 @@ def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length,
         for i in range(len(prefixes)):
             dataset = _build_dataset(prefixes[i], datasets_num_samples[i])
             datasets.append(dataset)
-        return BlendableDataset(datasets, weights, num_samples)
+        return BlendableDataset(datasets)
 
 
 def build_train_valid_test_datasets(
@@ -173,18 +173,16 @@ def build_train_valid_test_datasets(
             if test_ds:
                 test_datasets.append(test_ds)
 
-        train_n, valid_n, test_n = map(sum, zip(*datasets_train_valid_test_num_samples))
-
         # Blend.
         blending_train_dataset = None
         if train_datasets:
-            blending_train_dataset = BlendableDataset(train_datasets, weights, train_n)
+            blending_train_dataset = BlendableDataset(train_datasets)
         blending_valid_dataset = None
         if valid_datasets:
-            blending_valid_dataset = BlendableDataset(valid_datasets, weights, valid_n)
+            blending_valid_dataset = BlendableDataset(valid_datasets)
         blending_test_dataset = None
         if test_datasets:
-            blending_test_dataset = BlendableDataset(test_datasets, weights, test_n)
+            blending_test_dataset = BlendableDataset(test_datasets)
 
         return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
 
@@ -207,7 +205,7 @@ def _build_train_valid_test_datasets(
     delay_data_mmap = cfg.data.get('delay_data_mmap', False)
     indexed_dataset = get_indexed_dataset_(data_prefix, data_impl, skip_warmup, delay_data_mmap)
 
-    total_num_of_documents = indexed_dataset.sizes.shape[0]
+    total_num_of_documents = indexed_dataset.sizes.shape[0]  # type: ignore[has-attr]
     splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
 
     # Print stats about the splits.
