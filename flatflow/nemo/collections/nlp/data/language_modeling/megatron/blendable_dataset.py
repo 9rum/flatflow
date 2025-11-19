@@ -37,6 +37,8 @@ class BlendableDataset(Dataset):
         assert 0 < len(self.datasets), "datasets should not be an empty iterable"
         self.cumulative_sizes = self.cumsum(self.datasets)
         self._sizes = numpy.concatenate([dataset._sizes for dataset in self.datasets])
+        for dataset in self.datasets:
+            del dataset._sizes
 
     def __len__(self):
         return self.cumulative_sizes[-1]

@@ -85,9 +85,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
         num_samples = self.total_size // data_parallel_size
         self.indices = [0] * num_samples
 
-        pipeline_parallel_rank = parallel_state.get_pipeline_model_parallel_rank()
-        tensor_parallel_rank = parallel_state.get_tensor_model_parallel_rank()
-        if pipeline_parallel_rank == 0 and tensor_parallel_rank == 0:
+        if parallel_state.get_pipeline_model_parallel_rank() == 0:
             # Launch a control plane for this worker. Network communication is avoided
             # so port conflicts are handled internally by the extension.
             port = run()
@@ -114,6 +112,8 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
                 graph,
                 sizes,
             )
+
+            del dataset._sizes
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
