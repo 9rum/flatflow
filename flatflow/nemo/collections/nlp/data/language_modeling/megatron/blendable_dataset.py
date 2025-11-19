@@ -15,12 +15,10 @@
 # limitations under the License.
 
 import bisect
-from collections.abc import Iterable
 
 import numpy
 
 from flatflow.torch.utils.data import Dataset
-from flatflow.nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset
 
 __all__ = ["BlendableDataset"]
 
@@ -34,7 +32,7 @@ class BlendableDataset(Dataset):
             r.append(s)
         return r
 
-    def __init__(self, datasets: Iterable[GPTDataset]):
+    def __init__(self, datasets):
         self.datasets = list(datasets)
         assert 0 < len(self.datasets), "datasets should not be an empty iterable"
         self.cumulative_sizes = self.cumsum(self.datasets)
