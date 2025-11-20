@@ -23,7 +23,7 @@ table InitRequest {
   global_batch_size:        ulong;
   micro_batch_size:         ulong;
   graph:                    Graph (required);
-  sizes:                    [ushort] (required);
+  sizes:                    [uint] (required);
 }
 
 table ScatterRequest {
@@ -37,11 +37,11 @@ table ScatterResponse {
 
 rpc_service ControlPlane {
   /// RPC for initializing training environment.
-  Init(InitRequest): Empty;
+  Init(InitRequest): Empty (streaming: "client");
 
   /// RPC for sending computation schedule to all workers.
-  Scatter(ScatterRequest): ScatterResponse;
+  Scatter(ScatterRequest): ScatterResponse (streaming: "bidi");
 
   /// RPC for terminating training environment.
-  Finalize(Empty): Empty;
+  Finalize(Empty): Empty (streaming: "none");
 }
