@@ -19,7 +19,6 @@
 
 #include <csignal>
 #include <future>
-#include <limits>
 #include <tuple>
 #include <vector>
 
@@ -89,7 +88,7 @@ class DistributedControlPlane : public ControlPlane::Service {
     CHECK_NE(request, nullptr);
     CHECK_NE(response, nullptr);
 
-    const auto args = request->GetRoot();
+    auto args = request->GetRoot();
     CHECK_NE(args, nullptr);
 
     data_parallel_rank_ = args->data_parallel_rank();
@@ -98,7 +97,7 @@ class DistributedControlPlane : public ControlPlane::Service {
     LOG(INFO) << absl::StrFormat("Init called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
-    const auto sizes = args->sizes();
+    auto sizes = args->sizes();
     CHECK_NE(sizes, nullptr);
 
     data_parallel_world_size_ = args->data_parallel_world_size();
@@ -133,10 +132,10 @@ class DistributedControlPlane : public ControlPlane::Service {
     LOG(INFO) << absl::StrFormat("Scatter called from %s (rank %u)", context->peer(), data_parallel_rank_);
     // clang-format on
 
-    const auto args = request->GetRoot();
+    auto args = request->GetRoot();
     CHECK_NE(args, nullptr);
 
-    // If there is a previous computation schedule, the callback should not be
+    // If there is no previous computation schedule, the callback should not be
     // called as it is the beginning of the first epoch.
     if (!indices_.empty()) {
       scheduler_.on_epoch_end(epoch_);
@@ -145,7 +144,7 @@ class DistributedControlPlane : public ControlPlane::Service {
     epoch_ = args->epoch();
     scheduler_.on_epoch_start(epoch_);
 
-    const auto indices = args->indices();
+    auto indices = args->indices();
     CHECK_NE(indices, nullptr);
 
     auto schedule = std::vector<size_type>(indices->size());
@@ -221,8 +220,6 @@ int run() {
   auto builder = grpc::ServerBuilder();
   auto port = 0;
   builder.AddListeningPort("[::1]:0", grpc::InsecureServerCredentials(), &port);
-  builder.SetMaxReceiveMessageSize(std::numeric_limits<int>::max());
-  builder.SetMaxSendMessageSize(std::numeric_limits<int>::max());
 
   static auto service = DistributedControlPlane();
   builder.RegisterService(&service);
