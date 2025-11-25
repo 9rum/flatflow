@@ -92,11 +92,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
 
             # The control plane runs locally on every data parallel worker and
             # communicates through the IPv6 loopback interface only.
-            options = [
-                ("grpc.max_receive_message_length", 0x7fffffff),
-                ("grpc.max_send_message_length", 0x7fffffff),
-            ]
-            channel = grpc.insecure_channel(f"[::1]:{port}", options=options)
+            channel = grpc.insecure_channel(f"[::1]:{port}")
             self.client = ControlPlaneClient(channel)
 
             if drop_last:
