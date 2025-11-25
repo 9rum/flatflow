@@ -17,7 +17,12 @@ include "flatflow/rpc/empty.fbs";
 
 namespace flatflow;
 
-table InitRequestHeader {
+table InitRequestBody {
+  total_size: ulong;
+  sizes:      [uint] (required);
+}
+
+table InitRequestTrailer {
   data_parallel_rank:       ulong;
   data_parallel_world_size: ulong;
   global_batch_size:        ulong;
@@ -25,13 +30,9 @@ table InitRequestHeader {
   graph:                    Graph (required);
 }
 
-table InitRequestBody {
-  sizes: [uint] (required);
-}
-
 table InitRequest {
-  header: InitRequestHeader;
-  body:   InitRequestBody;
+  body:    InitRequestBody;
+  trailer: InitRequestTrailer;
 }
 
 table ScatterRequest {
