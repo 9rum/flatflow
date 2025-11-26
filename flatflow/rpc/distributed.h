@@ -185,17 +185,18 @@ class DistributedControlPlane : public ControlPlane::Service {
                       data_parallel_world_size_, data_parallel_rank_,
                       global_batch_size_);
 
-    constexpr auto kStride = static_cast<size_type>(1 << 18);
-    for (size_type offset = 0; offset < indices_.size(); offset += kStride) {
-      const auto slice =
-          indices_ | std::views::drop(offset) | std::views::take(kStride);
+    static constexpr auto stride = static_cast<size_type>(1 << 18);
 
-      auto builder = flatbuffers::grpc::MessageBuilder();
-      const auto resp = CreateScatterResponse(
-          builder, builder.CreateVector(
-                       std::vector<size_type>(slice.begin(), slice.end())));
+    auto builder = flatbuffers::grpc::MessageBuilder();
+    for (size_type offset = 0; offset < indices_.size(); offset += stride) {
+      const auto slice =
+          indices_ | std::views::drop(offset) | std::views::take(stride);
+      const auto chunk = std::vector<size_type>(slice.begin(), slice.end());
+      const auto resp =
+          CreateScatterResponse(builder, builder.CreateVector(chunk));
       builder.Finish(resp);
       stream->Write(builder.ReleaseMessage<ScatterResponse>());
+      builder.Clear();
     }
 
     return grpc::Status::OK;

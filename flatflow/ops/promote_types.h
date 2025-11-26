@@ -19,6 +19,7 @@
 #include <cstddef>
 
 #include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 
 #include "flatflow/ops/scalar_type_generated.h"
@@ -71,7 +72,7 @@ ScalarType promote_types(ScalarType lhs, ScalarType rhs) {
     if (is_floating_point(rhs)) {
       return rhs;
     }
-    CHECK(false) << absl::StrFormat(
+    LOG(FATAL) << absl::StrFormat(
         "Promotion for uint16, uint32, uint64 types is not supported, "
         "attempted to promote %s and %s",
         EnumNameScalarType(lhs), EnumNameScalarType(rhs));
