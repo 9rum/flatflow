@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
 
 import flatbuffers
 import grpc
@@ -21,15 +21,22 @@ import torch.fx
 
 from flatflow.ops import serialize
 from flatflow.rpc.controlplane_generated import (
-    InitRequestAddDataParallelRank,
-    InitRequestAddDataParallelWorldSize,
-    InitRequestAddGlobalBatchSize,
-    InitRequestAddGraph,
-    InitRequestAddMicroBatchSize,
-    InitRequestAddSizes,
+    InitRequestAddBody,
+    InitRequestAddTrailer,
+    InitRequestBodyAddSizes,
+    InitRequestBodyAddTotalSize,
+    InitRequestBodyEnd,
+    InitRequestBodyStart,
+    InitRequestBodyStartSizesVector,
     InitRequestEnd,
     InitRequestStart,
-    InitRequestStartSizesVector,
+    InitRequestTrailerAddDataParallelRank,
+    InitRequestTrailerAddDataParallelWorldSize,
+    InitRequestTrailerAddGlobalBatchSize,
+    InitRequestTrailerAddGraph,
+    InitRequestTrailerAddMicroBatchSize,
+    InitRequestTrailerEnd,
+    InitRequestTrailerStart,
     ScatterRequestAddEpoch,
     ScatterRequestAddIndices,
     ScatterRequestEnd,
@@ -47,13 +54,15 @@ class ControlPlaneClient(object):
     """A client class that simplifies communication with the control plane.
 
     Args:
-        channel (grpc.Channel): A channel object.
+        port (int): The port number on which the control plane runs.
     """
 
     stub: ControlPlaneStub
+    stride: int = 1 << 18
 
-    def __init__(self, channel: grpc.Channel) -> None:
+    def __init__(self, port: int) -> None:
         # Block until the control plane is ready.
+        channel = grpc.insecure_channel(f"[::1]:{port}")
         grpc.channel_ready_future(channel).result()
         self.stub = ControlPlaneStub(channel)
 
@@ -81,24 +90,44 @@ class ControlPlaneClient(object):
         """
         builder = flatbuffers.Builder()
 
-        _graph = serialize(builder, graph)
+        def impl() -> Generator[bytes]:
+            for offset in range(0, len(sizes), self.stride):
+                chunk = sizes[offset : offset + self.stride]
+                InitRequestBodyStartSizesVector(builder, len(chunk))
+                for size in reversed(chunk):
+                    builder.PrependUint32(size)
+                _sizes = builder.EndVector()
 
-        InitRequestStartSizesVector(builder, len(sizes))
-        for size in reversed(sizes):
-            builder.PrependUint32(size)
-        _sizes = builder.EndVector()
+                InitRequestBodyStart(builder)
+                InitRequestBodyAddTotalSize(builder, len(sizes))
+                InitRequestBodyAddSizes(builder, _sizes)
+                body = InitRequestBodyEnd(builder)
 
-        InitRequestStart(builder)
-        InitRequestAddDataParallelRank(builder, data_parallel_rank)
-        InitRequestAddDataParallelWorldSize(builder, data_parallel_world_size)
-        InitRequestAddGlobalBatchSize(builder, global_batch_size)
-        InitRequestAddMicroBatchSize(builder, micro_batch_size)
-        InitRequestAddGraph(builder, _graph)
-        InitRequestAddSizes(builder, _sizes)
-        request = InitRequestEnd(builder)
-        builder.Finish(request)
+                InitRequestStart(builder)
+                InitRequestAddBody(builder, body)
+                request = InitRequestEnd(builder)
+                builder.Finish(request)
+                yield bytes(builder.Output())
 
-        self.stub.Init(bytes(builder.Output()))
+            _graph = serialize(builder, graph)
+
+            InitRequestTrailerStart(builder)
+            InitRequestTrailerAddDataParallelRank(builder, data_parallel_rank)
+            InitRequestTrailerAddDataParallelWorldSize(
+                builder, data_parallel_world_size
+            )
+            InitRequestTrailerAddGlobalBatchSize(builder, global_batch_size)
+            InitRequestTrailerAddMicroBatchSize(builder, micro_batch_size)
+            InitRequestTrailerAddGraph(builder, _graph)
+            trailer = InitRequestTrailerEnd(builder)
+
+            InitRequestStart(builder)
+            InitRequestAddTrailer(builder, trailer)
+            request = InitRequestEnd(builder)
+            builder.Finish(request)
+            yield bytes(builder.Output())
+
+        self.stub.Init(impl())
 
     def Scatter(self, epoch: int, indices: Sequence[int]) -> numpy.ndarray:
         """Returns the reordered computation schedule for the next training epoch.
@@ -112,19 +141,28 @@ class ControlPlaneClient(object):
         """
         builder = flatbuffers.Builder()
 
-        ScatterRequestStartIndicesVector(builder, len(indices))
-        for index in reversed(indices):
-            builder.PrependUint64(index)
-        _indices = builder.EndVector()
+        def impl() -> Generator[bytes]:
+            for offset in range(0, len(indices), self.stride):
+                chunk = indices[offset : offset + self.stride]
+                ScatterRequestStartIndicesVector(builder, len(chunk))
+                for index in reversed(chunk):
+                    builder.PrependUint64(index)
+                _indices = builder.EndVector()
 
-        ScatterRequestStart(builder)
-        ScatterRequestAddEpoch(builder, epoch)
-        ScatterRequestAddIndices(builder, _indices)
-        request = ScatterRequestEnd(builder)
-        builder.Finish(request)
+                ScatterRequestStart(builder)
+                ScatterRequestAddEpoch(builder, epoch)
+                ScatterRequestAddIndices(builder, _indices)
+                request = ScatterRequestEnd(builder)
+                builder.Finish(request)
+                yield bytes(builder.Output())
 
-        response = self.stub.Scatter(bytes(builder.Output()))
-        return ScatterResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
+        responses = self.stub.Scatter(impl())
+        return numpy.concatenate(
+            [
+                ScatterResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
+                for response in responses
+            ]
+        )
 
     def Finalize(self) -> None:
         """Terminates the training environment."""
