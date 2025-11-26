@@ -58,7 +58,6 @@ class ControlPlaneClient(object):
     """
 
     stub: ControlPlaneStub
-    stride: int = 1 << 18
 
     def __init__(self, port: int) -> None:
         # Block until the control plane is ready.
@@ -90,9 +89,10 @@ class ControlPlaneClient(object):
         """
         builder = flatbuffers.Builder()
 
-        def impl() -> Generator[bytes]:
-            for offset in range(0, len(sizes), self.stride):
-                chunk = sizes[offset : offset + self.stride]
+        def impl() -> Generator[bytes, None, None]:
+            stride = 1 << 19
+            for offset in range(0, len(sizes), stride):
+                chunk = sizes[offset : offset + stride]
                 InitRequestBodyStartSizesVector(builder, len(chunk))
                 for size in reversed(chunk):
                     builder.PrependUint32(size)
@@ -108,6 +108,7 @@ class ControlPlaneClient(object):
                 request = InitRequestEnd(builder)
                 builder.Finish(request)
                 yield bytes(builder.Output())
+                builder.Clear()
 
             _graph = serialize(builder, graph)
 
@@ -141,9 +142,10 @@ class ControlPlaneClient(object):
         """
         builder = flatbuffers.Builder()
 
-        def impl() -> Generator[bytes]:
-            for offset in range(0, len(indices), self.stride):
-                chunk = indices[offset : offset + self.stride]
+        def impl() -> Generator[bytes, None, None]:
+            stride = 1 << 18
+            for offset in range(0, len(indices), stride):
+                chunk = indices[offset : offset + stride]
                 ScatterRequestStartIndicesVector(builder, len(chunk))
                 for index in reversed(chunk):
                     builder.PrependUint64(index)
@@ -155,6 +157,7 @@ class ControlPlaneClient(object):
                 request = ScatterRequestEnd(builder)
                 builder.Finish(request)
                 yield bytes(builder.Output())
+                builder.Clear()
 
         responses = self.stub.Scatter(impl())
         return numpy.concatenate(
