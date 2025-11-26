@@ -189,10 +189,11 @@ class DistributedControlPlane : public ControlPlane::Service {
     for (size_type offset = 0; offset < indices_.size(); offset += kStride) {
       const auto slice =
           indices_ | std::views::drop(offset) | std::views::take(kStride);
-      const auto v = std::vector<size_type>(slice.begin(), slice.end());
 
       auto builder = flatbuffers::grpc::MessageBuilder();
-      const auto resp = CreateScatterResponse(builder, builder.CreateVector(v));
+      const auto resp = CreateScatterResponse(
+          builder, builder.CreateVector(
+                       std::vector<size_type>(slice.begin(), slice.end())));
       builder.Finish(resp);
       stream->Write(builder.ReleaseMessage<ScatterResponse>());
     }
