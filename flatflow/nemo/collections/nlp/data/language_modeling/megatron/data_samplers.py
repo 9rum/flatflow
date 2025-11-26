@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import grpc
 import numpy
 import torch.distributed
 import torch.fx
@@ -89,11 +88,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             # Launch a control plane for this worker. Network communication is avoided
             # so port conflicts are handled internally by the extension.
             port = run()
-
-            # The control plane runs locally on every data parallel worker and
-            # communicates through the IPv6 loopback interface only.
-            channel = grpc.insecure_channel(f"[::1]:{port}")
-            self.client = ControlPlaneClient(channel)
+            self.client = ControlPlaneClient(port)
 
             if drop_last:
                 sizes = dataset._sizes[: self.total_size]
