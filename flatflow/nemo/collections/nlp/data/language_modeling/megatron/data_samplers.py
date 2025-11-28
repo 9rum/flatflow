@@ -82,7 +82,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             assert pad_samples_to_global_batch_size
             self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
         num_samples = self.total_size // data_parallel_size
-        self.indices = [0] * num_samples
+        self.indices = numpy.zeros(num_samples, dtype=numpy.uint64)
 
         if parallel_state.get_pipeline_model_parallel_rank() == 0:
             # Launch a control plane for this worker. Network communication is avoided
@@ -123,12 +123,12 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
 
         # Receive the reordered computation schedule from the control plane.
         if is_model_parallel_src:
-            self.indices = self.client.Scatter(self.epoch, list(range(self.total_size)))
+            self.indices = self.client.Scatter(self.epoch, numpy.arange(self.total_size, dtype=numpy.uint64))
             self.epoch += 1
         torch.distributed.broadcast_object_list(self.indices, model_parallel_src_rank, model_parallel_group)
 
         batch = []
-        for idx in self.indices:  # type: ignore[attr-defined]
+        for idx in self.indices:
             batch.append(idx)
             if len(batch) == self.micro_batch_times_data_parallel_size:
                 start, end = self.get_start_end_idx()

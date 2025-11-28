@@ -92,9 +92,9 @@ class ControlPlaneClient(object):
         def impl() -> Generator[bytes, None, None]:
             stride = 1 << 19
             for offset in range(0, len(sizes), stride):
-                chunk = sizes[offset : offset + stride]
-                InitRequestBodyStartSizesVector(builder, len(chunk))
-                for size in reversed(chunk):
+                view = sizes[offset : offset + stride][::-1]
+                InitRequestBodyStartSizesVector(builder, len(view))
+                for size in view:
                     builder.PrependUint32(size)
                 _sizes = builder.EndVector()
 
@@ -145,9 +145,9 @@ class ControlPlaneClient(object):
         def impl() -> Generator[bytes, None, None]:
             stride = 1 << 18
             for offset in range(0, len(indices), stride):
-                chunk = indices[offset : offset + stride]
-                ScatterRequestStartIndicesVector(builder, len(chunk))
-                for index in reversed(chunk):
+                view = indices[offset : offset + stride][::-1]
+                ScatterRequestStartIndicesVector(builder, len(view))
+                for index in view:
                     builder.PrependUint64(index)
                 _indices = builder.EndVector()
 
