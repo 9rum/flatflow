@@ -1560,9 +1560,17 @@ decltype(auto) symbolic_trace(const Graph *graph) {
   LOG(INFO) << absl::StrFormat("Traversing a graph with %u nodes took %fs", nodes->size(), omp_get_wtime() - now);
   // clang-format on
 
+  // clang-format off
+  LOG(INFO) << absl::StrFormat("Estimated FLOPs: %d s0^2 + %d s0 + %d", poly[2], poly[1], poly[0]);
+  // clang-format on
+
   // Here we ignore the constant term as it has no effect on differencing.
   poly[0] = 0;
   poly.normalize();
+
+  // clang-format off
+  LOG(INFO) << absl::StrFormat("Normalized FLOPs: %d s0^2 + %d s0", poly[2], poly[1]);
+  // clang-format on
 
   return std::bind_front(
       internal::evaluate_polynomial<typename SymIntAdaptor::return_type,
