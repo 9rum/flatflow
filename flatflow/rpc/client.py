@@ -160,12 +160,8 @@ class ControlPlaneClient(object):
                 builder.Clear()
 
         responses = self.stub.Scatter(impl())
-        return numpy.concatenate(
-            [
-                ScatterResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
-                for response in responses
-            ]
-        )
+        for response in responses:
+            yield from ScatterResponse.GetRootAs(response).IndicesAsNumpy()  # type: ignore[call-arg]
 
     def Finalize(self) -> None:
         """Terminates the training environment."""

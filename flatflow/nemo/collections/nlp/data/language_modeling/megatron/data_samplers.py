@@ -15,9 +15,7 @@
 # limitations under the License.
 
 import numpy
-import torch.distributed
 import torch.fx
-from megatron.core import parallel_state
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
 
 from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
@@ -81,30 +79,25 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
         else:
             assert pad_samples_to_global_batch_size
             self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
-        num_samples = self.total_size // data_parallel_size
-        self.indices = numpy.zeros(num_samples, dtype=numpy.uint64)
 
-        if parallel_state.get_pipeline_model_parallel_rank() == 0:
-            # Launch a control plane for this worker. Network communication is avoided
-            # so port conflicts are handled internally by the extension.
-            port = run()
-            self.client = ControlPlaneClient(port)
+        port = run()
+        self.client = ControlPlaneClient(port)
 
-            if drop_last:
-                sizes = dataset._sizes[: self.total_size]
-            else:
-                sizes = numpy.append(dataset._sizes, numpy.repeat(dataset._sizes[-1], self.total_size - len(dataset)))
+        if drop_last:
+            sizes = dataset._sizes[: self.total_size]
+        else:
+            sizes = numpy.append(dataset._sizes, numpy.repeat(dataset._sizes[-1], self.total_size - len(dataset)))
 
-            self.client.Init(
-                data_parallel_rank,
-                data_parallel_size,
-                global_batch_size,
-                micro_batch_size,
-                graph,
-                sizes,
-            )
+        self.client.Init(
+            data_parallel_rank,
+            data_parallel_size,
+            global_batch_size,
+            micro_batch_size,
+            graph,
+            sizes,
+        )
 
-            del dataset._sizes
+        del dataset._sizes
 
     def set_epoch(self, epoch: int) -> None:
         """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
@@ -116,23 +109,14 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
         self.epoch = epoch
 
     def __iter__(self):
-        model_parallel_group = parallel_state.get_model_parallel_group()
-        model_parallel_src_rank = torch.distributed.get_process_group_ranks(model_parallel_group)[0]
-        rank = torch.distributed.get_rank()
-        is_model_parallel_src = rank == model_parallel_src_rank
-
-        # Receive the reordered computation schedule from the control plane.
-        if is_model_parallel_src:
-            self.indices = self.client.Scatter(self.epoch, numpy.arange(self.total_size, dtype=numpy.uint64))
-            self.epoch += 1
-        torch.distributed.broadcast_object_list(self.indices, model_parallel_src_rank, model_parallel_group)
+        indices = self.client.Scatter(self.epoch, numpy.arange(self.total_size, dtype=numpy.uint64))
+        self.epoch += 1
 
         batch = []
-        for idx in self.indices:
+        for idx in indices:
             batch.append(idx)
-            if len(batch) == self.micro_batch_times_data_parallel_size:
-                start, end = self.get_start_end_idx()
-                yield batch[start:end]  # yield per micro_batch_size
+            if len(batch) == self.micro_batch_size:
+                yield batch
                 batch = []
 
         # Check the last partial batch and see drop_last is set
@@ -140,8 +124,7 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             assert (
                 not self.pad_samples_to_global_batch_size
             ), "with pad_samples_to_global_batch_size all batches should be complete"
-            start_idx, end_idx = self.get_start_end_idx()
-            yield batch[start_idx:end_idx]
+            yield batch
 
     def __del__(self) -> None:
         if hasattr(self, "client"):
