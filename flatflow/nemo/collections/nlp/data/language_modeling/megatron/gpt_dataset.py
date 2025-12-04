@@ -313,11 +313,7 @@ class GPTDataset(Dataset):
         if self.eod_mask_loss:
             loss_mask[tokens == self.eos_id] = 0.0
 
-        loss_mask[labels == -1] = 0.0
-        tokens[tokens == -1] = 0
-        labels[labels == -1] = 0
-
-        # Negative index comes when we pad the last batch in MegatronPretrainingBatchSampler
+        # Negative index comes when we pad the last batch in MegatronPretrainingBatchSampler.
         if idx < 0:
             logging.debug("Got negative index. Masking loss from this sample")
             loss_mask = torch.zeros_like(loss_mask)
@@ -344,10 +340,10 @@ class GPTDataset(Dataset):
         # Convert token_count to tensor instead of keeping as int
         token_count = torch.tensor([tokens.shape[0]], dtype=torch.int64)
 
-        seqlens = np.array([item["seqlen"] for item in batch])
-        cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]])
-        cu_seqlens_argmin = np.argmin(cu_seqlens, keepdims=True)
-        max_seqlen = seqlens.max(keepdims=True)
+        seqlens = np.asarray(tuple(sample["seqlen"] for sample in batch), dtype=np.int32)
+        cu_seqlens = torch.from_numpy(np.concatenate([[0], seqlens.cumsum(), [-1]], dtype=np.int32))
+        cu_seqlens_argmin = cu_seqlens.argmin(keepdim=True).to(torch.int32)
+        max_seqlen = torch.from_numpy(seqlens.max(keepdims=True))
 
         return {
             "tokens": tokens.unsqueeze_(0),
@@ -356,7 +352,7 @@ class GPTDataset(Dataset):
             "position_ids": position_ids.unsqueeze_(0),
             "token_count": token_count,
             "attention_mask": torch.tensor([1], dtype=torch.int64),
-            "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
-            "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
-            "max_seqlen": torch.IntTensor(max_seqlen).unsqueeze(0),
+            "cu_seqlens": cu_seqlens.unsqueeze_(0),
+            "cu_seqlens_argmin": cu_seqlens_argmin.unsqueeze_(0),
+            "max_seqlen": max_seqlen.unsqueeze_(0),
         }
