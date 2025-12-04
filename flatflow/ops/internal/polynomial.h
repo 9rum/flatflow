@@ -15,12 +15,11 @@
 #ifndef FLATFLOW_OPS_INTERNAL_POLYNOMIAL_H_
 #define FLATFLOW_OPS_INTERNAL_POLYNOMIAL_H_
 
+#include <algorithm>
 #include <array>
 #include <functional>
 #include <numeric>
 #include <utility>
-
-#include "flatflow/types.h"
 
 namespace flatflow {
 namespace internal {
@@ -28,13 +27,12 @@ namespace internal {
 // polynomial<>
 //
 // This is a trivial class for polynomial manipulation, as an alternative to
-// Boost polynomials. A notable API difference stems from the absence of
-// division for polynomials over a field and over a unique factorization domain;
-// we soon noticed that implementing symbolic transformations is equivalent to
-// that of polynomial manipulation, where the division functionality between
-// polynomials is not required.
+// Boost polynomials. A notable API difference lies in the absence of division
+// for polynomials over a field and over a unique factorization domain; we soon
+// noticed that implementing symbolic transformations is equivalent to that of
+// polynomial manipulation where the division functionality between polynomials
+// is not required.
 template <typename T>
-  requires flatflow::arithmetic<T>
 class polynomial {
  public:
   using value_type = typename std::array<T, 3>::value_type;
@@ -72,9 +70,9 @@ class polynomial {
 
   constexpr size_type degree() const noexcept { return data_.size() - 1; }
 
-  std::array<T, 3> &data() { return data_; }
+  std::array<T, 3> &data() noexcept { return data_; }
 
-  const std::array<T, 3> &data() const { return data_; }
+  const std::array<T, 3> &data() const noexcept { return data_; }
 
   constexpr value_type &operator[](size_type index) noexcept {
     return data_[index];
@@ -90,74 +88,25 @@ class polynomial {
   // counterpart do. Advanced manipulations such as fast Fourier transform (FFT)
   // and factorization are not supported for now.
   template <typename U>
-    requires flatflow::arithmetic<U>
   constexpr value_type operator()(U value) const noexcept {
     return evaluate_polynomial(*this, value);
   }
 
-  polynomial operator+(value_type value) const {
-    auto p = *this;
-    p += value;
-    return p;
-  }
-
   polynomial &operator+=(value_type value) { return addition(value); }
-
-  polynomial operator+(const polynomial &other) const {
-    auto p = *this;
-    p += other;
-    return p;
-  }
 
   polynomial &operator+=(const polynomial &other) { return addition(other); }
 
-  polynomial operator-(value_type value) const {
-    auto p = *this;
-    p -= value;
-    return p;
-  }
-
   polynomial &operator-=(value_type value) { return subtraction(value); }
-
-  polynomial operator-(const polynomial &other) const {
-    auto p = *this;
-    p -= other;
-    return p;
-  }
 
   polynomial &operator-=(const polynomial &other) { return subtraction(other); }
 
-  polynomial operator*(value_type value) const {
-    auto p = *this;
-    p *= value;
-    return p;
-  }
-
   polynomial &operator*=(value_type value) { return multiplication(value); }
-
-  polynomial operator*(const polynomial &other) const {
-    auto p = *this;
-    p *= other;
-    return p;
-  }
 
   polynomial &operator*=(const polynomial &other) {
     return multiplication(other);
   }
 
-  polynomial operator/(value_type value) const {
-    auto p = *this;
-    p /= value;
-    return p;
-  }
-
   polynomial &operator/=(value_type value) { return division(value); }
-
-  polynomial operator<<(value_type value) const {
-    auto p = *this;
-    p <<= value;
-    return p;
-  }
 
   polynomial &operator<<=(value_type value) {
     data_[0] <<= value;
@@ -166,25 +115,11 @@ class polynomial {
     return *this;
   }
 
-  polynomial operator>>(value_type value) const {
-    auto p = *this;
-    p >>= value;
-    return p;
-  }
-
   polynomial &operator>>=(value_type value) {
     data_[0] >>= value;
     data_[1] >>= value;
     data_[2] >>= value;
     return *this;
-  }
-
-  bool operator==(const polynomial &other) const {
-    return data_ == other.data();
-  }
-
-  bool operator!=(const polynomial &other) const {
-    return data_ != other.data();
   }
 
   // polynomial::normalize()
@@ -250,9 +185,7 @@ class polynomial {
     data[1] = data_[0] * other[1] + data_[1] * other[0];
     data[2] = data_[0] * other[2] + data_[1] * other[1] + data_[2] * other[0];
 
-    data_[0] = data[0];
-    data_[1] = data[1];
-    data_[2] = data[2];
+    std::copy(data.begin(), data.end(), data_.begin());
 
     return *this;
   }
@@ -260,8 +193,135 @@ class polynomial {
   std::array<T, 3> data_;
 };
 
+template <typename T, typename U>
+polynomial<T> operator+(polynomial<T> lhs, U rhs) {
+  lhs += rhs;
+  return lhs;
+}
+
+template <typename U, typename T>
+polynomial<T> operator+(U lhs, polynomial<T> rhs) {
+  rhs += lhs;
+  return rhs;
+}
+
 template <typename T>
-  requires flatflow::arithmetic<T>
+polynomial<T> operator+(const polynomial<T> &lhs, const polynomial<T> &rhs) {
+  auto p = polynomial<T>(lhs);
+  p += rhs;
+  return p;
+}
+
+template <typename T>
+polynomial<T> operator+(polynomial<T> &&lhs, const polynomial<T> &rhs) {
+  lhs += rhs;
+  return lhs;
+}
+
+template <typename T>
+polynomial<T> operator+(const polynomial<T> &lhs, polynomial<T> &&rhs) {
+  rhs += lhs;
+  return rhs;
+}
+
+template <typename T>
+polynomial<T> operator+(polynomial<T> &&lhs, polynomial<T> &&rhs) {
+  lhs += rhs;
+  return lhs;
+}
+
+template <typename T>
+polynomial<T> operator-(polynomial<T> poly) {
+  std::transform(poly.data().begin(), poly.data().end(), poly.data().begin(),
+                 std::negate());
+  return poly;
+}
+
+template <typename T, typename U>
+polynomial<T> operator-(polynomial<T> lhs, U rhs) {
+  lhs -= rhs;
+  return lhs;
+}
+
+template <typename U, typename T>
+polynomial<T> operator-(U lhs, polynomial<T> rhs) {
+  rhs -= lhs;
+  return -rhs;
+}
+
+template <typename T>
+polynomial<T> operator-(const polynomial<T> &lhs, const polynomial<T> &rhs) {
+  auto p = polynomial<T>(lhs);
+  p -= rhs;
+  return p;
+}
+
+template <typename T>
+polynomial<T> operator-(polynomial<T> &&lhs, const polynomial<T> &rhs) {
+  lhs -= rhs;
+  return lhs;
+}
+
+template <typename T>
+polynomial<T> operator-(const polynomial<T> &lhs, polynomial<T> &&rhs) {
+  rhs -= lhs;
+  return -rhs;
+}
+
+template <typename T>
+polynomial<T> operator-(polynomial<T> &&lhs, polynomial<T> &&rhs) {
+  lhs -= rhs;
+  return lhs;
+}
+
+template <typename T, typename U>
+polynomial<T> operator*(polynomial<T> lhs, U rhs) {
+  lhs *= rhs;
+  return lhs;
+}
+
+template <typename U, typename T>
+polynomial<T> operator*(U lhs, polynomial<T> rhs) {
+  rhs *= lhs;
+  return rhs;
+}
+
+template <typename T>
+polynomial<T> operator*(const polynomial<T> &lhs, const polynomial<T> &rhs) {
+  auto p = polynomial<T>(lhs);
+  p *= rhs;
+  return p;
+}
+
+template <typename T, typename U>
+polynomial<T> operator/(polynomial<T> lhs, U rhs) {
+  lhs /= rhs;
+  return lhs;
+}
+
+template <typename T, typename U>
+polynomial<T> operator<<(polynomial<T> lhs, U rhs) {
+  lhs <<= rhs;
+  return lhs;
+}
+
+template <typename T, typename U>
+polynomial<T> operator>>(polynomial<T> lhs, U rhs) {
+  lhs >>= rhs;
+  return lhs;
+}
+
+template <typename T>
+bool operator==(const polynomial<T> &lhs, const polynomial<T> &rhs) {
+  return lhs.data() == rhs.data();
+}
+
+template <typename T>
+bool operator!=(const polynomial<T> &lhs, const polynomial<T> &rhs) {
+  return lhs.data() != rhs.data();
+}
+
+template <typename T>
 constexpr T evaluate_polynomial_impl(const polynomial<T> &poly,
                                      T value) noexcept {
   return poly[0] + value * (poly[1] + value * poly[2]);
@@ -276,7 +336,6 @@ constexpr T evaluate_polynomial_impl(const polynomial<T> &poly,
 // evaluated with fewer arithmetic operations.
 // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
 template <typename T, typename U>
-  requires(flatflow::arithmetic<T> && flatflow::arithmetic<U>)
 constexpr T evaluate_polynomial(const polynomial<T> &poly, U value) noexcept {
   return evaluate_polynomial_impl<T>(poly, value);
 }
