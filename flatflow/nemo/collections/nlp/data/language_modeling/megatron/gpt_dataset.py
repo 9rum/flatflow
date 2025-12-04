@@ -309,7 +309,7 @@ class GPTDataset(Dataset):
         labels = text[1:].contiguous()
 
         # Derived from nemo...megatron/gpt_dataset.py:_create_ltor_masks_and_position_ids
-        loss_mask = torch.ones(len(tokens), dtype=torch.float)
+        loss_mask = torch.ones(tokens.shape[0], dtype=torch.float32)
         if self.eod_mask_loss:
             loss_mask[tokens == self.eos_id] = 0.0
 
@@ -326,7 +326,7 @@ class GPTDataset(Dataset):
             "tokens": tokens,
             "labels": labels,
             "loss_mask": loss_mask,
-            "seqlen": len(tokens),
+            "seqlen": tokens.shape[0],
         }
 
     def __len__(self):
@@ -336,15 +336,13 @@ class GPTDataset(Dataset):
         return self._sizes[idx]
 
     def collate_fn(self, batch):
-        tokens = np.concatenate([item["tokens"].numpy() for item in batch])
-        labels = np.concatenate([item["labels"].numpy() for item in batch])
-        loss_mask = np.concatenate([item["loss_mask"].numpy() for item in batch])
-        position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
+        tokens = torch.cat(tuple(sample["tokens"] for sample in batch))
+        labels = torch.cat(tuple(sample["labels"] for sample in batch))
+        loss_mask = torch.cat(tuple(sample["loss_mask"] for sample in batch))
+        position_ids = torch.from_numpy(np.concatenate(tuple(np.arange(sample["seqlen"], dtype=np.int64) for sample in batch)))
 
         # Convert token_count to tensor instead of keeping as int
-        token_count = torch.LongTensor([tokens.shape[0]])
-
-        assert tokens.shape[0] == position_ids.shape[0]
+        token_count = torch.tensor([tokens.shape[0]], dtype=torch.int64)
 
         seqlens = np.array([item["seqlen"] for item in batch])
         cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]])
@@ -352,12 +350,12 @@ class GPTDataset(Dataset):
         max_seqlen = seqlens.max(keepdims=True)
 
         return {
-            "tokens": torch.LongTensor(tokens).unsqueeze(0),
-            "labels": torch.LongTensor(labels).unsqueeze(0),
-            "loss_mask": torch.FloatTensor(loss_mask).unsqueeze(0),
-            "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
+            "tokens": tokens.unsqueeze_(0),
+            "labels": labels.unsqueeze_(0),
+            "loss_mask": loss_mask.unsqueeze_(0),
+            "position_ids": position_ids.unsqueeze_(0),
             "token_count": token_count,
-            "attention_mask": torch.LongTensor([1]),
+            "attention_mask": torch.tensor([1], dtype=torch.int64),
             "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
             "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
             "max_seqlen": torch.IntTensor(max_seqlen).unsqueeze(0),
