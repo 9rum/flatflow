@@ -13,5 +13,5 @@ $ wget -P $python_path/flash_attn_3 https://raw.githubusercontent.com/Dao-AILab/
 > This cp logic assumes that you are running nemo:24.09 so if Python version is different, please modify to your right version.
 
 ```bash
-$ cp step0_preparation/flashattention3/megatron_core_attention.py /usr/local/lib/python3.10/dist-packages/transformer_engine/pytorch/attention.py
+$ cp experiments/step0_preparation/flashattention3/attention.py /usr/local/lib/python3.10/dist-packages/transformer_engine/pytorch/attention.py
 ```
