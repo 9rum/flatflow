@@ -121,7 +121,7 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         self.sanity_check_dist_workers = True
         self.special_tokens = special_tokens
         self.has_chat_template = hasattr(tokenizer, "apply_chat_template")
-        
+
         NeMoGPTSFTDataset._load_dataset(self)
 
         if not self.has_chat_template:
@@ -129,9 +129,9 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
 
         if max_prompt_length >= max_seq_length:
             raise ValueError(f"max_prompt_length ({max_prompt_length}) must be < max_seq_length ({max_seq_length})")
-            
+
         NeMoGPTSFTDataset._build_samples_mapping(self)
-        
+
         """
         NOTE: The `token_count` is used by FlatFlow scheduler via `__sizeof__` before sampling and collation.
         So, the 'teacher-forcing alignment' should happen here, before `__sizeof__`, in contrast to `NeMoGPTSFPTDataset`
@@ -150,22 +150,22 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
     def _process_example(self, example):
         if not self.has_chat_template:
             return NeMoGPTSFTDataset._process_example(self, example)
-        
+
         return self._process_with_chat_template(example)
-    
+
     def _process_with_chat_template(self, example):
         # normalize to {"messages": [...]}
         example = self._ensure_example_format(example)
-        
+
         # validate basic conversation structure (SYSTEM optional, ends with ASSISTANT, etc.)
         if not self._validate_example(example):
             raise ValueError("Example validation failed: the conversation does not follow the required structure or contains invalid content.")
-        
+
         msgs = example[MESSAGES]
-        
+
         # truncate if over length limits
         msgs = self._truncate_example(msgs)
-        
+
         # apply the chat template to messages
         user_ids = self.tokenizer.apply_chat_template(msgs[:-1], add_generation_prompt=True, return_tensors=None)
         input_ids = self.tokenizer.apply_chat_template(msgs, return_tensors=None)
@@ -175,12 +175,12 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             else:
                 input_ids[-1] = self.tokenizer.eos_id
         answer_ids = input_ids[len(user_ids):]
-        
+
         metadata = {k: v for k, v in example.items() if k != MESSAGES}
         if self.output_original_text:
             for msg in example[MESSAGES]:
                 metadata[msg[ROLE]] = msg[CONTENT]
-                
+
         processed_example={
             "input_ids": input_ids,
             "answer_start_idx": len(user_ids),
@@ -190,42 +190,42 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             "metadata": metadata,
             "token_count": len(input_ids)
         }
-        
+
         return processed_example
-    
+
     def _truncate_example(self, msgs):
-        
+
         prompt_msgs = msgs[:-1]
-        
+
         prompt_tpl_ids = self.tokenizer.apply_chat_template(prompt_msgs, add_generation_prompt=True, return_tensors=None)
         full_tpl_ids = self.tokenizer.apply_chat_template(msgs, return_tensors=None)
-        
+
         # skip truncation if prompt and full are within limits
         if (len(prompt_tpl_ids) <= self.max_prompt_length) and (len(full_tpl_ids) <= self.max_seq_length):
             return msgs
-        
+
         # truncation method: "right" keeps first_k, "left" keeps last_k
         if self.truncation_method not in ("right", "left"):
             raise ValueError(f"Unsupported truncation_method: {self.truncation_method}")
         first_k = lambda seq, k: (seq[:k] if k > 0 else [])
         last_k  = lambda seq, k: (seq[-k:] if k > 0 else [])
         _truncate = first_k if self.truncation_method == "right" else last_k
-        
+
         # raw token ids (system, user, and assistant)
         has_system = prompt_msgs[0].get(ROLE) == SYSTEM
         sys_raw_ids = self.tokenizer.text_to_ids(prompt_msgs[0][CONTENT]) if has_system else []
         user_raw_ids = self.tokenizer.text_to_ids(prompt_msgs[-1][CONTENT])
         answer_raw_ids = self.tokenizer.text_to_ids(msgs[-1][CONTENT])
-        
+
         # raw token lengths (system, user, and assistant)
         sys_raw_len = len(sys_raw_ids)
         user_raw_len = len(user_raw_ids)
         answer_raw_len = len(answer_raw_ids)
-        
+
         # template overhead
         prompt_tpl_budget = len(prompt_tpl_ids) - (sys_raw_len + user_raw_len)
         answer_tpl_budget = (len(full_tpl_ids) - len(prompt_tpl_ids)) - answer_raw_len
-        
+
         # allocate prompt budget: system first, then user
         prompt_budget = max(0, self.max_prompt_length - prompt_tpl_budget)
         sys_keep = min(sys_raw_len, prompt_budget)
@@ -237,7 +237,7 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             if sys_keep < sys_raw_len:
                 logging.warning(f"The system message content has been cut off by {self.truncation_method} truncation.")
             prompt_msgs[0][CONTENT] = self.tokenizer.ids_to_text(sys_ids)
-        
+
         # truncate user
         user_ids = _truncate(user_raw_ids, user_keep)
         prompt_msgs[-1][CONTENT] = self.tokenizer.ids_to_text(user_ids)
@@ -249,25 +249,25 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
         msgs[-1][CONTENT] = self.tokenizer.ids_to_text(answer_ids)
 
         return msgs
-        
+
     def _validate_example(self, sample):
         if sample is None:
             return False
-        
+
         msgs = sample.get(MESSAGES, [])
         if len(msgs) < 2:
             return False
-        
+
         for idx, msg in enumerate(msgs):
             if ROLE not in msg or CONTENT not in msg:
                 return False
-        
+
             if msg[ROLE] not in [SYSTEM, USER, ASSISTANT]:
                 return False
-            
+
             if msg[ROLE] == SYSTEM and idx != 0:
                 return False
-            
+
         if msgs[0][ROLE] == SYSTEM:
             if len(msgs) < 3 or msgs[1][ROLE] != USER:
                 return False
@@ -276,12 +276,12 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
             if msgs[0][ROLE] != USER:
                 return False
             start_idx = 0
-        
+
         for i in range(start_idx, len(msgs)):
             expect = USER if (i - start_idx) % 2 == 0 else ASSISTANT
             if msgs[i][ROLE] != expect:
                 return False
-        
+
         if msgs[-1][ROLE] != ASSISTANT:
             return False
 
@@ -290,19 +290,19 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
     def _ensure_example_format(self, example):
         if isinstance(example, dict) and MESSAGES in example:
             return example
-        
+
         if isinstance(example, list):
             return {MESSAGES: example}
-        
+
         if isinstance(example, dict):
             user_text = example.get("input")
             asst_text = example.get("output")
             metadata = {k: v for k, v in example.items() if k not in ("input", "output")}
-            if user_text and asst_text is not None: 
+            if user_text and asst_text is not None:
                 return {MESSAGES: [{ROLE: USER, CONTENT: user_text}, {ROLE: ASSISTANT, CONTENT: asst_text}], **metadata}
 
         return None
-    
+
     def __getitem__(self, idx):
         if isinstance(idx, np.int64):  # type: ignore[arg-type]
             idx = idx.item()
@@ -355,34 +355,26 @@ class GPTSFTDataset(Dataset, NeMoGPTSFTDataset):
 
         return example["token_count"]
 
-    def _collate_fn(self, batch):
-        input_ids = np.concatenate([item["input_ids"] for item in batch])
-        labels = np.concatenate([item["labels"] for item in batch])
-        loss_mask = np.concatenate([item["loss_mask"] for item in batch])
-        position_ids = np.concatenate([list(range(item["seqlen"])) for item in batch])
+    def collate_fn(self, batch):
+        input_ids = np.concatenate(tuple(sample["input_ids"] for sample in batch), dtype=np.int64)
+        labels = np.concatenate(tuple(sample["labels"] for sample in batch), dtype=np.int64)
+        loss_mask = np.concatenate(tuple(sample["loss_mask"] for sample in batch), dtype=np.int64)
+        position_ids = np.concatenate(tuple(np.arange(sample["seqlen"], dtype=np.int64) for sample in batch))
         token_count = input_ids.shape[0]
 
-        assert input_ids.shape[0] == position_ids.shape[0]
-
-        seqlens = np.array([item["seqlen"] for item in batch])
-        cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]])
-        cu_seqlens_argmin = np.argmin(cu_seqlens, keepdims=True)
+        seqlens = np.asarray(tuple(sample["seqlen"] for sample in batch), dtype=np.int32)
+        cu_seqlens = np.concatenate([[0], seqlens.cumsum(), [-1]], dtype=np.int32)
+        cu_seqlens_argmin = cu_seqlens.argmin(keepdims=True)
         max_seqlen = seqlens.max(keepdims=True)
 
         return {
-            "tokens": torch.LongTensor(input_ids).unsqueeze(0),
-            "labels": torch.LongTensor(labels).unsqueeze(0),
-            "loss_mask": torch.LongTensor(loss_mask).unsqueeze(0),
-            "position_ids": torch.LongTensor(position_ids).unsqueeze(0),
-            "token_count": [token_count],
-            "attention_mask": torch.LongTensor([1]),
-            "cu_seqlens": torch.IntTensor(cu_seqlens).unsqueeze(0),
-            "cu_seqlens_argmin": torch.IntTensor(cu_seqlens_argmin).unsqueeze(0),
-            "max_seqlen": torch.IntTensor(max_seqlen).unsqueeze(0),
+            "tokens": torch.from_numpy(input_ids).unsqueeze_(0),
+            "labels": torch.from_numpy(labels).unsqueeze_(0),
+            "loss_mask": torch.from_numpy(loss_mask).unsqueeze_(0),
+            "position_ids": torch.from_numpy(position_ids).unsqueeze_(0),
+            "token_count": torch.tensor([token_count], dtype=torch.int64),
+            "attention_mask": torch.tensor([1], dtype=torch.int64),
+            "cu_seqlens": torch.from_numpy(cu_seqlens).unsqueeze_(0),
+            "cu_seqlens_argmin": torch.tensor(cu_seqlens_argmin, dtype=torch.int32).unsqueeze_(0),
+            "max_seqlen": torch.from_numpy(max_seqlen).unsqueeze_(0),
         }
-
-    def collate_fn(self, batch):
-        if self.input_types is not None:
-            raise TypeError("Datasets should not implement `input_types` as they are not checked")
-
-        return self._collate_fn(batch)
