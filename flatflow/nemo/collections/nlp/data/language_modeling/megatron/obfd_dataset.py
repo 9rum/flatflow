@@ -25,7 +25,6 @@ from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset impo
 )
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import (
     GPTDataset,
-    _build_index_mappings,
     _create_ltor_masks_and_position_ids,
     get_indexed_dataset_,
 )
@@ -78,113 +77,27 @@ class OBFDDataset(GPTDataset):
         )
         self.indexed_label_dataset = indexed_label_dataset
         assert np.max(documents) < indexed_label_dataset.sizes.shape[0]
-        self.add_extra_token = 0
-
-        # Build index mappings.
-        self.label_doc_idx, self.label_sample_idx, self.label_shuffle_idx = (
-            _build_index_mappings(
-                self.name,
-                label_data_prefix,
-                documents,
-                self.indexed_label_dataset.sizes,
-                num_samples,
-                seq_length,
-                seed,
-                index_mapping_dir=self.index_mapping_dir,
-                drop_last=drop_last,
-                add_extra_token=self.add_extra_token,
-                shuffle_documents=self.shuffle_documents,
-                exchange_indices_distributed=self.exchange_indices_distributed,
-            )
-        )
         deallocate_indexed_dataset_memory(self.indexed_label_dataset)
 
     def create_data_mmap(self):
         super().create_data_mmap()
         self.indexed_label_dataset.create_data_mmap()
 
-    def _get_label(self, idx):
-        # Get the shuffled index.
-        idx = self.label_shuffle_idx[idx]
-
-        # Start and end documents and offsets.
-        doc_index_f = self.label_sample_idx[idx][0]
-        doc_index_l = self.label_sample_idx[idx + 1][0]
-        offset_f = self.label_sample_idx[idx][1]
-        offset_l = self.label_sample_idx[idx + 1][1]
-
-        # If we are within the same document, just extract the chunk.
-        if doc_index_f == doc_index_l:
-            sample = self.indexed_label_dataset.get(
-                self.label_doc_idx[doc_index_f],
-                offset=offset_f,
-                length=offset_l - offset_f + self.add_extra_token,
-            )
-        else:
-            # Otherwise, get the rest of the initial document.
-            sample_list = [
-                self.indexed_label_dataset.get(
-                    self.label_doc_idx[doc_index_f], offset=offset_f
-                )
-            ]
-            # Loop over all in between documents and add the entire document.
-            for i in range(doc_index_f + 1, doc_index_l):
-                sample_list.append(
-                    self.indexed_label_dataset.get(self.label_doc_idx[i])
-                )
-            # And finally add the relevant portion of last document.
-            sample_list.append(
-                self.indexed_label_dataset.get(
-                    self.label_doc_idx[doc_index_l],
-                    length=offset_l + self.add_extra_token,
-                )
-            )
-            sample = np.concatenate(sample_list)
-        if len(sample) != (self.seq_length + self.add_extra_token):
-            logging.info(
-                f" > WARNING: Got sample of length: {len(sample)}"
-                f" for sequence length={self.seq_length + self.add_extra_token},"
-                " padding the sample to match sequence length"
-            )
-            sample = np.array(sample, dtype=np.int64)
-            sample = np.pad(
-                sample,
-                (0, self.seq_length + self.add_extra_token - len(sample)),
-                mode="constant",
-                constant_values=-1,
-            )
-        return sample.astype(np.int64)
-
     def __getitem__(self, idx):
-        tokens = torch.from_numpy(self._get_text(idx))
-        labels = torch.from_numpy(self._get_label(idx))
+        tokens = torch.from_numpy(self.indexed_dataset.get(idx).astype(np.int64))
+        labels = torch.from_numpy(self.indexed_label_dataset.get(idx).astype(np.int64))
 
-        if self.create_inputs or not self.cached_inputs:
-            attention_mask, loss_mask, position_ids = (
-                _create_ltor_masks_and_position_ids(
-                    tokens,
-                    self.eos_id,
-                    self.reset_position_ids,
-                    self.reset_attention_mask,
-                    self.eod_mask_loss,
-                )
-            )
-            if not self.create_inputs:
-                self.cached_attention_mask = attention_mask
-                self.cached_loss_mask = loss_mask
-                self.cached_position_ids = position_ids
-                self.cached_inputs = True
-        else:
-            attention_mask = self.cached_attention_mask
-            loss_mask = self.cached_loss_mask
-            position_ids = self.cached_position_ids
+        attention_mask, loss_mask, position_ids = _create_ltor_masks_and_position_ids(
+            tokens,
+            self.eos_id,
+            self.reset_position_ids,
+            self.reset_attention_mask,
+            self.eod_mask_loss,
+        )
         loss_mask[labels == -1] = 0.0
         tokens[tokens == -1] = 0
         labels[labels == -1] = 0
 
-        # Negative index comes when we pad the last batch in
-        # MegatronPretrainingBatchSampler. We make the loss_mask zero to mask out loss
-        # from these samples.
         if idx < 0:
             logging.debug("Got negative index. Masking loss from this sample")
             loss_mask = torch.zeros_like(loss_mask)
