@@ -14,6 +14,8 @@ from nemo.collections.nlp.data.language_modeling.megatron import indexed_dataset
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
 from tqdm import tqdm
 
+_PAD_TOKEN_ID = -1
+
 
 def best_fit_decreasing(args):
     counts, bin_size, start = args
@@ -143,10 +145,10 @@ def main():
                 label_ids.extend(tokenizer.text_to_ids(text))
 
             # pad to fit the sequence to the model's context length
-            token_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+            token_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - num_tokens))
             tokens_builder.add_item(torch.IntTensor(token_ids))
             tokens_builder.end_document()
-            label_ids.extend([tokenizer.eos_id] * (args.max_seq_len - num_tokens))
+            label_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - num_tokens))
             labels_builder.add_item(torch.IntTensor(label_ids))
             labels_builder.end_document()
 
