@@ -84,8 +84,15 @@ class OBFDDataset(GPTDataset):
         self.indexed_label_dataset.create_data_mmap()
 
     def __getitem__(self, idx):
-        tokens = torch.from_numpy(self.indexed_dataset.get(idx).astype(np.int64))
-        labels = torch.from_numpy(self.indexed_label_dataset.get(idx).astype(np.int64))
+        tokens = self.indexed_dataset.get(idx)
+        if self.seq_length < tokens.shape[0]:
+            tokens = tokens[: self.seq_length]
+        tokens = torch.from_numpy(tokens.astype(np.int64))
+
+        labels = self.indexed_label_dataset.get(idx)
+        if self.seq_length < labels.shape[0]:
+            labels = labels[: self.seq_length]
+        labels = torch.from_numpy(labels.astype(np.int64))
 
         attention_mask, loss_mask, position_ids = _create_ltor_masks_and_position_ids(
             tokens,
