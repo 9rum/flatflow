@@ -85,12 +85,20 @@ class OBFDDataset(GPTDataset):
 
     def __getitem__(self, idx):
         tokens = self.indexed_dataset.get(idx)
-        if self.seq_length < tokens.shape[0]:
+        if tokens.shape[0] < self.seq_length:
+            tokens = np.pad(
+                tokens, (0, self.seq_length - tokens.shape[0]), constant_values=-1
+            )
+        elif self.seq_length < tokens.shape[0]:
             tokens = tokens[: self.seq_length]
         tokens = torch.from_numpy(tokens.astype(np.int64))
 
         labels = self.indexed_label_dataset.get(idx)
-        if self.seq_length < labels.shape[0]:
+        if labels.shape[0] < self.seq_length:
+            labels = np.pad(
+                labels, (0, self.seq_length - labels.shape[0]), constant_values=-1
+            )
+        elif self.seq_length < labels.shape[0]:
             labels = labels[: self.seq_length]
         labels = torch.from_numpy(labels.astype(np.int64))
 
