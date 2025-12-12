@@ -1,6 +1,8 @@
---- attention.py	2025-12-11 18:37:16.844068463 +0900
-+++ experiments/step0_preparation/flashattention3/attention.py	2025-12-11 18:42:40.948019732 +0900
-@@ -84,10 +84,10 @@
+diff --git a/attention.py b/attention.py
+index ff12152..67c3a19 100644
+--- a/attention.py
++++ b/attention.py
+@@ -84,10 +84,10 @@ _flash_attn_2_4_1_plus = _flash_attn_version >= PkgVersion("2.4.1")
  _flash_attn_2_5_7_plus = _flash_attn_version >= PkgVersion("2.5.7")
 
  if _flash_attn_version >= _flash_attn_version_required:
@@ -12,27 +14,20 @@
 
  META_QKV = tex.FP8FwdTensors.GEMM1_OUTPUT
  META_DQKV = tex.FP8BwdTensors.GRAD_OUTPUT1
-@@ -2155,9 +2155,8 @@
+@@ -4258,12 +4258,6 @@ class FlashAttention(torch.nn.Module):
+             max_seqlen_q, max_seqlen_kv = query_layer.shape[1], key_layer.shape[1]
+             max_seqlen_q *= cp_size
+             max_seqlen_kv *= cp_size
+-            if not context_parallel:
+-                # [b * s, h, d]
+-                query_layer, key_layer, value_layer = [
+-                    x.view(x.shape[0] * x.shape[1], *x.shape[2:])
+-                    for x in [query_layer, key_layer, value_layer]
+-                ]
 
-         if ctx.fp8:
-             if ctx.use_fused_attention:
--                fp8_dtype_forward = get_fp8_te_dtype(ctx.fp8_meta["recipe"], fprop_tensor=True)
-                 fp8_dtype_backward = get_fp8_te_dtype(ctx.fp8_meta["recipe"], fprop_tensor=False)
--                fused_attn_qkv_dtype = fp8_dtype_forward
-+                fused_attn_qkv_dtype = fp8_dtype_backward
-                 fused_attn_dqkv_dtype = fp8_dtype_backward
-                 fused_attn_backend = FusedAttnBackend["FP8"]
-                 dq_fp8 = torch.empty((cp_size, *q.shape), dtype=q.dtype, device=q.device)
-@@ -2199,7 +2198,7 @@
-             if ctx.use_fused_attention:
-                 fp8_meta_kwargs = {}
-                 fused_attn_qkv_dtype = TE_DType[q.dtype]
--                fused_attn_dqkv_dtype = TE_DType[dout.dtype]
-+                fused_attn_dqkv_dtype = TE_DType[q.dtype]
-                 fused_attn_backend = FusedAttnBackend["F16_arbitrary_seqlen"]
-
-         out = out.view(*q.shape)
-@@ -4359,23 +4358,22 @@
+             if "padding" in attn_mask_type:
+                 assert not context_parallel, "Padding mask not supported with context parallelism!"
+@@ -4359,23 +4353,22 @@ class FlashAttention(torch.nn.Module):
 
              with self.attention_dropout_ctx():
                  fa_optional_forward_kwargs = {}
@@ -69,7 +64,7 @@
                      softmax_scale=self.softmax_scale,
                      causal="causal" in attn_mask_type,
                      **fa_optional_forward_kwargs,
-@@ -6828,15 +6826,6 @@
+@@ -6828,15 +6821,6 @@ class DotProductAttention(TransformerEngineBaseModule):
                      use_unfused_attention,
                      _,
                  ) = get_attention_backend(attention_params)
