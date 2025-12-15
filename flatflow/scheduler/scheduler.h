@@ -288,6 +288,39 @@ class Scheduler {
     return std::next(result, total_size);
   }
 
+  // Scheduler::UnsafeSchedule()
+  //
+  // Implements total reordering.
+  //
+  // CAVEATS
+  //
+  // This is an experimental feature and may not be used.
+  template <typename InputIterator, typename OutputIterator>
+  OutputIterator UnsafeSchedule(InputIterator first, InputIterator last,
+                                OutputIterator result) const {
+    const auto total_size = static_cast<size_type>(std::distance(first, last));
+
+    const auto comp = std::bind_front(&Scheduler::Compare, this);
+    const auto proj = std::bind_front(&Scheduler::Project, this);
+
+    auto samples = std::vector<size_type>(first, last);
+    std::sort(samples.begin(), samples.end(), comp);
+
+    const auto num_batches = total_size / global_batch_size_;
+    auto batches =
+        std::vector<internal::Subset<size_type, value_type>>(num_batches);
+    internal::Partition(samples.begin(), samples.end(), batches.begin(),
+                        num_batches, proj);
+
+    samples.clear();
+    for (const auto &batch : batches) {
+      std::copy(batch.items().begin(), batch.items().end(),
+                std::back_inserter(samples));
+    }
+
+    return Schedule(samples.begin(), samples.end(), result);
+  }
+
   // Scheduler::on_epoch_start()
   //
   // A callback to be called at the beginning of each training epoch.

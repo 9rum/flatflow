@@ -17,8 +17,10 @@
 
 #include <grpcpp/grpcpp.h>
 
+#include <algorithm>
 #include <csignal>
 #include <future>
+#include <iterator>
 #include <ranges>
 #include <tuple>
 #include <utility>
@@ -114,7 +116,8 @@ class DistributedControlPlane : public ControlPlane::Service {
         CHECK_NE(body->sizes(), nullptr);
         total_size_ = body->total_size();
         sizes.reserve(total_size_);
-        sizes.insert(sizes.end(), body->sizes()->begin(), body->sizes()->end());
+        std::copy(body->sizes()->begin(), body->sizes()->end(),
+                  std::back_inserter(sizes));
       } else {
         data_parallel_rank_ = trailer->data_parallel_rank();
         data_parallel_world_size_ = trailer->data_parallel_world_size();
@@ -171,14 +174,14 @@ class DistributedControlPlane : public ControlPlane::Service {
       CHECK_NE(args->indices(), nullptr);
 
       epoch_ = args->epoch();
-      indices.insert(indices.end(), args->indices()->begin(),
-                     args->indices()->end());
+      std::copy(args->indices()->begin(), args->indices()->end(),
+                std::back_inserter(indices));
     }
 
     scheduler_.on_epoch_start(epoch_);
 
     auto schedule = std::vector<size_type>(indices.size());
-    scheduler_.Schedule(indices.begin(), indices.end(), schedule.begin());
+    scheduler_.UnsafeSchedule(indices.begin(), indices.end(), schedule.begin());
 
     indices_.resize(schedule.size() / data_parallel_world_size_);
     internal::Scatter(schedule.begin(), schedule.end(), indices_.begin(),
