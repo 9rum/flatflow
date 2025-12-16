@@ -30,9 +30,9 @@ WORKDIR /workspace/flatflow
 
 COPY . .
 
-RUN for PYTHON_VERSION in 3.10 3.11 3.12 3.13; \
+RUN for PYTHONVERSION in 3.10 3.11 3.12 3.13 3.14; \
     do \
-      python${PYTHON_VERSION} -m build -w && \
+      python${PYTHONVERSION} -m build -w && \
       rm -rf build flatflow.egg-info; \
     done && \
     auditwheel repair dist/*
