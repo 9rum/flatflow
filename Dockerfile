@@ -6,6 +6,8 @@ FROM ${BASE_IMAGE}
 # This should be consistent with the gRPC version in requirements.txt.
 ARG GRPC_VERSION=1.67.1
 
+RUN pipx install ninja
+
 WORKDIR /workspace
 
 RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
@@ -13,15 +15,17 @@ RUN git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
     git submodule update --init --recursive && \
     mkdir -p cmake/build && \
     pushd cmake/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release \
+    cmake -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
           -DgRPC_INSTALL=ON \
           -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
           -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
           -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
           -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
           -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF ../.. && \
-    make -j4 && \
-    make install && \
+    ninja && \
+    ninja install && \
     popd && \
     popd && \
     rm -rf grpc
