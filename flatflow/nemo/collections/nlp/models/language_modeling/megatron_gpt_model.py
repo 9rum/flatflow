@@ -1728,7 +1728,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     batch_sampler=batch_sampler,
                     num_workers=self.cfg.data.num_workers,
                     collate_fn=collate_fn,
-                    pin_memory=True,
                     prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                     persistent_workers=self.cfg.data.num_workers > 0,
                 )
@@ -1786,7 +1785,6 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 batch_sampler=batch_sampler,
                 num_workers=self.cfg.data.num_workers,
                 collate_fn=collate_fn,
-                pin_memory=True,
                 prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                 persistent_workers=self.cfg.data.num_workers > 0,
             )
