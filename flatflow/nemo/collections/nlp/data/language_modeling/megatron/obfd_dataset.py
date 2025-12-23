@@ -118,6 +118,9 @@ class OBFDDataset(GPTDataset):
                 "position_ids": position_ids,
             }
 
+    def __len__(self):
+        return len(self.indexed_dataset)
+
 
 def _build_train_valid_test_datasets(
     cfg,
