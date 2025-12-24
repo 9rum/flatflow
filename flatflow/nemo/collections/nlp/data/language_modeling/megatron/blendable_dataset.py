@@ -36,9 +36,10 @@ class BlendableDataset(Dataset):
         self.datasets = list(datasets)
         assert 0 < len(self.datasets), "datasets should not be an empty iterable"
         self.cumulative_sizes = self.cumsum(self.datasets)
-        self._sizes = numpy.concatenate([dataset._sizes for dataset in self.datasets])
-        for dataset in self.datasets:
-            del dataset._sizes
+        if hasattr(self.datasets[0], "_sizes"):
+            self._sizes = numpy.concatenate([dataset._sizes for dataset in self.datasets])
+            for dataset in self.datasets:
+                del dataset._sizes
 
     def __len__(self):
         return self.cumulative_sizes[-1]
@@ -56,7 +57,7 @@ class BlendableDataset(Dataset):
         return self.datasets[dataset_idx][sample_idx]
 
     def __sizeof__(self, idx):
-        return self._sizes[idx]
+        return self._sizes[idx] if hasattr(self, "_sizes") else None
 
     def create_data_mmap(self):
         for dataset in self.datasets:

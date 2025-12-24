@@ -20,19 +20,16 @@ from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils imp
     get_datasets_weights_and_num_samples,
     get_train_valid_test_split_,
 )
-from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import (
-    BlendableDataset,
-)
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import (
     GPTDataset,
     _create_ltor_masks_and_position_ids,
     get_indexed_dataset_,
 )
-from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import (
-    deallocate_indexed_dataset_memory,
-)
+from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import deallocate_indexed_dataset_memory
 from nemo.utils import logging
 from omegaconf.dictconfig import DictConfig
+
+from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 
 __all__ = ["build_obfd_datasets"]
 
@@ -215,7 +212,7 @@ def build_train_valid_test_datasets(
     token_output = get_datasets_weights_and_num_samples(
         token_data_prefix, train_valid_test_num_samples
     )
-    token_prefixes, weights, datasets_train_valid_test_num_samples = token_output
+    token_prefixes, _, datasets_train_valid_test_num_samples = token_output
 
     label_output = get_datasets_weights_and_num_samples(
         label_data_prefix, train_valid_test_num_samples
@@ -247,18 +244,15 @@ def build_train_valid_test_datasets(
         if test_ds:
             test_datasets.append(test_ds)
 
-    train_n, valid_n, test_n = map(sum, zip(*datasets_train_valid_test_num_samples))
-
-    # Blend.
     blending_train_dataset = None
     blending_valid_dataset = None
     blending_test_dataset = None
     if train_datasets:
-        blending_train_dataset = BlendableDataset(train_datasets, weights, train_n)
+        blending_train_dataset = BlendableDataset(train_datasets)
     if valid_datasets:
-        blending_valid_dataset = BlendableDataset(valid_datasets, weights, valid_n)
+        blending_valid_dataset = BlendableDataset(valid_datasets)
     if test_datasets:
-        blending_test_dataset = BlendableDataset(test_datasets, weights, test_n)
+        blending_test_dataset = BlendableDataset(test_datasets)
     return (blending_train_dataset, blending_valid_dataset, blending_test_dataset)
 
 
