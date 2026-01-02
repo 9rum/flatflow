@@ -101,6 +101,8 @@ class Scheduler {
         ((total_size / data_parallel_world_size - 1) / micro_batch_size + 1) *
         data_parallel_world_size;
 
+    identities_ = std::vector<typename SymIntAdaptor::return_type>(first, last);
+
     projections_.resize(total_size);
 
     const auto trace = symbolic_trace(graph);
@@ -300,8 +302,8 @@ class Scheduler {
                                 OutputIterator result) const {
     const auto total_size = static_cast<size_type>(std::distance(first, last));
 
-    const auto comp = std::bind_front(&Scheduler::Compare, this);
-    const auto proj = std::bind_front(&Scheduler::Project, this);
+    const auto comp = std::bind_front(&Scheduler::CompareIdentity, this);
+    const auto proj = std::bind_front(&Scheduler::Identity, this);
 
     auto samples = std::vector<size_type>(first, last);
     std::sort(samples.begin(), samples.end(), comp);
@@ -351,10 +353,22 @@ class Scheduler {
     return projections_[lhs] < projections_[rhs];
   }
 
+  // Scheduler::CompareIdentity()
+  //
+  // Compares the two given indices based on their forwarded values.
+  bool CompareIdentity(size_type lhs, size_type rhs) const {
+    return identities_[lhs] < identities_[rhs];
+  }
+
   // Scheduler::Project()
   //
   // Returns the projected value corresponding to the given index.
   value_type Project(size_type index) const { return projections_[index]; }
+
+  // Scheduler::Identity()
+  //
+  // Returns the forwarded value corresponding to the given index.
+  value_type Identity(size_type index) const { return identities_[index]; }
 
  protected:
   size_type data_parallel_world_size_;
@@ -363,6 +377,7 @@ class Scheduler {
   size_type last_micro_batch_size_;
   size_type micro_batch_size_;
   size_type num_microbatches_;
+  std::vector<typename SymIntAdaptor::return_type> identities_;
   std::vector<typename SymIntAdaptor::return_type> projections_;
 };
 
