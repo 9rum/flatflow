@@ -53,7 +53,7 @@ class BlendableDataset(Dataset):
         if dataset_idx == 0:
             sample_idx = idx
         else:
-            sample_idx = idx - self.cumulative_sizes[dataset_idx - 1]
+            sample_idx = int(idx - self.cumulative_sizes[dataset_idx - 1])
         return self.datasets[dataset_idx][sample_idx]
 
     def __sizeof__(self, idx):
