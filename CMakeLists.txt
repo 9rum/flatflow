@@ -23,6 +23,7 @@ option(FLATFLOW_BUILD_TESTS "If ON, FlatFlow will build its own tests" OFF)
 option(FLATFLOW_ENABLE_ASAN "If ON, enable AddressSanitizer" OFF)
 option(FLATFLOW_ENABLE_UBSAN "If ON, enable UndefinedBehaviorSanitizer" OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 include(${PROJECT_SOURCE_DIR}/cmake/utils.cmake)
