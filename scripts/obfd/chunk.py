@@ -8,12 +8,10 @@ import os
 import time
 
 import numpy as np
+import torch
+from nemo.collections.nlp.data.language_modeling.megatron import indexed_dataset
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
 from tqdm import tqdm
-
-
-def ids_to_text(tokenizer, ids):
-    return tokenizer.tokens_to_text(tokenizer.ids_to_tokens(ids))
 
 
 def get_tokenizer(args):
@@ -49,14 +47,27 @@ def main():
     tokenizer = get_tokenizer(args)
 
     print(f"Processing file {args.input}")
-    filename = os.path.splitext(os.path.basename(args.input))[0]
     fin = open(args.input, "r", encoding="utf-8")
-    fout_tokens = open(f"{args.output_prefix}{filename}_tokens.jsonl", "wb")
-    fout_labels = open(f"{args.output_prefix}{filename}_labels.jsonl", "wb")
+    filename, _ = os.path.splitext(os.path.basename(args.input))
+    output_prefix = os.path.abspath(args.output_prefix)
+
+    tokens_bin_file = os.path.join(output_prefix, f"{filename}_chunked_tokens.bin")
+    tokens_idx_file = os.path.join(output_prefix, f"{filename}_chunked_tokens.idx")
+    tokens_builder = indexed_dataset.make_builder(
+        tokens_bin_file,
+        impl="mmap",
+        vocab_size=tokenizer.vocab_size,
+    )
+
+    labels_bin_file = os.path.join(output_prefix, f"{filename}_chunked_labels.bin")
+    labels_idx_file = os.path.join(output_prefix, f"{filename}_chunked_labels.idx")
+    labels_builder = indexed_dataset.make_builder(
+        labels_bin_file,
+        impl="mmap",
+        vocab_size=tokenizer.vocab_size,
+    )
 
     token_counts = []
-    token_offsets = [0]
-    label_offsets = [0]
 
     for line in tqdm(fin, desc="Chunking documents"):
         line = line.strip()
@@ -77,50 +88,21 @@ def main():
         label_ids = [*ids, tokenizer.eos_id]
         num_tokens = len(token_ids)
 
-        if args.max_seq_len < num_tokens:
-            # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
-            # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
-            for idx in range(0, num_tokens, args.max_seq_len):
-                token_chunk_ids = token_ids[idx : idx + args.max_seq_len]
-                token_chunk_text = ids_to_text(tokenizer, token_chunk_ids)
-                s = (
-                    json.dumps({args.json_key: token_chunk_text}, ensure_ascii=False)
-                    + "\n"
-                )
-                s = s.encode()
-                fout_tokens.write(s)
-                token_offsets.append(token_offsets[-1] + len(s))
-                token_counts.append(len(token_chunk_ids))
-
-                label_chunk_ids = label_ids[idx : idx + args.max_seq_len]
-                label_chunk_text = ids_to_text(tokenizer, label_chunk_ids)
-                s = (
-                    json.dumps({args.json_key: label_chunk_text}, ensure_ascii=False)
-                    + "\n"
-                )
-                s = s.encode()
-                fout_labels.write(s)
-                label_offsets.append(label_offsets[-1] + len(s))
-        else:
-            token_text = ids_to_text(tokenizer, token_ids)
-            s = json.dumps({args.json_key: token_text}, ensure_ascii=False) + "\n"
-            s = s.encode()
-            fout_tokens.write(s)
-            token_offsets.append(token_offsets[-1] + len(s))
-            token_counts.append(num_tokens)
-
-            label_text = ids_to_text(tokenizer, label_ids)
-            s = json.dumps({args.json_key: label_text}, ensure_ascii=False) + "\n"
-            s = s.encode()
-            fout_labels.write(s)
-            label_offsets.append(label_offsets[-1] + len(s))
+        # Perform per-doc chunking based on Figure 1 in `Fewer Truncations Improve
+        # Language Modeling`. See https://openreview.net/pdf?id=kRxCDDFNpp.
+        for idx in range(0, num_tokens, args.max_seq_len):
+            token_chunk_ids = token_ids[idx : idx + args.max_seq_len]
+            tokens_builder.add_item(torch.tensor(token_chunk_ids, dtype=torch.int32))
+            tokens_builder.end_document()
+            label_chunk_ids = label_ids[idx : idx + args.max_seq_len]
+            labels_builder.add_item(torch.tensor(label_chunk_ids, dtype=torch.int32))
+            labels_builder.end_document()
+            token_counts.append(len(token_chunk_ids))
 
     fin.close()
-    fout_tokens.close()
-    fout_labels.close()
-    np.save(f"{args.output_prefix}{filename}_cnt.npy", np.array(token_counts))
-    np.save(f"{args.output_prefix}{filename}_token_idx.npy", np.array(token_offsets))
-    np.save(f"{args.output_prefix}{filename}_label_idx.npy", np.array(label_offsets))
+    tokens_builder.finalize(tokens_idx_file)
+    labels_builder.finalize(labels_idx_file)
+    np.save(os.path.join(output_prefix, f"{filename}_cnt.npy"), np.array(token_counts))
     print(f"Took {time.monotonic() - now}s for per-doc chunking")
 
 
