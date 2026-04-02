@@ -47,11 +47,9 @@ Run the following command to perform document packing:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --tokens=PATH_TO_TOKENS_JSON_FILE \
-    --labels=PATH_TO_LABELS_JSON_FILE \
+    --token-prefix=TOKEN_DATA_PREFIX \
+    --label-prefix=LABEL_DATA_PREFIX \
     --counts=PATH_TO_COUNTS_FILE \
-    --token-offsets=PATH_TO_TOKEN_OFFSETS_FILE \
-    --label-offsets=PATH_TO_LABEL_OFFSETS_FILE \
     --json-key=JSON_KEY \
     --tokenizer-library=LIBRARY \
     --tokenizer-type=MODEL_NAME \
@@ -63,11 +61,9 @@ For the example above, run the following command:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --tokens=PATH_TO_TOKENS_JSON_FILE \
-    --labels=PATH_TO_LABELS_JSON_FILE \
+    --token-prefix=TOKEN_DATA_PREFIX \
+    --label-prefix=LABEL_DATA_PREFIX \
     --counts=PATH_TO_COUNTS_FILE \
-    --token-offsets=PATH_TO_TOKEN_OFFSETS_FILE \
-    --label-offsets=PATH_TO_LABEL_OFFSETS_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
     --tokenizer-type=meta-llama/Llama-3.2-1B \
