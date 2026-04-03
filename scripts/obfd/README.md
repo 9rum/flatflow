@@ -1,4 +1,4 @@
-This is a naive implementation of [Fewer Truncations Improve Language Modeling](https://proceedings.mlr.press/v235/ding24f.html) [ICML '24].
+This is an unofficial implementation of [Fewer Truncations Improve Language Modeling](https://proceedings.mlr.press/v235/ding24f.html) [ICML '24].
 
 ## Prerequisites
 

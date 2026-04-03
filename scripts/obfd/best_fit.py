@@ -3,10 +3,9 @@ Unofficial implementation of Fewer Truncations Improve Language Modeling [ICML '
 """
 
 import argparse
-import json
+import math
 import os
 import time
-from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import torch
@@ -17,56 +16,96 @@ from tqdm import tqdm
 _PAD_TOKEN_ID = -1
 
 
-def best_fit_decreasing(args):
-    counts, bin_size, start = args
-    items = [(start + idx, cnt) for idx, cnt in enumerate(counts)]
-    items.sort(key=lambda item: item[1], reverse=True)
+def counting_sort(items: np.ndarray, cap: int):
+    now = time.monotonic()
+    buckets = [[] for _ in range(cap + 1)]
+    for idx, item in enumerate(items):
+        buckets[item].append(idx)
+    print(f"Took {time.monotonic() - now}s for counting sort\t{len(items)=}")
+    return buckets
+
+
+class SegmentTree(object):
+    def __init__(self, cap: int):
+        self._cap = cap
+        self._size = 1 << (math.ceil(math.log2(cap)))
+        self._tree = [0] * (self._size << 1)
+
+    def update(self, cap: int, present: bool):
+        idx = self._size + cap - 1
+        self._tree[idx] = cap if present else 0
+        idx >>= 1
+
+        while idx:
+            left = idx << 1
+            self._tree[idx] = max(self._tree[left], self._tree[left + 1])
+            idx >>= 1
+
+    def query(self, weight: int):
+        if self._tree[1] < weight:
+            return 0
+
+        idx = 1
+        while idx < self._size:
+            left = idx << 1
+            if weight <= self._tree[left]:
+                idx = left
+            else:
+                idx = left + 1
+
+        return idx - self._size + 1
+
+
+def optimized_best_fit_decreasing(counts: np.ndarray, bin_size: int):
+    now = time.monotonic()
+    buckets = counting_sort(counts, bin_size)
+
+    def items_desc():
+        for c in range(bin_size, 0, -1):
+            for idx in buckets[c]:
+                yield c, idx
 
     bins = []
-    capacities = []
+    space_to_bins = {}
 
-    for item in tqdm(items, desc="Running BFD"):
-        best_bin_idx = -1
-        min_remaining = bin_size + 1
+    tree = SegmentTree(bin_size)
 
-        for i in range(len(bins)):
-            if item[1] <= capacities[i] and capacities[i] - item[1] < min_remaining:
-                best_bin_idx = i
-                min_remaining = capacities[i] - item[1]
-
-        if best_bin_idx != -1:
-            bins[best_bin_idx].append(item)
-            capacities[best_bin_idx] -= item[1]
+    def add_bin(cap: int, bin_id: int):
+        if cap not in space_to_bins:
+            space_to_bins[cap] = [bin_id]
+            tree.update(cap, True)
         else:
-            bins.append([item])
-            capacities.append(bin_size - item[1])
+            space_to_bins[cap].append(bin_id)
 
+    def pop_bin(cap: int):
+        lst = space_to_bins[cap]
+        bin_id = lst.pop()
+        if not lst:
+            del space_to_bins[cap]
+            tree.update(cap, False)
+        return bin_id
+
+    bins.append([])
+    add_bin(bin_size, 0)
+
+    for weight, idx in items_desc():
+        cap = tree.query(weight)
+
+        if cap == 0:
+            bin_id = len(bins)
+            bins.append([])
+            add_bin(bin_size, bin_id)
+            cap = bin_size
+
+        bin_id = pop_bin(cap)
+        bins[bin_id].append(idx)
+
+        new_cap = cap - weight
+        if 0 < new_cap:
+            add_bin(new_cap, bin_id)
+
+    print(f"Took {time.monotonic() - now}s for OBFD\t{len(counts)=}")
     return bins
-
-
-def parallel_best_fit_decreasing(counts: np.ndarray, bin_size: int):
-    n_chunks = cpu_count()
-    n_total = len(counts)
-    chunk_size = (n_total + n_chunks - 1) // n_chunks
-
-    tasks = []
-    for i in range(n_chunks):
-        start = i * chunk_size
-        end = min(start + chunk_size, n_total)
-        chunk = counts[start:end].copy()
-        tasks.append((chunk, bin_size, start))
-
-    pool = Pool(processes=n_chunks)
-    yield from pool.imap(best_fit_decreasing, tasks)
-
-
-def read_jsonl_at(path: str, index: int, offsets: np.ndarray):
-    assert index < len(offsets) and offsets[index] < os.path.getsize(path)
-    with open(path, "r", encoding="utf-8") as f:
-        f.seek(offsets[index])
-        line = f.readline().strip()
-        assert line, f"Empty line at offset {offsets[index]} for index {index}"
-        return json.loads(line)
 
 
 def get_tokenizer(args):
@@ -79,11 +118,9 @@ def get_tokenizer(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tokens", type=str, required=True)
-    parser.add_argument("--labels", type=str, required=True)
+    parser.add_argument("--token-prefix", type=str, required=True)
+    parser.add_argument("--label-prefix", type=str, required=True)
     parser.add_argument("--counts", type=str, required=True)
-    parser.add_argument("--token-offsets", type=str, required=True)
-    parser.add_argument("--label-offsets", type=str, required=True)
     parser.add_argument("--json-key", type=str, default="content")
     parser.add_argument(
         "--tokenizer-library",
@@ -101,56 +138,61 @@ def main():
     now = time.monotonic()
 
     args = get_args()
-    assert os.path.exists(args.tokens), f"File does not exist: {args.tokens}"
-    assert os.path.exists(args.labels), f"File does not exist: {args.labels}"
     assert os.path.exists(args.counts), f"File does not exist: {args.counts}"
-    assert os.path.exists(args.token_offsets), f"File does not exist: {args.token_offsets}"
-    assert os.path.exists(args.label_offsets), f"File does not exist: {args.label_offsets}"
-
-    token_counts = np.load(args.counts)
-    token_offsets = np.load(args.token_offsets)
-    label_offsets = np.load(args.label_offsets)
 
     tokenizer = get_tokenizer(args)
+    chunked_tokens = indexed_dataset.make_dataset(args.token_prefix, "mmap")
+    chunked_labels = indexed_dataset.make_dataset(args.label_prefix, "mmap")
+    token_counts = np.load(args.counts)
 
-    tokens_bin_file = f"{args.output_prefix}_{args.json_key}_document.bin"
-    tokens_idx_file = f"{args.output_prefix}_{args.json_key}_document.idx"
+    filename = os.path.basename(args.token_prefix).split("_chunked")[0]
+    output_prefix = os.path.abspath(args.output_prefix)
+    tokens_bin_file = os.path.join(
+        output_prefix,
+        f"{filename}_{args.json_key}_document.bin",
+    )
+    tokens_idx_file = os.path.join(
+        output_prefix,
+        f"{filename}_{args.json_key}_document.idx",
+    )
     tokens_builder = indexed_dataset.make_builder(
         tokens_bin_file,
         impl="mmap",
         vocab_size=tokenizer.vocab_size,
     )
-
-    labels_bin_file = f"{args.output_prefix}_{args.json_key}_label.bin"
-    labels_idx_file = f"{args.output_prefix}_{args.json_key}_label.idx"
+    labels_bin_file = os.path.join(
+        output_prefix,
+        f"{filename}_{args.json_key}_label.bin",
+    )
+    labels_idx_file = os.path.join(
+        output_prefix,
+        f"{filename}_{args.json_key}_label.idx",
+    )
     labels_builder = indexed_dataset.make_builder(
         labels_bin_file,
         impl="mmap",
         vocab_size=tokenizer.vocab_size,
     )
 
-    for bins in tqdm(parallel_best_fit_decreasing(token_counts, args.max_seq_len), "Iterating bins"):
-        for items in tqdm(bins, desc="Saving packed sequences"):
-            token_ids = []
-            label_ids = []
-            num_tokens = 0
+    bins = optimized_best_fit_decreasing(token_counts, args.max_seq_len)
 
-            for item in items:
-                num_tokens += item[1]
-                data = read_jsonl_at(args.tokens, item[0], token_offsets)
-                text = data[args.json_key]
-                token_ids.extend(tokenizer.text_to_ids(text))
-                data = read_jsonl_at(args.labels, item[0], label_offsets)
-                text = data[args.json_key]
-                label_ids.extend(tokenizer.text_to_ids(text))
+    for bin in tqdm(bins, "Saving packed sequences"):
+        token_ids = []
+        label_ids = []
+        for idx in bin:
+            token_ids.extend(chunked_tokens.get(idx))
+            label_ids.extend(chunked_labels.get(idx))
+        assert len(token_ids) == len(label_ids)
 
-            # pad to fit the sequence to the model's context length
-            token_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - num_tokens))
-            tokens_builder.add_item(torch.IntTensor(token_ids))
-            tokens_builder.end_document()
-            label_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - num_tokens))
-            labels_builder.add_item(torch.IntTensor(label_ids))
-            labels_builder.end_document()
+        token_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(token_ids)))
+        assert len(token_ids) == args.max_seq_len
+        tokens_builder.add_item(torch.tensor(token_ids, dtype=torch.int32))
+        tokens_builder.end_document()
+
+        label_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(label_ids)))
+        assert len(label_ids) == args.max_seq_len
+        labels_builder.add_item(torch.tensor(label_ids, dtype=torch.int32))
+        labels_builder.end_document()
 
     tokens_builder.finalize(tokens_idx_file)
     labels_builder.finalize(labels_idx_file)
