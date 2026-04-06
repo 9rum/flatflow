@@ -23,14 +23,14 @@ $ python3 scripts/obfd/chunk.py \
     --max-seq-len=MAX_SEQ_LEN
 ```
 
-If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Llama 3.2 1B with context length of 8192, then run the following command:
+If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Llama 3.1 8B with context length of 8192, then run the following command:
 
 ```bash
 $ python3 scripts/obfd/chunk.py \
     --input=PATH_TO_JSON_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
-    --tokenizer-type=meta-llama/Llama-3.2-1B \
+    --tokenizer-type=meta-llama/Llama-3.1-8B \
     --output-prefix=PATH_TO_OUTPUT_DIR \
     --max-seq-len=8192
 ```
@@ -66,7 +66,7 @@ $ python3 scripts/obfd/best_fit.py \
     --counts=PATH_TO_COUNTS_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
-    --tokenizer-type=meta-llama/Llama-3.2-1B \
+    --tokenizer-type=meta-llama/Llama-3.1-8B \
     --output-prefix=PATH_TO_OUTPUT_DIR \
     --max-seq-len=8192
 ```
