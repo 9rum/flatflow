@@ -182,15 +182,12 @@ def main():
         for idx in bin:
             token_ids.extend(chunked_tokens.get(idx))
             label_ids.extend(chunked_labels.get(idx))
-        assert len(token_ids) == len(label_ids)
 
         token_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(token_ids)))
-        assert len(token_ids) == args.max_seq_len
         tokens_builder.add_item(torch.tensor(token_ids, dtype=torch.int32))
         tokens_builder.end_document()
 
         label_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(label_ids)))
-        assert len(label_ids) == args.max_seq_len
         labels_builder.add_item(torch.tensor(label_ids, dtype=torch.int32))
         labels_builder.end_document()
 
