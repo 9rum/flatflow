@@ -101,7 +101,7 @@ macro_rules! signum_impl {
             impl Signum for $t {
                 #[inline]
                 fn signum(self) -> Self {
-                    Self::signum(self)
+                    <$t>::signum(self)
                 }
             }
         )*

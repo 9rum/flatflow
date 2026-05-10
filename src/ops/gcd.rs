@@ -12,13 +12,13 @@ pub(super) trait UnsignedAbs {
 }
 
 macro_rules! unsigned_abs_impl {
-    ($signed:ty => $unsigned:ty) => {
-        impl UnsignedAbs for $signed {
-            type Output = $unsigned;
+    ($from:ty => $to:ty) => {
+        impl UnsignedAbs for $from {
+            type Output = $to;
 
             #[inline]
             fn unsigned_abs(self) -> Self::Output {
-                Self::unsigned_abs(self)
+                <$from>::unsigned_abs(self)
             }
         }
     };
@@ -42,7 +42,7 @@ macro_rules! trailing_zeros_impl {
             impl TrailingZeros for $t {
                 #[inline]
                 fn trailing_zeros(self) -> u32 {
-                    Self::trailing_zeros(self)
+                    <$t>::trailing_zeros(self)
                 }
             }
         )*
