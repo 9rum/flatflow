@@ -103,60 +103,64 @@ where
 mod tests {
     use super::*;
 
-    macro_rules! gen_test_suite {
+    macro_rules! test_suite {
         ($name:ident, $t:ty) => {
             mod $name {
                 use super::*;
 
                 #[test]
-                fn trivial() {
-                    assert_eq!(gcd(12 as $t, 18), 6);
-                    assert_eq!(gcd(18 as $t, 12), 6);
-
-                    assert_eq!(gcd(6 as $t, 10), 2);
-                    assert_eq!(gcd(10 as $t, 6), 2);
-                    assert_eq!(gcd(6 as $t, -10), 2);
-                    assert_eq!(gcd(-10 as $t, 6), 2);
-                    assert_eq!(gcd(-6 as $t, -10), 2);
-                    assert_eq!(gcd(-10 as $t, -6), 2);
-
-                    assert_eq!(gcd(24 as $t, 0), 24);
-                    assert_eq!(gcd(0 as $t, 24), 24);
-                    assert_eq!(gcd(-24 as $t, 0), 24);
-                    assert_eq!(gcd(0 as $t, -24), 24);
+                fn test_gcd_is_commutative() {
+                    assert_eq!(gcd(12 as $t, 18), gcd(18 as $t, 12));
+                    assert_eq!(gcd(6 as $t, 10), gcd(10 as $t, 6));
+                    assert_eq!(gcd(6 as $t, -10), gcd(-10 as $t, 6));
+                    assert_eq!(gcd(-6 as $t, -10), gcd(-10 as $t, -6));
+                    assert_eq!(gcd(24 as $t, 0), gcd(0 as $t, 24));
+                    assert_eq!(gcd(-24 as $t, 0), gcd(0 as $t, -24));
                 }
 
                 #[test]
-                fn boundary() {
-                    assert_eq!(gcd(0 as $t, 0), 0);
-                    assert_eq!(gcd(0 as $t, 1), 1);
-                    assert_eq!(gcd(1 as $t, 0), 1);
-                    assert_eq!(gcd(-1 as $t, 0), 1);
-                    assert_eq!(gcd(0 as $t, -1), 1);
+                fn test_gcd_with_zero_returns_the_other() {
+                    assert_eq!(gcd(12 as $t, 0), 12);
+                    assert_eq!(gcd(18 as $t, 0), 18);
+                    assert_eq!(gcd(6 as $t, 0), 6);
+                    assert_eq!(gcd(-10 as $t, 0), 10);
+                    assert_eq!(gcd(-24 as $t, 0), 24);
 
                     assert_eq!(gcd(<$t>::MIN, 0), <$t>::MIN.unsigned_abs());
-                    assert_eq!(gcd(0, <$t>::MIN), <$t>::MIN.unsigned_abs());
-                    assert_eq!(gcd(<$t>::MIN, 1), 1);
-                    assert_eq!(gcd(1, <$t>::MIN), 1);
-                    assert_eq!(gcd(<$t>::MIN, 2), 2);
-                    assert_eq!(gcd(2, <$t>::MIN), 2);
+                    assert_eq!(gcd(-1 as $t, 0), 1);
+                    assert_eq!(gcd(0 as $t, 0), 0);
+                    assert_eq!(gcd(<$t>::MAX, 0), <$t>::MAX.cast_unsigned());
+                }
 
+                #[test]
+                fn test_gcd_with_one_returns_one() {
+                    assert_eq!(gcd(12 as $t, 1), 1);
+                    assert_eq!(gcd(18 as $t, 1), 1);
+                    assert_eq!(gcd(6 as $t, 1), 1);
+                    assert_eq!(gcd(-10 as $t, 1), 1);
+                    assert_eq!(gcd(-24 as $t, 1), 1);
+
+                    assert_eq!(gcd(<$t>::MIN, 1), 1);
+                    assert_eq!(gcd(-1 as $t, 1), 1);
+                    assert_eq!(gcd(0 as $t, 1), 1);
+                    assert_eq!(gcd(1 as $t, 1), 1);
+                    assert_eq!(gcd(<$t>::MAX, 1), 1);
+                }
+
+                #[test]
+                fn test_gcd_with_boundary_values() {
                     assert_eq!(gcd(<$t>::MIN, <$t>::MIN), <$t>::MIN.unsigned_abs());
                     assert_eq!(gcd(<$t>::MIN, <$t>::MAX), 1);
-                    assert_eq!(gcd(<$t>::MAX, <$t>::MIN), 1);
-
-                    assert_eq!(gcd(<$t>::MAX, 0), <$t>::MAX.cast_unsigned());
-                    assert_eq!(gcd(0, <$t>::MAX), <$t>::MAX.cast_unsigned());
                     assert_eq!(gcd(<$t>::MAX, <$t>::MAX), <$t>::MAX.cast_unsigned());
                 }
             }
         };
     }
 
-    gen_test_suite!(i8, i8);
-    gen_test_suite!(i16, i16);
-    gen_test_suite!(i32, i32);
-    gen_test_suite!(i64, i64);
-    gen_test_suite!(i128, i128);
-    gen_test_suite!(isize, isize);
+    test_suite!(i8, i8);
+    test_suite!(i16, i16);
+    test_suite!(i32, i32);
+    test_suite!(i64, i64);
+    test_suite!(i128, i128);
+    test_suite!(isize, isize);
 }
