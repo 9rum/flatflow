@@ -38,11 +38,11 @@ impl<T> Polynomial<T> {
     /// [The Art of Computer Programming: Volume 2, Third edition, 1997]: https://dl.acm.org/doi/10.5555/270146
     /// [Methods of computing values of polynomials]: https://doi.org/10.1070%2Frm1966v021n01abeh004147
     #[inline]
-    pub(super) fn eval<U>(&self, value: U) -> T
+    pub(super) fn eval<U>(&self, value: U) -> Result<T, T::Error>
     where
-        T: Add<Output = T> + Copy + From<U> + Mul<Output = T>,
+        T: Add<Output = T> + Copy + Mul<Output = T> + TryFrom<U>,
     {
-        self.eval_impl(value.into())
+        Ok(self.eval_impl(value.try_into()?))
     }
 
     #[inline]
@@ -273,4 +273,160 @@ where
     fn neg(self) -> Self::Output {
         Self(-self.0, -self.1, -self.2)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_suite {
+        ($name:ident, $t:ty) => {
+            mod $name {
+                use super::*;
+
+                #[test]
+                fn test_construction() {
+                    assert_eq!(Polynomial::new(1 as $t, 2, 3), Polynomial(1, 2, 3));
+
+                    assert_eq!(Polynomial::default(), Polynomial(0 as $t, 0, 0));
+                    assert_eq!(Polynomial::default(), Polynomial::new(0 as $t, 0, 0));
+
+                    assert_eq!(Polynomial::from(2 as $t), Polynomial(2, 0, 0));
+                    assert_eq!(Polynomial::from(3 as $t), Polynomial::new(3, 0, 0));
+                    assert_eq!(Polynomial::from(0 as $t), Polynomial::default());
+
+                    assert_eq!(polynomial!(), Polynomial::<$t>::default());
+                    assert_eq!(polynomial!(1 as $t), Polynomial::from(1));
+                    assert_eq!(polynomial!(1 as $t, 2), Polynomial(1, 2, 0));
+                    assert_eq!(polynomial!(1 as $t, 2, 3), Polynomial(1, 2, 3));
+                }
+
+                #[test]
+                fn test_scalar_arithmetic() {
+                    let p = polynomial!(12 as $t, 18, 30);
+
+                    assert_eq!(p + 0, p);
+                    assert_eq!(p + 3, polynomial!(15, 18, 30));
+                    assert_eq!(p - 0, p);
+                    assert_eq!(p - 3, polynomial!(9, 18, 30));
+
+                    assert_eq!(p * 1, p);
+                    assert_eq!(p * 2, polynomial!(24, 36, 60));
+                    assert_eq!(p / 1, p);
+                    assert_eq!(p / 3, polynomial!(4, 6, 10));
+
+                    assert_eq!(p << 0, p);
+                    assert_eq!(p << 2, polynomial!(48, 72, 120));
+                    assert_eq!(p >> 0, p);
+                    assert_eq!(p >> 1, polynomial!(6, 9, 15));
+
+                    let mut p = polynomial!(16 as $t, 24, 32);
+
+                    p += 1;
+                    assert_eq!(p, polynomial!(17, 24, 32));
+
+                    p -= 1;
+                    assert_eq!(p, polynomial!(16, 24, 32));
+
+                    p *= 3;
+                    assert_eq!(p, polynomial!(48, 72, 96));
+
+                    p /= 4;
+                    assert_eq!(p, polynomial!(12, 18, 24));
+
+                    p <<= 2;
+                    assert_eq!(p, polynomial!(48, 72, 96));
+
+                    p >>= 3;
+                    assert_eq!(p, polynomial!(6, 9, 12));
+                }
+
+                #[test]
+                fn test_polynomial_arithmetic() {
+                    let p = polynomial!(3 as $t, 2, 1);
+
+                    assert_eq!(p + Polynomial::default(), p);
+                    assert_eq!(p + -p, Polynomial::default());
+                    assert_eq!(p + polynomial!(1, 2, 0), polynomial!(4, 4, 1));
+
+                    assert_eq!(p - Polynomial::default(), p);
+                    assert_eq!(p - p, Polynomial::default());
+                    assert_eq!(p - polynomial!(1, 2, 0), polynomial!(2, 0, 1));
+
+                    assert_eq!(-Polynomial::<$t>::default(), Polynomial::default());
+                    assert_eq!(-p, polynomial!(-3, -2, -1));
+
+                    let mut p = polynomial!(16 as $t, 24, 32);
+
+                    p += polynomial!(6, 9, 15);
+                    assert_eq!(p, polynomial!(22, 33, 47));
+
+                    p -= polynomial!(4, 6, 10);
+                    assert_eq!(p, polynomial!(18, 27, 37));
+                }
+
+                #[test]
+                fn test_polynomial_multiplication() {
+                    let p = polynomial!(5 as $t, 8, 13);
+                    assert_eq!(p * Polynomial::default(), Polynomial::default());
+                    assert_eq!(p * polynomial!(1), p);
+                    assert_eq!(p * polynomial!(1, 2), polynomial!(5, 18, 29));
+                    assert_eq!(p * polynomial!(1, 2, 3), polynomial!(5, 18, 44));
+                }
+
+                #[test]
+                fn test_normalization() {
+                    let mut p = polynomial!(5 as $t, 10, 20);
+                    p.normalize();
+                    assert_eq!(p, polynomial!(0, 1, 2));
+
+                    p = Polynomial::default();
+                    p.normalize();
+                    assert_eq!(p, Polynomial::default());
+
+                    p = polynomial!(-1, -2, -4);
+                    p.normalize();
+                    assert_eq!(p, polynomial!(0, -1, -2));
+
+                    p = polynomial!(<$t>::MIN, <$t>::MIN, <$t>::MIN);
+                    p.normalize();
+                    assert_eq!(p, polynomial!(0, -1, -1));
+
+                    p = polynomial!(<$t>::MIN, <$t>::MIN);
+                    p.normalize();
+                    assert_eq!(p, polynomial!(0, -1));
+
+                    p = polynomial!(0, <$t>::MIN, <$t>::MAX);
+                    p.normalize();
+                    assert_eq!(p, polynomial!(0, <$t>::MIN, <$t>::MAX));
+                }
+
+                #[test]
+                fn test_polynomial_evaluation() {
+                    let mut p = polynomial!(3 as $t, 2, 1);
+                    p.normalize();
+                    assert_eq!(p.eval(0), Ok(0));
+                    assert_eq!(p.eval(1), Ok(3));
+                    assert_eq!(p.eval(2), Ok(8));
+
+                    p = polynomial!(<$t>::MIN, <$t>::MIN, <$t>::MIN);
+                    p.normalize();
+                    assert_eq!(p.eval(0), Ok(0));
+                    assert_eq!(p.eval(1), Ok(-2));
+                    assert_eq!(p.eval(2), Ok(-6));
+
+                    p = polynomial!();
+                    p.normalize();
+                    assert_eq!(p.eval(<$t>::MAX), Ok(0));
+                }
+            }
+        };
+    }
+
+    test_suite!(i8, i8);
+    test_suite!(i16, i16);
+    test_suite!(i32, i32);
+    test_suite!(i64, i64);
+    test_suite!(i128, i128);
+    test_suite!(isize, isize);
 }
