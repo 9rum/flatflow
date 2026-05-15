@@ -118,8 +118,7 @@ def get_tokenizer(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--token-prefix", type=str, required=True)
-    parser.add_argument("--label-prefix", type=str, required=True)
+    parser.add_argument("--data-prefix", type=str, required=True)
     parser.add_argument("--counts", type=str, required=True)
     parser.add_argument("--json-key", type=str, default="content")
     parser.add_argument(
@@ -141,58 +140,37 @@ def main():
     assert os.path.exists(args.counts), f"File does not exist: {args.counts}"
 
     tokenizer = get_tokenizer(args)
-    chunked_tokens = indexed_dataset.make_dataset(args.token_prefix, "mmap")
-    chunked_labels = indexed_dataset.make_dataset(args.label_prefix, "mmap")
+    chunks = indexed_dataset.make_dataset(args.data_prefix, "mmap")
     token_counts = np.load(args.counts)
 
-    filename = os.path.basename(args.token_prefix).split("_chunked")[0]
+    filename = os.path.basename(args.data_prefix).split("_chunked")[0]
     output_prefix = os.path.abspath(args.output_prefix)
-    tokens_bin_file = os.path.join(
+    output_bin_file = os.path.join(
         output_prefix,
         f"{filename}_{args.json_key}_document.bin",
     )
-    tokens_idx_file = os.path.join(
+    output_idx_file = os.path.join(
         output_prefix,
         f"{filename}_{args.json_key}_document.idx",
     )
-    tokens_builder = indexed_dataset.make_builder(
-        tokens_bin_file,
-        impl="mmap",
-        vocab_size=tokenizer.vocab_size,
-    )
-    labels_bin_file = os.path.join(
-        output_prefix,
-        f"{filename}_{args.json_key}_label.bin",
-    )
-    labels_idx_file = os.path.join(
-        output_prefix,
-        f"{filename}_{args.json_key}_label.idx",
-    )
-    labels_builder = indexed_dataset.make_builder(
-        labels_bin_file,
+    builder = indexed_dataset.make_builder(
+        output_bin_file,
         impl="mmap",
         vocab_size=tokenizer.vocab_size,
     )
 
-    bins = optimized_best_fit_decreasing(token_counts, args.max_seq_len)
+    bins = optimized_best_fit_decreasing(token_counts, args.max_seq_len + 1)
 
     for bin in tqdm(bins, "Saving packed sequences"):
-        token_ids = []
-        label_ids = []
+        ids = []
         for idx in bin:
-            token_ids.extend(chunked_tokens.get(idx))
-            label_ids.extend(chunked_labels.get(idx))
+            ids.extend(chunks.get(idx))
 
-        token_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(token_ids)))
-        tokens_builder.add_item(torch.tensor(token_ids, dtype=torch.int32))
-        tokens_builder.end_document()
+        ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len + 1 - len(ids)))
+        builder.add_item(torch.tensor(ids, dtype=torch.int32))
+        builder.end_document()
 
-        label_ids.extend([_PAD_TOKEN_ID] * (args.max_seq_len - len(label_ids)))
-        labels_builder.add_item(torch.tensor(label_ids, dtype=torch.int32))
-        labels_builder.end_document()
-
-    tokens_builder.finalize(tokens_idx_file)
-    labels_builder.finalize(labels_idx_file)
+    builder.finalize(output_idx_file)
     print(f"Took {time.monotonic() - now}s for best-fit packing")
 
 

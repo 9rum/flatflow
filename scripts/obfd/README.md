@@ -38,17 +38,16 @@ $ python3 scripts/obfd/chunk.py \
 > [!CAUTION]
 > This script assumes that the dataset files are merged into a single .jsonl file.
 
-This may produce .bin and .idx files containing the chunked tokens and labels, and its metadata .npy file.
+This may produce .bin and .idx files containing the chunked documents, and its metadata .npy file.
 
 ## Best-fit packing
 
-You may obtain .bin and .idx files containing the chunked tokens and labels, and a .npy file.
+You may obtain .bin and .idx files containing the chunked documents, and a .npy file.
 Run the following command to perform document packing:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --token-prefix=TOKEN_DATA_PREFIX \
-    --label-prefix=LABEL_DATA_PREFIX \
+    --data-prefix=DATA_PREFIX \
     --counts=PATH_TO_COUNTS_FILE \
     --json-key=JSON_KEY \
     --tokenizer-library=LIBRARY \
@@ -61,8 +60,7 @@ For the example above, run the following command:
 
 ```bash
 $ python3 scripts/obfd/best_fit.py \
-    --token-prefix=TOKEN_DATA_PREFIX \
-    --label-prefix=LABEL_DATA_PREFIX \
+    --data-prefix=DATA_PREFIX \
     --counts=PATH_TO_COUNTS_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
@@ -71,4 +69,4 @@ $ python3 scripts/obfd/best_fit.py \
     --max-seq-len=8192
 ```
 
-This may produce .bin files containing the packed sequences, and its byte offsets .idx files.
+This may produce a .bin file containing the packed sequences, and its byte offsets .idx file.
