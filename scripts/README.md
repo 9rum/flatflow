@@ -20,14 +20,14 @@ $ python3 scripts/preprocess_data_for_megatron.py \
     --max-seq-len=MAX_SEQ_LEN
 ```
 
-If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Llama 3.2 1B with context length of 8192, then run the following command:
+If you preprocess [RefinedWeb](https://huggingface.co/datasets/tiiuae/falcon-refinedweb) for Llama 3.1 8B with context length of 8192, then run the following command:
 
 ```bash
 $ python3 scripts/preprocess_data_for_megatron.py \
     --input=PATH_TO_JSON_FILE \
     --json-key=content \
     --tokenizer-library=huggingface \
-    --tokenizer-type=meta-llama/Llama-3.2-1B \
+    --tokenizer-type=meta-llama/Llama-3.1-8B \
     --output-prefix=PATH_TO_OUTPUT_DIR \
     --max-seq-len=8192
 ```

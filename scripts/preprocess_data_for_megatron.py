@@ -65,11 +65,11 @@ def main():
             if not ids:
                 continue
 
-            ids = [tokenizer.bos_id, *ids, tokenizer.eos_id]
+            ids.append(tokenizer.eos_id)
             for idx in range(0, len(ids), args.max_seq_len):
-                chunk_ids = ids[idx : idx + args.max_seq_len + 1]
-                if 1 < len(chunk_ids):
-                    builder.add_item(torch.IntTensor(chunk_ids))
+                chunk = ids[idx : idx + args.max_seq_len + 1]
+                if 1 < len(chunk):
+                    builder.add_item(torch.tensor(chunk, dtype=torch.int32))
                     builder.end_document()
 
     builder.finalize(output_idx_file)
