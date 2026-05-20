@@ -38,9 +38,10 @@ impl<T> Polynomial<T> {
     /// [The Art of Computer Programming: Volume 2, Third edition, 1997]: https://dl.acm.org/doi/10.5555/270146
     /// [Methods of computing values of polynomials]: https://doi.org/10.1070%2Frm1966v021n01abeh004147
     #[inline]
-    pub(super) fn eval<U>(&self, value: U) -> Result<T, T::Error>
+    pub(super) fn eval<U>(&self, value: U) -> Result<T, U::Error>
     where
-        T: Add<Output = T> + Copy + Mul<Output = T> + TryFrom<U>,
+        T: Add<Output = T> + Copy + Mul<Output = T>,
+        U: TryInto<T>,
     {
         Ok(self.eval_impl(value.try_into()?))
     }
@@ -57,13 +58,7 @@ impl<T> Polynomial<T> {
     #[inline]
     pub(super) fn normalize(&mut self)
     where
-        T: Copy
-            + Default
-            + Div<Output = T>
-            + TryFrom<<T as UnsignedAbs>::Output>
-            + PartialEq
-            + Signum
-            + UnsignedAbs,
+        T: Copy + Default + Div<Output = T> + PartialEq + Signum + UnsignedAbs,
         <T as UnsignedAbs>::Output: BitOr<Output = <T as UnsignedAbs>::Output>
             + Copy
             + Default
@@ -71,7 +66,8 @@ impl<T> Polynomial<T> {
             + Shl<u32, Output = <T as UnsignedAbs>::Output>
             + Shr<u32, Output = <T as UnsignedAbs>::Output>
             + Sub<Output = <T as UnsignedAbs>::Output>
-            + TrailingZeros,
+            + TrailingZeros
+            + TryInto<T>,
     {
         *self = if let Ok(divisor) = gcd(self.1, self.2).try_into() {
             if divisor == T::default() {
