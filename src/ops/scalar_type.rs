@@ -35,17 +35,15 @@ impl ScalarType {
 ///
 /// [type promotion documentation]: https://docs.pytorch.org/docs/stable/tensor_attributes.html#type-promotion-doc
 #[inline]
-pub(super) fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
+pub(super) const fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
     // If the two types are equal, return that type.
-    if lhs == rhs {
+    if lhs.0 == rhs.0 {
         return lhs;
     }
 
     assert!(
         !(lhs.is_float8_type() || rhs.is_float8_type()),
-        "Promotion for float8 types is not supported, attempted to promote {:?} and {:?}",
-        lhs,
-        rhs
+        "Promotion for float8 types is not supported",
     );
 
     if lhs.is_barebones_unsigned_type() || rhs.is_barebones_unsigned_type() {
@@ -55,10 +53,7 @@ pub(super) fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
         if rhs.is_floating_type() {
             return rhs;
         }
-        panic!(
-            "Promotion for uint16, uint32, uint64 types is not supported, attempted to promote {:?} and {:?}",
-            lhs, rhs
-        );
+        panic!("Promotion for uint16, uint32, uint64 types is not supported");
     }
 
     const F4: ScalarType = ScalarType::FLOAT32;
@@ -86,69 +81,12 @@ pub(super) fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
         [/* U1 */ F4, F8, F2, BF, U1, I2, I2, I4, I8, U1],
     ];
 
-    LOOKUP[usize::from(lhs.0)][usize::from(rhs.0)]
+    LOOKUP[lhs.0 as usize][rhs.0 as usize]
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_promote_types_matches_c10_reference() {
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::FLOAT64), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::FLOAT16), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::BFLOAT16), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::BOOL), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT8), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT16), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT32), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT64), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::UINT8), ScalarType::FLOAT32);
-
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::FLOAT16), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::BFLOAT16), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::BOOL), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT8), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT16), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT32), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT64), ScalarType::FLOAT64);
-        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::UINT8), ScalarType::FLOAT64);
-
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::BFLOAT16), ScalarType::FLOAT32);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::BOOL), ScalarType::FLOAT16);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT8), ScalarType::FLOAT16);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT16), ScalarType::FLOAT16);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT32), ScalarType::FLOAT16);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT64), ScalarType::FLOAT16);
-        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::UINT8), ScalarType::FLOAT16);
-
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::BOOL), ScalarType::BFLOAT16);
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT8), ScalarType::BFLOAT16);
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT16), ScalarType::BFLOAT16);
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT32), ScalarType::BFLOAT16);
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT64), ScalarType::BFLOAT16);
-        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::UINT8), ScalarType::BFLOAT16);
-
-        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT8), ScalarType::INT8);
-        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT16), ScalarType::INT16);
-        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT32), ScalarType::INT32);
-        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT64), ScalarType::INT64);
-        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::UINT8), ScalarType::UINT8);
-
-        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT16), ScalarType::INT16);
-        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT32), ScalarType::INT32);
-        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT64), ScalarType::INT64);
-        assert_eq!(promote_types(ScalarType::INT8, ScalarType::UINT8), ScalarType::INT16);
-
-        assert_eq!(promote_types(ScalarType::INT16, ScalarType::INT32), ScalarType::INT32);
-        assert_eq!(promote_types(ScalarType::INT16, ScalarType::INT64), ScalarType::INT64);
-        assert_eq!(promote_types(ScalarType::INT16, ScalarType::UINT8), ScalarType::INT16);
-
-        assert_eq!(promote_types(ScalarType::INT32, ScalarType::INT64), ScalarType::INT64);
-        assert_eq!(promote_types(ScalarType::INT32, ScalarType::UINT8), ScalarType::INT32);
-
-        assert_eq!(promote_types(ScalarType::INT64, ScalarType::UINT8), ScalarType::INT64);
-    }
 
     #[test]
     fn test_promote_types_has_diagonal_identity() {
@@ -347,5 +285,62 @@ mod tests {
             promote_types(ScalarType::INT64, ScalarType::UINT8),
             promote_types(ScalarType::UINT8, ScalarType::INT64),
         );
+    }
+
+    #[test]
+    fn test_promote_types_matches_c10_reference() {
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::FLOAT64), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::FLOAT16), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::BFLOAT16), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::BOOL), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT8), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT16), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT32), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::INT64), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT32, ScalarType::UINT8), ScalarType::FLOAT32);
+
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::FLOAT16), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::BFLOAT16), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::BOOL), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT8), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT16), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT32), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::INT64), ScalarType::FLOAT64);
+        assert_eq!(promote_types(ScalarType::FLOAT64, ScalarType::UINT8), ScalarType::FLOAT64);
+
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::BFLOAT16), ScalarType::FLOAT32);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::BOOL), ScalarType::FLOAT16);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT8), ScalarType::FLOAT16);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT16), ScalarType::FLOAT16);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT32), ScalarType::FLOAT16);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::INT64), ScalarType::FLOAT16);
+        assert_eq!(promote_types(ScalarType::FLOAT16, ScalarType::UINT8), ScalarType::FLOAT16);
+
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::BOOL), ScalarType::BFLOAT16);
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT8), ScalarType::BFLOAT16);
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT16), ScalarType::BFLOAT16);
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT32), ScalarType::BFLOAT16);
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::INT64), ScalarType::BFLOAT16);
+        assert_eq!(promote_types(ScalarType::BFLOAT16, ScalarType::UINT8), ScalarType::BFLOAT16);
+
+        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT8), ScalarType::INT8);
+        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT16), ScalarType::INT16);
+        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT32), ScalarType::INT32);
+        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::INT64), ScalarType::INT64);
+        assert_eq!(promote_types(ScalarType::BOOL, ScalarType::UINT8), ScalarType::UINT8);
+
+        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT16), ScalarType::INT16);
+        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT32), ScalarType::INT32);
+        assert_eq!(promote_types(ScalarType::INT8, ScalarType::INT64), ScalarType::INT64);
+        assert_eq!(promote_types(ScalarType::INT8, ScalarType::UINT8), ScalarType::INT16);
+
+        assert_eq!(promote_types(ScalarType::INT16, ScalarType::INT32), ScalarType::INT32);
+        assert_eq!(promote_types(ScalarType::INT16, ScalarType::INT64), ScalarType::INT64);
+        assert_eq!(promote_types(ScalarType::INT16, ScalarType::UINT8), ScalarType::INT16);
+
+        assert_eq!(promote_types(ScalarType::INT32, ScalarType::INT64), ScalarType::INT64);
+        assert_eq!(promote_types(ScalarType::INT32, ScalarType::UINT8), ScalarType::INT32);
+
+        assert_eq!(promote_types(ScalarType::INT64, ScalarType::UINT8), ScalarType::INT64);
     }
 }
