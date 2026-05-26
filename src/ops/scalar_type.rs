@@ -29,6 +29,31 @@ impl ScalarType {
     }
 }
 
+impl From<ScalarType> for i64 {
+    /// Maps the given data type to the corresponding FLOPS scale.
+    #[inline]
+    fn from(dtype: ScalarType) -> Self {
+        match dtype {
+            ScalarType::INT8
+            | ScalarType::UINT8
+            | ScalarType::FLOAT8_E4M3FN
+            | ScalarType::FLOAT8_E4M3FNUZ
+            | ScalarType::FLOAT8_E5M2
+            | ScalarType::FLOAT8_E5M2FNUZ => 1,
+            ScalarType::FLOAT16 | ScalarType::BFLOAT16 => 2,
+            ScalarType::FLOAT32 => 4,
+            ScalarType::FLOAT64
+            | ScalarType::BOOL
+            | ScalarType::INT16
+            | ScalarType::INT32
+            | ScalarType::UINT16
+            | ScalarType::UINT32 => 64,
+            ScalarType::INT64 | ScalarType::UINT64 => 128,
+            _ => unreachable!(),
+        }
+    }
+}
+
 /// Returns the data type with the smallest size and scalar kind that is not smaller nor of lower
 /// kind than either `lhs` or `rhs`. See [type promotion documentation] for more information on the
 /// type promotion logic.
@@ -342,5 +367,11 @@ mod tests {
         assert_eq!(promote_types(ScalarType::INT32, ScalarType::UINT8), ScalarType::INT32);
 
         assert_eq!(promote_types(ScalarType::INT64, ScalarType::UINT8), ScalarType::INT64);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_into_panics_on_undefined_scalar_type() {
+        let _: i64 = ScalarType(ScalarType::ENUM_MAX + 1).into();
     }
 }
