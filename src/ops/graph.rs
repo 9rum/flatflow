@@ -9,8 +9,10 @@
 //! [FX graph]: https://docs.pytorch.org/docs/stable/fx.html
 
 use flatbuffers::InvalidFlatbuffer;
+use rayon::iter::ParallelIterator;
 
 use crate::ops::graph_generated::{self, root_as_graph};
+use crate::ops::iter::IntoParallelRefIterator;
 use crate::ops::operator_generated::Operator;
 use crate::ops::scalar_type_generated::ScalarType;
 
@@ -73,7 +75,7 @@ pub struct Graph {
 impl From<graph_generated::Graph<'_>> for Graph {
     #[inline]
     fn from(graph: graph_generated::Graph<'_>) -> Self {
-        Self { nodes: graph.nodes().iter().map(Into::into).collect() }
+        Self { nodes: graph.nodes().par_iter().map(Into::into).collect() }
     }
 }
 
