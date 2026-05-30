@@ -142,7 +142,7 @@ where
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        unsafe { Self::IntoIter::from_slice(self.buf, self.len) }
+        unsafe { Self::IntoIter::from_slice(&self.buf[self.loc..], self.len) }
     }
 
     #[inline]
