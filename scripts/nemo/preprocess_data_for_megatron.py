@@ -67,15 +67,16 @@ def main():
             if not ids:
                 continue
 
+            ids.append(tokenizer.eos_id)
             stream.extend(ids)
             if args.max_seq_len < len(stream):
-                chunk = stream[:args.max_seq_len + 1]
-                builder.add_item(torch.IntTensor(chunk))
+                chunk = stream[: args.max_seq_len + 1]
+                builder.add_item(torch.tensor(chunk, dtype=torch.int32))
                 builder.end_document()
-                stream = stream[args.max_seq_len:]
+                stream = stream[args.max_seq_len :]
 
         if stream:
-            builder.add_item(torch.IntTensor(stream))
+            builder.add_item(torch.tensor(stream, dtype=torch.int32))
             builder.end_document()
 
     builder.finalize(output_idx_file)
