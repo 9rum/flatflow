@@ -29,7 +29,7 @@ impl From<&graph_generated::SymInt> for SymInt {
 
 /// `TensorMetadata` is a structure containing pertinent information about a tensor within a PyTorch
 /// program.
-#[derive(Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TensorMetadata {
     pub dtype: ScalarType,
     pub shape: Vec<SymInt>,
@@ -46,7 +46,7 @@ impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {
 /// Each node contains an opcode identifying operators and the input/output shapes of the operator.
 /// Unlike `torch.fx.Node`, this excludes operations other than callsites to ATen operators; i.e.,
 /// operations whose `op` property are not `call_function`.
-#[derive(Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Node {
     pub target: Operator,
     pub args: Vec<TensorMetadata>,
@@ -67,7 +67,7 @@ impl From<graph_generated::Node<'_>> for Node {
 /// `Graph` is the main data structure for tracing a given PyTorch program at the intermediate
 /// representation level. It consists of a series of `Node`s, each representing callsites such as
 /// opcode and the input/output shapes of the corresponding operator.
-#[derive(Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Graph {
     pub nodes: Vec<Node>,
 }
