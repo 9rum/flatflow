@@ -8,11 +8,15 @@
 //!
 //! [FX graph]: https://docs.pytorch.org/docs/stable/fx.html
 
-use flatbuffers::InvalidFlatbuffer;
-use rayon::iter::ParallelIterator;
+use flatbuffers::{
+    ForwardsUOffset, InvalidFlatbuffer, SIZE_UOFFSET, UOffsetT, Vector, read_scalar, read_scalar_at,
+};
+use rayon::iter::plumbing::{Consumer, Producer, ProducerCallback, UnindexedConsumer, bridge};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 
 use crate::ops::graph_generated::{self, root_as_graph};
-use crate::ops::iter::IntoParallelRefIterator;
 use crate::ops::operator_generated::Operator;
 use crate::ops::scalar_type_generated::ScalarType;
 
@@ -72,10 +76,103 @@ pub struct Graph {
     pub nodes: Vec<Node>,
 }
 
+/// Parallel iterator over a `Graph`.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphIter<'a> {
+    buf: &'a [u8],
+    loc: usize,
+    len: usize,
+}
+
+impl<'a, 'b> From<&'b graph_generated::Graph<'a>> for GraphIter<'a> {
+    #[inline]
+    fn from(graph: &'b graph_generated::Graph<'a>) -> Self {
+        let loc =
+            graph._tab.loc() + graph._tab.vtable().get(graph_generated::Graph::VT_NODES) as usize;
+        let slice = &graph._tab.buf()[loc..loc + SIZE_UOFFSET];
+        let offset = unsafe { read_scalar::<UOffsetT>(slice) } as usize;
+
+        Self {
+            buf: graph._tab.buf(),
+            loc: loc + offset + SIZE_UOFFSET,
+            len: unsafe { read_scalar_at::<UOffsetT>(graph._tab.buf(), loc + offset) } as usize,
+        }
+    }
+}
+
+impl<'a> Producer for GraphIter<'a> {
+    type Item = <Vector<'a, ForwardsUOffset<graph_generated::Node<'a>>> as IntoIterator>::Item;
+    type IntoIter =
+        <Vector<'a, ForwardsUOffset<graph_generated::Node<'a>>> as IntoIterator>::IntoIter;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        unsafe { Self::IntoIter::from_slice(&self.buf[self.loc..], self.len) }
+    }
+
+    #[inline]
+    fn split_at(self, index: usize) -> (Self, Self) {
+        (
+            Self { buf: self.buf, loc: self.loc, len: index },
+            Self { buf: self.buf, loc: self.loc + SIZE_UOFFSET * index, len: self.len - index },
+        )
+    }
+}
+
+impl<'a> ParallelIterator for GraphIter<'a> {
+    type Item = <Self as Producer>::Item;
+
+    #[inline]
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where
+        C: UnindexedConsumer<Self::Item>,
+    {
+        bridge(self, consumer)
+    }
+
+    #[inline]
+    fn opt_len(&self) -> Option<usize> {
+        Some(self.len)
+    }
+}
+
+impl<'a> IndexedParallelIterator for GraphIter<'a> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    #[inline]
+    fn drive<C>(self, consumer: C) -> C::Result
+    where
+        C: Consumer<Self::Item>,
+    {
+        bridge(self, consumer)
+    }
+
+    #[inline]
+    fn with_producer<CB>(self, callback: CB) -> CB::Output
+    where
+        CB: ProducerCallback<Self::Item>,
+    {
+        callback.callback(self)
+    }
+}
+
+impl<'a, 'b> IntoParallelIterator for &'b graph_generated::Graph<'a> {
+    type Iter = GraphIter<'a>;
+    type Item = <Self::Iter as ParallelIterator>::Item;
+
+    #[inline]
+    fn into_par_iter(self) -> Self::Iter {
+        self.into()
+    }
+}
+
 impl From<graph_generated::Graph<'_>> for Graph {
     #[inline]
     fn from(graph: graph_generated::Graph<'_>) -> Self {
-        Self { nodes: graph.nodes().par_iter().map(Into::into).collect() }
+        Self { nodes: graph.par_iter().map(Into::into).collect() }
     }
 }
 
