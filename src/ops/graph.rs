@@ -77,6 +77,13 @@ pub struct Graph {
 }
 
 /// Parallel iterator over a `Graph`.
+///
+/// Unlike [VectorIter] which shares the underlying buffer of a [Vector], `GraphIter` has no way to
+/// access the buffer. For this reason, we trace the initialization call stack of a vector from the
+/// given buffer to determine the data location, obtaining byte offsets one by one.
+///
+/// [Vector]: https://docs.rs/flatbuffers/latest/flatbuffers/struct.Vector.html
+/// [VectorIter]: https://docs.rs/flatbuffers/latest/flatbuffers/struct.VectorIter.html
 #[derive(Clone, Copy, Debug)]
 pub struct GraphIter<'a> {
     buf: &'a [u8],
@@ -182,5 +189,120 @@ impl TryFrom<&[u8]> for Graph {
     #[inline]
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         Ok(root_as_graph(buf)?.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use flatbuffers::WIPOffset;
+
+    use super::*;
+
+    #[test]
+    fn test_graph_with_empty_nodes() {
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+
+        let nodes =
+            Some(builder.create_vector(<&[WIPOffset<graph_generated::Node<'_>>]>::default()));
+        let graph =
+            graph_generated::Graph::create(&mut builder, &graph_generated::GraphArgs { nodes });
+
+        builder.finish(graph, None);
+        assert_eq!(Ok(Graph::default()), builder.finished_data().try_into());
+    }
+
+    #[test]
+    fn test_graph_with_ffn() {
+        let ffn = Graph {
+            nodes: vec![
+                Node {
+                    target: Operator::MM,
+                    args: vec![
+                        TensorMetadata {
+                            dtype: ScalarType::BFLOAT16,
+                            shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        },
+                        TensorMetadata {
+                            dtype: ScalarType::BFLOAT16,
+                            shape: vec![SymInt(4096, 0), SymInt(4096, 0)],
+                        },
+                    ],
+                    meta: TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    },
+                },
+                Node {
+                    target: Operator::RELU,
+                    args: vec![TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    }],
+                    meta: TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    },
+                },
+                Node {
+                    target: Operator::MM,
+                    args: vec![
+                        TensorMetadata {
+                            dtype: ScalarType::BFLOAT16,
+                            shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        },
+                        TensorMetadata {
+                            dtype: ScalarType::BFLOAT16,
+                            shape: vec![SymInt(4096, 0), SymInt(1024, 0)],
+                        },
+                    ],
+                    meta: TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(1024, 0)],
+                    },
+                },
+            ],
+        };
+
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+
+        let mut nodes = Vec::new();
+        for node in ffn.nodes.iter() {
+            let mut args = Vec::new();
+            for arg in node.args.iter() {
+                let mut shape = Vec::new();
+                for int in arg.shape.iter() {
+                    shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
+                }
+                let shape = Some(builder.create_vector(shape.as_slice()));
+
+                args.push(graph_generated::TensorMetadata::create(
+                    &mut builder,
+                    &graph_generated::TensorMetadataArgs { dtype: arg.dtype, shape },
+                ));
+            }
+            let args = Some(builder.create_vector(args.as_slice()));
+
+            let mut shape = Vec::new();
+            for int in node.meta.shape.iter() {
+                shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
+            }
+            let shape = Some(builder.create_vector(shape.as_slice()));
+
+            let meta = Some(graph_generated::TensorMetadata::create(
+                &mut builder,
+                &graph_generated::TensorMetadataArgs { dtype: node.meta.dtype, shape },
+            ));
+
+            nodes.push(graph_generated::Node::create(
+                &mut builder,
+                &graph_generated::NodeArgs { target: node.target, args, meta },
+            ));
+        }
+        let nodes = Some(builder.create_vector(nodes.as_slice()));
+
+        let graph =
+            graph_generated::Graph::create(&mut builder, &graph_generated::GraphArgs { nodes });
+        builder.finish(graph, None);
+        assert_eq!(Ok(ffn), builder.finished_data().try_into());
     }
 }
