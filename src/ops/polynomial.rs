@@ -17,12 +17,12 @@ use crate::ops::gcd::gcd;
 /// equivalent to that of polynomial manipulation where the division functionality between
 /// polynomials is not required.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub(super) struct Polynomial(i64, i64, i64);
+pub struct Polynomial(i64, i64, i64);
 
 impl Polynomial {
     /// Constructs a new polynomial with the given coefficients.
     #[inline]
-    pub(super) const fn new(c0: i64, c1: i64, c2: i64) -> Self {
+    pub const fn new(c0: i64, c1: i64, c2: i64) -> Self {
         Self(c0, c1, c2)
     }
 
@@ -38,7 +38,7 @@ impl Polynomial {
     /// [The Art of Computer Programming: Volume 2, Third edition, 1997]: https://dl.acm.org/doi/10.5555/270146
     /// [Methods of computing values of polynomials]: https://doi.org/10.1070%2Frm1966v021n01abeh004147
     #[inline]
-    pub(super) fn eval<T>(&self, value: T) -> Result<i64, T::Error>
+    pub fn eval<T>(&self, value: T) -> Result<i64, T::Error>
     where
         T: TryInto<i64>,
     {
@@ -52,7 +52,7 @@ impl Polynomial {
 
     /// Normalizes `self` so that the constant term becomes zero and the rest are relatively prime.
     #[inline]
-    pub(super) const fn normalize(&mut self) {
+    pub const fn normalize(&mut self) {
         *self = match gcd(self.1, self.2) {
             // This value is |i64::MIN|, which cannot be represented within i64. There are two
             // possible cases for this: both self.1 and self.2 are i64::MIN, or one of them is

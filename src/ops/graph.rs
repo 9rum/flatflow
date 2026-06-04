@@ -22,7 +22,7 @@ use crate::ops::scalar_type_generated::ScalarType;
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct SymInt(pub i64, pub i64);
+pub struct SymInt(i64, i64);
 
 impl From<&graph_generated::SymInt> for SymInt {
     #[inline]
@@ -35,8 +35,8 @@ impl From<&graph_generated::SymInt> for SymInt {
 /// program.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TensorMetadata {
-    pub dtype: ScalarType,
-    pub shape: Vec<SymInt>,
+    dtype: ScalarType,
+    shape: Vec<SymInt>,
 }
 
 impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {
@@ -52,9 +52,9 @@ impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {
 /// operations whose `op` property are not `call_function`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Node {
-    pub target: Operator,
-    pub args: Vec<TensorMetadata>,
-    pub meta: TensorMetadata,
+    target: Operator,
+    args: Vec<TensorMetadata>,
+    meta: TensorMetadata,
 }
 
 impl From<graph_generated::Node<'_>> for Node {
@@ -73,7 +73,7 @@ impl From<graph_generated::Node<'_>> for Node {
 /// opcode and the input/output shapes of the corresponding operator.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Graph {
-    pub nodes: Vec<Node>,
+    nodes: Vec<Node>,
 }
 
 /// Parallel iterator over a `Graph`.

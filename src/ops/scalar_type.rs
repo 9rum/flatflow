@@ -60,7 +60,7 @@ impl From<ScalarType> for i64 {
 ///
 /// [type promotion documentation]: https://docs.pytorch.org/docs/stable/tensor_attributes.html#type-promotion-doc
 #[inline]
-pub(super) const fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
+pub const fn promote_types(lhs: ScalarType, rhs: ScalarType) -> ScalarType {
     // If the two types are equal, return that type.
     if lhs.0 == rhs.0 {
         return lhs;
