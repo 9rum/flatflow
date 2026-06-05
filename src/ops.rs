@@ -66,6 +66,7 @@ impl OperatorRegistry {
     /// Note that we provide only a handful of ATen operator set for now. The operator set is under
     /// development and more operators will be added in the future. For expanding the operator set,
     /// please refer to the note above.
+    #[inline]
     pub fn new() -> Self {
         const OPS_TABLE_SPACE: usize = Operator::ENUM_VALUES.len();
 
@@ -140,6 +141,7 @@ impl OperatorRegistry {
     /// If `op` was not registered in the operator table, `None` is returned. Otherwise the symbolic
     /// transformation for `op` is replaced with the given `func`, and a function pointer to the old
     /// one is returned.
+    #[inline]
     pub fn register(
         &mut self,
         op: Operator,
@@ -152,6 +154,7 @@ impl OperatorRegistry {
     ///
     /// If `op` was not registered in the operator table, `None` is returned. Otherwise a function
     /// pointer to the symbolic transformation for `op` is returned.
+    #[inline]
     pub fn deregister(
         &mut self,
         op: Operator,
@@ -164,6 +167,7 @@ impl OperatorRegistry {
     /// # Panics
     ///
     /// Panics if `op` was not registered in the operator table.
+    #[inline]
     pub fn dispatch(
         &self,
         op: Operator,
@@ -195,6 +199,7 @@ impl Fn<{ Operator::_TO_COPY.0 }> for () {
     ///                Device? device=None, bool? pin_memory=None, bool non_blocking=False,
     ///                MemoryFormat? memory_format=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // _to_copy copies a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -204,6 +209,7 @@ impl Fn<{ Operator::_TO_COPY.0 }> for () {
 impl Fn<{ Operator::_UNSAFE_VIEW.0 }> for () {
     /// func: _unsafe_view(Tensor self, SymInt[] size) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // _unsafe_view is a tensor view operation, so technically it has zero FLOPs.
         polynomial!()
@@ -228,6 +234,7 @@ impl Fn<{ Operator::ADDMM.0 }> for () {
 impl Fn<{ Operator::ALIAS.0 }> for () {
     /// func: alias(Tensor(a) self) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // alias is a tensor view operation, so technically it has zero FLOPs.
         polynomial!()
@@ -237,6 +244,7 @@ impl Fn<{ Operator::ALIAS.0 }> for () {
 impl Fn<{ Operator::ALL_DIM.0 }> for () {
     /// func: all.dim(Tensor self, int dim, bool keepdim=False) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // all.dim tests if all elements in the row evaluate to true, so technically it has zero
         // FLOPs.
@@ -248,6 +256,7 @@ impl Fn<{ Operator::ARANGE.0 }> for () {
     /// func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
     ///              Device? device=None, bool? pin_memory=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // arange returns a tensor, so it has zero FLOPs.
         polynomial!()
@@ -258,6 +267,7 @@ impl Fn<{ Operator::ARANGE_START.0 }> for () {
     /// func: arange.start(Scalar start, Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
     ///                    Device? device=None, bool? pin_memory=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // arange.start returns a tensor, so it has zero FLOPs.
         polynomial!()
@@ -267,6 +277,7 @@ impl Fn<{ Operator::ARANGE_START.0 }> for () {
 impl Fn<{ Operator::BITWISE_NOT.0 }> for () {
     /// func: bitwise_not(Tensor self) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // bitwise_not computes the bitwise NOT of the given input tensor, so technically it has
         // zero FLOPs.
@@ -284,6 +295,7 @@ impl Fn<{ Operator::BMM.0 }> for () {
 impl Fn<{ Operator::CAT.0 }> for () {
     /// func: cat(Tensor[] tensors, int dim=0) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // cat concatenates tensors in the given dimension, so it has zero FLOPs.
         polynomial!()
@@ -293,6 +305,7 @@ impl Fn<{ Operator::CAT.0 }> for () {
 impl Fn<{ Operator::CLONE.0 }> for () {
     /// func: clone(Tensor self, *, MemoryFormat? memory_format=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // clone copies a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -302,6 +315,7 @@ impl Fn<{ Operator::CLONE.0 }> for () {
 impl Fn<{ Operator::COPY.0 }> for () {
     /// func: copy(Tensor self, Tensor src, bool non_blocking=False) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // copy copies a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -319,6 +333,7 @@ impl Fn<{ Operator::EMBEDDING.0 }> for () {
     /// func: embedding(Tensor weight, Tensor indices, SymInt padding_idx=-1,
     ///                 bool scale_grad_by_freq=False, bool sparse=False) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // embedding is a dictionary lookup, so technically it has zero FLOPs.
         polynomial!()
@@ -328,6 +343,7 @@ impl Fn<{ Operator::EMBEDDING.0 }> for () {
 impl Fn<{ Operator::EQ_SCALAR.0 }> for () {
     /// func: eq.Scalar(Tensor self, Scalar other) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // eq.Scalar computes element-wise equality, so it has zero FLOPs.
         polynomial!()
@@ -337,6 +353,7 @@ impl Fn<{ Operator::EQ_SCALAR.0 }> for () {
 impl Fn<{ Operator::EXPAND.0 }> for () {
     /// func: expand(Tensor(a) self, SymInt[] size, *, bool implicit=False) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // expand is a tensor view operation, so technically it has zero FLOPs.
         polynomial!()
@@ -347,6 +364,7 @@ impl Fn<{ Operator::FULL.0 }> for () {
     /// func: full(SymInt[] size, Scalar fill_value, *, ScalarType? dtype=None, Layout? layout=None,
     ///            Device? device=None, bool? pin_memory=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // full creates a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -363,6 +381,7 @@ impl Fn<{ Operator::GELU.0 }> for () {
 impl Fn<{ Operator::GT_TENSOR.0 }> for () {
     /// func: gt.Tensor(Tensor self, Tensor other) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // gt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
         polynomial!()
@@ -372,6 +391,7 @@ impl Fn<{ Operator::GT_TENSOR.0 }> for () {
 impl Fn<{ Operator::LT_TENSOR.0 }> for () {
     /// func: lt.Tensor(Tensor self, Tensor other) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // lt.Tensor computes element-wise logical connectives, so it has zero FLOPs.
         polynomial!()
@@ -381,6 +401,7 @@ impl Fn<{ Operator::LT_TENSOR.0 }> for () {
 impl Fn<{ Operator::MASKED_FILL_SCALAR.0 }> for () {
     /// func: masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // masked_fill.Scalar is an out-of-place version of masked_fill_.Scalar, so it has zero
         // FLOPs.
@@ -436,6 +457,7 @@ impl Fn<{ Operator::ONES.0 }> for () {
     /// func: ones(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None,
     ///            Device? device=None, bool? pin_memory=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // ones creates a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -447,6 +469,7 @@ impl Fn<{ Operator::ONES_LIKE.0 }> for () {
     ///                 Device? device=None, bool? pin_memory=None,
     ///                 MemoryFormat? memory_format=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // ones_like creates a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -456,6 +479,7 @@ impl Fn<{ Operator::ONES_LIKE.0 }> for () {
 impl Fn<{ Operator::PERMUTE.0 }> for () {
     /// func: permute(Tensor(a) self, int[] dims) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // permute is a tensor view operation, so technically it has zero FLOPs.
         polynomial!()
@@ -494,6 +518,7 @@ impl Fn<{ Operator::SCALAR_TENSOR.0 }> for () {
     /// func: scalar_tensor(Scalar s, *, ScalarType? dtype=None, Layout? layout=None,
     ///                     Device? device=None, bool? pin_memory=None) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // scalar_tensor creates a tensor, so technically it has zero FLOPs.
         polynomial!()
@@ -511,6 +536,7 @@ impl Fn<{ Operator::SLICE_TENSOR.0 }> for () {
     /// func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None, SymInt? end=None,
     ///                    SymInt step=1) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // slice.Tensor is a tensor view operation, so technically it has zero FLOPs.
         polynomial!()
@@ -521,6 +547,7 @@ impl Fn<{ Operator::SLICE_SCATTER.0 }> for () {
     /// func: slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None,
     ///                     SymInt? end=None, SymInt step=1) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // slice_scatter embeds the values of `src` into `self` at the given dimension, so
         // technically it has zero FLOPs.
@@ -531,6 +558,7 @@ impl Fn<{ Operator::SLICE_SCATTER.0 }> for () {
 impl Fn<{ Operator::SPLIT_TENSOR.0 }> for () {
     /// func: split.Tensor(Tensor(a -> *) self, SymInt split_size, int dim=0) -> Tensor(a)[]
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // split.Tensor splits a tensor into chunks, so technically it has zero FLOPs.
         polynomial!()
@@ -547,6 +575,7 @@ impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
 impl Fn<{ Operator::T.0 }> for () {
     /// func: t(Tensor(a) self) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // t is a dimension swap, so technically it has zero FLOPs.
         polynomial!()
@@ -563,6 +592,7 @@ impl Fn<{ Operator::TANH.0 }> for () {
 impl Fn<{ Operator::TRANSPOSE_INT.0 }> for () {
     /// func: transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // transpose.int is a dimension swap, so technically it has zero FLOPs.
         polynomial!()
@@ -572,6 +602,7 @@ impl Fn<{ Operator::TRANSPOSE_INT.0 }> for () {
 impl Fn<{ Operator::TRIL.0 }> for () {
     /// func: tril(Tensor self, int diagonal=0) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // tril is a masking operation, so technically it has zero FLOPs.
         polynomial!()
@@ -581,6 +612,7 @@ impl Fn<{ Operator::TRIL.0 }> for () {
 impl Fn<{ Operator::TRIU.0 }> for () {
     /// func: triu(Tensor self, int diagonal=0) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // triu is a masking operation, so technically it has zero FLOPs.
         polynomial!()
@@ -590,6 +622,7 @@ impl Fn<{ Operator::TRIU.0 }> for () {
 impl Fn<{ Operator::UNSQUEEZE.0 }> for () {
     /// func: unsqueeze(Tensor(a) self, int dim) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // unsqueeze inserts a singleton dimension at the specified position, so it has zero FLOPs.
         polynomial!()
@@ -599,6 +632,7 @@ impl Fn<{ Operator::UNSQUEEZE.0 }> for () {
 impl Fn<{ Operator::VIEW.0 }> for () {
     /// func: view(Tensor(a) self, SymInt[] size) -> Tensor(a)
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // view is a tensor view operation, so technically it has zero FLOPs.
         //
@@ -610,6 +644,7 @@ impl Fn<{ Operator::VIEW.0 }> for () {
 impl Fn<{ Operator::WHERE_SELF.0 }> for () {
     /// func: where.self(Tensor condition, Tensor self, Tensor other) -> Tensor
     #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
         // where.self is an element-wise branching operation, so it has zero FLOPs.
         polynomial!()
@@ -618,6 +653,7 @@ impl Fn<{ Operator::WHERE_SELF.0 }> for () {
 
 /// This is a blanket implementation for dynamic dispatch of symbolic transformations on each node
 /// in a computational graph.
+#[inline]
 fn transform_impl<const OPCODE: u16>(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial
 where
     (): Fn<OPCODE>,
