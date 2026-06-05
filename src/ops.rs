@@ -5,6 +5,7 @@
 //!
 //! If you have need to register a new operator, please refer to [`OperatorRegistry`].
 
+use core::ops::Mul;
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
@@ -223,14 +224,30 @@ impl Default for OperatorRegistry {
 /// `OPCODE` indicates the opcode of the operator to be implemented. `args` and `meta` contain
 /// tensor metadata such as data type and symbolic shapes of each tensor. These arguments are
 /// automatically obtained via symbolic tracing of PyTorch FX.
-pub trait Fn<const OPCODE: u16> {
+trait Fn<const OPCODE: u16> {
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial;
 }
 
 impl Fn<{ Operator::_SOFTMAX.0 }> for () {
     /// func: _softmax(Tensor self, int dim, bool half_to_float) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // _softmax applies the softmax function to `self`.
+        //
+        // Note: _softmax requires five FLOPs for each element.
+        // Approximate FLOPs breakdown can be found at:
+        // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(5 * scale), Mul::mul)
     }
 }
 
@@ -258,8 +275,30 @@ impl Fn<{ Operator::_UNSAFE_VIEW.0 }> for () {
 
 impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
     /// func: add.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // add.Tensor adds `other`, scaled by `alpha`, to `self`.
+        //
+        // Note: As in the case of mul.Tensor, we have found that add.Scalar is replaced by
+        // add.Tensor with a single argument due to constant folding. That is, if two arguments are
+        // given, one addition and one multiplication are required for each element; but if there is
+        // only one argument, just one addition occurs for each element. add.Tensor also supports
+        // broadcasting to a common shape, necessitating the use of output shape.
+        let len = args.len() as i64;
+        assert!(len.is_positive());
+
+        let mut dtype = args.get(0).unwrap().dtype;
+
+        if 1 < len {
+            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
+        }
+
+        let scale: i64 = dtype.into();
+
+        meta.shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(len * scale), Mul::mul)
     }
 }
 
@@ -364,8 +403,26 @@ impl Fn<{ Operator::COPY.0 }> for () {
 
 impl Fn<{ Operator::CUMSUM.0 }> for () {
     /// func: cumsum(Tensor self, int dim, *, ScalarType? dtype=None) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // cumsum returns the cumulative sum of elements of `self` in the dimension `dim`.
+        //
+        // Note: Its absolute number of FLOPs depends on the value of `dim`, which cannot be deduced
+        // from the tensor metadata since cumsum always returns a tensor with the same shape as
+        // `self`; the exact number of FLOPs is obtained by subtracting one from the corresponding
+        // dimension and then multiplying the size of the remaining dimensions, but here we ignore
+        // that subtraction.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
@@ -413,8 +470,20 @@ impl Fn<{ Operator::FULL.0 }> for () {
 
 impl Fn<{ Operator::GELU.0 }> for () {
     /// func: gelu(Tensor self, *, str approximate='none') -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // gelu applies the gaussian error linear unit (GELU) function to `self` in element-wise.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(14 * scale), Mul::mul)
     }
 }
 
@@ -452,8 +521,20 @@ impl Fn<{ Operator::MASKED_FILL_SCALAR.0 }> for () {
 impl Fn<{ Operator::MEAN_DIM.0 }> for () {
     /// func: mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *,
     ///                ScalarType? dtype=None) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // mean.dim returns the mean value of each row of `self` in the given dimension `dim`.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
@@ -466,15 +547,46 @@ impl Fn<{ Operator::MM.0 }> for () {
 
 impl Fn<{ Operator::MUL_SCALAR.0 }> for () {
     /// func: mul.Scalar(Tensor self, Scalar other) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // mul.Scalar multiplies `self` by `other` in element-wise.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
 impl Fn<{ Operator::MUL_TENSOR.0 }> for () {
     /// func: mul.Tensor(Tensor self, Tensor other) -> Tensor
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // mul.Tensor multiplies `self` by `other` in element-wise.
+        //
+        // Note: As shown above, mul.Tensor gets two tensor arguments but we have found that there
+        // is a bug during symbolic tracing where mul.Scalar is replaced by mul.Tensor with a single
+        // argument due to constant folding. Moreover, mul.Tensor supports broadcasting to a common
+        // shape, making it difficult to trace FLOPs with input shapes alone; mul.Tensor has the
+        // same FLOPs as mul.Scalar, and we leverage the output shape that reflects the
+        // broadcasting.
+        assert!(!args.is_empty());
+
+        let mut dtype = args.get(0).unwrap().dtype;
+
+        if 1 < args.len() {
+            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
+        }
+
+        let scale: i64 = dtype.into();
+
+        meta.shape.iter().map(|int| polynomial!(int.0, int.1)).fold(polynomial!(scale), Mul::mul)
     }
 }
 
@@ -488,8 +600,20 @@ impl Fn<{ Operator::NATIVE_LAYER_NORM.0 }> for () {
 
 impl Fn<{ Operator::NEG.0 }> for () {
     /// func: neg(Tensor self) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // neg returns a new tensor with the negative of the elements of `self`.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
@@ -528,29 +652,81 @@ impl Fn<{ Operator::PERMUTE.0 }> for () {
 
 impl Fn<{ Operator::POW_TENSOR_SCALAR.0 }> for () {
     /// func: pow.Tensor_Scalar(Tensor self, Scalar exponent) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // pow.Tensor_Scalar takes the power of each element in `self` with `exponent`.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
 impl Fn<{ Operator::RELU.0 }> for () {
     /// func: relu(Tensor self) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // relu applies the rectified linear unit (ReLU) function to `self` in element-wise.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
 impl Fn<{ Operator::RSQRT.0 }> for () {
     /// func: rsqrt(Tensor self) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // rsqrt computes the element-wise reciprocal square root of `self`.
+        //
+        // Note: rsqrt requires two FLOPs for each element.
+        // Approximate FLOPs breakdown can be found at:
+        // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale), Mul::mul)
     }
 }
 
 impl Fn<{ Operator::RSUB_SCALAR.0 }> for () {
     /// func: rsub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // rsub.Scalar subtracts `self`, scaled by `alpha`, from `other`.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale << 1), Mul::mul)
     }
 }
 
@@ -567,8 +743,21 @@ impl Fn<{ Operator::SCALAR_TENSOR.0 }> for () {
 
 impl Fn<{ Operator::SILU.0 }> for () {
     /// func: silu(Tensor self) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // silu applies the sigmoid linear unit (SiLU) function to `self`
+        // in element-wise.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(scale << 2), Mul::mul)
     }
 }
 
@@ -607,8 +796,30 @@ impl Fn<{ Operator::SPLIT_TENSOR.0 }> for () {
 
 impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
     /// func: sub.Tensor(Tensor self, Tensor other, *, Scalar alpha=1) -> Tensor
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // sub.Tensor subtracts `other`, scaled by `alpha`, from `self`.
+        //
+        // Note: As in the case of mul.Tensor, we have found that sub.Scalar is replaced by
+        // sub.Tensor with a single argument due to constant folding. That is, if two arguments are
+        // given, one subtraction and one multiplication are required for each element; but if there
+        // is only one argument, just one subtraction occurs for each element. sub.Tensor also
+        // supports broadcasting to a common shape, necessitating the use of output shape.
+        let len = args.len() as i64;
+        assert!(len.is_positive());
+
+        let mut dtype = args.get(0).unwrap().dtype;
+
+        if 1 < len {
+            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
+        }
+
+        let scale: i64 = dtype.into();
+
+        meta.shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(len * scale), Mul::mul)
     }
 }
 
@@ -624,8 +835,20 @@ impl Fn<{ Operator::T.0 }> for () {
 
 impl Fn<{ Operator::TANH.0 }> for () {
     /// func: tanh(Tensor self) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        // tanh applies the hyperbolic tangent (tanh) function to `self` in element-wise.
+        assert_eq!(args.len(), 1);
+
+        let scale: i64 = args.get(0).unwrap().dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(|int| polynomial!(int.0, int.1))
+            .fold(polynomial!(6 * scale), Mul::mul)
     }
 }
 
