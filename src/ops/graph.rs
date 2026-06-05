@@ -22,7 +22,7 @@ use crate::ops::scalar_type_generated::ScalarType;
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct SymInt(i64, i64);
+pub struct SymInt(pub i64, pub i64);
 
 impl From<&graph_generated::SymInt> for SymInt {
     #[inline]
@@ -35,8 +35,8 @@ impl From<&graph_generated::SymInt> for SymInt {
 /// program.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TensorMetadata {
-    dtype: ScalarType,
-    shape: Vec<SymInt>,
+    pub dtype: ScalarType,
+    pub shape: Vec<SymInt>,
 }
 
 impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {

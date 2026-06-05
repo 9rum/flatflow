@@ -17,7 +17,7 @@ use crate::ops::gcd::gcd;
 /// equivalent to that of polynomial manipulation where the division functionality between
 /// polynomials is not required.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Polynomial(i64, i64, i64);
+pub struct Polynomial(pub i64, pub i64, pub i64);
 
 impl Polynomial {
     /// Constructs a new polynomial with the given coefficients.
