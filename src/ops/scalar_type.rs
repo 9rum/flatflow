@@ -372,6 +372,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_into_panics_on_undefined_scalar_type() {
-        let _: i64 = ScalarType(ScalarType::ENUM_MAX + 1).into();
+        let _: i64 = ScalarType(u8::MAX).into();
     }
 }
