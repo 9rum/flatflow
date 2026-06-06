@@ -302,8 +302,34 @@ impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
 impl Fn<{ Operator::ADDMM.0 }> for () {
     /// func: addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1,
     ///             Scalar alpha=1) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        assert_eq!(args.len(), 3);
+        assert_eq!(args.get(1).unwrap().shape.len(), 2);
+        assert_eq!(args.get(2).unwrap().shape.len(), 2);
+
+        // addmm performs a matrix multiplication of the matrices `mat1` and `mat2`. The matrix
+        // `self` is added to the final result. `alpha` and `beta` are scaling factors on
+        // matrix-vector product between `mat1` and `mat2` and the added matrix `self` respectively.
+        // If `mat1` is a (n x m) tensor and `mat2` is a (m x p) tensor, then it produces a (n x p)
+        // tensor with n x m x p MACs. For scaling and addition, it requires additional 3 x n x p
+        // FLOPs.
+        let n = args.get(1).unwrap().shape.get(0).unwrap();
+        let m = args.get(1).unwrap().shape.get(1).unwrap();
+        assert_eq!(m, args.get(2).unwrap().shape.get(0).unwrap());
+
+        let p = args.get(2).unwrap().shape.get(1).unwrap();
+
+        let dtype = promote_types(args.get(1).unwrap().dtype, args.get(2).unwrap().dtype);
+        let mm_scale: i64 = dtype.into();
+
+        let dtype = promote_types(dtype, args.get(0).unwrap().dtype);
+        let add_scale: i64 = dtype.into();
+
+        Polynomial::from_sym_int(n)
+            * Polynomial::from_sym_int(p)
+            * (Polynomial::from_sym_int(m) * mm_scale + 3 * add_scale)
     }
 }
 
