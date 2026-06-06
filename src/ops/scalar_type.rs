@@ -30,7 +30,7 @@ impl ScalarType {
 }
 
 impl From<ScalarType> for i64 {
-    /// Maps the given data type to the corresponding FLOPS scale.
+    /// Converts the given data type to the corresponding FLOPS scale.
     #[inline]
     fn from(dtype: ScalarType) -> Self {
         match dtype {

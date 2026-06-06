@@ -246,7 +246,7 @@ impl Fn<{ Operator::_SOFTMAX.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(5 * scale), Mul::mul)
     }
 }
@@ -295,10 +295,7 @@ impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
 
         let scale: i64 = dtype.into();
 
-        meta.shape
-            .iter()
-            .map(|int| polynomial!(int.0, int.1))
-            .fold(polynomial!(len * scale), Mul::mul)
+        meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(len * scale), Mul::mul)
     }
 }
 
@@ -366,8 +363,39 @@ impl Fn<{ Operator::BITWISE_NOT.0 }> for () {
 
 impl Fn<{ Operator::BMM.0 }> for () {
     /// func: bmm(Tensor self, Tensor mat2) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        assert_eq!(args.len(), 2);
+        assert_eq!(args.get(0).unwrap().shape.len(), 3);
+        assert_eq!(args.get(1).unwrap().shape.len(), 3);
+
+        // bmm performs a batch matrix-matrix product of matrices `self` and `mat2`. `self` and
+        // `mat2` must be 3-D tensors each containing the same number of matrices. If `self` is a
+        // (b x n x m) tensor and `mat2` is a (b x m x p) tensor, then it produces a (b x n x p)
+        // tensor with b x n x m x p MACs.
+        let b = args.get(0).unwrap().shape.get(0).unwrap();
+
+        // The first dimension of `self` and `mat2` must be symbolically identical.
+        assert_eq!(b, args.get(1).unwrap().shape.get(0).unwrap());
+
+        let n = args.get(0).unwrap().shape.get(1).unwrap();
+        let m = args.get(0).unwrap().shape.get(2).unwrap();
+
+        // The last dimension of `self` and the middle dimension of `mat2` must be symbolically
+        // identical.
+        assert_eq!(m, args.get(1).unwrap().shape.get(1).unwrap());
+
+        let p = args.get(1).unwrap().shape.get(2).unwrap();
+
+        let scale: i64 =
+            promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype).into();
+
+        Polynomial::from_sym_int(b)
+            * Polynomial::from_sym_int(n)
+            * Polynomial::from_sym_int(m)
+            * Polynomial::from_sym_int(p)
+            * scale
     }
 }
 
@@ -421,7 +449,7 @@ impl Fn<{ Operator::CUMSUM.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -482,7 +510,7 @@ impl Fn<{ Operator::GELU.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(14 * scale), Mul::mul)
     }
 }
@@ -533,15 +561,39 @@ impl Fn<{ Operator::MEAN_DIM.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
 
 impl Fn<{ Operator::MM.0 }> for () {
     /// func: mm(Tensor self, Tensor mat2) -> Tensor
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        assert_eq!(args.len(), 2);
+        assert_eq!(args.get(0).unwrap().shape.len(), 2);
+        assert_eq!(args.get(1).unwrap().shape.len(), 2);
+
+        // mm performs a matrix multiplication of the matrices `self` and `mat2`. If `self` is a
+        // (n x m) tensor and `mat2` is a (m x p) tensor, then it produces a (n x p) tensor with
+        // n x m x p MACs.
+        let n = args.get(0).unwrap().shape.get(0).unwrap();
+        let m = args.get(0).unwrap().shape.get(1).unwrap();
+
+        // The last dimension of `self` and the first dimension of `mat2` must be symbolically
+        // identical.
+        assert_eq!(m, args.get(1).unwrap().shape.get(0).unwrap());
+
+        let p = args.get(1).unwrap().shape.get(1).unwrap();
+
+        let scale: i64 =
+            promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype).into();
+
+        Polynomial::from_sym_int(n)
+            * Polynomial::from_sym_int(m)
+            * Polynomial::from_sym_int(p)
+            * scale
     }
 }
 
@@ -559,7 +611,7 @@ impl Fn<{ Operator::MUL_SCALAR.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -586,7 +638,7 @@ impl Fn<{ Operator::MUL_TENSOR.0 }> for () {
 
         let scale: i64 = dtype.into();
 
-        meta.shape.iter().map(|int| polynomial!(int.0, int.1)).fold(polynomial!(scale), Mul::mul)
+        meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(scale), Mul::mul)
     }
 }
 
@@ -612,7 +664,7 @@ impl Fn<{ Operator::NEG.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -664,7 +716,7 @@ impl Fn<{ Operator::POW_TENSOR_SCALAR.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -683,7 +735,7 @@ impl Fn<{ Operator::RELU.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -706,7 +758,7 @@ impl Fn<{ Operator::RSQRT.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -725,7 +777,7 @@ impl Fn<{ Operator::RSUB_SCALAR.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale << 1), Mul::mul)
     }
 }
@@ -756,7 +808,7 @@ impl Fn<{ Operator::SILU.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(scale << 2), Mul::mul)
     }
 }
@@ -816,10 +868,7 @@ impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
 
         let scale: i64 = dtype.into();
 
-        meta.shape
-            .iter()
-            .map(|int| polynomial!(int.0, int.1))
-            .fold(polynomial!(len * scale), Mul::mul)
+        meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(len * scale), Mul::mul)
     }
 }
 
@@ -847,7 +896,7 @@ impl Fn<{ Operator::TANH.0 }> for () {
             .unwrap()
             .shape
             .iter()
-            .map(|int| polynomial!(int.0, int.1))
+            .map(Polynomial::from_sym_int)
             .fold(polynomial!(6 * scale), Mul::mul)
     }
 }

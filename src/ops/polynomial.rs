@@ -10,6 +10,7 @@ use core::ops::{
 };
 
 use crate::ops::gcd::gcd;
+use crate::ops::graph::SymInt;
 
 /// This is a trivial structure for polynomial manipulation, as an alternative to Boost polynomials.
 /// A notable API difference lies in the absence of division for polynomials over a field and over a
@@ -24,6 +25,12 @@ impl Polynomial {
     #[inline]
     pub const fn new(c0: i64, c1: i64, c2: i64) -> Self {
         Self(c0, c1, c2)
+    }
+
+    /// Constructs a new polynomial from the given symbolic integer.
+    #[inline]
+    pub const fn from_sym_int(int: &SymInt) -> Self {
+        Self(int.0, int.1, 0)
     }
 
     /// Based on Horner's rule, evaluates a given polynomial of degree two with only two
@@ -85,13 +92,13 @@ impl From<i64> for Polynomial {
 #[macro_export]
 macro_rules! polynomial {
     () => {
-        $crate::ops::polynomial::Polynomial::default()
+        $crate::ops::polynomial::Polynomial::new(0, 0, 0)
     };
     ($c0:expr) => {
-        $crate::ops::polynomial::Polynomial::from($c0)
+        $crate::ops::polynomial::Polynomial::new($c0, 0, 0)
     };
     ($c0:expr, $c1:expr) => {
-        $crate::ops::polynomial::Polynomial::new($c0, $c1, ::core::default::Default::default())
+        $crate::ops::polynomial::Polynomial::new($c0, $c1, 0)
     };
     ($c0:expr, $c1:expr, $c2:expr) => {
         $crate::ops::polynomial::Polynomial::new($c0, $c1, $c2)
