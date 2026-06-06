@@ -697,7 +697,7 @@ impl Fn<{ Operator::NATIVE_LAYER_NORM.0 }> for () {
             .shape
             .iter()
             .map(Polynomial::from_sym_int)
-            .fold(polynomial!(scale << 1 + weight_scale + bias_scale), Mul::mul)
+            .fold(polynomial!((scale << 1) + weight_scale + bias_scale), Mul::mul)
             + last_d
     }
 }
