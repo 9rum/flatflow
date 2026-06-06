@@ -241,7 +241,6 @@ impl Fn<{ Operator::_SOFTMAX.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -288,13 +287,11 @@ impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
         assert!(len.is_positive());
 
         let mut dtype = args.get(0).unwrap().dtype;
-
         if 1 < len {
             dtype = promote_types(dtype, args.get(1).unwrap().dtype);
         }
 
         let scale: i64 = dtype.into();
-
         meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(len * scale), Mul::mul)
     }
 }
@@ -470,7 +467,6 @@ impl Fn<{ Operator::CUMSUM.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -531,7 +527,6 @@ impl Fn<{ Operator::GELU.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -582,7 +577,6 @@ impl Fn<{ Operator::MEAN_DIM.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -632,7 +626,6 @@ impl Fn<{ Operator::MUL_SCALAR.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -657,13 +650,11 @@ impl Fn<{ Operator::MUL_TENSOR.0 }> for () {
         assert!(!args.is_empty());
 
         let mut dtype = args.get(0).unwrap().dtype;
-
         if 1 < args.len() {
             dtype = promote_types(dtype, args.get(1).unwrap().dtype);
         }
 
         let scale: i64 = dtype.into();
-
         meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(scale), Mul::mul)
     }
 }
@@ -671,8 +662,43 @@ impl Fn<{ Operator::MUL_TENSOR.0 }> for () {
 impl Fn<{ Operator::NATIVE_LAYER_NORM.0 }> for () {
     /// func: native_layer_norm(Tensor input, SymInt[] normalized_shape, Tensor? weight,
     ///                         Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)
+    #[allow(unused_variables)]
+    #[inline]
     fn call(args: Vec<TensorMetadata>, meta: TensorMetadata) -> Polynomial {
-        todo!()
+        assert_eq!(args.len(), 3);
+
+        // native_layer_norm applies layer normalization over a mini-batch of inputs
+        // `input`. The mean and standard deviation are calculated over the last `d`
+        // dimensions, where `d` is the dimension of `normalized_shape`. `weight` and
+        // `bias` are learnable affine transform parameters of `normalized_shape`.
+        let d = args.get(1).unwrap().shape.len();
+        assert_eq!(d, args.get(2).unwrap().shape.len());
+
+        let dtype = args.get(0).unwrap().dtype;
+        let scale: i64 = dtype.into();
+        let last_d = args
+            .get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .rev()
+            .take(d)
+            .map(Polynomial::from_sym_int)
+            .fold(polynomial!(3 * scale), Mul::mul);
+
+        let dtype = promote_types(dtype, args.get(1).unwrap().dtype);
+        let weight_scale: i64 = dtype.into();
+
+        let dtype = promote_types(dtype, args.get(2).unwrap().dtype);
+        let bias_scale: i64 = dtype.into();
+
+        args.get(0)
+            .unwrap()
+            .shape
+            .iter()
+            .map(Polynomial::from_sym_int)
+            .fold(polynomial!(scale << 1 + weight_scale + bias_scale), Mul::mul)
+            + last_d
     }
 }
 
@@ -685,7 +711,6 @@ impl Fn<{ Operator::NEG.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -737,7 +762,6 @@ impl Fn<{ Operator::POW_TENSOR_SCALAR.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -756,7 +780,6 @@ impl Fn<{ Operator::RELU.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -779,7 +802,6 @@ impl Fn<{ Operator::RSQRT.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -798,7 +820,6 @@ impl Fn<{ Operator::RSUB_SCALAR.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -829,7 +850,6 @@ impl Fn<{ Operator::SILU.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
@@ -887,13 +907,11 @@ impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
         assert!(len.is_positive());
 
         let mut dtype = args.get(0).unwrap().dtype;
-
         if 1 < len {
             dtype = promote_types(dtype, args.get(1).unwrap().dtype);
         }
 
         let scale: i64 = dtype.into();
-
         meta.shape.iter().map(Polynomial::from_sym_int).fold(polynomial!(len * scale), Mul::mul)
     }
 }
@@ -917,7 +935,6 @@ impl Fn<{ Operator::TANH.0 }> for () {
         assert_eq!(args.len(), 1);
 
         let scale: i64 = args.get(0).unwrap().dtype.into();
-
         args.get(0)
             .unwrap()
             .shape
