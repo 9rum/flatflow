@@ -5,9 +5,13 @@
 //!
 //! If you have need to register a new operator, please refer to [`OperatorRegistry`].
 
-use core::ops::Mul;
+use core::ops::{self, Add, Mul};
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
+use std::time::Instant;
+
+use log::info;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use crate::polynomial;
 
@@ -27,6 +31,7 @@ pub use scalar_type::promote_types;
 // @generated
 #[allow(dead_code, unused_imports)]
 mod graph_generated;
+pub use graph_generated::root_as_graph;
 #[allow(dead_code, unused_imports)]
 mod operator_generated;
 pub use operator_generated::Operator;
@@ -981,4 +986,37 @@ where
     (): Fn<OPCODE>,
 {
     <() as Fn<OPCODE>>::call(args, meta)
+}
+
+/// Transforms the given computational `graph` into a curried function via symbolic transformation.
+///
+/// Note that operator resolutions are delegated to the global operator registry so that any
+/// user-defined symbolic transformations that have been registered globally are also taken into
+/// account.
+///
+/// # Panics
+///
+/// The registry is read under a shared lock. If a writer panics while holding the underlying lock,
+/// the lock becomes poisoned; in such case this function also panics when attempting to acquire the
+/// registry read lock.
+pub fn transform<T>(graph: graph_generated::Graph<'_>) -> impl ops::Fn(T) -> Result<i64, T::Error>
+where
+    T: TryInto<i64>,
+{
+    let now = Instant::now();
+
+    let registry = OperatorRegistry::global().read().unwrap_or_else(|err| {
+        panic!("Maybe a writer panics while holding the underlying lock: {}", err)
+    });
+
+    let mut expr = graph
+        .par_iter()
+        .map(Node::from)
+        .map(|node| registry.dispatch(node.target, node.args, node.meta))
+        .reduce(Default::default, Add::add);
+    expr.normalize();
+
+    info!("Traversing a graph with {} nodes took {:?}", graph.nodes().len(), now.elapsed());
+
+    move |value| expr.eval(value)
 }
