@@ -286,8 +286,11 @@ impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
         // given, one addition and one multiplication are required for each element; but if there is
         // only one argument, just one addition occurs for each element. add.Tensor also supports
         // broadcasting to a common shape, necessitating the use of output shape.
-        let len = args.len() as i64;
-        assert!(len.is_positive());
+        assert!(!args.is_empty());
+
+        // `args` comes from the FlatBuffers vector so it is safe to unwrap the result since the
+        // maximum length of a FlatBuffers vector is 0xFFFFFFFF.
+        let len: i64 = args.len().try_into().unwrap();
 
         let mut dtype = args.get(0).unwrap().dtype;
         if 1 < len {
@@ -875,8 +878,10 @@ impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
         // given, one subtraction and one multiplication are required for each element; but if there
         // is only one argument, just one subtraction occurs for each element. sub.Tensor also
         // supports broadcasting to a common shape, necessitating the use of output shape.
-        let len = args.len() as i64;
-        assert!(len.is_positive());
+        assert!(!args.is_empty());
+
+        // For the same reason as in add.Tensor, it is safe to unwrap the result.
+        let len: i64 = args.len().try_into().unwrap();
 
         let mut dtype = args.get(0).unwrap().dtype;
         if 1 < len {
@@ -999,6 +1004,7 @@ where
 /// The registry is read under a shared lock. If a writer panics while holding the underlying lock,
 /// the lock becomes poisoned; in such case this function also panics when attempting to acquire the
 /// registry read lock.
+#[inline]
 pub fn transform<T>(graph: graph_generated::Graph<'_>) -> impl ops::Fn(T) -> Result<i64, T::Error>
 where
     T: TryInto<i64>,
