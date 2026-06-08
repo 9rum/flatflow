@@ -52,9 +52,9 @@ impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {
 /// operations whose `op` property are not `call_function`.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Node {
-    target: Operator,
-    args: Vec<TensorMetadata>,
-    meta: TensorMetadata,
+    pub target: Operator,
+    pub args: Vec<TensorMetadata>,
+    pub meta: TensorMetadata,
 }
 
 impl From<graph_generated::Node<'_>> for Node {
