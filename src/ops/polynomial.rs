@@ -27,12 +27,6 @@ impl Polynomial {
         Self(c0, c1, c2)
     }
 
-    /// Constructs a new polynomial from the given symbolic integer.
-    #[inline]
-    pub const fn from_sym_int(int: &SymInt) -> Self {
-        Self(int.0, int.1, 0)
-    }
-
     /// Based on Horner's rule, evaluates a given polynomial of degree two with only two
     /// multiplications and two additions, applying Horner's method.
     /// See Knuth, [The Art of Computer Programming: Volume 2, Third edition, 1997]
@@ -80,8 +74,16 @@ impl Polynomial {
 
 impl From<i64> for Polynomial {
     #[inline]
-    fn from(value: i64) -> Self {
-        Self(value, Default::default(), Default::default())
+    fn from(c0: i64) -> Self {
+        Self(c0, 0, 0)
+    }
+}
+
+impl From<&SymInt> for Polynomial {
+    /// Constructs a new polynomial from the given symbolic integer.
+    #[inline]
+    fn from(int: &SymInt) -> Self {
+        Self(int.0, int.1, 0)
     }
 }
 
@@ -92,16 +94,16 @@ impl From<i64> for Polynomial {
 #[macro_export]
 macro_rules! polynomial {
     () => {
-        $crate::ops::polynomial::Polynomial::new(0, 0, 0)
+        $crate::ops::polynomial::Polynomial(0, 0, 0)
     };
     ($c0:expr) => {
-        $crate::ops::polynomial::Polynomial::new($c0, 0, 0)
+        $crate::ops::polynomial::Polynomial($c0, 0, 0)
     };
     ($c0:expr, $c1:expr) => {
-        $crate::ops::polynomial::Polynomial::new($c0, $c1, 0)
+        $crate::ops::polynomial::Polynomial($c0, $c1, 0)
     };
     ($c0:expr, $c1:expr, $c2:expr) => {
-        $crate::ops::polynomial::Polynomial::new($c0, $c1, $c2)
+        $crate::ops::polynomial::Polynomial($c0, $c1, $c2)
     };
 }
 
