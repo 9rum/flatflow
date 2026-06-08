@@ -58,7 +58,7 @@ pub use scalar_type_generated::ScalarType;
 ///   respectively to the operator table in `flatflow/ops/ops.py`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OperatorRegistry {
-    ops_table: HashMap<Operator, fn(Vec<TensorMetadata>, TensorMetadata) -> Polynomial>,
+    vtable: HashMap<Operator, fn(Vec<TensorMetadata>, TensorMetadata) -> Polynomial>,
 }
 
 impl OperatorRegistry {
@@ -70,10 +70,8 @@ impl OperatorRegistry {
     /// please refer to the note above.
     #[inline]
     pub fn new() -> Self {
-        const OPS_TABLE_SPACE: usize = Operator::ENUM_VALUES.len();
-
-        let mut registry = Self { ops_table: HashMap::new() };
-        registry.ops_table.reserve(OPS_TABLE_SPACE);
+        let mut registry = Self { vtable: HashMap::new() };
+        registry.vtable.reserve(Operator::ENUM_VALUES.len());
 
         registry.register(Operator::_SOFTMAX, transform_impl::<{ Operator::_SOFTMAX.0 }>);
         registry.register(Operator::_TO_COPY, transform_impl::<{ Operator::_TO_COPY.0 }>);
@@ -175,7 +173,7 @@ impl OperatorRegistry {
         op: Operator,
         func: fn(Vec<TensorMetadata>, TensorMetadata) -> Polynomial,
     ) -> Option<fn(Vec<TensorMetadata>, TensorMetadata) -> Polynomial> {
-        self.ops_table.insert(op, func)
+        self.vtable.insert(op, func)
     }
 
     /// Removes `op` from the operator table.
@@ -187,7 +185,7 @@ impl OperatorRegistry {
         &mut self,
         op: Operator,
     ) -> Option<fn(Vec<TensorMetadata>, TensorMetadata) -> Polynomial> {
-        self.ops_table.remove(&op)
+        self.vtable.remove(&op)
     }
 
     /// Executes the symbolic transformation corresponding to the given operator.
@@ -202,7 +200,7 @@ impl OperatorRegistry {
         args: Vec<TensorMetadata>,
         meta: TensorMetadata,
     ) -> Polynomial {
-        self.ops_table.get(&op).unwrap_or_else(|| {
+        self.vtable.get(&op).unwrap_or_else(|| {
             panic!(
                 "Could not find symbolic transformation for {} (opcode: {})",
                 op.variant_name().unwrap_or("UNDEFINED"),
