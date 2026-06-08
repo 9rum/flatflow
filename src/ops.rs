@@ -322,7 +322,11 @@ impl Fn<{ Operator::ADDMM.0 }> for () {
         let dtype = promote_types(dtype, args.get(0).unwrap().dtype);
         let add_scale: i64 = dtype.into();
 
-        Polynomial::from(n) * Polynomial::from(p) * (Polynomial::from(m) * mm_scale + 3 * add_scale)
+        let n: Polynomial = n.into();
+        let m: Polynomial = m.into();
+        let p: Polynomial = p.into();
+
+        n * p * (m * mm_scale + 3 * add_scale)
     }
 }
 
@@ -410,11 +414,12 @@ impl Fn<{ Operator::BMM.0 }> for () {
         let scale: i64 =
             promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype).into();
 
-        Polynomial::from(b)
-            * Polynomial::from(n)
-            * Polynomial::from(m)
-            * Polynomial::from(p)
-            * scale
+        let b: Polynomial = b.into();
+        let n: Polynomial = n.into();
+        let m: Polynomial = m.into();
+        let p: Polynomial = p.into();
+
+        b * n * m * p * scale
     }
 }
 
@@ -596,7 +601,11 @@ impl Fn<{ Operator::MM.0 }> for () {
         let scale: i64 =
             promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype).into();
 
-        Polynomial::from(n) * Polynomial::from(m) * Polynomial::from(p) * scale
+        let n: Polynomial = n.into();
+        let m: Polynomial = m.into();
+        let p: Polynomial = p.into();
+
+        n * m * p * scale
     }
 }
 
