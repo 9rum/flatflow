@@ -73,7 +73,7 @@ impl From<graph_generated::Node<'_>> for Node {
 /// opcode and the input/output shapes of the corresponding operator.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Graph {
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
 }
 
 /// Parallel iterator over a `Graph`.
