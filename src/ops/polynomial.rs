@@ -265,126 +265,126 @@ mod tests {
 
     #[test]
     fn test_scalar_arithmetic() {
-        let p = polynomial!(12, 18, 30);
+        let expr = polynomial!(12, 18, 30);
 
-        assert_eq!(p + 0, p);
-        assert_eq!(0 + p, p);
-        assert_eq!(p + 3, polynomial!(15, 18, 30));
-        assert_eq!(3 + p, p + 3);
-        assert_eq!(p - 0, p);
-        assert_eq!(0 - p, -p);
-        assert_eq!(p - 3, polynomial!(9, 18, 30));
-        assert_eq!(3 - p, polynomial!(-9, -18, -30));
+        assert_eq!(expr + 0, expr);
+        assert_eq!(0 + expr, expr);
+        assert_eq!(expr + 3, polynomial!(15, 18, 30));
+        assert_eq!(3 + expr, expr + 3);
+        assert_eq!(expr - 0, expr);
+        assert_eq!(0 - expr, -expr);
+        assert_eq!(expr - 3, polynomial!(9, 18, 30));
+        assert_eq!(3 - expr, polynomial!(-9, -18, -30));
 
-        assert_eq!(p * 1, p);
-        assert_eq!(1 * p, p);
-        assert_eq!(p * 2, polynomial!(24, 36, 60));
-        assert_eq!(2 * p, p * 2);
-        assert_eq!(p / 1, p);
-        assert_eq!(p / 3, polynomial!(4, 6, 10));
+        assert_eq!(expr * 1, expr);
+        assert_eq!(1 * expr, expr);
+        assert_eq!(expr * 2, polynomial!(24, 36, 60));
+        assert_eq!(2 * expr, expr * 2);
+        assert_eq!(expr / 1, expr);
+        assert_eq!(expr / 3, polynomial!(4, 6, 10));
 
-        assert_eq!(p << 0, p);
-        assert_eq!(p << 2, polynomial!(48, 72, 120));
-        assert_eq!(p >> 0, p);
-        assert_eq!(p >> 1, polynomial!(6, 9, 15));
+        assert_eq!(expr << 0, expr);
+        assert_eq!(expr << 2, polynomial!(48, 72, 120));
+        assert_eq!(expr >> 0, expr);
+        assert_eq!(expr >> 1, polynomial!(6, 9, 15));
 
-        let mut p = polynomial!(16, 24, 32);
+        let mut expr = polynomial!(16, 24, 32);
 
-        p += 1;
-        assert_eq!(p, polynomial!(17, 24, 32));
+        expr += 1;
+        assert_eq!(expr, polynomial!(17, 24, 32));
 
-        p -= 1;
-        assert_eq!(p, polynomial!(16, 24, 32));
+        expr -= 1;
+        assert_eq!(expr, polynomial!(16, 24, 32));
 
-        p *= 3;
-        assert_eq!(p, polynomial!(48, 72, 96));
+        expr *= 3;
+        assert_eq!(expr, polynomial!(48, 72, 96));
 
-        p /= 4;
-        assert_eq!(p, polynomial!(12, 18, 24));
+        expr /= 4;
+        assert_eq!(expr, polynomial!(12, 18, 24));
 
-        p <<= 2;
-        assert_eq!(p, polynomial!(48, 72, 96));
+        expr <<= 2;
+        assert_eq!(expr, polynomial!(48, 72, 96));
 
-        p >>= 3;
-        assert_eq!(p, polynomial!(6, 9, 12));
+        expr >>= 3;
+        assert_eq!(expr, polynomial!(6, 9, 12));
     }
 
     #[test]
     fn test_polynomial_arithmetic() {
-        let p = polynomial!(3, 2, 1);
+        let expr = polynomial!(3, 2, 1);
 
-        assert_eq!(p + Polynomial::default(), p);
-        assert_eq!(p + -p, Polynomial::default());
-        assert_eq!(p + polynomial!(1, 2, 0), polynomial!(4, 4, 1));
+        assert_eq!(expr + Polynomial::default(), expr);
+        assert_eq!(expr + -expr, Polynomial::default());
+        assert_eq!(expr + polynomial!(1, 2, 0), polynomial!(4, 4, 1));
 
-        assert_eq!(p - Polynomial::default(), p);
-        assert_eq!(p - p, Polynomial::default());
-        assert_eq!(p - polynomial!(1, 2, 0), polynomial!(2, 0, 1));
+        assert_eq!(expr - Polynomial::default(), expr);
+        assert_eq!(expr - expr, Polynomial::default());
+        assert_eq!(expr - polynomial!(1, 2, 0), polynomial!(2, 0, 1));
 
         assert_eq!(-Polynomial::default(), Polynomial::default());
-        assert_eq!(-p, polynomial!(-3, -2, -1));
+        assert_eq!(-expr, polynomial!(-3, -2, -1));
 
-        let mut p = polynomial!(16, 24, 32);
+        let mut expr = polynomial!(16, 24, 32);
 
-        p += polynomial!(6, 9, 15);
-        assert_eq!(p, polynomial!(22, 33, 47));
+        expr += polynomial!(6, 9, 15);
+        assert_eq!(expr, polynomial!(22, 33, 47));
 
-        p -= polynomial!(4, 6, 10);
-        assert_eq!(p, polynomial!(18, 27, 37));
+        expr -= polynomial!(4, 6, 10);
+        assert_eq!(expr, polynomial!(18, 27, 37));
     }
 
     #[test]
     fn test_polynomial_multiplication() {
-        let p = polynomial!(5, 8, 13);
-        assert_eq!(p * Polynomial::default(), Polynomial::default());
-        assert_eq!(p * polynomial!(1), p);
-        assert_eq!(p * polynomial!(1, 2), polynomial!(5, 18, 29));
-        assert_eq!(p * polynomial!(1, 2, 3), polynomial!(5, 18, 44));
+        let expr = polynomial!(5, 8, 13);
+        assert_eq!(expr * Polynomial::default(), Polynomial::default());
+        assert_eq!(expr * polynomial!(1), expr);
+        assert_eq!(expr * polynomial!(1, 2), polynomial!(5, 18, 29));
+        assert_eq!(expr * polynomial!(1, 2, 3), polynomial!(5, 18, 44));
     }
 
     #[test]
     fn test_normalization() {
-        let mut p = polynomial!(5, 10, 20);
-        p.normalize();
-        assert_eq!(p, polynomial!(0, 1, 2));
+        let mut expr = polynomial!(5, 10, 20);
+        expr.normalize();
+        assert_eq!(expr, polynomial!(0, 1, 2));
 
-        p = Polynomial::default();
-        p.normalize();
-        assert_eq!(p, Polynomial::default());
+        expr = Polynomial::default();
+        expr.normalize();
+        assert_eq!(expr, Polynomial::default());
 
-        p = polynomial!(-1, -2, -4);
-        p.normalize();
-        assert_eq!(p, polynomial!(0, -1, -2));
+        expr = polynomial!(-1, -2, -4);
+        expr.normalize();
+        assert_eq!(expr, polynomial!(0, -1, -2));
 
-        p = polynomial!(i64::MIN, i64::MIN, i64::MIN);
-        p.normalize();
-        assert_eq!(p, polynomial!(0, -1, -1));
+        expr = polynomial!(i64::MIN, i64::MIN, i64::MIN);
+        expr.normalize();
+        assert_eq!(expr, polynomial!(0, -1, -1));
 
-        p = polynomial!(i64::MIN, i64::MIN);
-        p.normalize();
-        assert_eq!(p, polynomial!(0, -1));
+        expr = polynomial!(i64::MIN, i64::MIN);
+        expr.normalize();
+        assert_eq!(expr, polynomial!(0, -1));
 
-        p = polynomial!(0, i64::MIN, i64::MAX);
-        p.normalize();
-        assert_eq!(p, polynomial!(0, i64::MIN, i64::MAX));
+        expr = polynomial!(0, i64::MIN, i64::MAX);
+        expr.normalize();
+        assert_eq!(expr, polynomial!(0, i64::MIN, i64::MAX));
     }
 
     #[test]
     fn test_polynomial_evaluation() {
-        let mut p = polynomial!(3, 2, 1);
-        p.normalize();
-        assert_eq!(p.eval(0), Ok(0));
-        assert_eq!(p.eval(1), Ok(3));
-        assert_eq!(p.eval(2), Ok(8));
+        let mut expr = polynomial!(3, 2, 1);
+        expr.normalize();
+        assert_eq!(expr.eval(0), Ok(0));
+        assert_eq!(expr.eval(1), Ok(3));
+        assert_eq!(expr.eval(2), Ok(8));
 
-        p = polynomial!(i64::MIN, i64::MIN, i64::MIN);
-        p.normalize();
-        assert_eq!(p.eval(0), Ok(0));
-        assert_eq!(p.eval(1), Ok(-2));
-        assert_eq!(p.eval(2), Ok(-6));
+        expr = polynomial!(i64::MIN, i64::MIN, i64::MIN);
+        expr.normalize();
+        assert_eq!(expr.eval(0), Ok(0));
+        assert_eq!(expr.eval(1), Ok(-2));
+        assert_eq!(expr.eval(2), Ok(-6));
 
-        p = polynomial!();
-        p.normalize();
-        assert_eq!(p.eval(i64::MAX), Ok(0));
+        expr = polynomial!();
+        expr.normalize();
+        assert_eq!(expr.eval(i64::MAX), Ok(0));
     }
 }

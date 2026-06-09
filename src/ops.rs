@@ -197,7 +197,7 @@ impl OperatorRegistry {
     ///
     /// # Panics
     ///
-    /// Panics if `op` was not registered in the operator table.
+    /// Panics if `op` was not found in the operator table.
     #[inline]
     pub fn dispatch(
         &self,
@@ -207,7 +207,7 @@ impl OperatorRegistry {
     ) -> Polynomial {
         self.vtable.get(&op).unwrap_or_else(|| {
             panic!(
-                "Could not find symbolic transformation for {} (opcode: {})",
+                "Cannot find symbolic transformation for {} (opcode: {})",
                 op.variant_name().unwrap_or("UNDEFINED"),
                 op.0
             )
@@ -993,7 +993,8 @@ where
     <() as Fn<OPCODE>>::call(args, meta)
 }
 
-/// Transforms the given computational `graph` into a curried function via symbolic transformation.
+/// Transforms the given computational graph `graph` into a curried function via symbolic
+/// transformation.
 ///
 /// Note that operator resolutions are delegated to the global operator registry so that any
 /// user-defined symbolic transformations that have been registered globally are also taken into
