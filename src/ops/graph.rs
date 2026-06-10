@@ -194,13 +194,13 @@ impl TryFrom<&[u8]> for Graph {
 
 #[cfg(test)]
 mod tests {
-    use flatbuffers::WIPOffset;
+    use flatbuffers::{FlatBufferBuilder, WIPOffset};
 
     use super::*;
 
     #[test]
     fn test_graph_with_empty_nodes() {
-        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let mut builder = FlatBufferBuilder::new();
 
         let nodes =
             Some(builder.create_vector(<&[WIPOffset<graph_generated::Node<'_>>]>::default()));
@@ -263,7 +263,7 @@ mod tests {
             ],
         };
 
-        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let mut builder = FlatBufferBuilder::new();
 
         let mut nodes = Vec::new();
         for node in ffn.nodes.iter() {

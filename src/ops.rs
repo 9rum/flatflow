@@ -39,6 +39,9 @@ pub use operator_generated::Operator;
 mod scalar_type_generated;
 pub use scalar_type_generated::ScalarType;
 
+#[cfg(test)]
+mod gpt3_ops_test;
+
 /// `OperatorRegistry` holds the key information to identify operators and generate optimized
 /// computation plans. It has an operator table where each value contains a mapping from a pair of
 /// the corresponding operator and symbolic shapes to a symbolic expression for absolute number of
