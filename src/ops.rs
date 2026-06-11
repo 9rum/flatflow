@@ -46,6 +46,8 @@ mod gpt3_ops_test;
 #[cfg(test)]
 mod llama3_ops_test;
 #[cfg(test)]
+mod mistral3_ops_test;
+#[cfg(test)]
 mod phi4_ops_test;
 #[cfg(test)]
 mod qwen3_ops_test;
