@@ -696,11 +696,11 @@ fn test_transform_with_gpt3() -> Result<(), InvalidFlatbuffer> {
     let graph = graph_generated::Graph::create(&mut builder, &graph_generated::GraphArgs { nodes });
     builder.finish(graph, None);
 
-    let expr = transform(root_as_graph(builder.finished_data())?); // 1315 s0^2 + 39372164 s0
-    assert_eq!(expr(0), Ok(0));
-    assert_eq!(expr(1), Ok(39373479));
-    assert_eq!(expr(1024), Ok(41695973376));
-    assert_eq!(expr(2048), Ok(86149701632));
+    let proj = transform(root_as_graph(builder.finished_data())?); // 1315 s0^2 + 39372164 s0
+    assert_eq!(proj(0), Ok(0));
+    assert_eq!(proj(1), Ok(39373479));
+    assert_eq!(proj(1024), Ok(41695973376));
+    assert_eq!(proj(2048), Ok(86149701632));
 
     Ok(())
 }

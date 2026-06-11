@@ -40,6 +40,8 @@ mod scalar_type_generated;
 pub use scalar_type_generated::ScalarType;
 
 #[cfg(test)]
+mod gemma3_ops_test;
+#[cfg(test)]
 mod gpt3_ops_test;
 #[cfg(test)]
 mod llama3_ops_test;

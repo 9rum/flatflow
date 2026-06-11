@@ -9,20 +9,20 @@ use crate::ops::scalar_type_generated::ScalarType;
 use crate::ops::transform;
 
 #[test]
-fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
-    // This graph has been generated based on the exported [Llama 3.1]:
+fn test_transform_with_gemma3() -> Result<(), InvalidFlatbuffer> {
+    // This graph has been generated based on the exported [Gemma 3]:
     // * torch        2.4.0a0+3bcc3cddb5.nv24.7
-    // * transformers 4.46.2
+    // * transformers 4.51.3
     //
-    // [Llama 3.1]: https://huggingface.co/meta-llama/Llama-3.1-8B
-    let llama3 = Graph {
+    // [Gemma 3]: https://huggingface.co/google/gemma-3-1b-pt
+    let gemma3 = Graph {
         nodes: vec![
             Node {
                 target: Operator::EMBEDDING,
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(128256, 0), SymInt(4096, 0)],
+                        shape: vec![SymInt(262144, 0), SymInt(1152, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::INT64,
@@ -31,7 +31,26 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::_TO_COPY,
+                args: vec![TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![] }],
+                meta: TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![] },
+            },
+            Node {
+                target: Operator::MUL_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                    },
+                    TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![] },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
@@ -52,24 +71,24 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::TRIU,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::ARANGE,
                 args: vec![],
-                meta: TensorMetadata { dtype: ScalarType::INT64, shape: vec![SymInt(1, 1)] },
+                meta: TensorMetadata { dtype: ScalarType::INT64, shape: vec![SymInt(0, 1)] },
             },
             Node {
                 target: Operator::VIEW,
@@ -82,7 +101,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
             Node {
                 target: Operator::GT_TENSOR,
                 args: vec![
-                    TensorMetadata { dtype: ScalarType::INT64, shape: vec![SymInt(1, 1)] },
+                    TensorMetadata { dtype: ScalarType::INT64, shape: vec![SymInt(0, 1)] },
                     TensorMetadata {
                         dtype: ScalarType::INT64,
                         shape: vec![SymInt(0, 1), SymInt(1, 0)],
@@ -90,7 +109,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BOOL,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
@@ -98,71 +117,71 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                        shape: vec![SymInt(0, 1), SymInt(0, 1)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BOOL,
-                        shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                        shape: vec![SymInt(0, 1), SymInt(0, 1)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::UNSQUEEZE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(64, 0)],
+                    shape: vec![SymInt(128, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0)],
                 },
             },
             Node {
                 target: Operator::SLICE_TENSOR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0)],
                 },
             },
             Node {
                 target: Operator::UNSQUEEZE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 },
             },
             Node {
                 target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 },
             },
             Node {
                 target: Operator::EXPAND,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 },
             },
             Node {
@@ -224,11 +243,11 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                 },
             },
             Node {
@@ -258,7 +277,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::FLOAT32,
-                        shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(1, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(1, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::FLOAT32,
@@ -267,29 +286,29 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::TRANSPOSE_INT,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(64, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(128, 0), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
                 },
             },
             Node {
@@ -297,80 +316,169 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             // Node {
             //     target: Operator::COS,
             //     args: vec![TensorMetadata {
             //         dtype: ScalarType::FLOAT32,
-            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
             //     }],
             //     meta: TensorMetadata {
             //         dtype: ScalarType::FLOAT32,
-            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-            //     },
-            // },
-            // Node {
-            //     target: Operator::SIN,
-            //     args: vec![TensorMetadata {
-            //         dtype: ScalarType::FLOAT32,
-            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-            //     }],
-            //     meta: TensorMetadata {
-            //         dtype: ScalarType::FLOAT32,
-            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
             //     },
             // },
             Node {
                 target: Operator::MUL_TENSOR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            // Node {
+            //     target: Operator::SIN,
+            //     args: vec![TensorMetadata {
+            //         dtype: ScalarType::FLOAT32,
+            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+            //     }],
+            //     meta: TensorMetadata {
+            //         dtype: ScalarType::FLOAT32,
+            //         shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+            //     },
+            // },
+            Node {
+                target: Operator::_TO_COPY,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::UNSQUEEZE,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::UNSQUEEZE,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::SLICE_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::EXPAND,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::ONES_LIKE,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BOOL,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::TRIL,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BOOL,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BOOL,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                },
+            },
+            Node {
+                target: Operator::SCALAR_TENSOR,
+                args: vec![],
+                meta: TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![] },
+            },
+            Node {
+                target: Operator::WHERE_SELF,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BOOL,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                    },
+                    TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![] },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
-                    dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-                }],
-                meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::_TO_COPY,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::POW_TENSOR_SCALAR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::MEAN_DIM,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
@@ -404,7 +512,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::FLOAT32,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::FLOAT32,
@@ -413,161 +521,482 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::_TO_COPY,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(1152, 0)] },
+            },
+            Node {
+                target: Operator::ADD_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(1152, 0)] },
+            },
+            Node {
+                target: Operator::MUL_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                    },
+                    TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(1152, 0)] },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::FLOAT32,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::T,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1024, 0), SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1152, 0), SymInt(1024, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::MM,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(1152, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1152, 0), SymInt(1024, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(1024, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(1024, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1024, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1024, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4, 0), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::TRANSPOSE_INT,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4, 0), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::T,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(256, 0), SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1152, 0), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::MM,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(1152, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1152, 0), SymInt(256, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1, 0), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::TRANSPOSE_INT,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1, 0), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::_TO_COPY,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::POW_TENSOR_SCALAR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::MEAN_DIM,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
+                },
+            },
+            Node {
+                target: Operator::ADD_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
+                },
+            },
+            Node {
+                target: Operator::RSQRT,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
                 },
             },
             Node {
                 target: Operator::MUL_TENSOR,
                 args: vec![
-                    TensorMetadata { dtype: ScalarType::BFLOAT16, shape: vec![SymInt(4096, 0)] },
                     TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(1, 0)],
                     },
                 ],
                 meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::T,
+                target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(4096, 0)],
+                    shape: vec![SymInt(256, 0)],
                 }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(4096, 0)],
-                },
+                meta: TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(256, 0)] },
             },
             Node {
-                target: Operator::VIEW,
+                target: Operator::ADD_TENSOR,
                 args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(256, 0)],
                 }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(4096, 0)],
-                },
+                meta: TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(256, 0)] },
             },
             Node {
-                target: Operator::MM,
+                target: Operator::MUL_TENSOR,
                 args: vec![
                     TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(4096, 0), SymInt(4096, 0)],
-                    },
+                    TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(256, 0)] },
                 ],
                 meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::VIEW,
+                target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::T,
+                target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1024, 0), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(1024, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::MM,
+                target: Operator::POW_TENSOR_SCALAR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::MEAN_DIM,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
+                },
+            },
+            Node {
+                target: Operator::ADD_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
+                },
+            },
+            Node {
+                target: Operator::RSQRT,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
+                },
+            },
+            Node {
+                target: Operator::MUL_TENSOR,
                 args: vec![
                     TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
                     TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(4096, 0), SymInt(1024, 0)],
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 0)],
                     },
                 ],
                 meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1024, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::VIEW,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1024, 0)],
-                }],
+                target: Operator::MUL_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::FLOAT32,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                    TensorMetadata { dtype: ScalarType::FLOAT32, shape: vec![SymInt(256, 0)] },
+                ],
                 meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1024, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::TRANSPOSE_INT,
+                target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(32, 0), SymInt(128, 0)],
+                    dtype: ScalarType::FLOAT32,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::VIEW,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1024, 0)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(8, 0), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::TRANSPOSE_INT,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(8, 0), SymInt(128, 0)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::UNSQUEEZE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::MUL_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::SLICE_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(128, 0)],
+                },
+            },
+            Node {
+                target: Operator::NEG,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(128, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(128, 0)],
+                },
+            },
+            Node {
+                target: Operator::ADD_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::MUL_TENSOR,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
+                },
+            },
+            Node {
+                target: Operator::SLICE_TENSOR,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
@@ -575,42 +1004,14 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 },
             },
             Node {
-                target: Operator::MUL_TENSOR,
-                args: vec![
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                ],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::SLICE_TENSOR,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(64, 0)],
-                },
-            },
-            Node {
                 target: Operator::NEG,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(64, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
                 },
             },
             Node {
@@ -618,88 +1019,43 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
-                target: Operator::MUL_TENSOR,
-                args: vec![
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                ],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::SLICE_TENSOR,
+                target: Operator::_TO_COPY,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(64, 0)],
-                },
-            },
-            Node {
-                target: Operator::NEG,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(64, 0)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(64, 0)],
-                },
-            },
-            Node {
-                target: Operator::ADD_TENSOR,
-                args: vec![
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                    TensorMetadata {
-                        dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
-                    },
-                ],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::UNSQUEEZE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(8, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
                     shape: vec![
                         SymInt(1, 0),
-                        SymInt(8, 0),
+                        SymInt(1, 0),
                         SymInt(1, 0),
                         SymInt(0, 1),
-                        SymInt(128, 0),
+                        SymInt(256, 0),
                     ],
                 },
             },
@@ -709,20 +1065,20 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                     dtype: ScalarType::BFLOAT16,
                     shape: vec![
                         SymInt(1, 0),
-                        SymInt(8, 0),
+                        SymInt(1, 0),
                         SymInt(1, 0),
                         SymInt(0, 1),
-                        SymInt(128, 0),
+                        SymInt(256, 0),
                     ],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
                     shape: vec![
                         SymInt(1, 0),
-                        SymInt(8, 0),
+                        SymInt(1, 0),
                         SymInt(1, 0),
                         SymInt(0, 1),
-                        SymInt(128, 0),
+                        SymInt(256, 0),
                     ],
                 },
             },
@@ -732,193 +1088,126 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                     dtype: ScalarType::BFLOAT16,
                     shape: vec![
                         SymInt(1, 0),
-                        SymInt(8, 0),
+                        SymInt(1, 0),
                         SymInt(1, 0),
                         SymInt(0, 1),
-                        SymInt(128, 0),
+                        SymInt(256, 0),
                     ],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
                     shape: vec![
                         SymInt(1, 0),
-                        SymInt(8, 0),
+                        SymInt(1, 0),
                         SymInt(4, 0),
                         SymInt(0, 1),
-                        SymInt(128, 0),
+                        SymInt(256, 0),
                     ],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![
+                        SymInt(1, 0),
+                        SymInt(1, 0),
+                        SymInt(4, 0),
+                        SymInt(0, 1),
+                        SymInt(256, 0),
+                    ],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::CLONE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![
-                        SymInt(1, 0),
-                        SymInt(8, 0),
-                        SymInt(4, 0),
-                        SymInt(0, 1),
-                        SymInt(128, 0),
-                    ],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![
-                        SymInt(1, 0),
-                        SymInt(8, 0),
-                        SymInt(4, 0),
-                        SymInt(0, 1),
-                        SymInt(128, 0),
-                    ],
-                },
-            },
-            Node {
-                target: Operator::_UNSAFE_VIEW,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![
-                        SymInt(1, 0),
-                        SymInt(8, 0),
-                        SymInt(4, 0),
-                        SymInt(0, 1),
-                        SymInt(128, 0),
-                    ],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::CLONE,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
-                },
-            },
-            Node {
-                target: Operator::UNSQUEEZE,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(1, 1)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                },
-            },
-            Node {
-                target: Operator::UNSQUEEZE,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                },
-            },
-            Node {
-                target: Operator::SLICE_TENSOR,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                },
-            },
-            Node {
-                target: Operator::EXPAND,
-                args: vec![TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
-                }],
-                meta: TensorMetadata {
-                    dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(1, 0), SymInt(0, 1), SymInt(1, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::MUL_SCALAR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::TRANSPOSE_INT,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::MUL_SCALAR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::EXPAND,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::EXPAND,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                    shape: vec![SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                 },
             },
             Node {
@@ -926,27 +1215,27 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                        shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(32, 0), SymInt(128, 0), SymInt(0, 1)],
+                        shape: vec![SymInt(4, 0), SymInt(256, 0), SymInt(0, 1)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
@@ -954,7 +1243,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                        shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
@@ -963,40 +1252,40 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::_SOFTMAX,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::EXPAND,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                 },
             },
             Node {
@@ -1004,49 +1293,88 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(0, 1)],
+                        shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(0, 1)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                        shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(32, 0), SymInt(0, 1), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(4, 0), SymInt(0, 1), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::CLONE,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(32, 0), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4, 0), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(32, 0), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4, 0), SymInt(256, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(32, 0), SymInt(128, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4, 0), SymInt(256, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1024, 0)],
+                },
+            },
+            Node {
+                target: Operator::T,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1152, 0), SymInt(1024, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1024, 0), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::MM,
+                args: vec![
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(0, 1), SymInt(1024, 0)],
+                    },
+                    TensorMetadata {
+                        dtype: ScalarType::BFLOAT16,
+                        shape: vec![SymInt(1024, 0), SymInt(1152, 0)],
+                    },
+                ],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(1152, 0)],
+                },
+            },
+            Node {
+                target: Operator::VIEW,
+                args: vec![TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(0, 1), SymInt(1152, 0)],
+                }],
+                meta: TensorMetadata {
+                    dtype: ScalarType::BFLOAT16,
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
@@ -1054,27 +1382,27 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::T,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(14336, 0), SymInt(4096, 0)],
+                    shape: vec![SymInt(6912, 0), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(14336, 0)],
+                    shape: vec![SymInt(1152, 0), SymInt(6912, 0)],
                 },
             },
             Node {
@@ -1082,38 +1410,38 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        shape: vec![SymInt(0, 1), SymInt(1152, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(4096, 0), SymInt(14336, 0)],
+                        shape: vec![SymInt(1152, 0), SymInt(6912, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(6912, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(6912, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                 },
             },
             Node {
-                target: Operator::SILU,
+                target: Operator::GELU,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                 },
             },
             Node {
@@ -1121,38 +1449,38 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                        shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                 },
             },
             Node {
                 target: Operator::T,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(14336, 0)],
+                    shape: vec![SymInt(1152, 0), SymInt(6912, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(14336, 0), SymInt(4096, 0)],
+                    shape: vec![SymInt(6912, 0), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(6912, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(14336, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(6912, 0)],
                 },
             },
             Node {
@@ -1160,38 +1488,38 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(14336, 0)],
+                        shape: vec![SymInt(0, 1), SymInt(6912, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(14336, 0), SymInt(4096, 0)],
+                        shape: vec![SymInt(6912, 0), SymInt(1152, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::SLICE_TENSOR,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(4096, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(1152, 0)],
                 },
             },
             Node {
                 target: Operator::T,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(128256, 0), SymInt(4096, 0)],
+                    shape: vec![SymInt(262144, 0), SymInt(1152, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(4096, 0), SymInt(128256, 0)],
+                    shape: vec![SymInt(1152, 0), SymInt(262144, 0)],
                 },
             },
             Node {
@@ -1199,27 +1527,27 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
                 args: vec![
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(0, 1), SymInt(4096, 0)],
+                        shape: vec![SymInt(0, 1), SymInt(1152, 0)],
                     },
                     TensorMetadata {
                         dtype: ScalarType::BFLOAT16,
-                        shape: vec![SymInt(4096, 0), SymInt(128256, 0)],
+                        shape: vec![SymInt(1152, 0), SymInt(262144, 0)],
                     },
                 ],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(128256, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(262144, 0)],
                 },
             },
             Node {
                 target: Operator::VIEW,
                 args: vec![TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(0, 1), SymInt(128256, 0)],
+                    shape: vec![SymInt(0, 1), SymInt(262144, 0)],
                 }],
                 meta: TensorMetadata {
                     dtype: ScalarType::BFLOAT16,
-                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(128256, 0)],
+                    shape: vec![SymInt(1, 0), SymInt(0, 1), SymInt(262144, 0)],
                 },
             },
         ],
@@ -1227,7 +1555,7 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
 
     let mut builder = FlatBufferBuilder::new();
     let mut nodes = Vec::new();
-    for node in llama3.nodes.iter() {
+    for node in gemma3.nodes.iter() {
         let mut args = Vec::new();
         for arg in node.args.iter() {
             let mut shape = Vec::new();
@@ -1264,11 +1592,11 @@ fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
     let graph = graph_generated::Graph::create(&mut builder, &graph_generated::GraphArgs { nodes });
     builder.finish(graph, None);
 
-    let proj = transform(root_as_graph(builder.finished_data())?); // 8417 s0^2 + 663883653 s0
+    let proj = transform(root_as_graph(builder.finished_data())?); // 2077 s0^2 + 320703256 s0
     assert_eq!(proj(0), Ok(0));
-    assert_eq!(proj(1), Ok(663892070));
-    assert_eq!(proj(1024), Ok(688642724864));
-    assert_eq!(proj(2048), Ok(1394937178112));
+    assert_eq!(proj(1), Ok(320705333));
+    assert_eq!(proj(1024), Ok(330578026496));
+    assert_eq!(proj(2048), Ok(665511837696));
 
     Ok(())
 }
