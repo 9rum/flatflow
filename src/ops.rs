@@ -39,21 +39,6 @@ pub use operator_generated::Operator;
 mod scalar_type_generated;
 pub use scalar_type_generated::ScalarType;
 
-#[cfg(test)]
-mod gemma3_ops_test;
-#[cfg(test)]
-mod gpt3_ops_test;
-#[cfg(test)]
-mod llama3_ops_test;
-#[cfg(test)]
-mod mistral3_ops_test;
-#[cfg(test)]
-mod opt_ops_test;
-#[cfg(test)]
-mod phi4_ops_test;
-#[cfg(test)]
-mod qwen3_ops_test;
-
 /// `OperatorRegistry` holds the key information to identify operators and generate optimized
 /// computation plans. It has an operator table where each value contains a mapping from a pair of
 /// the corresponding operator and symbolic shapes to a symbolic expression for absolute number of
@@ -1041,4 +1026,199 @@ where
     info!("Traversing a graph with {} nodes took {:?}", graph.nodes().len(), now.elapsed());
 
     move |value| expr.eval(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use flatbuffers::{FlatBufferBuilder, InvalidFlatbuffer};
+
+    use super::*;
+
+    fn serialize<'a>(builder: &'a mut FlatBufferBuilder, graph: Graph) -> &'a [u8] {
+        let mut nodes = Vec::new();
+        for node in graph.nodes.iter() {
+            let mut args = Vec::new();
+            for arg in node.args.iter() {
+                let mut shape = Vec::new();
+                for int in arg.shape.iter() {
+                    shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
+                }
+                let shape = Some(builder.create_vector(shape.as_slice()));
+
+                args.push(graph_generated::TensorMetadata::create(
+                    builder,
+                    &graph_generated::TensorMetadataArgs { dtype: arg.dtype, shape },
+                ));
+            }
+            let args = Some(builder.create_vector(args.as_slice()));
+
+            let mut shape = Vec::new();
+            for int in node.meta.shape.iter() {
+                shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
+            }
+            let shape = Some(builder.create_vector(shape.as_slice()));
+
+            let meta = Some(graph_generated::TensorMetadata::create(
+                builder,
+                &graph_generated::TensorMetadataArgs { dtype: node.meta.dtype, shape },
+            ));
+
+            nodes.push(graph_generated::Node::create(
+                builder,
+                &graph_generated::NodeArgs { target: node.target, args, meta },
+            ));
+        }
+        let nodes = Some(builder.create_vector(nodes.as_slice()));
+
+        let graph = graph_generated::Graph::create(builder, &graph_generated::GraphArgs { nodes });
+        builder.finish(graph, None);
+        builder.finished_data()
+    }
+
+    #[test]
+    fn test_transform_with_gpt3() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [GPT-3] via [torch.export.export]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.46.2
+        //
+        // Note that the original GPT-3 models have thousands of nodes when converted to computational
+        // graphs; this produces hundreds of thousands of lines of code when generated, severely slowing
+        // down the build. To this end, this test emulates GPT-3 where an unique combination of
+        // operator, data types and symbolic shapes appears only once, limiting the computational graph
+        // to have only 52 nodes.
+        //
+        // [GPT-3]: https://huggingface.co/openai-community/gpt2
+        // [torch.export.export]: https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export.html
+        let gpt3 = include!("ops/gpt3_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, gpt3))?); // 1315 s0^2 + 39372164 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(39373479));
+        assert_eq!(proj(1024), Ok(41695973376));
+        assert_eq!(proj(2048), Ok(86149701632));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_opt() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [OPT]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.46.2
+        //
+        // [OPT]: https://huggingface.co/facebook/opt-13b
+        let opt = include!("ops/opt_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, opt))?); // 5261 s0^2 + 246735427 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(246740688));
+        assert_eq!(proj(1024), Ok(258173635584));
+        assert_eq!(proj(2048), Ok(527380387840));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_llama3() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [Llama 3.1]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.46.2
+        //
+        // [Llama 3.1]: https://huggingface.co/meta-llama/Llama-3.1-8B
+        let llama3 = include!("ops/llama3_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, llama3))?); // 8417 s0^2 + 663883653 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(663892070));
+        assert_eq!(proj(1024), Ok(688642724864));
+        assert_eq!(proj(2048), Ok(1394937178112));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_phi4() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [phi-4]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.46.2
+        //
+        // [phi-4]: https://huggingface.co/microsoft/phi-4
+        let phi4 = include!("ops/phi4_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, phi4))?); // 10521 s0^2 + 854757893 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(854768414));
+        assert_eq!(proj(1024), Ok(886304150528));
+        assert_eq!(proj(2048), Ok(1794672437248));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_mistral3() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [Mistral Small 3]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.51.3
+        //
+        // [Mistral Small 3]: https://huggingface.co/mistralai/Mistral-Small-24B-Base-2501
+        let mistral3 = include!("ops/mistral3_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, mistral3))?); // 8417 s0^2 + 1054055301 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(1054063718));
+        assert_eq!(proj(1024), Ok(1088178492416));
+        assert_eq!(proj(2048), Ok(2194008713216));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_gemma3() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [Gemma 3]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.51.3
+        //
+        // [Gemma 3]: https://huggingface.co/google/gemma-3-1b-pt
+        let gemma3 = include!("ops/gemma3_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, gemma3))?); // 2077 s0^2 + 320703256 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(320705333));
+        assert_eq!(proj(1024), Ok(330578026496));
+        assert_eq!(proj(2048), Ok(665511837696));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_transform_with_qwen3() -> Result<(), InvalidFlatbuffer> {
+        let mut builder = FlatBufferBuilder::new();
+
+        // This graph has been generated based on the exported [Qwen3]:
+        // * torch        2.4.0a0+3bcc3cddb5.nv24.7
+        // * transformers 4.51.3
+        //
+        // [Qwen3]: https://huggingface.co/Qwen/Qwen3-8B
+        let qwen3 = include!("ops/qwen3_generated.rs");
+
+        let proj = transform(root_as_graph(serialize(&mut builder, qwen3))?); // 8417 s0^2 + 744125477 s0
+        assert_eq!(proj(0), Ok(0));
+        assert_eq!(proj(1), Ok(744133894));
+        assert_eq!(proj(1024), Ok(770810352640));
+        assert_eq!(proj(2048), Ok(1559272433664));
+
+        Ok(())
+    }
 }
