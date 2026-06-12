@@ -30,13 +30,25 @@ impl Polynomial {
     /// Constructs a new polynomial from `self`, scaled by `world_size` for tensor parallelism.
     #[inline]
     pub const fn with_tensor_parallel(self, world_size: i64) -> Self {
-        Self(self.0, self.1, self.2 * world_size)
+        assert!(world_size.is_positive());
+
+        if self.1 % world_size == 0 {
+            Self(self.0, self.1 / world_size, self.2)
+        } else {
+            Self(self.0, self.1, self.2 * world_size)
+        }
     }
 
     /// Constructs a new polynomial from `self`, scaled by `world_size` for context parallelism.
     #[inline]
     pub const fn with_context_parallel(self, world_size: i64) -> Self {
-        Self(self.0, self.1 * world_size, self.2)
+        assert!(world_size.is_positive());
+
+        if self.2 % world_size == 0 {
+            Self(self.0, self.1, self.2 / world_size)
+        } else {
+            Self(self.0, self.1 * world_size, self.2)
+        }
     }
 
     /// Returns a new polynomial normalized from `self` so that the constant term becomes zero and
@@ -275,15 +287,13 @@ mod tests {
         assert_eq!(polynomial!(1, 2), Polynomial(1, 2, 0));
         assert_eq!(polynomial!(1, 2, 3), Polynomial(1, 2, 3));
 
-        assert_eq!(polynomial!(1, 2, 3).with_tensor_parallel(8), polynomial!(1, 2, 24));
-        assert_eq!(polynomial!(1, 2, 3).with_tensor_parallel(0), polynomial!(1, 2, 0));
+        assert_eq!(polynomial!(1, 2, 4).with_tensor_parallel(2), polynomial!(1, 1, 4));
+        assert_eq!(polynomial!(1, 2, 4).with_tensor_parallel(8), polynomial!(1, 2, 32));
         assert_eq!(polynomial!().with_tensor_parallel(8), polynomial!());
-        assert_eq!(polynomial!().with_tensor_parallel(0), polynomial!());
 
-        assert_eq!(polynomial!(1, 2, 3).with_context_parallel(8), polynomial!(1, 16, 3));
-        assert_eq!(polynomial!(1, 2, 3).with_context_parallel(0), polynomial!(1, 0, 3));
+        assert_eq!(polynomial!(1, 2, 4).with_context_parallel(2), polynomial!(1, 2, 2));
+        assert_eq!(polynomial!(1, 2, 4).with_context_parallel(8), polynomial!(1, 16, 4));
         assert_eq!(polynomial!().with_context_parallel(8), polynomial!());
-        assert_eq!(polynomial!().with_context_parallel(0), polynomial!());
     }
 
     #[test]
