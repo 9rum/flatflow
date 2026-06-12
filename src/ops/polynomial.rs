@@ -27,6 +27,39 @@ impl Polynomial {
         Self(c0, c1, c2)
     }
 
+    /// Constructs a new polynomial from `self`, scaled by `world_size` for tensor parallelism.
+    #[inline]
+    pub const fn with_tensor_parallel(self, world_size: i64) -> Self {
+        Self(self.0, self.1, self.2 * world_size)
+    }
+
+    /// Constructs a new polynomial from `self`, scaled by `world_size` for context parallelism.
+    #[inline]
+    pub const fn with_context_parallel(self, world_size: i64) -> Self {
+        Self(self.0, self.1 * world_size, self.2)
+    }
+
+    /// Returns a new polynomial normalized from `self` so that the constant term becomes zero and
+    /// the rest are relatively prime.
+    #[inline]
+    pub const fn normalized(self) -> Self {
+        match gcd(self.1, self.2) {
+            // This value is |i64::MIN|, which cannot be represented within i64. There are two
+            // possible cases for this: both self.1 and self.2 are i64::MIN, or one of them is
+            // i64::MIN and the other is zero. In both cases the normalized value is -1 for i64::MIN
+            // and 0 for zero, which corresponds to their respective signum.
+            0x8000000000000000 => Self(0, self.1.signum(), self.2.signum()),
+            // The only case where the divisor is zero is when both self.1 and self.2 are zero, in
+            // which case there is no need to divide them.
+            0 => Self(0, 0, 0),
+            // Otherwise the divisor can be safely cast to i64 and used for division.
+            divisor => {
+                let divisor = divisor.cast_signed();
+                Self(0, self.1 / divisor, self.2 / divisor)
+            }
+        }
+    }
+
     /// Based on Horner's rule, evaluates a given polynomial of degree two with only two
     /// multiplications and two additions, applying Horner's method.
     /// See Knuth, [The Art of Computer Programming: Volume 2, Third edition, 1997]
@@ -49,26 +82,6 @@ impl Polynomial {
     #[inline]
     const fn eval_impl(&self, value: i64) -> i64 {
         self.0 + value * (self.1 + value * self.2)
-    }
-
-    /// Normalizes `self` so that the constant term becomes zero and the rest are relatively prime.
-    #[inline]
-    pub const fn normalize(&mut self) {
-        *self = match gcd(self.1, self.2) {
-            // This value is |i64::MIN|, which cannot be represented within i64. There are two
-            // possible cases for this: both self.1 and self.2 are i64::MIN, or one of them is
-            // i64::MIN and the other is zero. In both cases the normalized value is -1 for i64::MIN
-            // and 0 for zero, which corresponds to their respective signum.
-            0x8000000000000000 => Self(0, self.1.signum(), self.2.signum()),
-            // The only case where the divisor is zero is when both self.1 and self.2 are zero, in
-            // which case there is no need to divide them.
-            0 => Self(0, 0, 0),
-            // Otherwise the divisor can be safely cast to i64 and used for division.
-            divisor => {
-                let divisor = divisor.cast_signed();
-                Self(0, self.1 / divisor, self.2 / divisor)
-            }
-        };
     }
 }
 
@@ -261,6 +274,16 @@ mod tests {
         assert_eq!(polynomial!(1), Polynomial::from(1));
         assert_eq!(polynomial!(1, 2), Polynomial(1, 2, 0));
         assert_eq!(polynomial!(1, 2, 3), Polynomial(1, 2, 3));
+
+        assert_eq!(polynomial!(1, 2, 3).with_tensor_parallel(8), polynomial!(1, 2, 24));
+        assert_eq!(polynomial!(1, 2, 3).with_tensor_parallel(0), polynomial!(1, 2, 0));
+        assert_eq!(polynomial!().with_tensor_parallel(8), polynomial!());
+        assert_eq!(polynomial!().with_tensor_parallel(0), polynomial!());
+
+        assert_eq!(polynomial!(1, 2, 3).with_context_parallel(8), polynomial!(1, 16, 3));
+        assert_eq!(polynomial!(1, 2, 3).with_context_parallel(0), polynomial!(1, 0, 3));
+        assert_eq!(polynomial!().with_context_parallel(8), polynomial!());
+        assert_eq!(polynomial!().with_context_parallel(0), polynomial!());
     }
 
     #[test]
@@ -345,46 +368,46 @@ mod tests {
     #[test]
     fn test_normalization() {
         let mut expr = polynomial!(5, 10, 20);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, polynomial!(0, 1, 2));
 
         expr = Polynomial::default();
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, Polynomial::default());
 
         expr = polynomial!(-1, -2, -4);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, polynomial!(0, -1, -2));
 
         expr = polynomial!(i64::MIN, i64::MIN, i64::MIN);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, polynomial!(0, -1, -1));
 
         expr = polynomial!(i64::MIN, i64::MIN);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, polynomial!(0, -1));
 
         expr = polynomial!(0, i64::MIN, i64::MAX);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr, polynomial!(0, i64::MIN, i64::MAX));
     }
 
     #[test]
     fn test_polynomial_evaluation() {
         let mut expr = polynomial!(3, 2, 1);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr.eval(0), Ok(0));
         assert_eq!(expr.eval(1), Ok(3));
         assert_eq!(expr.eval(2), Ok(8));
 
         expr = polynomial!(i64::MIN, i64::MIN, i64::MIN);
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr.eval(0), Ok(0));
         assert_eq!(expr.eval(1), Ok(-2));
         assert_eq!(expr.eval(2), Ok(-6));
 
         expr = polynomial!();
-        expr.normalize();
+        expr = expr.normalized();
         assert_eq!(expr.eval(i64::MAX), Ok(0));
     }
 }
