@@ -292,10 +292,11 @@ impl Fn<{ Operator::ADD_TENSOR.0 }> for () {
         // maximum length of a FlatBuffers vector is 0xFFFFFFFF.
         let len: i64 = args.len().try_into().unwrap();
 
-        let mut dtype = args.get(0).unwrap().dtype;
-        if 1 < len {
-            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
-        }
+        let dtype = if 1 < len {
+            promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype)
+        } else {
+            args.get(0).unwrap().dtype
+        };
 
         let scale: i64 = dtype.into();
         meta.shape.iter().map(Polynomial::from).fold(polynomial!(len * scale), Mul::mul)
@@ -644,10 +645,11 @@ impl Fn<{ Operator::MUL_TENSOR.0 }> for () {
         // broadcasting.
         assert!(!args.is_empty());
 
-        let mut dtype = args.get(0).unwrap().dtype;
-        if 1 < args.len() {
-            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
-        }
+        let dtype = if 1 < args.len() {
+            promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype)
+        } else {
+            args.get(0).unwrap().dtype
+        };
 
         let scale: i64 = dtype.into();
         meta.shape.iter().map(Polynomial::from).fold(polynomial!(scale), Mul::mul)
@@ -883,10 +885,11 @@ impl Fn<{ Operator::SUB_TENSOR.0 }> for () {
         // For the same reason as in add.Tensor, it is safe to unwrap the result.
         let len: i64 = args.len().try_into().unwrap();
 
-        let mut dtype = args.get(0).unwrap().dtype;
-        if 1 < len {
-            dtype = promote_types(dtype, args.get(1).unwrap().dtype);
-        }
+        let dtype = if 1 < len {
+            promote_types(args.get(0).unwrap().dtype, args.get(1).unwrap().dtype)
+        } else {
+            args.get(0).unwrap().dtype
+        };
 
         let scale: i64 = dtype.into();
         meta.shape.iter().map(Polynomial::from).fold(polynomial!(len * scale), Mul::mul)
