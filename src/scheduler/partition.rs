@@ -5,7 +5,7 @@
 //! [identical-machines scheduling]: https://en.wikipedia.org/wiki/Identical-machines_scheduling
 
 use core::cmp::Ordering;
-use core::ops::Sub;
+use core::ops::{Add, Sub};
 use std::collections::{BTreeMap, LinkedList, VecDeque};
 
 /// Auxiliary structure for the balanced largest differencing method.
@@ -35,6 +35,63 @@ impl<K, V> Solution<K, V> {
         let delta = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { subsets, delta }
+    }
+
+    /// Combines the two given solutions by joining the subset with the smallest sum in `self` with
+    /// the subset with the largest sum in the `other`, the subset with the second smallest sum in
+    /// `self` with the subset with the second largest sum in the `other`, and so on.
+    #[inline]
+    fn difference(mut self, mut other: Self) -> Self
+    where
+        K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    {
+        let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+
+        while let Some((min, mut first)) = self.pop_first() {
+            let (max, mut last) = other.pop_last().unwrap();
+            first.append(&mut last);
+            subsets.entry(min + max).or_default().push_back(first);
+        }
+
+        debug_assert!(other.subsets.is_empty());
+
+        let delta = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
+
+        Self { subsets, delta }
+    }
+
+    #[inline]
+    fn pop_first(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
+        let mut entry = self.subsets.first_entry()?;
+
+        let sum = *entry.key();
+        let subset = entry.get_mut().pop_front().unwrap();
+
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+
+        Some((sum, subset))
+    }
+
+    #[inline]
+    fn pop_last(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
+        let mut entry = self.subsets.last_entry()?;
+
+        let sum = *entry.key();
+        let subset = entry.get_mut().pop_back().unwrap();
+
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+
+        Some((sum, subset))
     }
 }
 
