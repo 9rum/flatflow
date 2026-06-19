@@ -222,3 +222,63 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+    use rand_distr::{Distribution, LogNormal};
+
+    use super::*;
+
+    #[test]
+    fn test_bldm_with_uniform_distribution() {
+        let mut sizes = Vec::with_capacity(32768);
+        for size in 1..=8192 {
+            sizes.extend_from_slice(&[size; 4]);
+        }
+
+        let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
+        assert_eq!(subsets.len(), 4096);
+
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        assert!(sums.is_sorted());
+
+        let min = *sums.first().unwrap();
+        let max = *sums.last().unwrap();
+        println!("Work-difference: {} (min = {min} max = {max})", (max - min) as f64 / min as f64);
+    }
+
+    #[test]
+    fn test_bldm_with_lognormal_distribution() {
+        const MU: f32 = 595.2844634189998;
+        const SIGMA: f32 = 952.6487919361658;
+
+        let mut rng = StdRng::seed_from_u64(0);
+        let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
+            .unwrap()
+            .sample_iter(&mut rng)
+            .filter_map(|size| {
+                if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
+            })
+            .take(32768)
+            .collect();
+        sizes.sort();
+
+        let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
+        assert_eq!(subsets.len(), 4096);
+
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        assert!(sums.is_sorted());
+
+        let min = *sums.first().unwrap();
+        let max = *sums.last().unwrap();
+        println!("Work-difference: {} (min = {min} max = {max})", (max - min) as f64 / min as f64);
+    }
+
+    #[test]
+    fn test_partition_with_empty_items() {
+        let subsets: Vec<Vec<usize>> = partition(vec![], 0, |&size| size);
+        assert!(subsets.is_empty());
+    }
+}
