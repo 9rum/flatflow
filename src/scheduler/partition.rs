@@ -234,8 +234,8 @@ mod tests {
     #[test]
     fn test_bldm_with_uniform_distribution() {
         let mut sizes = Vec::with_capacity(32768);
-        for size in 1..=8192 {
-            sizes.extend_from_slice(&[size; 4]);
+        for size in 1..8193 {
+            sizes.extend([size; 4]);
         }
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_partition_with_empty_items() {
-        let subsets: Vec<Vec<usize>> = partition(vec![], 0, |&size| size);
+        let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size);
         assert!(subsets.is_empty());
     }
 }
