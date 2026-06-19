@@ -140,14 +140,14 @@ where
 /// [The Differencing Algorithm LDM for Partitioning: A Proof of a Conjecture of Karmarkar and Karp]: https://www.jstor.org/stable/3690207
 /// [Computer-assisted proof of performance ratios for the Differencing Method]: https://doi.org/10.1016/j.disopt.2011.10.001
 #[inline]
-fn bldm<I, F, K, C, B>(iter: I, m: usize, f: F) -> B
+fn bldm<I, F, R, B>(iter: I, m: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> K,
-    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
-    C: FromIterator<I::Item>,
-    B: FromIterator<C>,
+    F: Fn(&I::Item) -> R,
+    R: Add<Output = R> + Copy + Ord + Sub<Output = R>,
+    B: IntoIterator + FromIterator<B::Item>,
+    B::Item: FromIterator<I::Item>,
 {
     let mut iter = iter.into_iter();
 
@@ -194,22 +194,22 @@ where
 /// The current algorithm adopts the [balanced largest differencing method] (BLDM), which may yield
 /// partitions with a high work-difference, both when the items are distributed uniformly and when
 /// their distribution is skewed. LRM and Meld by Zhang, Mouratidis and Pang from the paper
-/// [Heuristic Algorithms for Balanced Multi-way Number Partitioning] can lower such spread in the
+/// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning] can lower such spread in the
 /// respective cases.
 ///
 /// Time complexity: *O*(*n log n*)
 ///
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
-/// [Heuristic Algorithms for Balanced Multi-way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
+/// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub(super) fn partition<I, F, K, C, B>(iter: I, m: usize, f: F) -> B
+pub(super) fn partition<I, F, R, B>(iter: I, m: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> K,
-    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
-    C: FromIterator<I::Item>,
-    B: FromIterator<C>,
+    F: Fn(&I::Item) -> R,
+    R: Add<Output = R> + Copy + Ord + Sub<Output = R>,
+    B: IntoIterator + FromIterator<B::Item>,
+    B::Item: FromIterator<I::Item>,
 {
     let iter = iter.into_iter();
 
@@ -246,7 +246,8 @@ mod tests {
 
         let min = *sums.first().unwrap();
         let max = *sums.last().unwrap();
-        println!("Work-difference: {} (min = {min} max = {max})", (max - min) as f64 / min as f64);
+        let spread = (max - min) as f64 / min as f64;
+        println!("spread: {spread} (min: {min} max: {max})");
     }
 
     #[test]
@@ -273,7 +274,8 @@ mod tests {
 
         let min = *sums.first().unwrap();
         let max = *sums.last().unwrap();
-        println!("Work-difference: {} (min = {min} max = {max})", (max - min) as f64 / min as f64);
+        let spread = (max - min) as f64 / min as f64;
+        println!("spread: {spread} (min: {min} max: {max})");
     }
 
     #[test]
