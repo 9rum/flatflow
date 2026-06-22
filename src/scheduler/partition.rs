@@ -5,7 +5,7 @@
 //! [identical-machines scheduling]: https://en.wikipedia.org/wiki/Identical-machines_scheduling
 
 use core::cmp::Ordering;
-use core::iter::empty;
+use core::iter::{empty, repeat_with};
 use core::ops::{Add, Sub};
 use std::collections::{BTreeMap, BinaryHeap, LinkedList, VecDeque};
 
@@ -214,7 +214,7 @@ where
     let iter = iter.into_iter();
 
     match iter.len() {
-        0 => empty().collect(),
+        0 => repeat_with(|| empty().collect()).take(m).collect(),
         n => {
             assert_ne!(m, 0);
             assert_eq!(n % m, 0);
