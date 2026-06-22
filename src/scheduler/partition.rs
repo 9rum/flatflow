@@ -140,12 +140,12 @@ where
 /// [The Differencing Algorithm LDM for Partitioning: A Proof of a Conjecture of Karmarkar and Karp]: https://www.jstor.org/stable/3690207
 /// [Computer-assisted proof of performance ratios for the Differencing Method]: https://doi.org/10.1016/j.disopt.2011.10.001
 #[inline]
-fn bldm<I, F, R, B>(iter: I, m: usize, f: F) -> B
+fn bldm<I, F, K, B>(iter: I, m: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> R,
-    R: Add<Output = R> + Copy + Ord + Sub<Output = R>,
+    F: Fn(&I::Item) -> K,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     B: IntoIterator + FromIterator<B::Item>,
     B::Item: FromIterator<I::Item>,
 {
@@ -202,12 +202,12 @@ where
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub(super) fn partition<I, F, R, B>(iter: I, m: usize, f: F) -> B
+pub(super) fn partition<I, F, K, B>(iter: I, m: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> R,
-    R: Add<Output = R> + Copy + Ord + Sub<Output = R>,
+    F: Fn(&I::Item) -> K,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     B: IntoIterator + FromIterator<B::Item>,
     B::Item: FromIterator<I::Item>,
 {
