@@ -2,7 +2,7 @@
 
 //! Partitioning algorithms for [identical-machines scheduling].
 //!
-//! [identical-machines scheduling]: https://en.wikipedia.org/wiki/Identical-machines_scheduling
+//! [identical-machines scheduling]: https://doi.org/10.1137/0117039
 
 use core::cmp::Ordering;
 use core::iter::{empty, repeat_with};
@@ -132,7 +132,7 @@ where
     }
 }
 
-/// Partitions the items in the given iterable `iter` into `m` subsets using the balanced largest
+/// Partitions the items in the given iterable `iter` into `k` subsets using the balanced largest
 /// differencing method (BLDM) from the paper [The Differencing Algorithm LDM for Partitioning: A
 /// Proof of a Conjecture of Karmarkar and Karp], a variant of LDM for balanced number partitioning
 /// with larger cardinalities.
@@ -144,7 +144,7 @@ where
 /// [The Differencing Algorithm LDM for Partitioning: A Proof of a Conjecture of Karmarkar and Karp]: https://www.jstor.org/stable/3690207
 /// [Computer-assisted proof of performance ratios for the Differencing Method]: https://doi.org/10.1016/j.disopt.2011.10.001
 #[inline]
-fn bldm<I, F, K, B>(iter: I, m: usize, f: F) -> B
+fn bldm<I, F, K, B>(iter: I, k: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
@@ -155,12 +155,12 @@ where
 {
     let mut iter = iter.into_iter();
 
-    // Initially, BLDM starts with a sequence of `k` partial solutions, where each partial solution
-    // is obtained from the `m` smallest remaining items.
-    let mut heap = BinaryHeap::with_capacity(iter.len() / m);
+    // BLDM starts with a sequence of partial solutions, each of which is obtained from the `k`
+    // smallest remaining items.
+    let mut heap = BinaryHeap::with_capacity(iter.len() / k);
 
     while 0 < iter.len() {
-        heap.push(Solution::new(iter.by_ref().take(m), &f));
+        heap.push(Solution::new(iter.by_ref().take(k), &f));
     }
 
     // Next, the algorithm selects two partial solutions from the sequence, for which the difference
@@ -184,14 +184,14 @@ where
         .collect()
 }
 
-/// Reorders the items in the given iterable `iter` into `m` subsets according to the given
+/// Reorders the items in the given iterable `iter` into `k` subsets according to the given
 /// projection `f`. The items in `iter` must be sorted according to the projection `f`, whether in
 /// ascending or descending order. The resulting subsets are sorted in ascending order of their
 /// subset sums according to the projection `f`.
 ///
 /// # Panics
 ///
-/// Panics if `iter` is not empty but `m` is zero or if `m` does not divide the length of `iter`.
+/// Panics if `iter` is not empty but `k` is zero or if `k` does not divide the length of `iter`.
 ///
 /// # Current implementation
 ///
@@ -206,7 +206,7 @@ where
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub(super) fn partition<I, F, K, B>(iter: I, m: usize, f: F) -> B
+pub(super) fn partition<I, F, K, B>(iter: I, k: usize, f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
@@ -218,11 +218,11 @@ where
     let iter = iter.into_iter();
 
     match iter.len() {
-        0 => repeat_with(|| empty().collect()).take(m).collect(),
+        0 => repeat_with(|| empty().collect()).take(k).collect(),
         n => {
-            assert_ne!(m, 0);
-            assert_eq!(n % m, 0);
-            bldm(iter, m, f)
+            assert_ne!(k, 0);
+            assert_eq!(n % k, 0);
+            bldm(iter, k, f)
         }
     }
 }
