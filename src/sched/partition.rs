@@ -9,16 +9,16 @@ use core::iter::{empty, repeat_with};
 use core::ops::{Add, Sub};
 use std::collections::{BTreeMap, BinaryHeap, LinkedList, VecDeque};
 
-/// Auxiliary structure for the balanced largest differencing method.
-struct Solution<K, V> {
+/// Auxiliary structure for the balanced largest differencing method and the Meld algorithm.
+struct Tuple<K, V> {
     subsets: BTreeMap<K, VecDeque<LinkedList<V>>>,
-    delta: K,
+    spread: K,
 }
 
-impl<K, V> Solution<K, V> {
-    /// Constructs a new partial solution from the given iterable `iter`. The subsets are sorted
-    /// within the underlying associative container, according to the order of their subset sums
-    /// obtained via projection `f`.
+impl<K, V> Tuple<K, V> {
+    /// Constructs a new k-tuple from the given iterable `iter`. The subsets are sorted within the
+    /// underlying associative container, according to the order of their subset sums obtained via
+    /// projection `f`.
     #[inline]
     fn new<I, F>(iter: I, f: F) -> Self
     where
@@ -33,16 +33,16 @@ impl<K, V> Solution<K, V> {
             subsets.entry(f(subset.back().unwrap())).or_default().push_back(subset);
         }
 
-        let delta = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
-        Self { subsets, delta }
+        Self { subsets, spread }
     }
 
-    /// Combines the two given solutions by joining the subset with the smallest sum in `self` with
-    /// the subset with the largest sum in the `other`, the subset with the second smallest sum in
-    /// `self` with the subset with the second largest sum in the `other`, and so on.
+    /// Differences the two given k-tuples by joining the subset with the smallest sum in `self`
+    /// with the subset with the largest sum in `other`, the subset with the second smallest sum in
+    /// `self` with the subset with the second largest sum in `other`, and so on.
     #[inline]
-    fn difference(mut self, mut other: Self) -> Self
+    fn fold(mut self, mut other: Self) -> Self
     where
         K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     {
@@ -94,41 +94,41 @@ impl<K, V> Solution<K, V> {
 
         debug_assert!(other.subsets.is_empty());
 
-        let delta = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
-        Self { subsets, delta }
+        Self { subsets, spread }
     }
 }
 
-impl<K, V> PartialEq for Solution<K, V>
+impl<K, V> PartialEq for Tuple<K, V>
 where
     K: PartialEq,
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.delta == other.delta
+        self.spread == other.spread
     }
 }
 
-impl<K, V> Eq for Solution<K, V> where K: Eq {}
+impl<K, V> Eq for Tuple<K, V> where K: Eq {}
 
-impl<K, V> PartialOrd for Solution<K, V>
+impl<K, V> PartialOrd for Tuple<K, V>
 where
     K: PartialOrd,
 {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.delta.partial_cmp(&other.delta)
+        self.spread.partial_cmp(&other.spread)
     }
 }
 
-impl<K, V> Ord for Solution<K, V>
+impl<K, V> Ord for Tuple<K, V>
 where
     K: Ord,
 {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.delta.cmp(&other.delta)
+        self.spread.cmp(&other.spread)
     }
 }
 
@@ -155,25 +155,25 @@ where
 {
     let mut iter = iter.into_iter();
 
-    // BLDM starts with a sequence of partial solutions, each of which is obtained from the `k`
-    // smallest remaining items.
+    // BLDM starts with a sequence of k-tuples, each of which is obtained from the `k` smallest
+    // remaining items.
     let mut heap = BinaryHeap::with_capacity(iter.len() / k);
 
     while 0 < iter.len() {
-        heap.push(Solution::new(iter.by_ref().take(k), &f));
+        heap.push(Tuple::new(iter.by_ref().take(k), &f));
     }
 
-    // Next, the algorithm selects two partial solutions from the sequence, for which the difference
-    // between the maximum and minimum subset sum is largest. These two solutions are combined into
-    // a new partial solution by joining the subset with the smallest sum in one solution with the
-    // subset with the largest sum in another solution, the subset with the second smallest sum in
-    // one solution with the subset with the second largest sum in another solution, and so on. This
-    // process is called differencing the solutions. The combined solution replaces the two
-    // solutions in the sequence, and we iterate this differencing operation until only one solution
-    // in the sequence remains, which is the balanced solution obtained by BLDM.
+    // Next, the algorithm selects two k-tuples from the sequence, for which the difference between
+    // the maximum and minimum subset sum is largest. These two k-tuples are combined into a new
+    // k-tuple by joining the subset with the smallest sum in one k-tuple with the subset with the
+    // largest sum in another k-tuple, the subset with the second smallest sum in one k-tuple with
+    // the subset with the second largest sum in another k-tuple, and so on. This process is called
+    // differencing the k-tuples. The combined k-tuple replaces the two k-tuples in the sequence and
+    // we iterate this differencing operation until only one k-tuple in the sequence remains, which
+    // is the final tuple produced by BLDM.
     while 1 < heap.len() {
-        let solution = heap.pop().unwrap().difference(heap.pop().unwrap());
-        heap.push(solution);
+        let tuple = heap.pop().unwrap().fold(heap.pop().unwrap());
+        heap.push(tuple);
     }
 
     heap.pop()
@@ -184,8 +184,8 @@ where
         .collect()
 }
 
-/// Reorders the items in the given iterable `iter` into `k` subsets according to the given
-/// projection `f`. The items in `iter` must be sorted according to the projection `f`, whether in
+/// Reorders the items in the given iterable `iter` into `k` subsets with respect to the given
+/// projection `f`. The items in `iter` should be sorted according to the projection `f`, whether in
 /// ascending or descending order. The resulting subsets are sorted in ascending order of their
 /// subset sums according to the projection `f`.
 ///
