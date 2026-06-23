@@ -46,10 +46,48 @@ impl<K, V> Solution<K, V> {
     where
         K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     {
+        #[inline]
+        fn pop_first<K, V>(
+            map: &mut BTreeMap<K, VecDeque<LinkedList<V>>>,
+        ) -> Option<(K, LinkedList<V>)>
+        where
+            K: Copy + Ord,
+        {
+            let mut entry = map.first_entry()?;
+
+            let sum = *entry.key();
+            let subset = entry.get_mut().pop_front().unwrap();
+
+            if entry.get().is_empty() {
+                entry.remove();
+            }
+
+            Some((sum, subset))
+        }
+
+        #[inline]
+        fn pop_last<K, V>(
+            map: &mut BTreeMap<K, VecDeque<LinkedList<V>>>,
+        ) -> Option<(K, LinkedList<V>)>
+        where
+            K: Copy + Ord,
+        {
+            let mut entry = map.last_entry()?;
+
+            let sum = *entry.key();
+            let subset = entry.get_mut().pop_back().unwrap();
+
+            if entry.get().is_empty() {
+                entry.remove();
+            }
+
+            Some((sum, subset))
+        }
+
         let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
 
-        while let Some((min, mut first)) = self.pop_first() {
-            let (max, mut last) = other.pop_last().unwrap();
+        while let Some((min, mut first)) = pop_first(&mut self.subsets) {
+            let (max, mut last) = pop_last(&mut other.subsets).unwrap();
             first.append(&mut last);
             subsets.entry(min + max).or_default().push_back(first);
         }
@@ -59,40 +97,6 @@ impl<K, V> Solution<K, V> {
         let delta = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { subsets, delta }
-    }
-
-    #[inline]
-    fn pop_first(&mut self) -> Option<(K, LinkedList<V>)>
-    where
-        K: Copy + Ord,
-    {
-        let mut entry = self.subsets.first_entry()?;
-
-        let sum = *entry.key();
-        let subset = entry.get_mut().pop_front().unwrap();
-
-        if entry.get().is_empty() {
-            entry.remove();
-        }
-
-        Some((sum, subset))
-    }
-
-    #[inline]
-    fn pop_last(&mut self) -> Option<(K, LinkedList<V>)>
-    where
-        K: Copy + Ord,
-    {
-        let mut entry = self.subsets.last_entry()?;
-
-        let sum = *entry.key();
-        let subset = entry.get_mut().pop_back().unwrap();
-
-        if entry.get().is_empty() {
-            entry.remove();
-        }
-
-        Some((sum, subset))
     }
 }
 
