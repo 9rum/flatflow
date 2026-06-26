@@ -62,11 +62,19 @@ impl<K, V> Tuple<K, V> {
         Self { subsets, spread }
     }
 
+    /// Fuses the two given k-tuples so that the produced k-tuple has an interim spread large enough
+    /// to offset the excessive spread in another k-tuple.
     #[inline]
     fn meld(mut self, other: Self, threshold: K) -> Self
     where
         K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     {
+        // The melding procedure starts with a 2k-tuple merged from the two given k-tuples.
+        //
+        // Note that [BTreeMap::merge] is not stable as of rustc 1.96.0 so here we iteratively move
+        // elements from `other` into `self`.
+        //
+        // [BTreeMap::merge]: https://doc.rust-lang.org/alloc/collections/btree_map/struct.BTreeMap.html
         for (sum, mut subsets) in other.subsets {
             self.subsets.entry(sum).or_default().append(&mut subsets);
         }
@@ -77,9 +85,15 @@ impl<K, V> Tuple<K, V> {
             let (max, mut last) = self.pop_last().unwrap();
 
             if self.subsets.is_empty() {
+                // If there are only two subsets left in the tuple, simply join the subsets and
+                // insert into the tuple.
                 first.append(&mut last);
                 subsets.entry(min + max).or_default().push_back(first);
             } else {
+                // Else then there are at least four subsets in the tuple. Here a heuristic search
+                // is adopted to avoid exhaustive search of *O*(*n^4*), finding a pair of subsets to
+                // meet the condition (v_i + v_j ) − (v_l + v_m) ≈ δ(p_1) − δ^− by scanning subsets
+                // from the two extreme ends.
                 let iter = self.subsets.iter().flat_map(|(k, v)| repeat(k).take(v.len()));
                 let rev = self.subsets.iter().rev().flat_map(|(k, v)| repeat(k).take(v.len()));
 
@@ -115,8 +129,8 @@ impl<K, V> Tuple<K, V> {
                     Entry::Vacant(_) => unreachable!(),
                 }
 
-                // FIXME: Here the line 14 of algorithm 2 in the paper is omitted; δ(p1) has to be
-                // iteratively reduced by δ−. This should be addressed for a sufficiently small `k`.
+                // FIXME: Here the line 14 of algorithm 2 is omitted; each iteration has to reduce
+                // δ(p_1) by δ^−.
             }
         }
 
@@ -272,6 +286,10 @@ where
         let second = heap.pop().unwrap();
 
         match heap.peek() {
+            // Meld deviates from BLDM’s principle of eliminating the spread whenever a pair of
+            // k-tuples is folded. When a k-tuple with excessive spread is found, the algorithm
+            // melds the next two k-tuples so that the produced spread counterbalances the largest
+            // spread.
             Some(third) if second.spread + third.spread < first.spread => {
                 let tuple = second.meld(heap.pop().unwrap(), first.spread);
                 heap.push(first.fold(tuple));
@@ -288,6 +306,12 @@ where
         .collect()
 }
 
+/// An option to select the approximate algorithm to use for balanced multi-way number partitioning.
+pub(super) enum Heuristic {
+    Meld,
+    BLDM,
+}
+
 /// Reorders the items in the given iterable `iter` into `k` subsets with respect to the given
 /// projection `f`. The items in `iter` should be sorted according to the projection `f`, whether in
 /// ascending or descending order. The resulting subsets are sorted in ascending order of their
@@ -299,18 +323,22 @@ where
 ///
 /// # Current implementation
 ///
-/// The current algorithm adopts the [balanced largest differencing method] (BLDM), which may yield
-/// partitions with a high work-difference, both when the items are distributed uniformly and when
-/// their distribution is skewed. LRM and Meld by Zhang, Mouratidis and Pang from the paper
-/// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning] can lower such spread in the
-/// respective cases.
+/// The current algorithm adopts [Meld] by default, an approximate algorithm tailored for skewed
+/// distributions. Since this algorithm has time complexity of *O*(*n^2*), the [balanced largest
+/// differencing method] (BLDM) can be used by setting `heuristic` to `Some(Heuristic::BLDM)` when
+/// the cardinality is sufficiently large or fast search is required. Note that the time complexity
+/// of BLDM is *O*(*n log n*). If `heuristic` is set to `None` or `Some(Heuristic::Meld)`, Meld is
+/// used for the partitioning.
 ///
-/// Time complexity: *O*(*n log n*)
+/// There is another approximate algorithm for balanced multi-way number partitioning; LRM by Zhang,
+/// Mouratidis and Pang from the paper [Heuristic Algorithms for Balanced Multi-Way Number
+/// Partitioning] is designed for uniform distributions with odd cardinality.
 ///
+/// [Meld]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub(super) fn partition<I, F, K, B>(iter: I, k: usize, f: F) -> B
+pub(super) fn partition<I, F, K, B>(iter: I, k: usize, f: F, heuristic: Option<Heuristic>) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
@@ -326,7 +354,10 @@ where
         n => {
             assert_ne!(k, 0);
             assert_eq!(n % k, 0);
-            bldm(iter, k, f)
+            match heuristic {
+                None | Some(Heuristic::Meld) => meld(iter, k, f),
+                Some(Heuristic::BLDM) => bldm(iter, k, f),
+            }
         }
     }
 }
@@ -416,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_partition_with_empty_items() {
-        let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size);
+        let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size, None);
         assert!(subsets.is_empty());
     }
 }
