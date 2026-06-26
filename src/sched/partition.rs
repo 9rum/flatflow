@@ -5,8 +5,9 @@
 //! [identical-machines scheduling]: https://doi.org/10.1137/0117039
 
 use core::cmp::Ordering;
-use core::iter::{empty, repeat_with};
+use core::iter::{empty, repeat, repeat_with};
 use core::ops::{Add, Sub};
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BinaryHeap, LinkedList, VecDeque};
 
 /// Auxiliary structure for the balanced largest differencing method and the Meld algorithm.
@@ -46,48 +47,10 @@ impl<K, V> Tuple<K, V> {
     where
         K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     {
-        #[inline]
-        fn pop_first<K, V>(
-            map: &mut BTreeMap<K, VecDeque<LinkedList<V>>>,
-        ) -> Option<(K, LinkedList<V>)>
-        where
-            K: Copy + Ord,
-        {
-            let mut entry = map.first_entry()?;
-
-            let sum = *entry.key();
-            let subset = entry.get_mut().pop_front().unwrap();
-
-            if entry.get().is_empty() {
-                entry.remove();
-            }
-
-            Some((sum, subset))
-        }
-
-        #[inline]
-        fn pop_last<K, V>(
-            map: &mut BTreeMap<K, VecDeque<LinkedList<V>>>,
-        ) -> Option<(K, LinkedList<V>)>
-        where
-            K: Copy + Ord,
-        {
-            let mut entry = map.last_entry()?;
-
-            let sum = *entry.key();
-            let subset = entry.get_mut().pop_back().unwrap();
-
-            if entry.get().is_empty() {
-                entry.remove();
-            }
-
-            Some((sum, subset))
-        }
-
         let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
 
-        while let Some((min, mut first)) = pop_first(&mut self.subsets) {
-            let (max, mut last) = pop_last(&mut other.subsets).unwrap();
+        while let Some((min, mut first)) = self.pop_first() {
+            let (max, mut last) = other.pop_last().unwrap();
             first.append(&mut last);
             subsets.entry(min + max).or_default().push_back(first);
         }
@@ -97,6 +60,103 @@ impl<K, V> Tuple<K, V> {
         let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { subsets, spread }
+    }
+
+    #[inline]
+    fn meld(mut self, other: Self, threshold: K) -> Self
+    where
+        K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    {
+        for (sum, mut subsets) in other.subsets {
+            self.subsets.entry(sum).or_default().append(&mut subsets);
+        }
+
+        let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+
+        while let Some((min, mut first)) = self.pop_first() {
+            let (max, mut last) = self.pop_last().unwrap();
+
+            if self.subsets.is_empty() {
+                first.append(&mut last);
+                subsets.entry(min + max).or_default().push_back(first);
+            } else {
+                let iter = self.subsets.iter().flat_map(|(k, v)| repeat(k).take(v.len()));
+                let rev = self.subsets.iter().rev().flat_map(|(k, v)| repeat(k).take(v.len()));
+
+                let (&left, &right) = iter
+                    .zip(rev)
+                    .find(|&(left, right)| threshold <= max + *left - min - *right)
+                    .unwrap_or_else(|| {
+                        (
+                            self.subsets.keys().next_back().unwrap(),
+                            self.subsets.keys().next().unwrap(),
+                        )
+                    });
+
+                match self.subsets.entry(left) {
+                    Entry::Occupied(mut entry) => {
+                        last.append(&mut entry.get_mut().pop_back().unwrap());
+                        if entry.get().is_empty() {
+                            entry.remove();
+                        }
+                        subsets.entry(max + left).or_default().push_back(last);
+                    }
+                    Entry::Vacant(_) => unreachable!(),
+                }
+
+                match self.subsets.entry(right) {
+                    Entry::Occupied(mut entry) => {
+                        first.append(&mut entry.get_mut().pop_front().unwrap());
+                        if entry.get().is_empty() {
+                            entry.remove();
+                        }
+                        subsets.entry(min + right).or_default().push_back(first);
+                    }
+                    Entry::Vacant(_) => unreachable!(),
+                }
+
+                // FIXME: Here the line 14 of algorithm 2 in the paper is omitted; δ(p1) has to be
+                // iteratively reduced by δ−. This should be addressed for a sufficiently small `k`.
+            }
+        }
+
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
+
+        Self { subsets, spread }
+    }
+
+    #[inline]
+    fn pop_first(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
+        let mut entry = self.subsets.first_entry()?;
+
+        let sum = *entry.key();
+        let subset = entry.get_mut().pop_front().unwrap();
+
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+
+        Some((sum, subset))
+    }
+
+    #[inline]
+    fn pop_last(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
+        let mut entry = self.subsets.last_entry()?;
+
+        let sum = *entry.key();
+        let subset = entry.get_mut().pop_back().unwrap();
+
+        if entry.get().is_empty() {
+            entry.remove();
+        }
+
+        Some((sum, subset))
     }
 }
 
@@ -174,6 +234,50 @@ where
     while 1 < heap.len() {
         let tuple = heap.pop().unwrap().fold(heap.pop().unwrap());
         heap.push(tuple);
+    }
+
+    heap.pop()
+        .unwrap()
+        .subsets
+        .into_values()
+        .flat_map(|subsets| subsets.into_iter().map(|subset| subset.into_iter().collect()))
+        .collect()
+}
+
+/// Partitions the items in the given iterable `iter` into `k` subsets using the Meld algorithm from
+/// the paper [Heuristic Algorithms for Balanced Multi-Way Number Partitioning], which is designed
+/// for skewed data where BLDM falls short.
+///
+/// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
+#[inline]
+fn meld<I, F, K, B>(iter: I, k: usize, f: F) -> B
+where
+    I: IntoIterator,
+    I::IntoIter: ExactSizeIterator,
+    F: Fn(&I::Item) -> K,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    B: IntoIterator + FromIterator<B::Item>,
+    B::Item: FromIterator<I::Item>,
+{
+    let mut iter = iter.into_iter();
+
+    let mut heap = BinaryHeap::with_capacity(iter.len() / k);
+
+    while 0 < iter.len() {
+        heap.push(Tuple::new(iter.by_ref().take(k), &f));
+    }
+
+    while 1 < heap.len() {
+        let first = heap.pop().unwrap();
+        let second = heap.pop().unwrap();
+
+        match heap.peek() {
+            Some(third) if second.spread + third.spread < first.spread => {
+                let tuple = second.meld(heap.pop().unwrap(), first.spread);
+                heap.push(first.fold(tuple));
+            }
+            _ => heap.push(first.fold(second)),
+        }
     }
 
     heap.pop()
@@ -271,6 +375,34 @@ mod tests {
         sizes.sort();
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
+        assert_eq!(subsets.len(), 4096);
+
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        assert!(sums.is_sorted());
+
+        let min = *sums.first().unwrap();
+        let max = *sums.last().unwrap();
+        let spread = (max - min) as f64 / min as f64;
+        println!("spread: {spread} (min: {min} max: {max})");
+    }
+
+    #[test]
+    fn test_meld_with_lognormal_distribution() {
+        const MU: f32 = 595.2844634189998;
+        const SIGMA: f32 = 952.6487919361658;
+
+        let mut rng = StdRng::seed_from_u64(0);
+        let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
+            .unwrap()
+            .sample_iter(&mut rng)
+            .filter_map(|size| {
+                if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
+            })
+            .take(32768)
+            .collect();
+        sizes.sort();
+
+        let subsets: Vec<Vec<_>> = meld(sizes, 4096, |&size| size);
         assert_eq!(subsets.len(), 4096);
 
         let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
