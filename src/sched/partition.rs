@@ -449,5 +449,10 @@ mod tests {
     fn test_partition_with_empty_items() {
         let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size, None);
         assert!(subsets.is_empty());
+
+        let subsets: Vec<Vec<usize>> = partition([], 4096, |&size| size, None);
+        assert_eq!(subsets.len(), 4096);
+
+        subsets.into_iter().for_each(|subset| assert!(subset.is_empty()));
     }
 }
