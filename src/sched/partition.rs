@@ -372,13 +372,13 @@ mod tests {
 
     #[test]
     fn test_bldm_with_uniform_distribution() {
-        let mut sizes = Vec::with_capacity(32768);
+        let mut sizes = Vec::with_capacity(65536);
         for size in 1..8193 {
-            sizes.extend([size; 4]);
+            sizes.extend([size; 8]);
         }
 
-        let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
-        assert_eq!(subsets.len(), 4096);
+        let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
+        assert_eq!(subsets.len(), 1024);
 
         let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -401,12 +401,12 @@ mod tests {
             .filter_map(|size| {
                 if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
             })
-            .take(32768)
+            .take(65536)
             .collect();
         sizes.sort();
 
-        let subsets: Vec<Vec<_>> = bldm(sizes, 4096, |&size| size);
-        assert_eq!(subsets.len(), 4096);
+        let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
+        assert_eq!(subsets.len(), 1024);
 
         let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -429,12 +429,12 @@ mod tests {
             .filter_map(|size| {
                 if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
             })
-            .take(32768)
+            .take(65536)
             .collect();
         sizes.sort();
 
-        let subsets: Vec<Vec<_>> = meld(sizes, 4096, |&size| size);
-        assert_eq!(subsets.len(), 4096);
+        let subsets: Vec<Vec<_>> = meld(sizes, 1024, |&size| size);
+        assert_eq!(subsets.len(), 1024);
 
         let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -450,8 +450,8 @@ mod tests {
         let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size, None);
         assert!(subsets.is_empty());
 
-        let subsets: Vec<Vec<usize>> = partition([], 4096, |&size| size, None);
-        assert_eq!(subsets.len(), 4096);
+        let subsets: Vec<Vec<usize>> = partition([], 1024, |&size| size, None);
+        assert_eq!(subsets.len(), 1024);
 
         subsets.into_iter().for_each(|subset| assert!(subset.is_empty()));
     }
