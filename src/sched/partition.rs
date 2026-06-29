@@ -403,7 +403,7 @@ mod tests {
             })
             .take(65536)
             .collect();
-        sizes.sort();
+        sizes.sort_unstable();
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
@@ -431,7 +431,7 @@ mod tests {
             })
             .take(65536)
             .collect();
-        sizes.sort();
+        sizes.sort_unstable();
 
         let subsets: Vec<Vec<_>> = meld(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
