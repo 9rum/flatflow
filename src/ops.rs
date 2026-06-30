@@ -17,11 +17,7 @@ use crate::polynomial;
 
 mod gcd;
 pub mod graph;
-pub use graph::Graph;
-pub use graph::GraphIter;
-pub use graph::Node;
-pub use graph::SymInt;
-pub use graph::TensorMetadata;
+pub use graph::{Graph, GraphIter, Node, SymInt, TensorMetadata};
 pub mod polynomial;
 pub use polynomial::Polynomial;
 pub mod scalar_type;
