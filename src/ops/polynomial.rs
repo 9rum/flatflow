@@ -84,15 +84,7 @@ impl Polynomial {
     /// [The Art of Computer Programming: Volume 2, Third edition, 1997]: https://dl.acm.org/doi/10.5555/270146
     /// [Methods of computing values of polynomials]: https://doi.org/10.1070%2Frm1966v021n01abeh004147
     #[inline]
-    pub fn eval<T>(&self, value: T) -> Result<i64, T::Error>
-    where
-        T: TryInto<i64>,
-    {
-        Ok(self.eval_impl(value.try_into()?))
-    }
-
-    #[inline]
-    const fn eval_impl(&self, value: i64) -> i64 {
+    pub const fn eval(&self, value: i64) -> i64 {
         self.0 + value * (self.1 + value * self.2)
     }
 }
@@ -406,18 +398,18 @@ mod tests {
     fn test_polynomial_evaluation() {
         let mut expr = polynomial!(3, 2, 1);
         expr = expr.normalized();
-        assert_eq!(expr.eval(0), Ok(0));
-        assert_eq!(expr.eval(1), Ok(3));
-        assert_eq!(expr.eval(2), Ok(8));
+        assert_eq!(expr.eval(0), 0);
+        assert_eq!(expr.eval(1), 3);
+        assert_eq!(expr.eval(2), 8);
 
         expr = polynomial!(i64::MIN, i64::MIN, i64::MIN);
         expr = expr.normalized();
-        assert_eq!(expr.eval(0), Ok(0));
-        assert_eq!(expr.eval(1), Ok(-2));
-        assert_eq!(expr.eval(2), Ok(-6));
+        assert_eq!(expr.eval(0), 0);
+        assert_eq!(expr.eval(1), -2);
+        assert_eq!(expr.eval(2), -6);
 
         expr = polynomial!();
         expr = expr.normalized();
-        assert_eq!(expr.eval(i64::MAX), Ok(0));
+        assert_eq!(expr.eval(i64::MAX), 0);
     }
 }
