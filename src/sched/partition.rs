@@ -99,7 +99,7 @@ impl<K, V> Tuple<K, V> {
 
                 let (&left, &right) = iter
                     .zip(rev)
-                    .find(|&(left, right)| threshold <= max + *left - min - *right)
+                    .find(|&(&left, &right)| threshold <= max + left - min - right)
                     .unwrap_or_else(|| {
                         (
                             self.subsets.keys().next_back().unwrap(),
