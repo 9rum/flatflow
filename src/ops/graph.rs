@@ -12,9 +12,7 @@ use flatbuffers::{
     ForwardsUOffset, InvalidFlatbuffer, SIZE_UOFFSET, UOffsetT, Vector, read_scalar, read_scalar_at,
 };
 use rayon::iter::plumbing::{Consumer, Producer, ProducerCallback, UnindexedConsumer, bridge};
-use rayon::iter::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::ops::graph_generated::{self, root_as_graph};
 use crate::ops::operator_generated::Operator;
@@ -42,7 +40,7 @@ pub struct TensorMetadata {
 impl From<graph_generated::TensorMetadata<'_>> for TensorMetadata {
     #[inline]
     fn from(meta: graph_generated::TensorMetadata<'_>) -> Self {
-        Self { dtype: meta.dtype(), shape: meta.shape().iter().map(Into::into).collect() }
+        Self { dtype: meta.dtype(), shape: meta.shape().into_iter().map(Into::into).collect() }
     }
 }
 
@@ -62,7 +60,7 @@ impl From<graph_generated::Node<'_>> for Node {
     fn from(node: graph_generated::Node<'_>) -> Self {
         Self {
             target: node.target(),
-            args: node.args().iter().map(Into::into).collect(),
+            args: node.args().into_iter().map(Into::into).collect(),
             meta: node.meta().into(),
         }
     }
@@ -179,7 +177,7 @@ impl<'a, 'b> IntoParallelIterator for &'b graph_generated::Graph<'a> {
 impl From<graph_generated::Graph<'_>> for Graph {
     #[inline]
     fn from(graph: graph_generated::Graph<'_>) -> Self {
-        Self { nodes: graph.par_iter().map(Into::into).collect() }
+        Self { nodes: graph.into_par_iter().map(Into::into).collect() }
     }
 }
 
@@ -266,11 +264,11 @@ mod tests {
         let mut builder = FlatBufferBuilder::new();
 
         let mut nodes = Vec::new();
-        for node in ffn.nodes.iter() {
+        for node in &ffn.nodes {
             let mut args = Vec::new();
-            for arg in node.args.iter() {
+            for arg in &node.args {
                 let mut shape = Vec::new();
-                for int in arg.shape.iter() {
+                for int in &arg.shape {
                     shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
                 }
                 let shape = Some(builder.create_vector(shape.as_slice()));
@@ -283,7 +281,7 @@ mod tests {
             let args = Some(builder.create_vector(args.as_slice()));
 
             let mut shape = Vec::new();
-            for int in node.meta.shape.iter() {
+            for int in &node.meta.shape {
                 shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
             }
             let shape = Some(builder.create_vector(shape.as_slice()));
