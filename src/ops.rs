@@ -11,7 +11,7 @@ use std::sync::{OnceLock, RwLock};
 use std::time::Instant;
 
 use log::info;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::polynomial;
 
@@ -1017,7 +1017,7 @@ pub fn transform(
     });
 
     let expr = graph
-        .par_iter()
+        .into_par_iter()
         .map(Node::from)
         .map(|node| registry.dispatch(node.target, node.args, node.meta))
         .reduce(Default::default, Add::add)
@@ -1038,11 +1038,11 @@ mod tests {
 
     fn serialize<'a>(builder: &'a mut FlatBufferBuilder, graph: Graph) -> &'a [u8] {
         let mut nodes = Vec::new();
-        for node in graph.nodes.iter() {
+        for node in graph.nodes {
             let mut args = Vec::new();
-            for arg in node.args.iter() {
+            for arg in node.args {
                 let mut shape = Vec::new();
-                for int in arg.shape.iter() {
+                for int in arg.shape {
                     shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
                 }
                 let shape = Some(builder.create_vector(shape.as_slice()));
@@ -1055,7 +1055,7 @@ mod tests {
             let args = Some(builder.create_vector(args.as_slice()));
 
             let mut shape = Vec::new();
-            for int in node.meta.shape.iter() {
+            for int in node.meta.shape {
                 shape.push(graph_generated::SymInt::new(&[int.0, int.1]));
             }
             let shape = Some(builder.create_vector(shape.as_slice()));
