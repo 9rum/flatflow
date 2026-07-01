@@ -15,8 +15,6 @@
 include "flatflow/ops/operator.fbs";
 include "flatflow/ops/scalar_type.fbs";
 
-namespace flatflow;
-
 /// `SymInt` records a value within the symbolic shape of a tensor.
 struct SymInt {
   data: [long:2];
@@ -40,10 +38,12 @@ table Node {
   meta:   TensorMetadata (required);
 }
 
-/// `Graph` is the main data structure for tracing a given model at the
-/// intermediate representation (IR) level. It consists of a series of `Node`s,
+/// `Graph` is the main data structure for tracing a given PyTorch program at
+/// the intermediate representation level. It consists of a series of `Node`s,
 /// each representing callsites such as opcode and the input/output shapes of
 /// the corresponding operator.
 table Graph {
   nodes: [Node] (required);
 }
+
+root_type Graph;

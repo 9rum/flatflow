@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace flatflow;
-
 /// This table defines data types to identify the precision of each tensor
-/// operation in the computational graph of a given model. It is based on
-/// c10 scalar types, while types that are planned to be deprecated including
+/// operation in the computational graph of a given PyTorch program. It is based
+/// on C10 scalar types, while types that are planned to be deprecated including
 /// qint8 and bits2x4, or types that remain for historical reasons such as
 /// complex64 are omitted.
 ///
-/// The latest version of c10 scalar types can be found at
-/// https://github.com/pytorch/pytorch/blob/main/c10/core/ScalarType.h
-/// or at https://docs.pytorch.org/docs/stable/tensors.html.
+/// The latest version of C10 scalar types can be found at
+/// https://github.com/pytorch/pytorch/blob/main/torch/headeronly/core/ScalarType.h
+/// or at https://docs.pytorch.org/docs/stable/tensor_attributes.html#torch.dtype.
 ///
 /// Note that these data types are incomplete and more data types will be added
 /// in the future.

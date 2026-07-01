@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace flatflow;
-
 /// This table defines the operator set to identify operations in the
-/// computational graph of a given model. It is based on ATen operator set,
-/// so that each entry corresponds to the basic building block in the
+/// computational graph of a given PyTorch program. It is based on ATen operator
+/// set so that each entry corresponds to the basic building block in the
 /// computational graph while ensuring compatibility with PyTorch.
 ///
 /// The latest version of ATen operator set can be found at
@@ -40,7 +38,6 @@ enum Operator: ushort {
   CAT,                 // cat
   CLONE,               // clone
   COPY,                // copy
-  COS,                 // cos
   CUMSUM,              // cumsum
   EMBEDDING,           // embedding
   EQ_SCALAR,           // eq.Scalar
@@ -65,7 +62,6 @@ enum Operator: ushort {
   RSUB_SCALAR,         // rsub.Scalar
   SCALAR_TENSOR,       // scalar_tensor
   SILU,                // silu
-  SIN,                 // sin
   SLICE_TENSOR,        // slice.Tensor
   SLICE_SCATTER,       // slice_scatter
   SPLIT_TENSOR,        // split.Tensor
