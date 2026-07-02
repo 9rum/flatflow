@@ -43,8 +43,9 @@ impl From<&str> for Policy {
     }
 }
 
-#[inline]
 fn sched_unstable_joint(
+    indices: &mut [usize],
+    sizes: &[i64],
     buf: &[u8],
     tensor_parallel_world_size: i64,
     context_parallel_world_size: i64,
@@ -52,46 +53,102 @@ fn sched_unstable_joint(
     data_parallel_rank: usize,
     global_batch_size: usize,
     micro_batch_size: usize,
-    mut indices: Vec<usize>,
-    sizes: Vec<i64>,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
     assert_ne!(global_batch_size, 0);
-    assert_ne!(data_parallel_world_size, 0);
-    assert_eq!(global_batch_size % data_parallel_world_size, 0);
-    let per_replica_batch_size = global_batch_size / data_parallel_world_size;
 
-    assert_eq!(per_replica_batch_size % micro_batch_size, 0);
-    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+    match indices.len() % global_batch_size {
+        0 => {
+            assert_ne!(data_parallel_world_size, 0);
+            assert_eq!(global_batch_size % data_parallel_world_size, 0);
+            let per_replica_batch_size = global_batch_size / data_parallel_world_size;
+            assert_ne!(micro_batch_size, 0);
+            let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
 
-    let proj =
-        transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
+            let proj = transform(
+                root_as_graph(buf)?,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+            );
 
-    // Partition the given indices in a memory-balanced manner so that the number of tokens in each
-    // batch is as uniform as possible, thereby preventing devices from running out of memory while
-    // promoting stable convergence.
-    indices.sort_unstable_by_key(|&index| sizes[index]);
-    let n_batches = indices.len() / per_replica_batch_size;
-    let mut batches: Vec<Vec<_>> = partition(indices, n_batches, |&index| sizes[index], None);
+            // Partition the given indices in a memory-balanced manner so that the number of tokens
+            // in each batch is as uniform as possible, thereby preventing devices from running out
+            // of memory while promoting stable convergence.
+            indices.sort_unstable_by_key(|&index| sizes[index]);
+            let n_batches = indices.len() / per_replica_batch_size;
+            let mut batches: Vec<Vec<_>> =
+                partition(indices.iter().copied(), n_batches, |&index| sizes[index], None);
 
-    // Sort batches in order to reduce synchronization latency across pipelines.
-    batches.sort_unstable_by_key(|batch| {
-        let sum: i64 = batch.iter().map(|&index| proj(sizes[index])).sum();
-        sum
-    });
-    let batches: Vec<_> =
-        batches.into_iter().skip(data_parallel_rank).step_by(data_parallel_world_size).collect();
+            // Sort batches in order to reduce synchronization latency across pipelines.
+            batches.sort_unstable_by_key(|batch| {
+                let sum: i64 = batch.iter().map(|&index| proj(sizes[index])).sum();
+                sum
+            });
+            let batches: Vec<_> = batches
+                .into_iter()
+                .skip(data_parallel_rank)
+                .step_by(data_parallel_world_size)
+                .collect();
 
-    // Partition each batch into micro-batches so that any earlier micro-batch takes less execution
-    // time than subsequent ones to reduce pipeline bubbles.
-    let indices = batches
-        .into_par_iter()
-        .flat_map_iter(|mut batch| {
-            batch.sort_unstable_by_key(|&index| proj(sizes[index]));
-            let micro_batches: Vec<Vec<_>> =
-                partition(batch, gradient_accumulation_steps, |&index| proj(sizes[index]), None);
-            micro_batches.into_iter().flatten()
-        })
-        .collect();
+            // Partition each batch into micro-batches so that any earlier micro-batch takes less
+            // execution time than subsequent ones to reduce pipeline bubbles.
+            let indices = batches
+                .into_par_iter()
+                .flat_map_iter(|mut batch| {
+                    batch.sort_unstable_by_key(|&index| proj(sizes[index]));
+                    match per_replica_batch_size % micro_batch_size {
+                        0 => {
+                            let micro_batches: Vec<Vec<_>> = partition(
+                                batch,
+                                gradient_accumulation_steps,
+                                |&index| proj(sizes[index]),
+                                None,
+                            );
+                            micro_batches.into_iter().flatten()
+                        }
+                        last_micro_batch_size => {
+                            let last_micro_batch =
+                                batch.split_off(per_replica_batch_size - last_micro_batch_size);
+                            let mut micro_batches: Vec<Vec<_>> = partition(
+                                batch,
+                                gradient_accumulation_steps,
+                                |&index| proj(sizes[index]),
+                                None,
+                            );
+                            micro_batches.push(last_micro_batch);
+                            micro_batches.into_iter().flatten()
+                        }
+                    }
+                })
+                .collect();
 
-    Ok(indices)
+            Ok(indices)
+        }
+        last_global_batch_size => {
+            let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
+            let mut batches = sched_unstable_joint(
+                left,
+                sizes,
+                buf,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+                data_parallel_world_size,
+                data_parallel_rank,
+                global_batch_size,
+                micro_batch_size,
+            )?;
+            let mut last_batch = sched_unstable_joint(
+                right,
+                sizes,
+                buf,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+                data_parallel_world_size,
+                data_parallel_rank,
+                last_global_batch_size,
+                micro_batch_size,
+            )?;
+            batches.append(&mut last_batch);
+            Ok(batches)
+        }
+    }
 }
