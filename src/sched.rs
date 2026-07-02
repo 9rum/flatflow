@@ -55,14 +55,13 @@ fn sched_unstable_joint(
     mut indices: Vec<usize>,
     sizes: Vec<i64>,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
-    assert_eq!(indices.len(), sizes.len());
     assert_ne!(global_batch_size, 0);
     assert_ne!(data_parallel_world_size, 0);
     assert_eq!(global_batch_size % data_parallel_world_size, 0);
     let per_replica_batch_size = global_batch_size / data_parallel_world_size;
 
     assert_eq!(per_replica_batch_size % micro_batch_size, 0);
-    let grad_acc_steps = per_replica_batch_size / micro_batch_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
 
     let proj =
         transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
@@ -89,7 +88,7 @@ fn sched_unstable_joint(
         .flat_map_iter(|mut batch| {
             batch.sort_unstable_by_key(|&index| proj(sizes[index]));
             let micro_batches: Vec<Vec<_>> =
-                partition(batch, grad_acc_steps, |&index| proj(sizes[index]), None);
+                partition(batch, gradient_accumulation_steps, |&index| proj(sizes[index]), None);
             micro_batches.into_iter().flatten()
         })
         .collect();
