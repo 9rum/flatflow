@@ -3,6 +3,8 @@
 //! The scheduler is the main component of FlatFlow that decides which data samples will be batched
 //! together and the execution order of those micro-batches.
 
+use core::iter::once;
+
 use flatbuffers::InvalidFlatbuffer;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -74,9 +76,12 @@ fn sched_unstable_joint(
             // in each batch is as uniform as possible, thereby preventing devices from running out
             // of memory while promoting stable convergence.
             indices.sort_unstable_by_key(|&index| sizes[index]);
-            let n_batches = indices.len() / per_replica_batch_size;
-            let mut batches: Vec<Vec<_>> =
-                partition(indices.iter().copied(), n_batches, |&index| sizes[index], None);
+            let mut batches: Vec<Vec<_>> = partition(
+                indices.iter().copied(),
+                indices.len() / per_replica_batch_size,
+                |&index| sizes[index],
+                None,
+            );
 
             // Sort batches in order to reduce synchronization latency across pipelines.
             batches.sort_unstable_by_key(|batch| {
@@ -95,29 +100,17 @@ fn sched_unstable_joint(
                 .into_par_iter()
                 .flat_map_iter(|mut batch| {
                     batch.sort_unstable_by_key(|&index| proj(sizes[index]));
-                    match per_replica_batch_size % micro_batch_size {
-                        0 => {
-                            let micro_batches: Vec<Vec<_>> = partition(
-                                batch,
-                                gradient_accumulation_steps,
-                                |&index| proj(sizes[index]),
-                                None,
-                            );
-                            micro_batches.into_iter().flatten()
-                        }
-                        last_micro_batch_size => {
-                            let last_micro_batch =
-                                batch.split_off(per_replica_batch_size - last_micro_batch_size);
-                            let mut micro_batches: Vec<Vec<_>> = partition(
-                                batch,
-                                gradient_accumulation_steps,
-                                |&index| proj(sizes[index]),
-                                None,
-                            );
-                            micro_batches.push(last_micro_batch);
-                            micro_batches.into_iter().flatten()
-                        }
-                    }
+
+                    let last_micro_batch = batch.split_off(
+                        per_replica_batch_size - per_replica_batch_size % micro_batch_size,
+                    );
+                    let micro_batches: Vec<Vec<_>> = partition(
+                        batch,
+                        gradient_accumulation_steps,
+                        |&index| proj(sizes[index]),
+                        None,
+                    );
+                    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
                 })
                 .collect();
 
