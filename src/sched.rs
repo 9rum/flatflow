@@ -4,11 +4,14 @@
 //! together and the execution order of those micro-batches.
 
 use core::iter::once;
+use std::time::Instant;
 
 use flatbuffers::InvalidFlatbuffer;
+use log::info;
 use pyo3::exceptions::PyValueError;
 use pyo3::{PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use scopeguard::defer;
 
 use crate::ops::{root_as_graph, transform};
 
@@ -61,6 +64,18 @@ pub fn sched_unstable(
     micro_batch_size: usize,
     policy: &str,
 ) -> PyResult<Vec<usize>> {
+    assert_ne!(data_parallel_world_size, 0);
+    assert_eq!(indices.len() % data_parallel_world_size, 0);
+    assert_ne!(micro_batch_size, 0);
+
+    let now = Instant::now();
+    let num_samples = indices.len() / data_parallel_world_size;
+    defer!(info!(
+        "Reordering {} micro-batches took {:?}",
+        ((num_samples - 1) / micro_batch_size + 1) * data_parallel_world_size,
+        now.elapsed()
+    ));
+
     let mut indices = indices;
 
     match policy.into() {
@@ -96,10 +111,8 @@ fn sched_unstable_joint(
 
     match indices.len() % global_batch_size {
         0 => {
-            assert_ne!(data_parallel_world_size, 0);
             assert_eq!(global_batch_size % data_parallel_world_size, 0);
             let per_replica_batch_size = global_batch_size / data_parallel_world_size;
-            assert_ne!(micro_batch_size, 0);
             let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
 
             let proj = transform(
@@ -137,9 +150,8 @@ fn sched_unstable_joint(
                 .flat_map_iter(|mut batch| {
                     batch.sort_unstable_by_key(|&index| proj(sizes[index]));
 
-                    let last_micro_batch = batch.split_off(
-                        per_replica_batch_size - per_replica_batch_size % micro_batch_size,
-                    );
+                    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+                    let last_micro_batch = batch.split_off(batch.len() - last_micro_batch_size);
                     let micro_batches: Vec<Vec<_>> = partition(
                         batch,
                         gradient_accumulation_steps,
