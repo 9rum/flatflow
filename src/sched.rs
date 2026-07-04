@@ -6,6 +6,8 @@
 use core::iter::once;
 
 use flatbuffers::InvalidFlatbuffer;
+use pyo3::exceptions::PyValueError;
+use pyo3::{PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::ops::{root_as_graph, transform};
@@ -43,6 +45,40 @@ impl From<&str> for Policy {
             _ => unreachable!(),
         }
     }
+}
+
+#[pyfunction]
+#[inline]
+pub fn sched_unstable(
+    indices: Vec<usize>,
+    sizes: Vec<i64>,
+    buf: &[u8],
+    tensor_parallel_world_size: i64,
+    context_parallel_world_size: i64,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    global_batch_size: usize,
+    micro_batch_size: usize,
+    policy: &str,
+) -> PyResult<Vec<usize>> {
+    let mut indices = indices;
+
+    match policy.into() {
+        Policy::Joint => sched_unstable_joint(
+            indices.as_mut_slice(),
+            sizes.as_slice(),
+            buf,
+            tensor_parallel_world_size,
+            context_parallel_world_size,
+            data_parallel_world_size,
+            data_parallel_rank,
+            global_batch_size,
+            micro_batch_size,
+        ),
+        Policy::Fast => todo!(),
+        Policy::Mem => todo!(),
+    }
+    .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
 fn sched_unstable_joint(
