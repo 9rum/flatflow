@@ -16,7 +16,7 @@ use scopeguard::defer;
 use crate::ops::{root_as_graph, transform};
 
 mod partition;
-use partition::partition;
+use partition::{Heuristic, partition};
 
 /// Scheduling policy to select the scheduling objectives. The default policy is `Joint`.
 ///
@@ -117,8 +117,12 @@ fn sched_joint(
     // Partition the given indices in a memory-balanced manner so that the number of tokens in each
     // batch is as uniform as possible.
     indices.sort_unstable_by_key(|&index| sizes[index]);
-    let batches: Vec<Vec<_>> =
-        partition(indices.iter().copied(), data_parallel_world_size, |&index| sizes[index], None);
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        data_parallel_world_size,
+        |&index| sizes[index],
+        Some(Heuristic::Meld),
+    );
 
     let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
     batch.sort_unstable_by_key(|&index| proj(sizes[index]));
@@ -127,8 +131,12 @@ fn sched_joint(
     // time than subsequent ones to reduce pipeline bubbles.
     let last_micro_batch_size = batch.len() % micro_batch_size;
     let last_micro_batch = batch.split_off(batch.len() - last_micro_batch_size);
-    let micro_batches: Vec<Vec<_>> =
-        partition(batch, gradient_accumulation_steps, |&index| proj(sizes[index]), None);
+    let micro_batches: Vec<Vec<_>> = partition(
+        batch,
+        gradient_accumulation_steps,
+        |&index| proj(sizes[index]),
+        Some(Heuristic::Meld),
+    );
 
     Ok(micro_batches.into_iter().chain(once(last_micro_batch)).flatten().collect())
 }
@@ -212,7 +220,7 @@ fn sched_unstable_joint(
                 indices.iter().copied(),
                 indices.len() / per_replica_batch_size,
                 |&index| sizes[index],
-                None,
+                Some(Heuristic::Meld),
             );
 
             // Sort batches in order to reduce synchronization latency across pipelines.
@@ -239,7 +247,7 @@ fn sched_unstable_joint(
                         batch,
                         gradient_accumulation_steps,
                         |&index| proj(sizes[index]),
-                        None,
+                        Some(Heuristic::Meld),
                     );
                     micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
                 })

@@ -309,6 +309,7 @@ where
 /// An option to select the approximate algorithm to use for balanced multi-way number partitioning.
 pub(super) enum Heuristic {
     Meld,
+    #[allow(dead_code)]
     BLDM,
 }
 
