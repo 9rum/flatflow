@@ -8,9 +8,9 @@ use std::time::Instant;
 
 use flatbuffers::InvalidFlatbuffer;
 use log::info;
-use numpy::{PyArrayMethods, PyReadonlyArray1, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArray1, PyArrayMethods, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::PyValueError;
-use pyo3::{PyResult, pyfunction};
+use pyo3::{Bound, PyResult, Python, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use scopeguard::defer;
 
@@ -54,6 +54,7 @@ impl From<&str> for Policy {
 #[pyfunction]
 #[inline]
 pub fn sched<'py>(
+    py: Python<'py>,
     indices: PyReadonlyArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
@@ -64,7 +65,7 @@ pub fn sched<'py>(
     global_batch_size: usize,
     micro_batch_size: usize,
     policy: &str,
-) -> PyResult<Vec<usize>> {
+) -> PyResult<Bound<'py, PyArray1<usize>>> {
     assert_ne!(data_parallel_world_size, 0);
     assert_eq!(indices.len() % data_parallel_world_size, 0);
     assert_ne!(micro_batch_size, 0);
@@ -92,6 +93,7 @@ pub fn sched<'py>(
         Policy::Fast => todo!(),
         Policy::Mem => todo!(),
     }
+    .map(|indices| indices.into_pyarray(py))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
@@ -143,6 +145,7 @@ fn sched_joint(
 #[pyfunction]
 #[inline]
 pub fn sched_unstable<'py>(
+    py: Python<'py>,
     indices: PyReadonlyArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
@@ -153,7 +156,7 @@ pub fn sched_unstable<'py>(
     global_batch_size: usize,
     micro_batch_size: usize,
     policy: &str,
-) -> PyResult<Vec<usize>> {
+) -> PyResult<Bound<'py, PyArray1<usize>>> {
     assert_ne!(data_parallel_world_size, 0);
     assert_eq!(indices.len() % data_parallel_world_size, 0);
     assert_ne!(micro_batch_size, 0);
@@ -181,6 +184,7 @@ pub fn sched_unstable<'py>(
         Policy::Fast => todo!(),
         Policy::Mem => todo!(),
     }
+    .map(|indices| indices.into_pyarray(py))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
