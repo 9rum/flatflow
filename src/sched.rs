@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use flatbuffers::InvalidFlatbuffer;
 use log::info;
+use numpy::{PyArrayMethods, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::PyValueError;
 use pyo3::{PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -52,9 +53,9 @@ impl From<&str> for Policy {
 
 #[pyfunction]
 #[inline]
-pub fn sched(
-    indices: Vec<usize>,
-    sizes: Vec<i64>,
+pub fn sched<'py>(
+    indices: PyReadonlyArray1<'py, usize>,
+    sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
     tensor_parallel_world_size: i64,
     context_parallel_world_size: i64,
@@ -76,12 +77,10 @@ pub fn sched(
         now.elapsed()
     ));
 
-    let mut indices = indices;
-
     match policy.into() {
         Policy::Joint => sched_joint(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
+            unsafe { indices.as_slice_mut() }?,
+            sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
             context_parallel_world_size,
@@ -143,9 +142,9 @@ fn sched_joint(
 
 #[pyfunction]
 #[inline]
-pub fn sched_unstable(
-    indices: Vec<usize>,
-    sizes: Vec<i64>,
+pub fn sched_unstable<'py>(
+    indices: PyReadonlyArray1<'py, usize>,
+    sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
     tensor_parallel_world_size: i64,
     context_parallel_world_size: i64,
@@ -167,12 +166,10 @@ pub fn sched_unstable(
         now.elapsed()
     ));
 
-    let mut indices = indices;
-
     match policy.into() {
         Policy::Joint => sched_unstable_joint(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
+            unsafe { indices.as_slice_mut() }?,
+            sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
             context_parallel_world_size,
