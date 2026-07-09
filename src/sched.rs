@@ -10,7 +10,7 @@ use flatbuffers::InvalidFlatbuffer;
 use log::info;
 use numpy::{IntoPyArray, PyArray1, PyArrayMethods, PyReadonlyArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::PyValueError;
-use pyo3::{Bound, PyResult, Python, pyfunction};
+use pyo3::{Bound, PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use scopeguard::defer;
 
@@ -51,10 +51,30 @@ impl From<&str> for Policy {
     }
 }
 
+/// Reorders the given computation schedule `indices` for the next training step.
+///
+/// This scheduler is stable; i.e., does not affect the resulting checkpoint by iteratively
+/// reordering the training sequence at the granularity of mini-batch, which we call *iterative
+/// reordering*.
+///
+/// When applicable, unstable scheduling is preferred because stable scheduling may produce somewhat
+/// suboptimal training performance due to the constraints in optimization scope. See
+/// [`sched_unstable`](sched::sched_unstable).
+///
+/// `sched` returns an error if the given serialized computational graph `buf` is invalid or if the
+/// given array `indices` or `sizes` is not contiguous.
+///
+/// # Scheduling policies
+///
+/// There are several scheduling policies and one of them can be selected via `policy`. See
+/// [`Policy`](sched::Policy) for the descriptions for each.
+///
+/// # Panics
+///
+/// May panic if the given arguments are invalid.
 #[pyfunction]
 #[inline]
 pub fn sched<'py>(
-    py: Python<'py>,
     indices: PyReadonlyArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
@@ -93,7 +113,7 @@ pub fn sched<'py>(
         Policy::Fast => todo!(),
         Policy::Mem => todo!(),
     }
-    .map(|indices| indices.into_pyarray(py))
+    .map(|batch| batch.into_pyarray(indices.py()))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
@@ -142,10 +162,26 @@ fn sched_joint(
     Ok(micro_batches.into_iter().chain(once(last_micro_batch)).flatten().collect())
 }
 
+/// Reorders the given computation schedule `indices` for the next training epoch.
+///
+/// This scheduler is unstable; i.e., does not preserve the resulting checkpoint. If it is important
+/// to preserve the resulting checkpoint or if the batch size is sufficiently large, consider using
+/// the stable counterpart [`sched`](sched::sched).
+///
+/// `sched_unstable` returns an error if the given serialized computational graph `buf` is invalid
+/// or if the given array `indices` or `sizes` is not contiguous.
+///
+/// # Scheduling policies
+///
+/// There are several scheduling policies and one of them can be selected via `policy`. See
+/// [`Policy`](sched::Policy) for the descriptions for each.
+///
+/// # Panics
+///
+/// May panic if the given arguments are invalid.
 #[pyfunction]
 #[inline]
 pub fn sched_unstable<'py>(
-    py: Python<'py>,
     indices: PyReadonlyArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
@@ -184,7 +220,7 @@ pub fn sched_unstable<'py>(
         Policy::Fast => todo!(),
         Policy::Mem => todo!(),
     }
-    .map(|indices| indices.into_pyarray(py))
+    .map(|batches| batches.into_pyarray(indices.py()))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
