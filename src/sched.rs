@@ -118,6 +118,7 @@ pub fn sched<'py>(
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
+#[inline]
 fn sched_joint(
     indices: &mut [usize],
     sizes: &[i64],
@@ -221,7 +222,17 @@ pub fn sched_unstable<'py>(
             global_batch_size,
             micro_batch_size,
         ),
-        Policy::Fast => todo!(),
+        Policy::Fast => sched_unstable_fast(
+            unsafe { indices.as_slice_mut() }?,
+            sizes.as_slice()?,
+            buf,
+            tensor_parallel_world_size,
+            context_parallel_world_size,
+            data_parallel_world_size,
+            data_parallel_rank,
+            global_batch_size,
+            micro_batch_size,
+        ),
         Policy::Mem => todo!(),
     }
     .map(|batches| batches.into_pyarray(indices.py()))
@@ -310,6 +321,94 @@ fn sched_unstable_joint(
                 micro_batch_size,
             )?;
             let mut last_batch = sched_unstable_joint(
+                right,
+                sizes,
+                buf,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+                data_parallel_world_size,
+                data_parallel_rank,
+                last_global_batch_size,
+                micro_batch_size,
+            )?;
+            batches.append(&mut last_batch);
+            Ok(batches)
+        }
+    }
+}
+
+fn sched_unstable_fast(
+    indices: &mut [usize],
+    sizes: &[i64],
+    buf: &[u8],
+    tensor_parallel_world_size: i64,
+    context_parallel_world_size: i64,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    global_batch_size: usize,
+    micro_batch_size: usize,
+) -> Result<Vec<usize>, InvalidFlatbuffer> {
+    assert_ne!(global_batch_size, 0);
+
+    match indices.len() % global_batch_size {
+        0 => {
+            assert_eq!(global_batch_size % data_parallel_world_size, 0);
+            let per_replica_batch_size = global_batch_size / data_parallel_world_size;
+            let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+
+            let proj = transform(
+                root_as_graph(buf)?,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+            );
+
+            indices.sort_unstable_by_key(|&index| proj(sizes[index]));
+            let shards: Vec<Vec<_>> = partition(
+                indices.iter().copied(),
+                indices.len() / per_replica_batch_size,
+                |&index| proj(sizes[index]),
+                Some(Heuristic::Meld),
+            );
+
+            let shards: Vec<_> = shards
+                .into_iter()
+                .skip(data_parallel_rank)
+                .step_by(data_parallel_world_size)
+                .collect();
+
+            let batches = shards
+                .into_par_iter()
+                .flat_map_iter(|mut shard| {
+                    shard.sort_unstable_by_key(|&index| proj(sizes[index]));
+
+                    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+                    let last_micro_batch = shard.split_off(shard.len() - last_micro_batch_size);
+                    let micro_batches: Vec<Vec<_>> = partition(
+                        shard,
+                        gradient_accumulation_steps,
+                        |&index| proj(sizes[index]),
+                        Some(Heuristic::Meld),
+                    );
+                    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
+                })
+                .collect();
+
+            Ok(batches)
+        }
+        last_global_batch_size => {
+            let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
+            let mut batches = sched_unstable_fast(
+                left,
+                sizes,
+                buf,
+                tensor_parallel_world_size,
+                context_parallel_world_size,
+                data_parallel_world_size,
+                data_parallel_rank,
+                global_batch_size,
+                micro_batch_size,
+            )?;
+            let mut last_batch = sched_unstable_fast(
                 right,
                 sizes,
                 buf,
