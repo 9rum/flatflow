@@ -12,6 +12,7 @@ use numpy::{IntoPyArray, PyArray1, PyArrayMethods, PyReadonlyArray1, PyUntypedAr
 use pyo3::exceptions::PyValueError;
 use pyo3::{Bound, PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::slice::ParallelSliceMut;
 use scopeguard::defer;
 
 use crate::ops::{root_as_graph, transform};
@@ -51,7 +52,7 @@ impl From<&str> for Policy {
     }
 }
 
-/// Reorders the given computation schedule `indices` for the next training step.
+/// Reorders the given computation schedule `indices` for the next training epoch.
 ///
 /// This scheduler is stable; i.e., does not affect the resulting checkpoint by iteratively
 /// reordering the training sequence at the granularity of mini-batch, which we call *iterative
@@ -113,7 +114,7 @@ pub fn sched<'py>(
         Policy::Fast => todo!(),
         Policy::Mem => todo!(),
     }
-    .map(|batch| batch.into_pyarray(indices.py()))
+    .map(|batches| batches.into_pyarray(indices.py()))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
@@ -128,38 +129,41 @@ fn sched_joint(
     global_batch_size: usize,
     micro_batch_size: usize,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
-    assert_eq!(global_batch_size % data_parallel_world_size, 0);
-    let per_replica_batch_size = global_batch_size / data_parallel_world_size;
-    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
-
     let proj =
         transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
-    // Partition the given indices in a memory-balanced manner so that the number of tokens in each
-    // batch is as uniform as possible.
-    indices.sort_unstable_by_key(|&index| sizes[index]);
-    let batches: Vec<Vec<_>> = partition(
-        indices.iter().copied(),
-        data_parallel_world_size,
-        |&index| sizes[index],
-        Some(Heuristic::Meld),
-    );
+    let batches = indices
+        .par_chunks_mut(global_batch_size)
+        .flat_map_iter(|batch| {
+            // Partition the given batch in a memory-balanced manner so that the number of tokens in
+            // each replica is as uniform as possible.
+            batch.sort_unstable_by_key(|&index| sizes[index]);
+            let shards: Vec<Vec<_>> = partition(
+                batch.iter().copied(),
+                data_parallel_world_size,
+                |&index| sizes[index],
+                Some(Heuristic::Meld),
+            );
 
-    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
-    batch.sort_unstable_by_key(|&index| proj(sizes[index]));
+            let mut shard = shards.into_iter().nth(data_parallel_rank).unwrap();
+            shard.sort_unstable_by_key(|&index| proj(sizes[index]));
 
-    // Partition the batch into micro-batches so that any earlier micro-batch takes less execution
-    // time than subsequent ones to reduce pipeline bubbles.
-    let last_micro_batch_size = batch.len() % micro_batch_size;
-    let last_micro_batch = batch.split_off(batch.len() - last_micro_batch_size);
-    let micro_batches: Vec<Vec<_>> = partition(
-        batch,
-        gradient_accumulation_steps,
-        |&index| proj(sizes[index]),
-        Some(Heuristic::Meld),
-    );
+            // Partition the batch into micro-batches so that any earlier micro-batch takes less
+            // execution time than subsequent ones to reduce pipeline bubbles.
+            let gradient_accumulation_steps = shard.len() / micro_batch_size;
+            let last_micro_batch_size = shard.len() % micro_batch_size;
+            let last_micro_batch = shard.split_off(shard.len() - last_micro_batch_size);
+            let micro_batches: Vec<Vec<_>> = partition(
+                shard,
+                gradient_accumulation_steps,
+                |&index| proj(sizes[index]),
+                Some(Heuristic::Meld),
+            );
+            micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
+        })
+        .collect();
 
-    Ok(micro_batches.into_iter().chain(once(last_micro_batch)).flatten().collect())
+    Ok(batches)
 }
 
 /// Reorders the given computation schedule `indices` for the next training epoch.
@@ -253,7 +257,7 @@ fn sched_unstable_joint(
             // in each batch is as uniform as possible, thereby preventing devices from running out
             // of memory while promoting stable convergence.
             indices.sort_unstable_by_key(|&index| sizes[index]);
-            let mut batches: Vec<Vec<_>> = partition(
+            let mut shards: Vec<Vec<_>> = partition(
                 indices.iter().copied(),
                 indices.len() / per_replica_batch_size,
                 |&index| sizes[index],
@@ -261,11 +265,11 @@ fn sched_unstable_joint(
             );
 
             // Sort batches in order to reduce synchronization latency across pipelines.
-            batches.sort_unstable_by_key(|batch| {
-                let sum: i64 = batch.iter().map(|&index| proj(sizes[index])).sum();
+            shards.sort_unstable_by_key(|shard| {
+                let sum: i64 = shard.iter().map(|&index| proj(sizes[index])).sum();
                 sum
             });
-            let batches: Vec<_> = batches
+            let shards: Vec<_> = shards
                 .into_iter()
                 .skip(data_parallel_rank)
                 .step_by(data_parallel_world_size)
@@ -273,15 +277,15 @@ fn sched_unstable_joint(
 
             // Partition each batch into micro-batches so that any earlier micro-batch takes less
             // execution time than subsequent ones to reduce pipeline bubbles.
-            let indices = batches
+            let batches = shards
                 .into_par_iter()
-                .flat_map_iter(|mut batch| {
-                    batch.sort_unstable_by_key(|&index| proj(sizes[index]));
+                .flat_map_iter(|mut shard| {
+                    shard.sort_unstable_by_key(|&index| proj(sizes[index]));
 
                     let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
-                    let last_micro_batch = batch.split_off(batch.len() - last_micro_batch_size);
+                    let last_micro_batch = shard.split_off(shard.len() - last_micro_batch_size);
                     let micro_batches: Vec<Vec<_>> = partition(
-                        batch,
+                        shard,
                         gradient_accumulation_steps,
                         |&index| proj(sizes[index]),
                         Some(Heuristic::Meld),
@@ -290,7 +294,7 @@ fn sched_unstable_joint(
                 })
                 .collect();
 
-            Ok(indices)
+            Ok(batches)
         }
         last_global_batch_size => {
             let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
