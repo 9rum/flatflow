@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use flatbuffers::InvalidFlatbuffer;
 use log::info;
-use numpy::{IntoPyArray, PyArray1, PyArrayMethods, PyReadonlyArray1, PyUntypedArrayMethods};
+use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, PyReadwriteArray1, PyUntypedArrayMethods};
 use pyo3::exceptions::PyValueError;
 use pyo3::{Bound, PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -74,9 +74,8 @@ impl From<&str> for Policy {
 ///
 /// May panic if the given arguments are invalid.
 #[pyfunction]
-#[inline]
 pub fn sched<'py>(
-    indices: PyReadonlyArray1<'py, usize>,
+    mut indices: PyReadwriteArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
     tensor_parallel_world_size: i64,
@@ -101,7 +100,7 @@ pub fn sched<'py>(
 
     match policy.into() {
         Policy::Joint => sched_joint(
-            unsafe { indices.as_slice_mut() }?,
+            indices.as_slice_mut()?,
             sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
@@ -112,7 +111,7 @@ pub fn sched<'py>(
             micro_batch_size,
         ),
         Policy::Fast => sched_fast(
-            unsafe { indices.as_slice_mut() }?,
+            indices.as_slice_mut()?,
             sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
@@ -240,9 +239,8 @@ fn sched_fast(
 ///
 /// May panic if the given arguments are invalid.
 #[pyfunction]
-#[inline]
 pub fn sched_unstable<'py>(
-    indices: PyReadonlyArray1<'py, usize>,
+    mut indices: PyReadwriteArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
     buf: &[u8],
     tensor_parallel_world_size: i64,
@@ -267,7 +265,7 @@ pub fn sched_unstable<'py>(
 
     match policy.into() {
         Policy::Joint => sched_unstable_joint(
-            unsafe { indices.as_slice_mut() }?,
+            indices.as_slice_mut()?,
             sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
@@ -278,7 +276,7 @@ pub fn sched_unstable<'py>(
             micro_batch_size,
         ),
         Policy::Fast => sched_unstable_fast(
-            unsafe { indices.as_slice_mut() }?,
+            indices.as_slice_mut()?,
             sizes.as_slice()?,
             buf,
             tensor_parallel_world_size,
