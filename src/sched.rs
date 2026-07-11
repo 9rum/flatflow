@@ -98,37 +98,24 @@ pub fn sched<'py>(
         now.elapsed()
     ));
 
-    match policy.into() {
-        Policy::Joint => sched_joint(
-            indices.as_slice_mut()?,
-            sizes.as_slice()?,
-            buf,
-            tensor_parallel_world_size,
-            context_parallel_world_size,
-            data_parallel_world_size,
-            data_parallel_rank,
-            global_batch_size,
-            micro_batch_size,
-        ),
-        Policy::Fast => sched_fast(
-            indices.as_slice_mut()?,
-            sizes.as_slice()?,
-            buf,
-            tensor_parallel_world_size,
-            context_parallel_world_size,
-            data_parallel_world_size,
-            data_parallel_rank,
-            global_batch_size,
-            micro_batch_size,
-        ),
-        Policy::Mem => todo!(),
-    }
+    sched_impl(
+        indices.as_slice_mut()?,
+        sizes.as_slice()?,
+        buf,
+        tensor_parallel_world_size,
+        context_parallel_world_size,
+        data_parallel_world_size,
+        data_parallel_rank,
+        global_batch_size,
+        micro_batch_size,
+        policy,
+    )
     .map(|batches| batches.into_pyarray(indices.py()))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
 #[inline]
-fn sched_joint(
+fn sched_impl(
     indices: &mut [usize],
     sizes: &[i64],
     buf: &[u8],
@@ -138,87 +125,123 @@ fn sched_joint(
     data_parallel_rank: usize,
     global_batch_size: usize,
     micro_batch_size: usize,
+    policy: &str,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
-    let proj =
-        transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
+    let f = transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
-    let batches = indices
-        .par_chunks_mut(global_batch_size)
-        .flat_map_iter(|batch| {
-            // Partition the given batch in a memory-balanced manner so that the number of tokens in
-            // each replica is as uniform as possible.
-            batch.sort_unstable_by_key(|&index| sizes[index]);
-            let shards: Vec<Vec<_>> = partition(
-                batch.iter().copied(),
-                data_parallel_world_size,
-                |&index| sizes[index],
-                Some(Heuristic::Meld),
-            );
-
-            let mut shard = shards.into_iter().nth(data_parallel_rank).unwrap();
-            shard.sort_unstable_by_key(|&index| proj(sizes[index]));
-
-            // Partition the batch into micro-batches so that any earlier micro-batch takes less
-            // execution time than subsequent ones to reduce pipeline bubbles.
-            let gradient_accumulation_steps = shard.len() / micro_batch_size;
-            let last_micro_batch_size = shard.len() % micro_batch_size;
-            let last_micro_batch = shard.split_off(shard.len() - last_micro_batch_size);
-            let micro_batches: Vec<Vec<_>> = partition(
-                shard,
-                gradient_accumulation_steps,
-                |&index| proj(sizes[index]),
-                Some(Heuristic::Meld),
-            );
-            micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
-        })
-        .collect();
+    let batches = match policy.into() {
+        Policy::Joint => indices
+            .par_chunks_mut(global_batch_size)
+            .flat_map_iter(|batch| {
+                sched_joint(
+                    batch,
+                    sizes,
+                    &f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    micro_batch_size,
+                )
+            })
+            .collect(),
+        Policy::Fast => indices
+            .par_chunks_mut(global_batch_size)
+            .flat_map_iter(|batch| {
+                sched_fast(
+                    batch,
+                    sizes,
+                    &f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    micro_batch_size,
+                )
+            })
+            .collect(),
+        Policy::Mem => todo!(),
+    };
 
     Ok(batches)
 }
 
 #[inline]
-fn sched_fast(
+fn sched_joint<F>(
     indices: &mut [usize],
     sizes: &[i64],
-    buf: &[u8],
-    tensor_parallel_world_size: i64,
-    context_parallel_world_size: i64,
+    f: F,
     data_parallel_world_size: usize,
     data_parallel_rank: usize,
-    global_batch_size: usize,
     micro_batch_size: usize,
-) -> Result<Vec<usize>, InvalidFlatbuffer> {
-    let proj =
-        transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
+) -> impl Iterator<Item = usize>
+where
+    F: Fn(i64) -> i64,
+{
+    assert_eq!(indices.len() % data_parallel_world_size, 0);
+    let per_replica_batch_size = indices.len() / data_parallel_world_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
 
-    let batches = indices
-        .par_chunks_mut(global_batch_size)
-        .flat_map_iter(|batch| {
-            batch.sort_unstable_by_key(|&index| proj(sizes[index]));
-            let shards: Vec<Vec<_>> = partition(
-                batch.iter().copied(),
-                data_parallel_world_size,
-                |&index| proj(sizes[index]),
-                Some(Heuristic::Meld),
-            );
+    // Partition the given batch in a memory-balanced manner so that the number of tokens in each
+    // replica is as uniform as possible.
+    indices.sort_unstable_by_key(|&index| sizes[index]);
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        data_parallel_world_size,
+        |&index| sizes[index],
+        Some(Heuristic::Meld),
+    );
 
-            let mut shard = shards.into_iter().nth(data_parallel_rank).unwrap();
-            shard.sort_unstable_by_key(|&index| proj(sizes[index]));
+    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
+    batch.sort_unstable_by_key(|&index| f(sizes[index]));
 
-            let gradient_accumulation_steps = shard.len() / micro_batch_size;
-            let last_micro_batch_size = shard.len() % micro_batch_size;
-            let last_micro_batch = shard.split_off(shard.len() - last_micro_batch_size);
-            let micro_batches: Vec<Vec<_>> = partition(
-                shard,
-                gradient_accumulation_steps,
-                |&index| proj(sizes[index]),
-                Some(Heuristic::Meld),
-            );
-            micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
-        })
-        .collect();
+    // Partition the batch into micro-batches so that any earlier micro-batch takes less execution
+    // time than subsequent ones to reduce pipeline bubbles.
+    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+    let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
+    let micro_batches: Vec<Vec<_>> = partition(
+        batch,
+        gradient_accumulation_steps,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
 
-    Ok(batches)
+    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
+}
+
+#[inline]
+fn sched_fast<F>(
+    indices: &mut [usize],
+    sizes: &[i64],
+    f: F,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    micro_batch_size: usize,
+) -> impl Iterator<Item = usize>
+where
+    F: Fn(i64) -> i64,
+{
+    assert_eq!(indices.len() % data_parallel_world_size, 0);
+    let per_replica_batch_size = indices.len() / data_parallel_world_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+
+    indices.sort_unstable_by_key(|&index| f(sizes[index]));
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        data_parallel_world_size,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
+
+    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
+    batch.sort_unstable_by_key(|&index| f(sizes[index]));
+
+    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+    let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
+    let micro_batches: Vec<Vec<_>> = partition(
+        batch,
+        gradient_accumulation_steps,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
+
+    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
 }
 
 /// Reorders the given computation schedule `indices` for the next training epoch.
