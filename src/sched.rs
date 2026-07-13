@@ -145,7 +145,19 @@ fn iterative_reorder_by(
                 )
             })
             .collect(),
-        Policy::Mem => todo!(),
+        Policy::Mem => indices
+            .par_chunks_mut(global_batch_size)
+            .flat_map_iter(|batch| {
+                sched_mem(
+                    batch,
+                    sizes,
+                    &f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    micro_batch_size,
+                )
+            })
+            .collect(),
         Policy::Joint => indices
             .par_chunks_mut(global_batch_size)
             .flat_map_iter(|batch| {
@@ -199,6 +211,46 @@ where
         |&index| f(sizes[index]),
         Some(Heuristic::Meld),
     );
+
+    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
+}
+
+#[inline]
+fn sched_mem<F>(
+    indices: &mut [usize],
+    sizes: &[i64],
+    f: F,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    micro_batch_size: usize,
+) -> impl Iterator<Item = usize>
+where
+    F: Fn(i64) -> i64,
+{
+    assert_eq!(indices.len() % data_parallel_world_size, 0);
+    let per_replica_batch_size = indices.len() / data_parallel_world_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+
+    indices.sort_unstable_by_key(|&index| sizes[index]);
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        data_parallel_world_size,
+        |&index| sizes[index],
+        Some(Heuristic::Meld),
+    );
+
+    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
+    batch.sort_unstable_by_key(|&index| sizes[index]);
+
+    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+    let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
+    let mut micro_batches: Vec<Vec<_>> =
+        partition(batch, gradient_accumulation_steps, |&index| sizes[index], Some(Heuristic::Meld));
+
+    micro_batches.sort_unstable_by_key(|micro_batch| {
+        let sum: i64 = micro_batch.iter().map(|&index| f(sizes[index])).sum();
+        sum
+    });
 
     micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
 }
