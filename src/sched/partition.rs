@@ -307,10 +307,12 @@ where
 }
 
 /// An option to select the approximate algorithm to use for balanced multi-way number partitioning.
+#[derive(Default)]
 pub(super) enum Heuristic {
-    Meld,
     #[allow(dead_code)]
     BLDM,
+    #[default]
+    Meld,
 }
 
 /// Reorders the items in the given iterable `iter` into `k` subsets with respect to the given
@@ -355,9 +357,9 @@ where
         n => {
             assert_ne!(k, 0);
             assert_eq!(n % k, 0);
-            match heuristic {
-                None | Some(Heuristic::Meld) => meld(iter, k, f),
-                Some(Heuristic::BLDM) => bldm(iter, k, f),
+            match heuristic.unwrap_or_default() {
+                Heuristic::BLDM => bldm(iter, k, f),
+                Heuristic::Meld => meld(iter, k, f),
             }
         }
     }

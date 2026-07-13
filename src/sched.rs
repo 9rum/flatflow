@@ -34,19 +34,21 @@ use partition::{Heuristic, partition};
 /// * `Joint` combines both objectives by first balancing batch-level device memory usage and then
 ///   reducing pipeline bubbles and synchronization latency to promote both stability and training
 ///   throughput.
+#[derive(Default)]
 pub enum Policy {
-    Joint,
     Fast,
     Mem,
+    #[default]
+    Joint,
 }
 
 impl From<&str> for Policy {
     #[inline]
     fn from(policy: &str) -> Self {
         match policy {
-            "joint" => Self::Joint,
             "fast" => Self::Fast,
             "mem" => Self::Mem,
+            "joint" => Self::Joint,
             _ => unreachable!(),
         }
     }
@@ -130,19 +132,6 @@ fn sched_impl(
     let f = transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
     let batches = match policy.into() {
-        Policy::Joint => indices
-            .par_chunks_mut(global_batch_size)
-            .flat_map_iter(|batch| {
-                sched_joint(
-                    batch,
-                    sizes,
-                    &f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    micro_batch_size,
-                )
-            })
-            .collect(),
         Policy::Fast => indices
             .par_chunks_mut(global_batch_size)
             .flat_map_iter(|batch| {
@@ -157,9 +146,61 @@ fn sched_impl(
             })
             .collect(),
         Policy::Mem => todo!(),
+        Policy::Joint => indices
+            .par_chunks_mut(global_batch_size)
+            .flat_map_iter(|batch| {
+                sched_joint(
+                    batch,
+                    sizes,
+                    &f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    micro_batch_size,
+                )
+            })
+            .collect(),
     };
 
     Ok(batches)
+}
+
+#[inline]
+fn sched_fast<F>(
+    indices: &mut [usize],
+    sizes: &[i64],
+    f: F,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    micro_batch_size: usize,
+) -> impl Iterator<Item = usize>
+where
+    F: Fn(i64) -> i64,
+{
+    assert_eq!(indices.len() % data_parallel_world_size, 0);
+    let per_replica_batch_size = indices.len() / data_parallel_world_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+
+    indices.sort_unstable_by_key(|&index| f(sizes[index]));
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        data_parallel_world_size,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
+
+    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
+    batch.sort_unstable_by_key(|&index| f(sizes[index]));
+
+    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+    let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
+    let micro_batches: Vec<Vec<_>> = partition(
+        batch,
+        gradient_accumulation_steps,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
+
+    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
 }
 
 #[inline]
@@ -193,45 +234,6 @@ where
 
     // Partition the batch into micro-batches so that any earlier micro-batch takes less execution
     // time than subsequent ones to reduce pipeline bubbles.
-    let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
-    let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
-    let micro_batches: Vec<Vec<_>> = partition(
-        batch,
-        gradient_accumulation_steps,
-        |&index| f(sizes[index]),
-        Some(Heuristic::Meld),
-    );
-
-    micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
-}
-
-#[inline]
-fn sched_fast<F>(
-    indices: &mut [usize],
-    sizes: &[i64],
-    f: F,
-    data_parallel_world_size: usize,
-    data_parallel_rank: usize,
-    micro_batch_size: usize,
-) -> impl Iterator<Item = usize>
-where
-    F: Fn(i64) -> i64,
-{
-    assert_eq!(indices.len() % data_parallel_world_size, 0);
-    let per_replica_batch_size = indices.len() / data_parallel_world_size;
-    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
-
-    indices.sort_unstable_by_key(|&index| f(sizes[index]));
-    let batches: Vec<Vec<_>> = partition(
-        indices.iter().copied(),
-        data_parallel_world_size,
-        |&index| f(sizes[index]),
-        Some(Heuristic::Meld),
-    );
-
-    let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
-    batch.sort_unstable_by_key(|&index| f(sizes[index]));
-
     let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
     let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
     let micro_batches: Vec<Vec<_>> = partition(
@@ -320,40 +322,6 @@ fn sched_unstable_impl(
     let f = transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
     let batches = match policy.into() {
-        Policy::Joint => match indices.len() % global_batch_size {
-            0 => sched_unstable_joint(
-                indices,
-                sizes,
-                f,
-                data_parallel_world_size,
-                data_parallel_rank,
-                global_batch_size,
-                micro_batch_size,
-            ),
-            last_global_batch_size => {
-                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
-                let mut last_batch = sched_unstable_joint(
-                    right,
-                    sizes,
-                    &f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    last_global_batch_size,
-                    micro_batch_size,
-                );
-                let mut batches = sched_unstable_joint(
-                    left,
-                    sizes,
-                    f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    global_batch_size,
-                    micro_batch_size,
-                );
-                batches.append(&mut last_batch);
-                batches
-            }
-        },
         Policy::Fast => match indices.len() % global_batch_size {
             0 => sched_unstable_fast(
                 indices,
@@ -389,9 +357,88 @@ fn sched_unstable_impl(
             }
         },
         Policy::Mem => todo!(),
+        Policy::Joint => match indices.len() % global_batch_size {
+            0 => sched_unstable_joint(
+                indices,
+                sizes,
+                f,
+                data_parallel_world_size,
+                data_parallel_rank,
+                global_batch_size,
+                micro_batch_size,
+            ),
+            last_global_batch_size => {
+                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
+                let mut last_batch = sched_unstable_joint(
+                    right,
+                    sizes,
+                    &f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    last_global_batch_size,
+                    micro_batch_size,
+                );
+                let mut batches = sched_unstable_joint(
+                    left,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    global_batch_size,
+                    micro_batch_size,
+                );
+                batches.append(&mut last_batch);
+                batches
+            }
+        },
     };
 
     Ok(batches)
+}
+
+fn sched_unstable_fast<F>(
+    indices: &mut [usize],
+    sizes: &[i64],
+    f: F,
+    data_parallel_world_size: usize,
+    data_parallel_rank: usize,
+    global_batch_size: usize,
+    micro_batch_size: usize,
+) -> Vec<usize>
+where
+    F: Fn(i64) -> i64 + Sync,
+{
+    assert_eq!(global_batch_size % data_parallel_world_size, 0);
+    let per_replica_batch_size = global_batch_size / data_parallel_world_size;
+    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
+
+    indices.sort_unstable_by_key(|&index| f(sizes[index]));
+    let batches: Vec<Vec<_>> = partition(
+        indices.iter().copied(),
+        indices.len() / per_replica_batch_size,
+        |&index| f(sizes[index]),
+        Some(Heuristic::Meld),
+    );
+
+    let batches: Vec<_> =
+        batches.into_iter().skip(data_parallel_rank).step_by(data_parallel_world_size).collect();
+
+    batches
+        .into_par_iter()
+        .flat_map_iter(|mut batch| {
+            batch.sort_unstable_by_key(|&index| f(sizes[index]));
+
+            let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
+            let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
+            let micro_batches: Vec<Vec<_>> = partition(
+                batch,
+                gradient_accumulation_steps,
+                |&index| f(sizes[index]),
+                Some(Heuristic::Meld),
+            );
+            micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
+        })
+        .collect()
 }
 
 fn sched_unstable_joint<F>(
@@ -431,51 +478,6 @@ where
 
     // Partition each batch into micro-batches so that any earlier micro-batch takes less execution
     // time than subsequent ones to reduce pipeline bubbles.
-    batches
-        .into_par_iter()
-        .flat_map_iter(|mut batch| {
-            batch.sort_unstable_by_key(|&index| f(sizes[index]));
-
-            let last_micro_batch_size = per_replica_batch_size % micro_batch_size;
-            let last_micro_batch = batch.split_off(per_replica_batch_size - last_micro_batch_size);
-            let micro_batches: Vec<Vec<_>> = partition(
-                batch,
-                gradient_accumulation_steps,
-                |&index| f(sizes[index]),
-                Some(Heuristic::Meld),
-            );
-            micro_batches.into_iter().chain(once(last_micro_batch)).flatten()
-        })
-        .collect()
-}
-
-fn sched_unstable_fast<F>(
-    indices: &mut [usize],
-    sizes: &[i64],
-    f: F,
-    data_parallel_world_size: usize,
-    data_parallel_rank: usize,
-    global_batch_size: usize,
-    micro_batch_size: usize,
-) -> Vec<usize>
-where
-    F: Fn(i64) -> i64 + Sync,
-{
-    assert_eq!(global_batch_size % data_parallel_world_size, 0);
-    let per_replica_batch_size = global_batch_size / data_parallel_world_size;
-    let gradient_accumulation_steps = per_replica_batch_size / micro_batch_size;
-
-    indices.sort_unstable_by_key(|&index| f(sizes[index]));
-    let batches: Vec<Vec<_>> = partition(
-        indices.iter().copied(),
-        indices.len() / per_replica_batch_size,
-        |&index| f(sizes[index]),
-        Some(Heuristic::Meld),
-    );
-
-    let batches: Vec<_> =
-        batches.into_iter().skip(data_parallel_rank).step_by(data_parallel_world_size).collect();
-
     batches
         .into_par_iter()
         .flat_map_iter(|mut batch| {
