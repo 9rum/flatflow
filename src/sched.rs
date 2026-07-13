@@ -100,7 +100,7 @@ pub fn sched<'py>(
         now.elapsed()
     ));
 
-    sched_impl(
+    iterative_reorder_by(
         indices.as_slice_mut()?,
         sizes.as_slice()?,
         buf,
@@ -110,14 +110,14 @@ pub fn sched<'py>(
         data_parallel_rank,
         global_batch_size,
         micro_batch_size,
-        policy,
+        policy.into(),
     )
     .map(|batches| batches.into_pyarray(indices.py()))
     .map_err(|err| PyValueError::new_err(err.to_string()))
 }
 
 #[inline]
-fn sched_impl(
+fn iterative_reorder_by(
     indices: &mut [usize],
     sizes: &[i64],
     buf: &[u8],
@@ -127,11 +127,11 @@ fn sched_impl(
     data_parallel_rank: usize,
     global_batch_size: usize,
     micro_batch_size: usize,
-    policy: &str,
+    policy: Policy,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
     let f = transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
-    let batches = match policy.into() {
+    let batches = match policy {
         Policy::Fast => indices
             .par_chunks_mut(global_batch_size)
             .flat_map_iter(|batch| {
