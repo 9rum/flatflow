@@ -34,7 +34,7 @@ use partition::{Heuristic, partition};
 /// * `Joint` combines both objectives by first balancing batch-level device memory usage and then
 ///   reducing pipeline bubbles and synchronization latency to promote both stability and training
 ///   throughput.
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum Policy {
     Fast,
     Mem,
@@ -340,7 +340,7 @@ pub fn sched_unstable<'py>(
         now.elapsed()
     ));
 
-    reorder_by(
+    recursive_reorder_by(
         indices.as_slice_mut()?,
         sizes.as_slice()?,
         buf,
@@ -357,7 +357,7 @@ pub fn sched_unstable<'py>(
 }
 
 #[inline]
-fn reorder_by(
+fn recursive_reorder_by(
     indices: &mut [usize],
     sizes: &[i64],
     buf: &[u8],
@@ -369,114 +369,91 @@ fn reorder_by(
     micro_batch_size: usize,
     policy: Policy,
 ) -> Result<Vec<usize>, InvalidFlatbuffer> {
-    assert_ne!(global_batch_size, 0);
+    fn recurse<F>(
+        indices: &mut [usize],
+        sizes: &[i64],
+        f: &F,
+        data_parallel_world_size: usize,
+        data_parallel_rank: usize,
+        global_batch_size: usize,
+        micro_batch_size: usize,
+        policy: Policy,
+    ) -> Vec<usize>
+    where
+        F: Fn(i64) -> i64 + Sync,
+    {
+        assert_ne!(global_batch_size, 0);
+
+        match indices.len() % global_batch_size {
+            0 => match policy {
+                Policy::Fast => sched_unstable_fast(
+                    indices,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    global_batch_size,
+                    micro_batch_size,
+                ),
+                Policy::Mem => sched_unstable_mem(
+                    indices,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    global_batch_size,
+                    micro_batch_size,
+                ),
+                Policy::Joint => sched_unstable_joint(
+                    indices,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    global_batch_size,
+                    micro_batch_size,
+                ),
+            },
+            last_global_batch_size => {
+                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
+                let mut batches = recurse(
+                    left,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    global_batch_size,
+                    micro_batch_size,
+                    policy,
+                );
+                let mut last_batch = recurse(
+                    right,
+                    sizes,
+                    f,
+                    data_parallel_world_size,
+                    data_parallel_rank,
+                    last_global_batch_size,
+                    micro_batch_size,
+                    policy,
+                );
+                batches.append(&mut last_batch);
+                batches
+            }
+        }
+    }
 
     let f = transform(root_as_graph(buf)?, tensor_parallel_world_size, context_parallel_world_size);
 
-    let batches = match policy {
-        Policy::Fast => match indices.len() % global_batch_size {
-            0 => sched_unstable_fast(
-                indices,
-                sizes,
-                f,
-                data_parallel_world_size,
-                data_parallel_rank,
-                global_batch_size,
-                micro_batch_size,
-            ),
-            last_global_batch_size => {
-                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
-                let mut last_batch = sched_unstable_fast(
-                    right,
-                    sizes,
-                    &f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    last_global_batch_size,
-                    micro_batch_size,
-                );
-                let mut batches = sched_unstable_fast(
-                    left,
-                    sizes,
-                    f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    global_batch_size,
-                    micro_batch_size,
-                );
-                batches.append(&mut last_batch);
-                batches
-            }
-        },
-        Policy::Mem => match indices.len() % global_batch_size {
-            0 => sched_unstable_mem(
-                indices,
-                sizes,
-                f,
-                data_parallel_world_size,
-                data_parallel_rank,
-                global_batch_size,
-                micro_batch_size,
-            ),
-            last_global_batch_size => {
-                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
-                let mut last_batch = sched_unstable_mem(
-                    right,
-                    sizes,
-                    &f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    last_global_batch_size,
-                    micro_batch_size,
-                );
-                let mut batches = sched_unstable_mem(
-                    left,
-                    sizes,
-                    f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    global_batch_size,
-                    micro_batch_size,
-                );
-                batches.append(&mut last_batch);
-                batches
-            }
-        },
-        Policy::Joint => match indices.len() % global_batch_size {
-            0 => sched_unstable_joint(
-                indices,
-                sizes,
-                f,
-                data_parallel_world_size,
-                data_parallel_rank,
-                global_batch_size,
-                micro_batch_size,
-            ),
-            last_global_batch_size => {
-                let (left, right) = indices.split_at_mut(indices.len() - last_global_batch_size);
-                let mut last_batch = sched_unstable_joint(
-                    right,
-                    sizes,
-                    &f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    last_global_batch_size,
-                    micro_batch_size,
-                );
-                let mut batches = sched_unstable_joint(
-                    left,
-                    sizes,
-                    f,
-                    data_parallel_world_size,
-                    data_parallel_rank,
-                    global_batch_size,
-                    micro_batch_size,
-                );
-                batches.append(&mut last_batch);
-                batches
-            }
-        },
-    };
+    let batches = recurse(
+        indices,
+        sizes,
+        &f,
+        data_parallel_world_size,
+        data_parallel_rank,
+        global_batch_size,
+        micro_batch_size,
+        policy,
+    );
 
     Ok(batches)
 }

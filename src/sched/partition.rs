@@ -307,7 +307,7 @@ where
 }
 
 /// An option to select the approximate algorithm to use for balanced multi-way number partitioning.
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(super) enum Heuristic {
     #[allow(dead_code)]
     BLDM,
