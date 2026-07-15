@@ -308,8 +308,7 @@ where
 
 /// An option to select the approximate algorithm to use for balanced multi-way number partitioning.
 #[derive(Clone, Copy, Debug, Default)]
-pub(super) enum Heuristic {
-    #[allow(dead_code)]
+pub enum Heuristic {
     BLDM,
     #[default]
     Meld,
@@ -341,7 +340,7 @@ pub(super) enum Heuristic {
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub(super) fn partition<I, F, K, B>(iter: I, k: usize, f: F, heuristic: Option<Heuristic>) -> B
+pub fn partition<I, F, K, B>(iter: I, k: usize, f: F, heuristic: Option<Heuristic>) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,

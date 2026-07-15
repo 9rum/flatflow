@@ -17,8 +17,8 @@ use scopeguard::defer;
 
 use crate::ops::{root_as_graph, transform};
 
-mod partition;
-use partition::{Heuristic, partition};
+pub mod partition;
+pub use partition::{Heuristic, partition};
 
 /// Scheduling policy to select the scheduling objectives. The default policy is `Joint`.
 ///
