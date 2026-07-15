@@ -2,6 +2,22 @@
 
 //! The scheduler is the main component of FlatFlow that decides which data samples will be batched
 //! together and the execution order of those micro-batches.
+//!
+//! By rearranging the shuffled training sequence, the scheduler improves training performance while
+//! keeping the resulting checkpoint transparent if necessary. There are two main entry points
+//! exposed to the Python frontend:
+//! * [`sched`]: A stable scheduler that preserves the resulting checkpoint by iteratively
+//!   reordering the training sequence at the granularity of mini-batch.
+//! * [`sched_unstable`]: Unstable counterpart for more aggressive scheduling at the expense of
+//!   checkpoint transparency. This can be used to achieve better throughput when transparency is
+//!   not a priority or when the batch size is sufficiently large.
+//!
+//! The scheduler makes its decisions based on the scheduling policy. See [`Policy`] for the
+//! available policies and their descriptions.
+//!
+//! [`sched`]: sched::sched
+//! [`sched_unstable`]: sched::sched_unstable
+//! [`Policy`]: sched::Policy
 
 use core::iter::once;
 use std::time::Instant;
@@ -62,7 +78,7 @@ impl From<&str> for Policy {
 ///
 /// When applicable, unstable scheduling is preferred because stable scheduling may produce somewhat
 /// suboptimal training performance due to the constraints in optimization scope. See
-/// [`sched_unstable`](sched::sched_unstable).
+/// [`sched_unstable`].
 ///
 /// `sched` returns an error if the given serialized computational graph `buf` is invalid or if the
 /// given array `indices` or `sizes` is not contiguous.
@@ -70,11 +86,14 @@ impl From<&str> for Policy {
 /// # Scheduling policies
 ///
 /// There are several scheduling policies and one of them can be selected via `policy`. See
-/// [`Policy`](sched::Policy) for the descriptions for each.
+/// [`Policy`] for the descriptions for each.
 ///
 /// # Panics
 ///
 /// May panic if the given arguments are invalid.
+///
+/// [`sched_unstable`]: sched::sched_unstable
+/// [`Policy`]: sched::Policy
 #[pyfunction]
 pub fn sched<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,
@@ -302,7 +321,7 @@ where
 ///
 /// This scheduler is unstable; i.e., does not preserve the resulting checkpoint. If it is important
 /// to preserve the resulting checkpoint or if the batch size is sufficiently large, consider using
-/// the stable counterpart [`sched`](sched::sched).
+/// the stable counterpart [`sched`].
 ///
 /// `sched_unstable` returns an error if the given serialized computational graph `buf` is invalid
 /// or if the given array `indices` or `sizes` is not contiguous.
@@ -310,11 +329,14 @@ where
 /// # Scheduling policies
 ///
 /// There are several scheduling policies and one of them can be selected via `policy`. See
-/// [`Policy`](sched::Policy) for the descriptions for each.
+/// [`Policy`] for the descriptions for each.
 ///
 /// # Panics
 ///
 /// May panic if the given arguments are invalid.
+///
+/// [`sched`]: sched::sched
+/// [`Policy`]: sched::Policy
 #[pyfunction]
 pub fn sched_unstable<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,
