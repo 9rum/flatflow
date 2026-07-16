@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! This module creates Python bindings, a bridge between the internal native implementation and the
+//! Python frontend. It exports the package version and native functions to the Python frontend and
+//! installs the logger upon module initialization.
+//!
+//! The actual symbolic transformation and scheduling routines live in the respective submodules;
+//! this file only wires them together into a single module-level interface. See the relevant
+//! module-level documentation for details on the symbolic transformation and scheduling routines.
+
 use pyo3::pymodule;
 
 pub mod ops;
