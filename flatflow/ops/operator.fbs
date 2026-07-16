@@ -18,7 +18,7 @@
 /// computational graph while ensuring compatibility with PyTorch.
 ///
 /// The latest version of ATen operator set can be found at
-/// https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml
+/// <https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml>
 /// or by running `python3 -c "import torch; print(dir(torch.ops.aten))"`.
 ///
 /// Note that this operator set is under development and more operators

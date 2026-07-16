@@ -15,9 +15,9 @@
 //! The scheduler makes its decisions based on the scheduling policy. See [`Policy`] for the
 //! available policies and their descriptions.
 //!
-//! [`sched`]: sched::sched
-//! [`sched_unstable`]: sched::sched_unstable
-//! [`Policy`]: sched::Policy
+//! [`sched`]: fn@crate::sched::sched
+//! [`sched_unstable`]: fn@crate::sched::sched_unstable
+//! [`Policy`]: enum@crate::sched::Policy
 
 use core::iter::once;
 use std::time::Instant;
@@ -92,8 +92,8 @@ impl From<&str> for Policy {
 ///
 /// May panic if the given arguments are invalid.
 ///
-/// [`sched_unstable`]: sched::sched_unstable
-/// [`Policy`]: sched::Policy
+/// [`sched_unstable`]: fn@crate::sched::sched_unstable
+/// [`Policy`]: enum@crate::sched::Policy
 #[pyfunction]
 pub fn sched<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,
@@ -335,8 +335,8 @@ where
 ///
 /// May panic if the given arguments are invalid.
 ///
-/// [`sched`]: sched::sched
-/// [`Policy`]: sched::Policy
+/// [`sched`]: fn@crate::sched::sched
+/// [`Policy`]: enum@crate::sched::Policy
 #[pyfunction]
 pub fn sched_unstable<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,

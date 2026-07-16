@@ -5,7 +5,7 @@
 //!
 //! If you have need to register a new operator, please refer to [`OperatorRegistry`].
 //!
-//! [`OperatorRegistry`]: ops::OperatorRegistry
+//! [`OperatorRegistry`]: struct@crate::ops::OperatorRegistry
 
 use core::ops::{self, Add, Mul};
 use std::collections::HashMap;
