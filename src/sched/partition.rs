@@ -8,11 +8,11 @@ use core::cmp::Ordering;
 use core::iter::{empty, repeat, repeat_with};
 use core::ops::{Add, Sub};
 use std::collections::btree_map::Entry;
-use std::collections::{BTreeMap, BinaryHeap, LinkedList, VecDeque};
+use std::collections::{BTreeMap, BinaryHeap, LinkedList};
 
 /// Auxiliary structure for the balanced largest differencing method and the Meld algorithm.
 struct Tuple<K, V> {
-    subsets: BTreeMap<K, VecDeque<LinkedList<V>>>,
+    subsets: BTreeMap<K, Vec<LinkedList<V>>>,
     spread: K,
 }
 
@@ -27,11 +27,11 @@ impl<K, V> Tuple<K, V> {
         F: Fn(&V) -> K,
         K: Copy + Ord + Sub<Output = K>,
     {
-        let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+        let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for item in iter {
             let mut subset = LinkedList::new();
             subset.push_back(item);
-            subsets.entry(f(subset.back().unwrap())).or_default().push_back(subset);
+            subsets.entry(f(subset.back().unwrap())).or_default().push(subset);
         }
 
         let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
@@ -47,12 +47,12 @@ impl<K, V> Tuple<K, V> {
     where
         K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
     {
-        let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+        let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
 
         while let Some((min, mut first)) = self.pop_first() {
             let (max, mut last) = other.pop_last().unwrap();
             first.append(&mut last);
-            subsets.entry(min + max).or_default().push_back(first);
+            subsets.entry(min + max).or_default().push(first);
         }
 
         debug_assert!(other.subsets.is_empty());
@@ -79,7 +79,7 @@ impl<K, V> Tuple<K, V> {
             self.subsets.entry(sum).or_default().append(&mut subsets);
         }
 
-        let mut subsets: BTreeMap<_, VecDeque<_>> = BTreeMap::new();
+        let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
 
         while let Some((min, mut first)) = self.pop_first() {
             let (max, mut last) = self.pop_last().unwrap();
@@ -88,7 +88,7 @@ impl<K, V> Tuple<K, V> {
                 // If there are only two subsets left in the tuple, simply join the subsets and
                 // insert into the tuple.
                 first.append(&mut last);
-                subsets.entry(min + max).or_default().push_back(first);
+                subsets.entry(min + max).or_default().push(first);
             } else {
                 // Else then there are at least four subsets in the tuple. Here a heuristic search
                 // is adopted to avoid exhaustive search of *O*(*n^4*), finding a pair of subsets to
@@ -109,22 +109,22 @@ impl<K, V> Tuple<K, V> {
 
                 match self.subsets.entry(left) {
                     Entry::Occupied(mut entry) => {
-                        last.append(&mut entry.get_mut().pop_back().unwrap());
+                        last.append(&mut entry.get_mut().pop().unwrap());
                         if entry.get().is_empty() {
                             entry.remove();
                         }
-                        subsets.entry(max + left).or_default().push_back(last);
+                        subsets.entry(max + left).or_default().push(last);
                     }
                     Entry::Vacant(_) => unreachable!(),
                 }
 
                 match self.subsets.entry(right) {
                     Entry::Occupied(mut entry) => {
-                        first.append(&mut entry.get_mut().pop_front().unwrap());
+                        first.append(&mut entry.get_mut().pop().unwrap());
                         if entry.get().is_empty() {
                             entry.remove();
                         }
-                        subsets.entry(min + right).or_default().push_back(first);
+                        subsets.entry(min + right).or_default().push(first);
                     }
                     Entry::Vacant(_) => unreachable!(),
                 }
@@ -147,7 +147,7 @@ impl<K, V> Tuple<K, V> {
         let mut entry = self.subsets.first_entry()?;
 
         let sum = *entry.key();
-        let subset = entry.get_mut().pop_front().unwrap();
+        let subset = entry.get_mut().pop().unwrap();
 
         if entry.get().is_empty() {
             entry.remove();
@@ -164,7 +164,7 @@ impl<K, V> Tuple<K, V> {
         let mut entry = self.subsets.last_entry()?;
 
         let sum = *entry.key();
-        let subset = entry.get_mut().pop_back().unwrap();
+        let subset = entry.get_mut().pop().unwrap();
 
         if entry.get().is_empty() {
             entry.remove();
