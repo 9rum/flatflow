@@ -219,6 +219,8 @@ where
         Some(Heuristic::Meld),
     );
 
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
+
     let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
     batch.sort_unstable_by_key(|&index| f(sizes[index]));
 
@@ -257,6 +259,8 @@ where
         |&index| sizes[index],
         Some(Heuristic::Meld),
     );
+
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
 
     let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
     batch.sort_unstable_by_key(|&index| sizes[index]);
@@ -299,6 +303,8 @@ where
         |&index| sizes[index],
         Some(Heuristic::Meld),
     );
+
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
 
     let mut batch = batches.into_iter().nth(data_parallel_rank).unwrap();
     batch.sort_unstable_by_key(|&index| f(sizes[index]));
@@ -504,6 +510,8 @@ where
         Some(Heuristic::Meld),
     );
 
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
+
     let batches: Vec<_> =
         batches.into_iter().skip(data_parallel_rank).step_by(data_parallel_world_size).collect();
 
@@ -548,6 +556,8 @@ where
         |&index| sizes[index],
         Some(Heuristic::Meld),
     );
+
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
 
     let batches: Vec<_> =
         batches.into_iter().skip(data_parallel_rank).step_by(data_parallel_world_size).collect();
@@ -602,6 +612,8 @@ where
         |&index| sizes[index],
         Some(Heuristic::Meld),
     );
+
+    debug_assert!(batches.iter().all(|batch| batch.len() == per_replica_batch_size));
 
     // Sort batches in order to reduce synchronization latency across pipelines.
     batches.sort_unstable_by_key(|batch| {
