@@ -34,7 +34,7 @@ impl<T> Tuple<T> {
 
         let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
 
-        Self { subsets, spread }
+        Self { spread, subsets }
     }
 
     /// Differences the two given k-tuples by joining the subset with the smallest sum in `self`
@@ -54,30 +54,24 @@ impl<T> Tuple<T> {
 
         let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
 
-        Self { subsets, spread }
+        Self { spread, subsets }
     }
 
     /// Fuses the two given k-tuples so that the produced k-tuple has an interim spread large enough
     /// to offset the excessive spread in another k-tuple.
     #[inline]
-    fn meld(mut self, other: Self, threshold: i64, k: usize) -> Self {
+    fn meld(mut self, mut other: Self, threshold: i64, k: usize) -> Self {
         let mut threshold = threshold as f64;
         let delta = 2. * threshold / (k - 1) as f64;
 
-        // The melding procedure starts with a 2k-tuple merged from the two given k-tuples.
-        //
-        // Note that [BTreeMap::merge] is not stable as of rustc 1.96.0 so here we iteratively move
-        // elements from `other` into `self`.
-        //
-        // [BTreeMap::merge]: https://doc.rust-lang.org/alloc/collections/btree_map/struct.BTreeMap.html
-        for (sum, mut subsets) in other.subsets {
-            self.subsets.entry(sum).or_default().append(&mut subsets);
-        }
-
+        // The original melding procedure starts with a 2k-tuple merged from the two given k-tuples.
+        // We find this cannot guarantee the cardinality invariant if their subset cardinalities are
+        // not equal to each other. To address this, we skip the merging stage and fuse `self` and
+        // `other` in a crossing manner.
         let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
 
         while let Some((min, mut first)) = self.pop_first() {
-            let (max, mut last) = self.pop_last().unwrap();
+            let (max, mut last) = other.pop_last().unwrap();
 
             if self.subsets.is_empty() {
                 // If there are only two subsets left in the tuple, simply join the subsets and
@@ -85,12 +79,12 @@ impl<T> Tuple<T> {
                 first.append(&mut last);
                 subsets.entry(min + max).or_default().push(first);
             } else {
-                // Else then there are at least four subsets in the tuple. Here a heuristic search
+                // Otherwise there are at least four subsets in the tuple. Here a heuristic search
                 // is adopted to avoid exhaustive search of *O*(*n^4*), finding a pair of subsets to
                 // meet the condition (v_i + v_j ) − (v_l + v_m) ≈ δ(p_1) − δ^− by scanning subsets
                 // from the two extreme ends.
                 let iter = self.subsets.iter().flat_map(|(k, v)| repeat(k).take(v.len()));
-                let rev = self.subsets.iter().rev().flat_map(|(k, v)| repeat(k).take(v.len()));
+                let rev = other.subsets.iter().rev().flat_map(|(k, v)| repeat(k).take(v.len()));
 
                 let (&left, &right) = iter
                     .zip(rev)
@@ -98,7 +92,7 @@ impl<T> Tuple<T> {
                     .unwrap_or_else(|| {
                         (
                             self.subsets.keys().next_back().unwrap(),
-                            self.subsets.keys().next().unwrap(),
+                            other.subsets.keys().next().unwrap(),
                         )
                     });
 
@@ -113,7 +107,7 @@ impl<T> Tuple<T> {
                     Entry::Vacant(_) => unreachable!(),
                 }
 
-                match self.subsets.entry(right) {
+                match other.subsets.entry(right) {
                     Entry::Occupied(mut entry) => {
                         first.append(&mut entry.get_mut().pop().unwrap());
                         if entry.get().is_empty() {
@@ -128,9 +122,11 @@ impl<T> Tuple<T> {
             }
         }
 
+        debug_assert!(other.subsets.is_empty());
+
         let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
 
-        Self { subsets, spread }
+        Self { spread, subsets }
     }
 
     #[inline]
