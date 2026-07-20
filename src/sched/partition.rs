@@ -358,7 +358,7 @@ mod tests {
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
-        subsets.iter().for_each(|subset| assert_eq!(subset.len(), 64));
+        assert!(subsets.iter().all(|subset| subset.len() == 64));
 
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -388,7 +388,7 @@ mod tests {
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
-        subsets.iter().for_each(|subset| assert_eq!(subset.len(), 64));
+        assert!(subsets.iter().all(|subset| subset.len() == 64));
 
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -418,7 +418,7 @@ mod tests {
 
         let subsets: Vec<Vec<_>> = meld(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
-        subsets.iter().for_each(|subset| assert_eq!(subset.len(), 64));
+        assert!(subsets.iter().all(|subset| subset.len() == 64));
 
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
@@ -436,6 +436,6 @@ mod tests {
 
         let subsets: Vec<Vec<_>> = partition([], 1024, |&size| size, None);
         assert_eq!(subsets.len(), 1024);
-        subsets.into_iter().for_each(|subset| assert!(subset.is_empty()));
+        assert!(subsets.into_iter().all(|subset| subset.is_empty()));
     }
 }
