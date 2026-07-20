@@ -60,7 +60,10 @@ impl<T> Tuple<T> {
     /// Fuses the two given k-tuples so that the produced k-tuple has an interim spread large enough
     /// to offset the excessive spread in another k-tuple.
     #[inline]
-    fn meld(mut self, other: Self, threshold: i64) -> Self {
+    fn meld(mut self, other: Self, threshold: i64, k: usize) -> Self {
+        let mut threshold = threshold as f64;
+        let delta = 2. * threshold / (k - 1) as f64;
+
         // The melding procedure starts with a 2k-tuple merged from the two given k-tuples.
         //
         // Note that [BTreeMap::merge] is not stable as of rustc 1.96.0 so here we iteratively move
@@ -91,7 +94,7 @@ impl<T> Tuple<T> {
 
                 let (&left, &right) = iter
                     .zip(rev)
-                    .find(|&(&left, &right)| threshold <= max + left - min - right)
+                    .find(|&(&left, &right)| threshold <= (max + left - min - right) as f64)
                     .unwrap_or_else(|| {
                         (
                             self.subsets.keys().next_back().unwrap(),
@@ -121,8 +124,7 @@ impl<T> Tuple<T> {
                     Entry::Vacant(_) => unreachable!(),
                 }
 
-                // FIXME: Here the line 14 of algorithm 2 is omitted; each iteration has to reduce
-                // δ(p_1) by δ^−.
+                threshold -= delta;
             }
         }
 
@@ -266,7 +268,7 @@ where
             // melds the next two k-tuples so that the produced spread counterbalances the largest
             // spread.
             Some(third) if second.spread + third.spread < first.spread => {
-                let tuple = second.meld(heap.pop().unwrap(), first.spread);
+                let tuple = second.meld(heap.pop().unwrap(), first.spread, k);
                 heap.push(first.fold(tuple));
             }
             _ => heap.push(first.fold(second)),
@@ -330,6 +332,7 @@ where
         n => {
             assert_ne!(k, 0);
             assert_eq!(n % k, 0);
+
             match heuristic.unwrap_or_default() {
                 Heuristic::BLDM => bldm(iter, k, f),
                 Heuristic::Meld => meld(iter, k, f),
