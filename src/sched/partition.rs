@@ -60,10 +60,7 @@ impl<T> Tuple<T> {
     /// Fuses the two given k-tuples so that the produced k-tuple has an interim spread large enough
     /// to offset the excessive spread in another k-tuple.
     #[inline]
-    fn meld(mut self, mut other: Self, threshold: i64, k: usize) -> Self {
-        let mut threshold = threshold as f64;
-        let delta = 2. * threshold / (k - 1) as f64;
-
+    fn meld(mut self, mut other: Self, threshold: i64) -> Self {
         // The original melding procedure starts with a 2k-tuple merged from the two given k-tuples.
         // We find this cannot guarantee the cardinality invariant if their subset cardinalities are
         // not equal to each other. To address this, we skip the merging stage and fuse `self` and
@@ -88,7 +85,7 @@ impl<T> Tuple<T> {
 
                 let (&left, &right) = iter
                     .zip(rev)
-                    .find(|&(&left, &right)| threshold <= (max + left - min - right) as f64)
+                    .find(|&(&left, &right)| threshold <= max + left - min - right)
                     .unwrap_or_else(|| {
                         (
                             self.subsets.keys().next_back().unwrap(),
@@ -118,7 +115,8 @@ impl<T> Tuple<T> {
                     Entry::Vacant(_) => unreachable!(),
                 }
 
-                threshold -= delta;
+                // Here the line 14 of algorithm 2 is omitted; each iteration has to reduce δ(p_1)
+                // by δ^− but we cannot find such reduction affects the produced spread.
             }
         }
 
@@ -264,7 +262,7 @@ where
             // melds the next two k-tuples so that the produced spread counterbalances the largest
             // spread.
             Some(third) if second.spread + third.spread < first.spread => {
-                let tuple = second.meld(heap.pop().unwrap(), first.spread, k);
+                let tuple = second.meld(heap.pop().unwrap(), first.spread);
                 heap.push(first.fold(tuple));
             }
             _ => heap.push(first.fold(second)),
