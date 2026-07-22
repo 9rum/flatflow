@@ -6,24 +6,26 @@
 
 use core::cmp::Ordering;
 use core::iter::{empty, repeat, repeat_with};
+use core::ops::{Add, Sub};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BinaryHeap, LinkedList};
 
 /// Auxiliary structure for the balanced largest differencing method and the Meld algorithm.
-struct Tuple<T> {
-    spread: i64,
-    subsets: BTreeMap<i64, Vec<LinkedList<T>>>,
+struct Tuple<K, V> {
+    spread: K,
+    subsets: BTreeMap<K, Vec<LinkedList<V>>>,
 }
 
-impl<T> Tuple<T> {
+impl<K, V> Tuple<K, V> {
     /// Constructs a new k-tuple from the given iterable `iter`. The subsets are sorted within the
     /// underlying associative container, according to the order of their subset sums obtained via
     /// projection `f`.
     #[inline]
-    fn new<I, F>(iter: I, f: F) -> Self
+    fn new<I, F>(iter: I, mut f: F) -> Self
     where
-        I: IntoIterator<Item = T>,
-        F: Fn(&T) -> i64,
+        I: IntoIterator<Item = V>,
+        K: Copy + Ord + Sub<Output = K>,
+        F: FnMut(&V) -> K,
     {
         let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for item in iter {
@@ -41,7 +43,10 @@ impl<T> Tuple<T> {
     /// with the subset with the largest sum in `other`, the subset with the second smallest sum in
     /// `self` with the subset with the second largest sum in `other`, and so on.
     #[inline]
-    fn fold(mut self, mut other: Self) -> Self {
+    fn fold(mut self, mut other: Self) -> Self
+    where
+        K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    {
         let mut subsets: BTreeMap<_, Vec<_>> = BTreeMap::new();
 
         while let Some((min, mut first)) = self.pop_first() {
@@ -60,7 +65,10 @@ impl<T> Tuple<T> {
     /// Fuses the two given k-tuples so that the produced k-tuple has an interim spread large enough
     /// to offset the excessive spread in another k-tuple.
     #[inline]
-    fn meld(mut self, mut other: Self, threshold: i64) -> Self {
+    fn meld(mut self, mut other: Self, threshold: K) -> Self
+    where
+        K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    {
         // The original melding procedure starts with a 2k-tuple merged from the two given k-tuples.
         // We find this cannot guarantee the cardinality invariant if their subset cardinalities are
         // not equal to each other. To address this, we skip the merging stage and fuse `self` and
@@ -128,7 +136,10 @@ impl<T> Tuple<T> {
     }
 
     #[inline]
-    fn pop_first(&mut self) -> Option<(i64, LinkedList<T>)> {
+    fn pop_first(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
         let mut entry = self.subsets.first_entry()?;
 
         let min = *entry.key();
@@ -142,7 +153,10 @@ impl<T> Tuple<T> {
     }
 
     #[inline]
-    fn pop_last(&mut self) -> Option<(i64, LinkedList<T>)> {
+    fn pop_last(&mut self) -> Option<(K, LinkedList<V>)>
+    where
+        K: Copy + Ord,
+    {
         let mut entry = self.subsets.last_entry()?;
 
         let max = *entry.key();
@@ -156,23 +170,32 @@ impl<T> Tuple<T> {
     }
 }
 
-impl<T> PartialEq for Tuple<T> {
+impl<K, V> PartialEq for Tuple<K, V>
+where
+    K: PartialEq,
+{
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.spread == other.spread
     }
 }
 
-impl<T> Eq for Tuple<T> {}
+impl<K, V> Eq for Tuple<K, V> where K: Eq {}
 
-impl<T> PartialOrd for Tuple<T> {
+impl<K, V> PartialOrd for Tuple<K, V>
+where
+    K: PartialOrd,
+{
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.spread.partial_cmp(&other.spread)
     }
 }
 
-impl<T> Ord for Tuple<T> {
+impl<K, V> Ord for Tuple<K, V>
+where
+    K: Ord,
+{
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.spread.cmp(&other.spread)
@@ -191,11 +214,12 @@ impl<T> Ord for Tuple<T> {
 /// [The Differencing Algorithm LDM for Partitioning: A Proof of a Conjecture of Karmarkar and Karp]: https://www.jstor.org/stable/3690207
 /// [Computer-assisted proof of performance ratios for the Differencing Method]: https://doi.org/10.1016/j.disopt.2011.10.001
 #[inline]
-fn bldm<I, F, B>(iter: I, k: usize, f: F) -> B
+fn bldm<I, K, F, B>(iter: I, k: usize, mut f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> i64,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    F: FnMut(&I::Item) -> K,
     B: IntoIterator + FromIterator<B::Item>,
     B::Item: FromIterator<I::Item>,
 {
@@ -206,7 +230,7 @@ where
     let mut heap = BinaryHeap::with_capacity(iter.len() / k);
 
     while 0 < iter.len() {
-        heap.push(Tuple::new(iter.by_ref().take(k), &f));
+        heap.push(Tuple::new(iter.by_ref().take(k), &mut f));
     }
 
     // Next, the algorithm selects two k-tuples from the sequence, for which the difference between
@@ -236,11 +260,12 @@ where
 ///
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-fn meld<I, F, B>(iter: I, k: usize, f: F) -> B
+fn meld<I, K, F, B>(iter: I, k: usize, mut f: F) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> i64,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    F: FnMut(&I::Item) -> K,
     B: IntoIterator + FromIterator<B::Item>,
     B::Item: FromIterator<I::Item>,
 {
@@ -249,7 +274,7 @@ where
     let mut heap = BinaryHeap::with_capacity(iter.len() / k);
 
     while 0 < iter.len() {
-        heap.push(Tuple::new(iter.by_ref().take(k), &f));
+        heap.push(Tuple::new(iter.by_ref().take(k), &mut f));
     }
 
     while 1 < heap.len() {
@@ -311,11 +336,12 @@ pub enum Heuristic {
 /// [balanced largest differencing method]: https://www.jstor.org/stable/3690207
 /// [Heuristic Algorithms for Balanced Multi-Way Number Partitioning]: https://www.ijcai.org/Proceedings/11/Papers/122.pdf
 #[inline]
-pub fn partition<I, F, B>(iter: I, k: usize, f: F, heuristic: Option<Heuristic>) -> B
+pub fn partition<I, K, F, B>(iter: I, k: usize, f: F, heuristic: Option<Heuristic>) -> B
 where
     I: IntoIterator,
     I::IntoIter: ExactSizeIterator,
-    F: Fn(&I::Item) -> i64,
+    K: Add<Output = K> + Copy + Ord + Sub<Output = K>,
+    F: FnMut(&I::Item) -> K,
     B: IntoIterator + FromIterator<B::Item>,
     B::Item: FromIterator<I::Item>,
 {
@@ -354,7 +380,7 @@ mod tests {
         assert_eq!(subsets.len(), 1024);
         assert!(subsets.iter().all(|subset| subset.len() == 64));
 
-        let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
         let min = *sums.first().unwrap() as f64;
@@ -369,22 +395,21 @@ mod tests {
         const SIGMA: f32 = 952.6487919361658;
 
         let mut rng = StdRng::seed_from_u64(0);
-        let mut sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(65536)
-                .collect();
+        let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
+            .unwrap()
+            .sample_iter(&mut rng)
+            .filter_map(|size| {
+                if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
+            })
+            .take(65536)
+            .collect();
         sizes.sort_unstable();
 
         let subsets: Vec<Vec<_>> = bldm(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
         assert!(subsets.iter().all(|subset| subset.len() == 64));
 
-        let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
         let min = *sums.first().unwrap() as f64;
@@ -399,22 +424,21 @@ mod tests {
         const SIGMA: f32 = 952.6487919361658;
 
         let mut rng = StdRng::seed_from_u64(0);
-        let mut sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(65536)
-                .collect();
+        let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
+            .unwrap()
+            .sample_iter(&mut rng)
+            .filter_map(|size| {
+                if 0.5 <= size && size < 8192.5 { Some(size.round() as usize) } else { None }
+            })
+            .take(65536)
+            .collect();
         sizes.sort_unstable();
 
         let subsets: Vec<Vec<_>> = meld(sizes, 1024, |&size| size);
         assert_eq!(subsets.len(), 1024);
         assert!(subsets.iter().all(|subset| subset.len() == 64));
 
-        let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
+        let sums: Vec<usize> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
         let min = *sums.first().unwrap() as f64;
@@ -425,10 +449,10 @@ mod tests {
 
     #[test]
     fn test_partition_with_empty_items() {
-        let subsets: Vec<Vec<_>> = partition([], 0, |&size| size, None);
+        let subsets: Vec<Vec<usize>> = partition([], 0, |&size| size, None);
         assert!(subsets.is_empty());
 
-        let subsets: Vec<Vec<_>> = partition([], 1024, |&size| size, None);
+        let subsets: Vec<Vec<usize>> = partition([], 1024, |&size| size, None);
         assert_eq!(subsets.len(), 1024);
         assert!(subsets.into_iter().all(|subset| subset.is_empty()));
     }
