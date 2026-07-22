@@ -32,7 +32,7 @@ impl<T> Tuple<T> {
             subsets.entry(f(subset.back().unwrap())).or_default().push(subset);
         }
 
-        let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { spread, subsets }
     }
@@ -52,7 +52,7 @@ impl<T> Tuple<T> {
 
         debug_assert!(other.subsets.is_empty());
 
-        let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { spread, subsets }
     }
@@ -124,7 +124,7 @@ impl<T> Tuple<T> {
 
         debug_assert!(other.subsets.is_empty());
 
-        let spread = subsets.keys().next_back().unwrap() - subsets.keys().next().unwrap();
+        let spread = *subsets.keys().next_back().unwrap() - *subsets.keys().next().unwrap();
 
         Self { spread, subsets }
     }
@@ -359,9 +359,9 @@ mod tests {
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
-        let min = *sums.first().unwrap();
-        let max = *sums.last().unwrap();
-        let spread = (max - min) as f64 / min as f64;
+        let min = *sums.first().unwrap() as f64;
+        let max = *sums.last().unwrap() as f64;
+        let spread = (max - min) / min;
         println!("spread: {spread} (min: {min} max: {max})");
     }
 
@@ -389,9 +389,9 @@ mod tests {
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
-        let min = *sums.first().unwrap();
-        let max = *sums.last().unwrap();
-        let spread = (max - min) as f64 / min as f64;
+        let min = *sums.first().unwrap() as f64;
+        let max = *sums.last().unwrap() as f64;
+        let spread = (max - min) / min;
         println!("spread: {spread} (min: {min} max: {max})");
     }
 
@@ -419,9 +419,9 @@ mod tests {
         let sums: Vec<i64> = subsets.into_iter().map(|subset| subset.into_iter().sum()).collect();
         assert!(sums.is_sorted());
 
-        let min = *sums.first().unwrap();
-        let max = *sums.last().unwrap();
-        let spread = (max - min) as f64 / min as f64;
+        let min = *sums.first().unwrap() as f64;
+        let max = *sums.last().unwrap() as f64;
+        let spread = (max - min) / min;
         println!("spread: {spread} (min: {min} max: {max})");
     }
 
