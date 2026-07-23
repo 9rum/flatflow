@@ -118,7 +118,7 @@ setup(
     packages=find_packages(exclude=("tests*",)),
     ext_modules=ext_modules,
     classifiers=[
-        "Programming Language :: C++",
+        "Programming Language :: Rust",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

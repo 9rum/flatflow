@@ -1,11 +1,6 @@
 [build-system]
-requires = [
-  "cmake>=3.29.0",
-  "ninja",
-  "pybind11[global]",
-  "setuptools",
-]
-build-backend = "setuptools.build_meta"
+requires = ["maturin"]
+build-backend = "maturin"
 
 [tool.ruff]
 extend-exclude = ["third_party"]
