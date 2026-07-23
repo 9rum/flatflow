@@ -369,6 +369,9 @@ mod tests {
 
     use super::*;
 
+    const MU: f32 = 595.2844634189998;
+    const SIGMA: f32 = 952.6487919361658;
+
     #[test]
     fn test_bldm_with_uniform_distribution() {
         let mut sizes = Vec::with_capacity(65536);
@@ -391,9 +394,6 @@ mod tests {
 
     #[test]
     fn test_bldm_with_lognormal_distribution() {
-        const MU: f32 = 595.2844634189998;
-        const SIGMA: f32 = 952.6487919361658;
-
         let mut rng = StdRng::seed_from_u64(0);
         let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
             .unwrap()
@@ -420,9 +420,6 @@ mod tests {
 
     #[test]
     fn test_meld_with_lognormal_distribution() {
-        const MU: f32 = 595.2844634189998;
-        const SIGMA: f32 = 952.6487919361658;
-
         let mut rng = StdRng::seed_from_u64(0);
         let mut sizes: Vec<_> = LogNormal::new(MU, SIGMA)
             .unwrap()
