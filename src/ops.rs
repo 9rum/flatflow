@@ -14,7 +14,7 @@ use std::time::Instant;
 
 use log::info;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use scopeguard::defer;
+use scopeguard::defer_on_success;
 
 use crate::polynomial;
 
@@ -1011,7 +1011,11 @@ pub fn transform(
     context_parallel_world_size: i64,
 ) -> impl ops::Fn(i64) -> i64 {
     let now = Instant::now();
-    defer!(info!("Traversing a graph with {} nodes took {:?}", graph.nodes().len(), now.elapsed()));
+    defer_on_success!(info!(
+        "Traversing a graph with {} nodes took {:?}",
+        graph.nodes().len(),
+        now.elapsed()
+    ));
 
     let registry = OperatorRegistry::global().read().unwrap_or_else(|err| {
         panic!("Maybe a writer panics while holding the underlying lock: {}", err)

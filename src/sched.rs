@@ -29,7 +29,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::{Bound, PyResult, pyfunction};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::slice::ParallelSliceMut;
-use scopeguard::defer;
+use scopeguard::defer_on_success;
 
 use crate::ops::{root_as_graph, transform};
 
@@ -113,7 +113,7 @@ pub fn sched<'py>(
 
     let now = Instant::now();
     let num_samples = indices.len() / data_parallel_world_size;
-    defer!(info!(
+    defer_on_success!(info!(
         "Reordering {} micro-batches took {:?}",
         ((num_samples - 1) / micro_batch_size + 1) * data_parallel_world_size,
         now.elapsed()
@@ -362,7 +362,7 @@ pub fn sched_unstable<'py>(
 
     let now = Instant::now();
     let num_samples = indices.len() / data_parallel_world_size;
-    defer!(info!(
+    defer_on_success!(info!(
         "Reordering {} micro-batches took {:?}",
         ((num_samples - 1) / micro_batch_size + 1) * data_parallel_world_size,
         now.elapsed()
