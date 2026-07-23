@@ -15,30 +15,6 @@
 # This should be consistent with the CMake version in pyproject.toml.
 cmake_minimum_required(VERSION 3.29)
 
-project(flatflow LANGUAGES CXX)
-
-include(CTest)
-
-option(FLATFLOW_BUILD_TESTS "If ON, FlatFlow will build its own tests" OFF)
-option(FLATFLOW_ENABLE_ASAN "If ON, enable AddressSanitizer" OFF)
-option(FLATFLOW_ENABLE_UBSAN "If ON, enable UndefinedBehaviorSanitizer" OFF)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-include(${PROJECT_SOURCE_DIR}/cmake/utils.cmake)
-
-find_package(OpenMP REQUIRED)
-
-find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
-
-set(PYBIND11_FINDPYTHON ON)
-find_package(pybind11 CONFIG REQUIRED)
-
 add_subdirectory(third_party)
-add_subdirectory(flatflow)
-
-if(BUILD_TESTING AND FLATFLOW_BUILD_TESTS)
-  add_subdirectory(tests)
-endif()

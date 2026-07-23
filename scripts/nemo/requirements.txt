@@ -1,3 +1,0 @@
-nemo-toolkit==2.0.0
-torch
-tqdm
