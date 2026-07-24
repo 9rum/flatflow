@@ -1,9 +1,11 @@
 [build-system]
-requires = ["maturin"]
+requires = ["maturin>=1.0"]
 build-backend = "maturin"
 
+[tool.maturin]
+module-name = "flatflow.ffi"
+
 [tool.ruff]
-extend-exclude = ["third_party"]
 target-version = "py310"
 
 [tool.ruff.format]
@@ -27,6 +29,3 @@ extend-select = [
 
 [tool.ruff.lint.isort]
 known-local-folder = ["flatflow"]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
