@@ -1,47 +1,33 @@
 # For AArch64 build, use quay.io/pypa/manylinux_2_28_aarch64.
-ARG BASE_IMAGE=quay.io/pypa/manylinux_2_28_x86_64
+ARG BASE=quay.io/pypa/manylinux_2_28_x86_64
 
-FROM ${BASE_IMAGE}
+FROM ${BASE}
 
-# This should be consistent with the gRPC version in requirements.txt.
-ARG GRPC_VERSION=1.67.1
-ARG CMAKE_BUILD_TYPE=Release
-ARG CMAKE_POLICY_VERSION_MINIMUM=3.5
+ENV PATH="/root/.cargo/bin:${PATH}"
 
-WORKDIR /workspace
+# Install the Rust toolchain and maturin.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN pipx install maturin
 
-RUN pipx install ninja && \
-    git clone -b v${GRPC_VERSION} https://github.com/grpc/grpc.git && \
-    pushd grpc && \
-    git submodule update --init --recursive && \
-    mkdir -p cmake/build && \
-    pushd cmake/build && \
-    cmake -G Ninja \
-          -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-          -DCMAKE_POLICY_VERSION_MINIMUM=${CMAKE_POLICY_VERSION_MINIMUM} \
-          -DgRPC_INSTALL=ON \
-          -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
-          -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
-          -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
-          -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
-          -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF ../.. && \
-    ninja && \
-    ninja install && \
-    popd && \
-    popd && \
-    rm -rf grpc
+# Download and install the FlatBuffers compiler.
+# This should be consistent with the FlatBuffers version in requirements.txt.
+RUN pushd $(mktemp -d) && \
+    curl -LO https://github.com/google/flatbuffers/releases/download/v25.12.19/Linux.flatc.binary.g++-13.zip && \
+    unzip Linux.flatc.binary.g++-13.zip && \
+    install flatc /usr/local/bin/flatc && \
+    popd
 
 WORKDIR /workspace/flatflow
 
 COPY . .
 
-RUN for PYTHON_VERSION in 3.10 3.11 3.12 3.13 3.14; \
-    do \
-      python${PYTHON_VERSION} -m build -w && \
-      rm -rf build flatflow.egg-info; \
-    done && \
-    auditwheel repair dist/*
+# Note: Even if the wheel is successfully built, `cargo test` may fail in manylinux.
+# This is due to the absence of Python development package and can be resolved by
+# installing the relevant package such as `yum install -y python3.12-devel`.
+RUN make generate && \
+    make build && \
+    auditwheel repair target/wheels/*
 
-# To upload to PyPI, run the commands commented out below.
+# For PyPI upload, run the commands commented out below.
 # RUN pipx install twine && \
 #     twine upload wheelhouse/*

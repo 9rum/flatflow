@@ -1,8 +1,4 @@
-build/
-
 .env/
 .venv/
 env/
-env.bak/
 venv/
-venv.bak/
