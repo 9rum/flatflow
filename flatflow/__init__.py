@@ -1,1 +1,3 @@
-__version__ = "0.0.62"
+from flatflow.ffi import __version__
+
+__all__ = ["__version__"]
