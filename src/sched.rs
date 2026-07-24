@@ -95,6 +95,18 @@ impl From<&str> for Policy {
 /// [`sched_unstable`]: fn@crate::sched::sched_unstable
 /// [`Policy`]: enum@crate::sched::Policy
 #[pyfunction]
+#[pyo3(signature = (
+    indices: "numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]",
+    sizes: "numpy.ndarray[tuple[int], numpy.dtype[numpy.int64]]",
+    buf: "bytes",
+    tensor_parallel_world_size: "int",
+    context_parallel_world_size: "int",
+    data_parallel_world_size: "int",
+    data_parallel_rank: "int",
+    global_batch_size: "int",
+    micro_batch_size: "int",
+    policy: "str",
+) -> "numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]")]
 pub fn sched<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
@@ -344,6 +356,18 @@ where
 /// [`sched`]: fn@crate::sched::sched
 /// [`Policy`]: enum@crate::sched::Policy
 #[pyfunction]
+#[pyo3(signature = (
+    indices: "numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]",
+    sizes: "numpy.ndarray[tuple[int], numpy.dtype[numpy.int64]]",
+    buf: "bytes",
+    tensor_parallel_world_size: "int",
+    context_parallel_world_size: "int",
+    data_parallel_world_size: "int",
+    data_parallel_rank: "int",
+    global_batch_size: "int",
+    micro_batch_size: "int",
+    policy: "str",
+) -> "numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]")]
 pub fn sched_unstable<'py>(
     mut indices: PyReadwriteArray1<'py, usize>,
     sizes: PyReadonlyArray1<'py, i64>,
