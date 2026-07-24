@@ -8,12 +8,12 @@ build:
 
 .PHONY: generate
 generate:
-	@./build/third_party/flatbuffers/flatc -r -o src/ops flatflow/ops/operator.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
-		./build/third_party/flatbuffers/flatc -r -o src/ops flatflow/ops/scalar_type.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/scalar_type.fbs && \
-		./build/third_party/flatbuffers/flatc -r -o src/ops -I . --include-prefix ops flatflow/ops/graph.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs
+	@flatc -r -o src/ops flatflow/ops/operator.fbs && \
+		flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
+		flatc -r -o src/ops flatflow/ops/scalar_type.fbs && \
+		flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/scalar_type.fbs && \
+		flatc -r -o src/ops -I . --include-prefix ops flatflow/ops/graph.fbs && \
+		flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs
 
 .PHONY: degenerate
 degenerate:
