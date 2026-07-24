@@ -1,3 +1,0 @@
-flatbuffers==24.12.23
-grpcio==1.67.1
-numpy

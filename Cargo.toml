@@ -2,6 +2,12 @@
 name = "flatflow"
 version = "0.0.63"
 edition = "2024"
+authors = ["The FlatFlow Authors"]
+description = "Fast and exact parallel training of neural networks"
+readme = "README.md"
+license = "Apache-2.0"
+documentation = "https://docs.rs/flatflow"
+repository = "https://github.com/9rum/flatflow"
 
 [lib]
 crate-type = ["cdylib"]
