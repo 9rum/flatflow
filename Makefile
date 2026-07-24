@@ -1,20 +1,10 @@
-# Adapted from https://github.com/pytorch/pytorch/blob/v2.4.0/Makefile
-# Copyright (c) Facebook, Inc. and its affiliates. All rights reserved.
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
-# This makefile does nothing but delegating the actual building to CMake.
-CMAKE_BUILD_TYPE ?= Release
-CMAKE_CXX_STANDARD ?= 20
-
 .PHONY: all
 all:
-	@mkdir -p build && \
-		cd build && \
-		cmake .. \
-		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
-		-DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) && \
-		$(MAKE)
+	@maturin develop
+
+.PHONY: build
+build:
+	@maturin build --release
 
 .PHONY: generate
 generate:
@@ -39,8 +29,8 @@ degenerate:
 
 .PHONY: check
 check:
-	@ctest --test-dir build
+	@cargo test -- --show-output
 
 .PHONY: clean
 clean:
-	@rm -r build
+	@cargo clean
