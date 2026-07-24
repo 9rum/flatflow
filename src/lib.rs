@@ -17,6 +17,7 @@ pub mod sched;
 mod ffi {
     use pyo3::types::PyModule;
     use pyo3::{Bound, PyResult};
+    use pyo3_log;
 
     // This may bind `flatflow::sched::sched` and `flatflow::sched::sched_unstable` to
     // `flatflow.ffi.sched` and `flatflow.ffi.sched_unstable` in the Python frontend, respectively.
