@@ -31,6 +31,19 @@ dynamic = [
 
 [tool.maturin]
 module-name = "flatflow.ffi"
+include = [
+  "flatflow/ops/graph_generated.py",
+  "flatflow/ops/graph_generated.pyi",
+  "flatflow/ops/operator_generated.py",
+  "flatflow/ops/operator_generated.pyi",
+  "flatflow/ops/scalar_type_generated.py",
+  "flatflow/ops/scalar_type_generated.pyi",
+]
+exclude = [
+  "flatflow/ops/graph.fbs",
+  "flatflow/ops/operator.fbs",
+  "flatflow/ops/scalar_type.fbs",
+]
 
 [tool.ruff]
 target-version = "py310"
