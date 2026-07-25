@@ -1,16 +1,4 @@
-# Copyright 2025 The FlatFlow Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 import warnings
 from collections.abc import Mapping, Sequence
@@ -20,6 +8,7 @@ import torch
 import torch.fx
 from torch._library.custom_ops import CustomOpDef
 from torch._ops import OpOverload, OpOverloadPacket
+from torch.fx.experimental.symbolic_shapes import is_accessor_node
 
 from flatflow.ops.graph_generated import (
     CreateSymInt,
@@ -42,7 +31,7 @@ from flatflow.ops.graph_generated import (
 from flatflow.ops.operator_generated import Operator
 from flatflow.ops.scalar_type_generated import ScalarType
 
-aten = torch._ops.ops.aten  # type: ignore[has-type]
+aten = torch.ops.aten
 
 __all__ = ["serialize"]
 
@@ -137,32 +126,7 @@ class UnsupportedOperatorWarning(UserWarning):
             "or file an issue to https://github.com/9rum/flatflow/issues\n"
             "The latest release can be found at https://github.com/9rum/flatflow/tags"
         )
-        return message.format(
-            "\n".join(sorted("\t{}".format(arg) for arg in self.args))
-        )
-
-
-def is_accessor_node(node: torch.fx.Node) -> bool:
-    return (
-        node.op == "call_method"
-        and isinstance(node.args[0], torch.fx.Node)
-        and isinstance(node.args[0].meta["example_value"], torch.Tensor)
-        and node.target in ["size", "stride", "storage_offset", "item"]
-    ) or (
-        node.op == "call_function"
-        and node.target
-        in [
-            aten.sym_size,
-            aten.sym_size.default,
-            aten.sym_size.int,
-            aten.sym_stride,
-            aten.sym_stride.default,
-            aten.sym_stride.int,
-            aten.sym_storage_offset,
-            aten.sym_storage_offset.default,
-            aten.sym_numel.default,
-        ]
-    )
+        return message.format("\n".join(sorted(f"\t{arg}" for arg in self.args)))
 
 
 def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
