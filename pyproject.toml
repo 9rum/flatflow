@@ -18,7 +18,6 @@ classifiers = [
 dependencies = [
   "flatbuffers==25.12.19",
   "numpy",
-  "torch>=2.7.0",
 ]
 dynamic = [
   "version",
