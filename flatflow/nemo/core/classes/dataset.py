@@ -18,10 +18,7 @@ import nemo.core.classes
 
 import flatflow.torch.utils.data
 
-__all__ = [
-    "Dataset",
-    "IterableDataset",
-]
+__all__ = ["Dataset", "IterableDataset"]
 
 
 class Dataset(flatflow.torch.utils.data.Dataset, nemo.core.classes.Dataset):

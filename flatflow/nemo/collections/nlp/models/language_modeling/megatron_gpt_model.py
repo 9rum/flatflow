@@ -101,7 +101,6 @@ try:
         get_gpt_layer_local_spec,
         get_gpt_layer_with_transformer_engine_spec,
     )
-    # from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
     from megatron.core.transformer.transformer_config import TransformerConfig
     from megatron.core.utils import (
@@ -141,7 +140,6 @@ HAVE_TE = HAVE_TE and HAVE_TE_MODULE and HAVE_HYENA_SPEC
 
 @cache
 def mcore_supports_moe() -> bool:
-    global HAVE_MEGATRON_CORE
     if not HAVE_MEGATRON_CORE:
         return False
     try:
@@ -1692,32 +1690,35 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
 
         return self._train_ds, self._validation_ds, self._test_ds
 
-    def build_pretraining_data_loader(
-        self, dataset, consumed_samples, dataset_type=None, drop_last=True, pad_samples_to_global_batch_size=False
-    ):
+    def build_pretraining_data_loader(self, dataset, consumed_samples, dataset_type=None, drop_last=True, pad_samples_to_global_batch_size=False):
         """Build dataloader given an input dataset."""
 
         logging.info(f'Building dataloader with consumed samples: {consumed_samples}')
 
         if hasattr(self.cfg.data, 'dataloader_type') and self.cfg.data.dataloader_type is not None:
-            if self.use_flatflow and dataset_type == 'train':
+            if self.use_flatflow:
                 data_sampler = (
                     flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingSampler
                     if self.cfg.data.get('legacy_dataset', False)
                     else flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronCorePretrainingSampler
                 )
                 batch_sampler = data_sampler(
+                    dataset=dataset,
                     total_samples=len(dataset),
                     consumed_samples=consumed_samples,
                     micro_batch_size=self.cfg.micro_batch_size,
                     global_batch_size=self.cfg.global_batch_size,
                     data_parallel_rank=parallel_state.get_data_parallel_rank(),
                     data_parallel_size=parallel_state.get_data_parallel_world_size(),
+                    tensor_parallel_size=parallel_state.get_tensor_model_parallel_world_size(),
+                    context_parallel_size=parallel_state.get_context_parallel_world_size(),
                     drop_last=drop_last,
-                    pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
-                    dataset=dataset,
                     graph=_export(self.model_path),
+                    unstable=self.cfg.data.get("unstable", True),
+                    policy=self.cfg.data.get("policy", "joint"),
+                    pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
                 )
+
                 if isinstance(dataset, flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset):
                     collate_fn = dataset.datasets[0].collate_fn
                 else:
@@ -1731,6 +1732,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                     persistent_workers=self.cfg.data.num_workers > 0,
                 )
+
             data_sampler = (
                 MegatronPretrainingSampler
                 if self.cfg.data.get('legacy_dataset', False)
@@ -1755,40 +1757,11 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     micro_batch_size=self.cfg.micro_batch_size,
                     data_parallel_rank=parallel_state.get_data_parallel_rank(),
                     data_parallel_size=parallel_state.get_data_parallel_world_size(),
-                    drop_last=self.cfg.get('drop_last', True),
+                    drop_last=drop_last,
                 )
             else:
                 raise ValueError('cfg.data.dataloader_type must be "single" or "cyclic"')
-        else:
-            raise ValueError('cfg.data.dataloader_type not found. Must be "single" or "cyclic"')
 
-        if self.use_flatflow and dataset_type == 'train':
-            batch_sampler = flatflow.nemo.collections.nlp.data.language_modeling.megatron.MegatronPretrainingBatchSampler(
-                total_samples=len(dataset),
-                consumed_samples=consumed_samples,
-                micro_batch_size=self.cfg.micro_batch_size,
-                global_batch_size=self.cfg.global_batch_size,
-                data_parallel_rank=parallel_state.get_data_parallel_rank(),
-                data_parallel_size=parallel_state.get_data_parallel_world_size(),
-                drop_last=drop_last,
-                pad_samples_to_global_batch_size=pad_samples_to_global_batch_size,
-                dataset=dataset,
-                graph=_export(self.model_path),
-            )
-            if isinstance(dataset, flatflow.nemo.collections.nlp.data.language_modeling.megatron.BlendableDataset):
-                collate_fn = dataset.datasets[0].collate_fn
-            else:
-                collate_fn = dataset.collate_fn
-
-            return flatflow.torch.utils.data.DataLoader(
-                dataset,
-                batch_sampler=batch_sampler,
-                num_workers=self.cfg.data.num_workers,
-                collate_fn=collate_fn,
-                prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
-                persistent_workers=self.cfg.data.num_workers > 0,
-            )
-        else:
             return torch.utils.data.DataLoader(
                 dataset,
                 batch_sampler=batch_sampler,
@@ -1797,6 +1770,8 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 prefetch_factor=self.cfg.data.get("prefetch_factor", 2),
                 persistent_workers=self.cfg.data.num_workers > 0,
             )
+        else:
+            raise ValueError('cfg.data.dataloader_type not found. Must be "single" or "cyclic"')
 
     def setup(self, stage=None):
         """PTL hook that is executed after DDP spawns.

@@ -14,15 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy
+import operator
+
+import numpy as np
 import torch.fx
 from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import MegatronPretrainingSampler as BaseMegatronPretrainingSampler
 
+from flatflow.ffi import sched, sched_unstable
 from flatflow.nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from flatflow.nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import GPTDataset
-from flatflow.rpc import ControlPlaneClient, run  # type: ignore[attr-defined]
+from flatflow.ops import serialize
 
-__all__ = ["MegatronPretrainingSampler", "MegatronCorePretrainingSampler"]
+__all__ = ["MegatronCorePretrainingSampler", "MegatronPretrainingSampler"]
 
 
 class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
@@ -53,8 +56,12 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
         global_batch_size: int,
         data_parallel_rank: int,
         data_parallel_size: int,
+        tensor_parallel_size: int,
+        context_parallel_size: int,
         drop_last: bool,
         graph: torch.fx.Graph,
+        unstable: bool = True,
+        policy: str = "joint",
         pad_samples_to_global_batch_size: bool = False,
         *args,
         **kwargs,
@@ -72,63 +79,70 @@ class MegatronPretrainingSampler(BaseMegatronPretrainingSampler):
             **kwargs,
         )
         self.dataset = dataset
+        self.tensor_parallel_size = tensor_parallel_size
+        self.context_parallel_size = context_parallel_size
+        self.unstable = unstable
+        self.policy = policy
         self.epoch = 0
 
         if drop_last:
             self.total_size = len(dataset) // global_batch_size * global_batch_size
+            sizes = dataset._sizes[: self.total_size]
         else:
             assert pad_samples_to_global_batch_size
             self.total_size = ((len(dataset) - 1) // global_batch_size + 1) * global_batch_size
+            sizes = np.append(dataset._sizes, np.repeat(dataset._sizes[-1], self.total_size - len(dataset)))  # noqa: E501
 
-        port = run()
-        self.client = ControlPlaneClient(port)
-
-        if drop_last:
-            sizes = dataset._sizes[: self.total_size]
-        else:
-            sizes = numpy.append(dataset._sizes, numpy.repeat(dataset._sizes[-1], self.total_size - len(dataset)))
-
-        self.client.Init(
-            data_parallel_rank,
-            data_parallel_size,
-            global_batch_size,
-            micro_batch_size,
-            graph,
-            sizes,
-        )
+        self.sizes = np.ascontiguousarray(sizes, dtype=np.int64)
+        self.buf = serialize(graph)
 
         del dataset._sizes
 
-    def set_epoch(self, epoch: int) -> None:
-        """Sets the epoch for this sampler. This ensures all replicas use a different random ordering for each epoch.
-        Otherwise, the next iteration of this sampler will yield the same ordering.
-
-        Args:
-            epoch (int): Epoch number.
-        """
-        self.epoch = epoch
-
     def __iter__(self):
-        indices = self.client.Scatter(self.epoch, numpy.arange(self.total_size, dtype=numpy.uint64))
         self.epoch += 1
 
+        indices = np.ascontiguousarray(np.arange(self.total_size, dtype=np.uintp))
+        if self.unstable:
+            batches = sched_unstable(
+                indices,
+                self.sizes,
+                self.buf,
+                self.tensor_parallel_size,
+                self.context_parallel_size,
+                self.data_parallel_size,
+                self.data_parallel_rank,
+                self.global_batch_size,
+                self.micro_batch_size,
+                self.policy,
+            )
+        else:
+            batches = sched(
+                indices,
+                self.sizes,
+                self.buf,
+                self.tensor_parallel_size,
+                self.context_parallel_size,
+                self.data_parallel_size,
+                self.data_parallel_rank,
+                self.global_batch_size,
+                self.micro_batch_size,
+                self.policy,
+            )
+        batches = map(operator.index, batches)
+
         batch = []
-        for idx in indices:
+        for idx in batches:
             batch.append(idx)
             if len(batch) == self.micro_batch_size:
                 yield batch
                 batch = []
 
-        # Check the last partial batch and see drop_last is set
         if batch and not self.drop_last:
-            assert (
-                not self.pad_samples_to_global_batch_size
-            ), "with pad_samples_to_global_batch_size all batches should be complete"
+            assert not self.pad_samples_to_global_batch_size
             yield batch
 
-    def __del__(self) -> None:
-        if hasattr(self, "client"):
-            self.client.Finalize()
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = epoch
 
 
 class MegatronCorePretrainingSampler(MegatronPretrainingSampler):
