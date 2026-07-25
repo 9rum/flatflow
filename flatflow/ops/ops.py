@@ -70,7 +70,6 @@ _OPS_TABLE: Mapping[OpOverload | OpOverloadPacket | CustomOpDef, int] = {
     aten.cat: Operator.CAT,
     aten.clone: Operator.CLONE,
     aten.copy: Operator.COPY,
-    aten.cos: Operator.COS,
     aten.cumsum: Operator.CUMSUM,
     aten.embedding: Operator.EMBEDDING,
     aten.eq.Scalar: Operator.EQ_SCALAR,
@@ -95,7 +94,6 @@ _OPS_TABLE: Mapping[OpOverload | OpOverloadPacket | CustomOpDef, int] = {
     aten.rsub.Scalar: Operator.RSUB_SCALAR,
     aten.scalar_tensor: Operator.SCALAR_TENSOR,
     aten.silu: Operator.SILU,
-    aten.sin: Operator.SIN,
     aten.slice.Tensor: Operator.SLICE_TENSOR,
     aten.slice_scatter: Operator.SLICE_SCATTER,
     aten.split.Tensor: Operator.SPLIT_TENSOR,
@@ -129,8 +127,9 @@ class UnsupportedOperatorWarning(UserWarning):
         return message.format("\n".join(sorted(f"\t{arg}" for arg in self.args)))
 
 
-def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
+def serialize(graph: torch.fx.Graph) -> bytes:
     """Serializes the given computational graph."""
+    builder = flatbuffers.Builder()
     blocklist = []
     nodes = []
 
@@ -183,9 +182,6 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
             shape = []
 
             if "tensor_meta" in node.meta:
-                assert node.meta["tensor_meta"].dtype in _DTYPE_TABLE
-                dtype = _DTYPE_TABLE[node.meta["tensor_meta"].dtype]
-
                 for maybe_sym_int in node.meta["tensor_meta"].shape:
                     if isinstance(maybe_sym_int, torch.SymInt):
                         expr = maybe_sym_int.node.expr
@@ -201,6 +197,8 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
 
             TensorMetadataStart(builder)
             if "tensor_meta" in node.meta:
+                assert node.meta["tensor_meta"].dtype in _DTYPE_TABLE
+                dtype = _DTYPE_TABLE[node.meta["tensor_meta"].dtype]
                 TensorMetadataAddDtype(builder, dtype)
             TensorMetadataAddShape(builder, _shape)
             _meta = TensorMetadataEnd(builder)
@@ -222,4 +220,6 @@ def serialize(builder: flatbuffers.Builder, graph: torch.fx.Graph) -> int:
 
     GraphStart(builder)
     GraphAddNodes(builder, _nodes)
-    return GraphEnd(builder)
+    _graph = GraphEnd(builder)
+    builder.Finish(_graph)
+    return bytes(builder.Output())
