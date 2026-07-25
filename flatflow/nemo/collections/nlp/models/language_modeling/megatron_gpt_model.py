@@ -35,6 +35,7 @@ from torch._decomp import get_decompositions
 from torch.nn.attention import SDPBackend, sdpa_kernel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+import flatflow
 import flatflow.megatron.core.pipeline_parallel.schedules
 import flatflow.nemo.collections.nlp.data.language_modeling.megatron
 import flatflow.torch.profiler
@@ -426,6 +427,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         self.enable_profile = cfg.get("enable_profile", False)
 
         if self.use_flatflow:
+            logging.info(f"Using FlatFlow v{flatflow.__version__}")
             if isinstance(self.model, list):
                 config = get_model_config(self.model[0])
             else:
