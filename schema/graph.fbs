@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-include "flatflow/ops/operator.fbs";
-include "flatflow/ops/scalar_type.fbs";
+include "operator.fbs";
+include "scalar_type.fbs";
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
 struct SymInt {
