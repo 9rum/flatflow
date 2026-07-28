@@ -1,1 +1,1 @@
-import flatflow.torch.utils.data  # noqa: F401
+from flatflow.torch import utils as utils

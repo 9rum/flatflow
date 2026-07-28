@@ -1,3 +1,1 @@
-from flatflow.ffi import __version__
-
-__all__ = ["__version__"]
+from flatflow.ffi import __version__ as __version__
