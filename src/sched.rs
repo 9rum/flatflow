@@ -724,8 +724,8 @@ mod tests {
         builder.finished_data()
     }
 
-    #[test]
-    fn test_sched_fast_with_gpt3() -> Result<(), InvalidFlatbuffer> {
+    #[inline]
+    fn test_sched_with_gpt3(unstable: bool, policy: Policy) -> Result<(), InvalidFlatbuffer> {
         let mut indices: Vec<usize> = (0..65536).collect();
 
         let mut rng = StdRng::seed_from_u64(0);
@@ -743,18 +743,33 @@ mod tests {
         let gpt3 = include!("ops/gpt3_generated.rs");
         let buf = serialize(&mut builder, gpt3);
 
-        let batches = iterative_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Fast,
-        )?;
+        let batches = if unstable {
+            recursive_reorder_by(
+                indices.as_mut_slice(),
+                sizes.as_slice(),
+                buf,
+                4,
+                1,
+                4,
+                0,
+                256,
+                16,
+                policy,
+            )?
+        } else {
+            iterative_reorder_by(
+                indices.as_mut_slice(),
+                sizes.as_slice(),
+                buf,
+                4,
+                1,
+                4,
+                0,
+                256,
+                16,
+                policy,
+            )?
+        };
 
         let mems: Vec<i64> = batches
             .chunks(64)
@@ -776,275 +791,35 @@ mod tests {
         println!("spread(jct): {spread} (min: {min} max: {max})");
 
         Ok(())
+    }
+
+    #[test]
+    fn test_sched_fast_with_gpt3() -> Result<(), InvalidFlatbuffer> {
+        test_sched_with_gpt3(false, Policy::Fast)
     }
 
     #[test]
     fn test_sched_mem_with_gpt3() -> Result<(), InvalidFlatbuffer> {
-        let mut indices: Vec<usize> = (0..65536).collect();
-
-        let mut rng = StdRng::seed_from_u64(0);
-        let sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(indices.len())
-                .collect();
-
-        let mut builder = FlatBufferBuilder::new();
-        let gpt3 = include!("ops/gpt3_generated.rs");
-        let buf = serialize(&mut builder, gpt3);
-
-        let batches = iterative_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Mem,
-        )?;
-
-        let mems: Vec<i64> = batches
-            .chunks(64)
-            .map(|batch| batch.into_iter().map(|&index| sizes[index]).sum())
-            .collect();
-        let min = *mems.iter().min().unwrap() as f64;
-        let max = *mems.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(mem): {spread} (min: {min} max: {max})");
-
-        let f = transform(root_as_graph(buf)?, 4, 1);
-        let jcts: Vec<i64> = batches
-            .chunks(16)
-            .map(|micro_batch| micro_batch.into_iter().map(|&index| f(sizes[index])).sum())
-            .collect();
-        let min = *jcts.iter().min().unwrap() as f64;
-        let max = *jcts.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(jct): {spread} (min: {min} max: {max})");
-
-        Ok(())
+        test_sched_with_gpt3(false, Policy::Mem)
     }
 
     #[test]
     fn test_sched_joint_with_gpt3() -> Result<(), InvalidFlatbuffer> {
-        let mut indices: Vec<usize> = (0..65536).collect();
-
-        let mut rng = StdRng::seed_from_u64(0);
-        let sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(indices.len())
-                .collect();
-
-        let mut builder = FlatBufferBuilder::new();
-        let gpt3 = include!("ops/gpt3_generated.rs");
-        let buf = serialize(&mut builder, gpt3);
-
-        let batches = iterative_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Joint,
-        )?;
-
-        let mems: Vec<i64> = batches
-            .chunks(64)
-            .map(|batch| batch.into_iter().map(|&index| sizes[index]).sum())
-            .collect();
-        let min = *mems.iter().min().unwrap() as f64;
-        let max = *mems.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(mem): {spread} (min: {min} max: {max})");
-
-        let f = transform(root_as_graph(buf)?, 4, 1);
-        let jcts: Vec<i64> = batches
-            .chunks(16)
-            .map(|micro_batch| micro_batch.into_iter().map(|&index| f(sizes[index])).sum())
-            .collect();
-        let min = *jcts.iter().min().unwrap() as f64;
-        let max = *jcts.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(jct): {spread} (min: {min} max: {max})");
-
-        Ok(())
+        test_sched_with_gpt3(false, Policy::Joint)
     }
 
     #[test]
     fn test_sched_unstable_fast_with_gpt3() -> Result<(), InvalidFlatbuffer> {
-        let mut indices: Vec<usize> = (0..65536).collect();
-
-        let mut rng = StdRng::seed_from_u64(0);
-        let sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(indices.len())
-                .collect();
-
-        let mut builder = FlatBufferBuilder::new();
-        let gpt3 = include!("ops/gpt3_generated.rs");
-        let buf = serialize(&mut builder, gpt3);
-
-        let batches = recursive_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Fast,
-        )?;
-
-        let mems: Vec<i64> = batches
-            .chunks(64)
-            .map(|batch| batch.into_iter().map(|&index| sizes[index]).sum())
-            .collect();
-        let min = *mems.iter().min().unwrap() as f64;
-        let max = *mems.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(mem): {spread} (min: {min} max: {max})");
-
-        let f = transform(root_as_graph(buf)?, 4, 1);
-        let jcts: Vec<i64> = batches
-            .chunks(16)
-            .map(|micro_batch| micro_batch.into_iter().map(|&index| f(sizes[index])).sum())
-            .collect();
-        let min = *jcts.iter().min().unwrap() as f64;
-        let max = *jcts.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(jct): {spread} (min: {min} max: {max})");
-
-        Ok(())
+        test_sched_with_gpt3(true, Policy::Fast)
     }
 
     #[test]
     fn test_sched_unstable_mem_with_gpt3() -> Result<(), InvalidFlatbuffer> {
-        let mut indices: Vec<usize> = (0..65536).collect();
-
-        let mut rng = StdRng::seed_from_u64(0);
-        let sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(indices.len())
-                .collect();
-
-        let mut builder = FlatBufferBuilder::new();
-        let gpt3 = include!("ops/gpt3_generated.rs");
-        let buf = serialize(&mut builder, gpt3);
-
-        let batches = recursive_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Mem,
-        )?;
-
-        let mems: Vec<i64> = batches
-            .chunks(64)
-            .map(|batch| batch.into_iter().map(|&index| sizes[index]).sum())
-            .collect();
-        let min = *mems.iter().min().unwrap() as f64;
-        let max = *mems.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(mem): {spread} (min: {min} max: {max})");
-
-        let f = transform(root_as_graph(buf)?, 4, 1);
-        let jcts: Vec<i64> = batches
-            .chunks(16)
-            .map(|micro_batch| micro_batch.into_iter().map(|&index| f(sizes[index])).sum())
-            .collect();
-        let min = *jcts.iter().min().unwrap() as f64;
-        let max = *jcts.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(jct): {spread} (min: {min} max: {max})");
-
-        Ok(())
+        test_sched_with_gpt3(true, Policy::Mem)
     }
 
     #[test]
     fn test_sched_unstable_joint_with_gpt3() -> Result<(), InvalidFlatbuffer> {
-        let mut indices: Vec<usize> = (0..65536).collect();
-
-        let mut rng = StdRng::seed_from_u64(0);
-        let sizes: Vec<_> =
-            LogNormal::new(MU, SIGMA)
-                .unwrap()
-                .sample_iter(&mut rng)
-                .filter_map(|size| {
-                    if 0.5 <= size && size < 8192.5 { Some(size.round() as i64) } else { None }
-                })
-                .take(indices.len())
-                .collect();
-
-        let mut builder = FlatBufferBuilder::new();
-        let gpt3 = include!("ops/gpt3_generated.rs");
-        let buf = serialize(&mut builder, gpt3);
-
-        let batches = recursive_reorder_by(
-            indices.as_mut_slice(),
-            sizes.as_slice(),
-            buf,
-            4,
-            1,
-            4,
-            0,
-            256,
-            16,
-            Policy::Joint,
-        )?;
-
-        let mems: Vec<i64> = batches
-            .chunks(64)
-            .map(|batch| batch.into_iter().map(|&index| sizes[index]).sum())
-            .collect();
-        let min = *mems.iter().min().unwrap() as f64;
-        let max = *mems.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(mem): {spread} (min: {min} max: {max})");
-
-        let f = transform(root_as_graph(buf)?, 4, 1);
-        let jcts: Vec<i64> = batches
-            .chunks(16)
-            .map(|micro_batch| micro_batch.into_iter().map(|&index| f(sizes[index])).sum())
-            .collect();
-        let min = *jcts.iter().min().unwrap() as f64;
-        let max = *jcts.iter().max().unwrap() as f64;
-        let spread = (max - min) / min;
-        println!("spread(jct): {spread} (min: {min} max: {max})");
-
-        Ok(())
+        test_sched_with_gpt3(true, Policy::Joint)
     }
 }
