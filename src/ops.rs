@@ -1099,11 +1099,11 @@ mod tests {
         // [torch.export.export]: https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export.html
         let gpt3 = include!("ops/gpt3_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, gpt3))?, 1, 1); // 1315 s0^2 + 39372164 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 39373479);
-        assert_eq!(proj(1024), 41695973376);
-        assert_eq!(proj(2048), 86149701632);
+        let f = transform(root_as_graph(serialize(&mut builder, gpt3))?, 1, 1); // 1315 s0^2 + 39372164 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 39373479);
+        assert_eq!(f(1024), 41695973376);
+        assert_eq!(f(2048), 86149701632);
 
         Ok(())
     }
@@ -1119,11 +1119,11 @@ mod tests {
         // [OPT]: https://huggingface.co/facebook/opt-13b
         let opt = include!("ops/opt_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, opt))?, 1, 1); // 5261 s0^2 + 246735427 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 246740688);
-        assert_eq!(proj(1024), 258173635584);
-        assert_eq!(proj(2048), 527380387840);
+        let f = transform(root_as_graph(serialize(&mut builder, opt))?, 1, 1); // 5261 s0^2 + 246735427 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 246740688);
+        assert_eq!(f(1024), 258173635584);
+        assert_eq!(f(2048), 527380387840);
 
         Ok(())
     }
@@ -1139,11 +1139,11 @@ mod tests {
         // [Llama 3.1]: https://huggingface.co/meta-llama/Llama-3.1-8B
         let llama3 = include!("ops/llama3_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, llama3))?, 1, 1); // 8417 s0^2 + 663883653 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 663892070);
-        assert_eq!(proj(1024), 688642724864);
-        assert_eq!(proj(2048), 1394937178112);
+        let f = transform(root_as_graph(serialize(&mut builder, llama3))?, 1, 1); // 8417 s0^2 + 663883653 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 663892070);
+        assert_eq!(f(1024), 688642724864);
+        assert_eq!(f(2048), 1394937178112);
 
         Ok(())
     }
@@ -1159,11 +1159,11 @@ mod tests {
         // [phi-4]: https://huggingface.co/microsoft/phi-4
         let phi4 = include!("ops/phi4_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, phi4))?, 1, 1); // 10521 s0^2 + 854757893 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 854768414);
-        assert_eq!(proj(1024), 886304150528);
-        assert_eq!(proj(2048), 1794672437248);
+        let f = transform(root_as_graph(serialize(&mut builder, phi4))?, 1, 1); // 10521 s0^2 + 854757893 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 854768414);
+        assert_eq!(f(1024), 886304150528);
+        assert_eq!(f(2048), 1794672437248);
 
         Ok(())
     }
@@ -1179,11 +1179,11 @@ mod tests {
         // [Mistral Small 3]: https://huggingface.co/mistralai/Mistral-Small-24B-Base-2501
         let mistral3 = include!("ops/mistral3_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, mistral3))?, 1, 1); // 8417 s0^2 + 1054055301 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 1054063718);
-        assert_eq!(proj(1024), 1088178492416);
-        assert_eq!(proj(2048), 2194008713216);
+        let f = transform(root_as_graph(serialize(&mut builder, mistral3))?, 1, 1); // 8417 s0^2 + 1054055301 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 1054063718);
+        assert_eq!(f(1024), 1088178492416);
+        assert_eq!(f(2048), 2194008713216);
 
         Ok(())
     }
@@ -1199,11 +1199,11 @@ mod tests {
         // [Gemma 3]: https://huggingface.co/google/gemma-3-1b-pt
         let gemma3 = include!("ops/gemma3_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, gemma3))?, 1, 1); // 2077 s0^2 + 320703256 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 320705333);
-        assert_eq!(proj(1024), 330578026496);
-        assert_eq!(proj(2048), 665511837696);
+        let f = transform(root_as_graph(serialize(&mut builder, gemma3))?, 1, 1); // 2077 s0^2 + 320703256 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 320705333);
+        assert_eq!(f(1024), 330578026496);
+        assert_eq!(f(2048), 665511837696);
 
         Ok(())
     }
@@ -1219,11 +1219,11 @@ mod tests {
         // [Qwen3]: https://huggingface.co/Qwen/Qwen3-8B
         let qwen3 = include!("ops/qwen3_generated.rs");
 
-        let proj = transform(root_as_graph(serialize(&mut builder, qwen3))?, 1, 1); // 8417 s0^2 + 744125477 s0
-        assert_eq!(proj(0), 0);
-        assert_eq!(proj(1), 744133894);
-        assert_eq!(proj(1024), 770810352640);
-        assert_eq!(proj(2048), 1559272433664);
+        let f = transform(root_as_graph(serialize(&mut builder, qwen3))?, 1, 1); // 8417 s0^2 + 744125477 s0
+        assert_eq!(f(0), 0);
+        assert_eq!(f(1), 744133894);
+        assert_eq!(f(1024), 770810352640);
+        assert_eq!(f(2048), 1559272433664);
 
         Ok(())
     }
