@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from typing import Final
 
 import numpy
@@ -17,8 +16,7 @@ def sched(
     micro_batch_size: int,
     policy: str,
 ) -> numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]:
-    """
-    Reorders the given computation schedule `indices` for the next training epoch.
+    """Reorders the given computation schedule `indices` for the next training epoch.
 
     This scheduler is stable; i.e., does not affect the resulting checkpoint by iteratively
     reordering the training sequence at the granularity of mini-batch, which we call *iterative
@@ -42,7 +40,7 @@ def sched(
 
     [`sched_unstable`]: fn@crate::sched::sched_unstable
     [`Policy`]: enum@crate::sched::Policy
-    """
+    """  # noqa: E501
 
 def sched_unstable(
     indices: numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]],
@@ -56,8 +54,7 @@ def sched_unstable(
     micro_batch_size: int,
     policy: str,
 ) -> numpy.ndarray[tuple[int], numpy.dtype[numpy.uintp]]:
-    """
-    Reorders the given computation schedule `indices` for the next training epoch.
+    """Reorders the given computation schedule `indices` for the next training epoch.
 
     This scheduler is unstable; i.e., does not preserve the resulting checkpoint. If it is important
     to preserve the resulting checkpoint or if the batch size is sufficiently large, consider using
@@ -77,4 +74,4 @@ def sched_unstable(
 
     [`sched`]: fn@crate::sched::sched
     [`Policy`]: enum@crate::sched::Policy
-    """
+    """  # noqa: E501
