@@ -35,7 +35,24 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class IterableDataset(Dataset, torch.utils.data.IterableDataset):
-    """An iterable dataset."""
+    """An iterable dataset.
+
+    All datasets that represent an iterable of data samples should subclass it. Such
+    form of datasets is particularly useful when data come from a stream.
+
+    All subclasses should overwrite :meth:`__iter__`, which would return an iterator of
+    samples in this dataset.
+
+    When a subclass is used with :class:`flatflow.torch.utils.data.DataLoader`, each
+    item in the dataset will be yielded from the data loader iterator. When
+    :attr:`0 < num_workers`, each worker process will have a different copy of the
+    dataset object, so it is often desired to configure each copy independently to avoid
+    having duplicate data returned from the workers.
+    :func:`torch.utils.data.get_worker_info`, when called in a worker process, returns
+    information about the worker. It can be used in either the dataset's
+    :meth:`__iter__` method or the data loader's :attr:`worker_init_fn` option to modify
+    each copy's behavior.
+    """
 
     def __add__(self, other: Dataset):
         return ChainDataset([self, other])
