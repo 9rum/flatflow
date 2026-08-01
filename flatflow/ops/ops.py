@@ -8,6 +8,7 @@ import torch
 import torch.fx
 from torch._library.custom_ops import CustomOpDef
 from torch._ops import OpOverload, OpOverloadPacket
+from torch.fx.experimental.symbolic_shapes import is_accessor_node
 
 from flatflow.ops.graph_generated import (
     CreateSymInt,
@@ -30,7 +31,7 @@ from flatflow.ops.graph_generated import (
 from flatflow.ops.operator_generated import Operator
 from flatflow.ops.scalar_type_generated import ScalarType
 
-aten = torch._ops.ops.aten
+aten = torch.ops.aten
 
 __all__ = ["serialize"]
 
@@ -124,29 +125,6 @@ class UnsupportedOperatorWarning(UserWarning):
             "The latest release can be found at https://github.com/9rum/flatflow/tags"
         )
         return message.format("\n".join(sorted(f"\t{arg}" for arg in self.args)))
-
-
-def is_accessor_node(node: torch.fx.Node) -> bool:
-    return (
-        node.op == "call_method"
-        and isinstance(node.args[0], torch.fx.Node)
-        and isinstance(node.args[0].meta["example_value"], torch.Tensor)
-        and node.target in ["size", "stride", "storage_offset", "item"]
-    ) or (
-        node.op == "call_function"
-        and node.target
-        in [
-            aten.sym_size,
-            aten.sym_size.default,
-            aten.sym_size.int,
-            aten.sym_stride,
-            aten.sym_stride.default,
-            aten.sym_stride.int,
-            aten.sym_storage_offset,
-            aten.sym_storage_offset.default,
-            aten.sym_numel.default,
-        ]
-    )
 
 
 def serialize(graph: torch.fx.Graph) -> bytes:
