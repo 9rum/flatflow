@@ -27,10 +27,10 @@ class Dataset(torch.utils.data.Dataset):
     :param:`index`.
     """
 
-    def __add__(self, other: "Dataset") -> "ConcatDataset":
+    def __add__(self, other: torch.utils.data.Dataset) -> "ConcatDataset":
         return ConcatDataset([self, other])
 
-    def __sizeof__(self, index: int) -> int:
+    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
         raise NotImplementedError("Subclasses of Dataset should implement __sizeof__.")
 
 
@@ -54,7 +54,7 @@ class IterableDataset(Dataset, torch.utils.data.IterableDataset):
     each copy's behavior.
     """
 
-    def __add__(self, other: Dataset):
+    def __add__(self, other: torch.utils.data.Dataset) -> "ChainDataset":  # type: ignore[override]
         return ChainDataset([self, other])
 
 
@@ -67,7 +67,7 @@ class ConcatDataset(Dataset, torch.utils.data.ConcatDataset):
         datasets (Iterable[Dataset]): List of datasets to be concatenated.
     """
 
-    def __sizeof__(self, index: int) -> int:
+    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
         if index < 0:
             if len(self) + index < 0:
                 raise ValueError(
