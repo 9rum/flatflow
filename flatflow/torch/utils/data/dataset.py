@@ -30,7 +30,9 @@ class Dataset(torch.utils.data.Dataset):
     def __add__(self, other: torch.utils.data.Dataset) -> "ConcatDataset":
         return ConcatDataset([self, other])
 
-    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
+    def __sizeof__(self, index: int | None = None) -> int:
+        if index is None:
+            return super().__sizeof__()
         raise NotImplementedError("Subclasses of Dataset should implement __sizeof__.")
 
 
@@ -67,7 +69,9 @@ class ConcatDataset(Dataset, torch.utils.data.ConcatDataset):
         datasets (Iterable[Dataset]): List of datasets to be concatenated.
     """
 
-    def __sizeof__(self, index: int) -> int:  # type: ignore[override]
+    def __sizeof__(self, index: int | None = None) -> int:
+        if index is None:
+            return super().__sizeof__()
         if index < 0:
             if len(self) + index < 0:
                 raise ValueError(

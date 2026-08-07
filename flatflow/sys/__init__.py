@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+
 __all__ = ["getsizeof"]
 
 
-def getsizeof(o: object, index: int) -> int:
+def getsizeof(obj: object, index: int | None = None) -> int:
     """Returns the user-defined size of an object at position :param:`index`.
 
     :func:`getsizeof` calls the object's :meth:`__sizeof__` method.
@@ -11,10 +13,12 @@ def getsizeof(o: object, index: int) -> int:
     raised.
 
     Args:
-        o (object): An object to get the size of.
-        index (int): Index of the object.
+        obj (object): An object to get the size of.
+        index (int, optional): Index of the object.
 
     Returns:
         int: The user-defined size of the object.
     """
-    return o.__sizeof__(index)  # type: ignore[call-arg]
+    if index is None:
+        return sys.getsizeof(obj)
+    return obj.__sizeof__(index)  # type: ignore[call-arg]
