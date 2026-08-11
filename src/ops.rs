@@ -46,8 +46,8 @@ pub use scalar_type_generated::ScalarType;
 /// Note: To register a new operator, please follow the instructions below:
 ///
 /// * First, declare a new operator as an enumerator value of `Operator` in the FlatBuffers schema,
-///   i.e., `flatflow/ops/operator.fbs`. The enumerator values are recommended to be sorted in order
-///   of their original operator names (not the enumerator values themselves) for searching
+///   i.e., `schema/operator.fbs`. The enumerator values are recommended to be sorted in order of
+///   their original operator names (not the enumerator values themselves) for searching
 ///   convenience.
 /// * Second, generate codes from the updated schema by running `make generate` in the root
 ///   directory of this source tree. This will create `src/ops/operator_generated.rs`, etc.
