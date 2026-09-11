@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
+namespace flatflow;
+
 /// This table defines the operator set to identify operations in the
 /// computational graph of a given PyTorch program. It is based on ATen operator
 /// set so that each entry corresponds to the basic building block in the
 /// computational graph while ensuring compatibility with PyTorch.
 ///
 /// The latest version of ATen operator set can be found at
-/// <https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml>
+/// https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/native/native_functions.yaml
 /// or by running `python3 -c "import torch; print(dir(torch.ops.aten))"`.
 ///
 /// Note that this operator set is under development and more operators
