@@ -6,7 +6,7 @@
 # This makefile does nothing but delegating the actual building to CMake.
 CMAKE_BUILD_TYPE ?= Release
 CMAKE_CXX_STANDARD ?= 20
-FLATFLOW_BUILD_TESTS ?= OFF
+FLATFLOW_BUILD_TESTS ?= ON
 FLATFLOW_ENABLE_ASAN ?= OFF
 FLATFLOW_ENABLE_UBSAN ?= OFF
 
