@@ -6,7 +6,6 @@
 #include <array>
 
 #include "absl/log/check.h"
-#include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 
 #include "flatflow/ops/scalar_type_generated.h"
@@ -69,7 +68,7 @@ constexpr bool is_barebones_unsigned_type(ScalarType dtype) noexcept {
 //
 // See https://docs.pytorch.org/docs/stable/tensor_attributes.html for more
 // information on the type promotion logic.
-constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) {
+constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
   // If the two types are equal, return that type.
   if (lhs == rhs) {
     return lhs;
@@ -87,16 +86,16 @@ constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) {
     if (is_floating_type(rhs)) {
       return rhs;
     }
-    LOG(FATAL) << absl::StrFormat(
+    CHECK(false) << absl::StrFormat(
         "Promotion for uint16, uint32, uint64 types is not supported, "
         "attempted to promote %s and %s",
         EnumNameScalarType(lhs), EnumNameScalarType(rhs));
   }
 
-  const auto ix_lhs = static_cast<decltype(internal::lookup)::size_type>(lhs);
-  const auto ix_rhs = static_cast<decltype(internal::lookup)::size_type>(rhs);
+  const auto lix = static_cast<decltype(internal::lookup)::size_type>(lhs);
+  const auto rix = static_cast<decltype(internal::lookup)::size_type>(rhs);
 
-  return internal::lookup[ix_lhs][ix_rhs];
+  return internal::lookup[lix][rix];
 }
 
 }  // namespace flatflow
