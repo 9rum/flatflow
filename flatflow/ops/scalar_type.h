@@ -25,7 +25,7 @@ inline constexpr auto i4 = ScalarType::int32;
 inline constexpr auto i8 = ScalarType::int64;
 inline constexpr auto u1 = ScalarType::uint8;
 
-inline constexpr auto lookup = std::to_array({
+inline constexpr auto promote_types_lookup = std::to_array({
     /*                      f4  f8  f2  bf  b1  i1  i2  i4  i8  u1 */
     std::to_array(/* f4 */ {f4, f8, f4, f4, f4, f4, f4, f4, f4, f4}),
     std::to_array(/* f8 */ {f8, f8, f8, f8, f8, f8, f8, f8, f8, f8}),
@@ -92,10 +92,12 @@ constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
         EnumNameScalarType(lhs), EnumNameScalarType(rhs));
   }
 
-  const auto lix = static_cast<decltype(internal::lookup)::size_type>(lhs);
-  const auto rix = static_cast<decltype(internal::lookup)::size_type>(rhs);
+  const auto ix_lhs =
+      static_cast<decltype(internal::promote_types_lookup)::size_type>(lhs);
+  const auto ix_rhs =
+      static_cast<decltype(internal::promote_types_lookup)::size_type>(rhs);
 
-  return internal::lookup[lix][rix];
+  return internal::promote_types_lookup[ix_lhs][ix_rhs];
 }
 
 }  // namespace flatflow
