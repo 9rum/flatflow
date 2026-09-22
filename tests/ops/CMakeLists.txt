@@ -1,5 +1,5 @@
-add_executable(
-  scalar_type_test
+add_library(
+  scalar_type_test OBJECT
   scalar_type_test.cc)
 target_include_directories(
   scalar_type_test
@@ -8,6 +8,4 @@ target_link_libraries(
   scalar_type_test
   PRIVATE absl::check
   PRIVATE absl::str_format
-  PRIVATE flatbuffers
-  PRIVATE GTest::gtest_main)
-gtest_discover_tests(scalar_type_test)
+  PRIVATE flatbuffers)

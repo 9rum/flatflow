@@ -2,403 +2,246 @@
 
 #include "flatflow/ops/scalar_type.h"
 
-#include "gtest/gtest.h"
-
 #include "flatflow/ops/scalar_type_generated.h"
 
-namespace {
+using flatflow::promote_types;
+using flatflow::ScalarType;
 
-TEST(PromoteTypesTest, HasDiagonalIdentity) {
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::float32) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::float64) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::float16) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::ScalarType::bool_);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::int8);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::int16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::int32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::int64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::uint8);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::uint16,
-                                        flatflow::ScalarType::uint16) ==
-                flatflow::ScalarType::uint16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::uint32,
-                                        flatflow::ScalarType::uint32) ==
-                flatflow::ScalarType::uint32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::uint64,
-                                        flatflow::ScalarType::uint64) ==
-                flatflow::ScalarType::uint64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float8_e4m3fn,
-                                        flatflow::ScalarType::float8_e4m3fn) ==
-                flatflow::ScalarType::float8_e4m3fn);
-  static_assert(
-      flatflow::promote_types(flatflow::ScalarType::float8_e4m3fnuz,
-                              flatflow::ScalarType::float8_e4m3fnuz) ==
-      flatflow::ScalarType::float8_e4m3fnuz);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float8_e5m2,
-                                        flatflow::ScalarType::float8_e5m2) ==
-                flatflow::ScalarType::float8_e5m2);
-  static_assert(
-      flatflow::promote_types(flatflow::ScalarType::float8_e5m2fnuz,
-                              flatflow::ScalarType::float8_e5m2fnuz) ==
-      flatflow::ScalarType::float8_e5m2fnuz);
-}
+// Tests whether `promote_types` is idempotent.
+static_assert(promote_types(ScalarType::float32, ScalarType::float32) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float64, ScalarType::float64) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float16, ScalarType::float16) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::bfloat16) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bool_, ScalarType::bool_) ==
+              ScalarType::bool_);
+static_assert(promote_types(ScalarType::int8, ScalarType::int8) ==
+              ScalarType::int8);
+static_assert(promote_types(ScalarType::int16, ScalarType::int16) ==
+              ScalarType::int16);
+static_assert(promote_types(ScalarType::int32, ScalarType::int32) ==
+              ScalarType::int32);
+static_assert(promote_types(ScalarType::int64, ScalarType::int64) ==
+              ScalarType::int64);
+static_assert(promote_types(ScalarType::uint8, ScalarType::uint8) ==
+              ScalarType::uint8);
+static_assert(promote_types(ScalarType::uint16, ScalarType::uint16) ==
+              ScalarType::uint16);
+static_assert(promote_types(ScalarType::uint32, ScalarType::uint32) ==
+              ScalarType::uint32);
+static_assert(promote_types(ScalarType::uint64, ScalarType::uint64) ==
+              ScalarType::uint64);
+static_assert(promote_types(ScalarType::float8_e4m3fn,
+                            ScalarType::float8_e4m3fn) ==
+              ScalarType::float8_e4m3fn);
+static_assert(promote_types(ScalarType::float8_e4m3fnuz,
+                            ScalarType::float8_e4m3fnuz) ==
+              ScalarType::float8_e4m3fnuz);
+static_assert(promote_types(ScalarType::float8_e5m2, ScalarType::float8_e5m2) ==
+              ScalarType::float8_e5m2);
+static_assert(promote_types(ScalarType::float8_e5m2fnuz,
+                            ScalarType::float8_e5m2fnuz) ==
+              ScalarType::float8_e5m2fnuz);
 
-TEST(PromoteTypesTest, IsCommutative) {
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::float64) ==
-                flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::float16) ==
-                flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::float32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::float32));
+// Tests whether `promote_types` is commutative.
+static_assert(promote_types(ScalarType::float32, ScalarType::float64) ==
+              promote_types(ScalarType::float64, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::float16) ==
+              promote_types(ScalarType::float16, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::bfloat16) ==
+              promote_types(ScalarType::bfloat16, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::bool_) ==
+              promote_types(ScalarType::bool_, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::int8) ==
+              promote_types(ScalarType::int8, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::float32));
+static_assert(promote_types(ScalarType::float32, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::float32));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::float16) ==
-                flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::float64));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::float16) ==
+              promote_types(ScalarType::float16, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::bfloat16) ==
+              promote_types(ScalarType::bfloat16, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::bool_) ==
+              promote_types(ScalarType::bool_, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::int8) ==
+              promote_types(ScalarType::int8, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::float64));
+static_assert(promote_types(ScalarType::float64, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::float64));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::float16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::bfloat16) ==
+              promote_types(ScalarType::bfloat16, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::bool_) ==
+              promote_types(ScalarType::bool_, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::int8) ==
+              promote_types(ScalarType::int8, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::float16));
+static_assert(promote_types(ScalarType::float16, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::float16));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::bfloat16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::bfloat16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::bfloat16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::bfloat16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::bfloat16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::bool_) ==
+              promote_types(ScalarType::bool_, ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int8) ==
+              promote_types(ScalarType::int8, ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::bfloat16));
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::bfloat16));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::bool_));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::bool_));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::bool_));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::bool_));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::bool_));
+static_assert(promote_types(ScalarType::bool_, ScalarType::int8) ==
+              promote_types(ScalarType::int8, ScalarType::bool_));
+static_assert(promote_types(ScalarType::bool_, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::bool_));
+static_assert(promote_types(ScalarType::bool_, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::bool_));
+static_assert(promote_types(ScalarType::bool_, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::bool_));
+static_assert(promote_types(ScalarType::bool_, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::bool_));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int8));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::int8));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::int8));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::int8));
+static_assert(promote_types(ScalarType::int8, ScalarType::int16) ==
+              promote_types(ScalarType::int16, ScalarType::int8));
+static_assert(promote_types(ScalarType::int8, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::int8));
+static_assert(promote_types(ScalarType::int8, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::int8));
+static_assert(promote_types(ScalarType::int8, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::int8));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::int16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::int16));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::int16));
+static_assert(promote_types(ScalarType::int16, ScalarType::int32) ==
+              promote_types(ScalarType::int32, ScalarType::int16));
+static_assert(promote_types(ScalarType::int16, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::int16));
+static_assert(promote_types(ScalarType::int16, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::int16));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::int32));
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::int32));
+static_assert(promote_types(ScalarType::int32, ScalarType::int64) ==
+              promote_types(ScalarType::int64, ScalarType::int32));
+static_assert(promote_types(ScalarType::int32, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::int32));
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::promote_types(flatflow::ScalarType::uint8,
-                                        flatflow::ScalarType::int64));
-}
+static_assert(promote_types(ScalarType::int64, ScalarType::uint8) ==
+              promote_types(ScalarType::uint8, ScalarType::int64));
 
-TEST(PromoteTypesTest, MatchesC10Reference) {
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::float64) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::float16) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float32,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::float32);
+// Tests whether `promote_types` matches the C10 reference.
+static_assert(promote_types(ScalarType::float32, ScalarType::float64) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float32, ScalarType::float16) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::bfloat16) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::bool_) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::int8) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::int16) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::int32) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::int64) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float32, ScalarType::uint8) ==
+              ScalarType::float32);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::float16) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::float64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float64,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::float16) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::bfloat16) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::bool_) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::int8) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::int16) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::int32) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::int64) ==
+              ScalarType::float64);
+static_assert(promote_types(ScalarType::float64, ScalarType::uint8) ==
+              ScalarType::float64);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::bfloat16) ==
-                flatflow::ScalarType::float32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::float16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::float16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::bfloat16) ==
+              ScalarType::float32);
+static_assert(promote_types(ScalarType::float16, ScalarType::bool_) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::int8) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::int16) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::int32) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::int64) ==
+              ScalarType::float16);
+static_assert(promote_types(ScalarType::float16, ScalarType::uint8) ==
+              ScalarType::float16);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::bool_) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::bfloat16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bfloat16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::bool_) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int8) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int16) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int32) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::int64) ==
+              ScalarType::bfloat16);
+static_assert(promote_types(ScalarType::bfloat16, ScalarType::uint8) ==
+              ScalarType::bfloat16);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int8) ==
-                flatflow::ScalarType::int8);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::int16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::int32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::int64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::bool_,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::uint8);
+static_assert(promote_types(ScalarType::bool_, ScalarType::int8) ==
+              ScalarType::int8);
+static_assert(promote_types(ScalarType::bool_, ScalarType::int16) ==
+              ScalarType::int16);
+static_assert(promote_types(ScalarType::bool_, ScalarType::int32) ==
+              ScalarType::int32);
+static_assert(promote_types(ScalarType::bool_, ScalarType::int64) ==
+              ScalarType::int64);
+static_assert(promote_types(ScalarType::bool_, ScalarType::uint8) ==
+              ScalarType::uint8);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int16) ==
-                flatflow::ScalarType::int16);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::int32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::int64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int8,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::int16);
+static_assert(promote_types(ScalarType::int8, ScalarType::int16) ==
+              ScalarType::int16);
+static_assert(promote_types(ScalarType::int8, ScalarType::int32) ==
+              ScalarType::int32);
+static_assert(promote_types(ScalarType::int8, ScalarType::int64) ==
+              ScalarType::int64);
+static_assert(promote_types(ScalarType::int8, ScalarType::uint8) ==
+              ScalarType::int16);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int32) ==
-                flatflow::ScalarType::int32);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::int64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int16,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::int16);
+static_assert(promote_types(ScalarType::int16, ScalarType::int32) ==
+              ScalarType::int32);
+static_assert(promote_types(ScalarType::int16, ScalarType::int64) ==
+              ScalarType::int64);
+static_assert(promote_types(ScalarType::int16, ScalarType::uint8) ==
+              ScalarType::int16);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::int64) ==
-                flatflow::ScalarType::int64);
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int32,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::int32);
+static_assert(promote_types(ScalarType::int32, ScalarType::int64) ==
+              ScalarType::int64);
+static_assert(promote_types(ScalarType::int32, ScalarType::uint8) ==
+              ScalarType::int32);
 
-  static_assert(flatflow::promote_types(flatflow::ScalarType::int64,
-                                        flatflow::ScalarType::uint8) ==
-                flatflow::ScalarType::int64);
-}
-
-}  // namespace
+static_assert(promote_types(ScalarType::int64, ScalarType::uint8) ==
+              ScalarType::int64);
