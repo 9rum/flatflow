@@ -6,6 +6,7 @@
 
 using flatflow::promote_types;
 using flatflow::ScalarType;
+using flatflow::to_scale;
 
 // Tests whether `promote_types` is idempotent.
 static_assert(promote_types(ScalarType::float32, ScalarType::float32) ==
@@ -245,3 +246,22 @@ static_assert(promote_types(ScalarType::int32, ScalarType::uint8) ==
 
 static_assert(promote_types(ScalarType::int64, ScalarType::uint8) ==
               ScalarType::int64);
+
+// Tests whether `to_scale` returns the correct scale factor.
+static_assert(to_scale(ScalarType::float32) == 4);
+static_assert(to_scale(ScalarType::float64) == 64);
+static_assert(to_scale(ScalarType::float16) == 2);
+static_assert(to_scale(ScalarType::bfloat16) == 2);
+static_assert(to_scale(ScalarType::bool_) == 64);
+static_assert(to_scale(ScalarType::int8) == 1);
+static_assert(to_scale(ScalarType::int16) == 64);
+static_assert(to_scale(ScalarType::int32) == 64);
+static_assert(to_scale(ScalarType::int64) == 128);
+static_assert(to_scale(ScalarType::uint8) == 1);
+static_assert(to_scale(ScalarType::uint16) == 64);
+static_assert(to_scale(ScalarType::uint32) == 64);
+static_assert(to_scale(ScalarType::uint64) == 128);
+static_assert(to_scale(ScalarType::float8_e4m3fn) == 1);
+static_assert(to_scale(ScalarType::float8_e4m3fnuz) == 1);
+static_assert(to_scale(ScalarType::float8_e5m2) == 1);
+static_assert(to_scale(ScalarType::float8_e5m2fnuz) == 1);

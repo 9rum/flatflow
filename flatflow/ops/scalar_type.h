@@ -4,7 +4,9 @@
 #define FLATFLOW_OPS_SCALAR_TYPE_H_
 
 #include <array>
+#include <cstdint>
 
+#include "absl/base/optimization.h"
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
 
@@ -61,6 +63,36 @@ constexpr bool is_floating_type(ScalarType dtype) noexcept {
 constexpr bool is_barebones_unsigned_type(ScalarType dtype) noexcept {
   return dtype == ScalarType::uint16 || dtype == ScalarType::uint32 ||
          dtype == ScalarType::uint64;
+}
+
+// Returns the FLOPS scale factor corresponding to the given data type.
+constexpr std::int64_t to_scale(ScalarType dtype) noexcept {
+  switch (dtype) {
+    case ScalarType::int8:
+    case ScalarType::uint8:
+    case ScalarType::float8_e4m3fn:
+    case ScalarType::float8_e4m3fnuz:
+    case ScalarType::float8_e5m2:
+    case ScalarType::float8_e5m2fnuz:
+      return 1;
+    case ScalarType::float16:
+    case ScalarType::bfloat16:
+      return 2;
+    case ScalarType::float32:
+      return 4;
+    case ScalarType::float64:
+    case ScalarType::bool_:
+    case ScalarType::int16:
+    case ScalarType::int32:
+    case ScalarType::uint16:
+    case ScalarType::uint32:
+      return 64;
+    case ScalarType::int64:
+    case ScalarType::uint64:
+      return 128;
+    default:
+      ABSL_UNREACHABLE();
+  }
 }
 
 // Returns the data type with the smallest size and scalar kind that is not
