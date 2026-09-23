@@ -4,12 +4,14 @@
 #define FLATFLOW_OPS_SCALAR_TYPE_H_
 
 #include <array>
-#include <cstdint>
+#include <type_traits>
+#include <utility>
 
 #include "absl/base/optimization.h"
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
 
+#include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
 
 namespace flatflow {
@@ -66,7 +68,9 @@ constexpr bool is_barebones_unsigned_type(ScalarType dtype) noexcept {
 }
 
 // Returns the FLOPS scale factor corresponding to the given data type.
-constexpr std::int64_t to_scale(ScalarType dtype) noexcept {
+constexpr std::remove_pointer_t<
+    decltype(std::declval<SymInt>().data())>::return_type
+to_scale(ScalarType dtype) noexcept {
   switch (dtype) {
     case ScalarType::int8:
     case ScalarType::uint8:
