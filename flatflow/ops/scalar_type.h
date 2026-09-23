@@ -4,7 +4,6 @@
 #define FLATFLOW_OPS_SCALAR_TYPE_H_
 
 #include <array>
-#include <type_traits>
 #include <utility>
 
 #include "absl/base/optimization.h"
@@ -13,6 +12,7 @@
 
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
+#include "flatflow/types.h"
 
 namespace flatflow {
 
@@ -68,8 +68,7 @@ constexpr bool is_barebones_unsigned_type(ScalarType dtype) noexcept {
 }
 
 // Returns the FLOPS scale factor corresponding to the given data type.
-constexpr std::remove_pointer_t<
-    decltype(std::declval<SymInt>().data())>::return_type
+constexpr remove_cvptr_t<decltype(std::declval<SymInt>().data())>::return_type
 to_scale(ScalarType dtype) noexcept {
   switch (dtype) {
     case ScalarType::int8:
