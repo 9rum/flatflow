@@ -19,7 +19,7 @@ struct remove_cvptr {
 
 // Alias template for `remove_cvptr`.
 template <typename T>
-using remove_cvptr_t = typename remove_cvptr<T>::type;
+using remove_cvptr_t = remove_cvptr<T>::type;
 
 }  // namespace flatflow
 
