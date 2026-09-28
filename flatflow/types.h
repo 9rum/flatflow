@@ -12,7 +12,7 @@ namespace flatflow {
 // Otherwise `type` is `T` with its topmost cv-qualifiers removed.
 template <typename T>
 struct remove_cvptr {
-  // The type pointed by `T` or `T` itself if it is not a pointer, with
+  // The type pointed to by `T` or `T` itself if it is not a pointer, with
   // top-level cv-qualifiers removed.
   using type = std::remove_cv_t<std::remove_pointer_t<T>>;
 };
