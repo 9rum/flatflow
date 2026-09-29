@@ -247,7 +247,7 @@ static_assert(promote_types(ScalarType::int32, ScalarType::uint8) ==
 static_assert(promote_types(ScalarType::int64, ScalarType::uint8) ==
               ScalarType::int64);
 
-// Tests whether `to_scale` returns the correct scale factor.
+// Tests whether `to_scale` returns the expected scale factor.
 static_assert(to_scale(ScalarType::float32) == 4);
 static_assert(to_scale(ScalarType::float64) == 64);
 static_assert(to_scale(ScalarType::float16) == 2);
