@@ -1,4 +1,11 @@
 add_library(
+  numeric_test OBJECT
+  numeric_test.cc)
+target_include_directories(
+  numeric_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+
+add_library(
   scalar_type_test OBJECT
   scalar_type_test.cc)
 target_include_directories(
