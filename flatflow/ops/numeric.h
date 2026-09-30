@@ -39,6 +39,16 @@ constexpr std::make_unsigned_t<std::common_type_t<M, N>> gcd(M m,
       std::gcd(abs(m), abs(n)));
 }
 
+// Returns a number representing sign of the integer `num`.
+//
+//  - `0` if the number is zero
+//  - `1` if the number is positive
+//  - `-1` if the number is negative
+template <typename T>
+constexpr T signum(T num) noexcept {
+  return static_cast<T>((0 < num) - (num < 0));
+}
+
 }  // namespace flatflow
 
 #endif  // FLATFLOW_OPS_NUMERIC_H_

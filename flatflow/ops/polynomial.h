@@ -4,10 +4,12 @@
 #define FLATFLOW_OPS_POLYNOMIAL_H_
 
 #include <array>
+#include <limits>
 #include <utility>
 
 #include "absl/log/check.h"
 
+#include "flatflow/ops/numeric.h"
 #include "flatflow/ops/scalar_type.h"
 #include "flatflow/ops/scalar_type_generated.h"
 
@@ -69,6 +71,28 @@ class Polynomial {
       return Polynomial(data_[0], data_[1], data_[2] / world_size);
     } else {
       return Polynomial(data_[0], data_[1] * world_size, data_[2]);
+    }
+  }
+
+  // Returns a new polynomial normalized from `*this` so that the constant term
+  // becomes zero and the rest are relatively prime.
+  constexpr Polynomial normalized() const noexcept {
+    const auto divisor = static_cast<value_type>(gcd(data_[1], data_[2]));
+
+    switch (divisor) {
+      // The only case where the divisor is zero is when both data_[1] and
+      // data_[2] are zero, in which case there is no need to divide them.
+      case 0:
+        return Polynomial(0, 0, 0);
+      // The divisor is the minimum if and only if both data_[1] and data_[2]
+      // are the minimum representable value, or one of them is the minimum and
+      // the other is zero. In both cases the normalized value is -1 for the
+      // minimum and 0 for zero, which corresponds to their respective signum.
+      case std::numeric_limits<value_type>::min():
+        return Polynomial(0, signum(data_[1]), signum(data_[2]));
+      // Otherwise the divisor is positive and can be safely used for division.
+      default:
+        return Polynomial(0, data_[1] / divisor, data_[2] / divisor);
     }
   }
 
