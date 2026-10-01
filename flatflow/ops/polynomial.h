@@ -96,12 +96,12 @@ class Polynomial {
     }
   }
 
-  constexpr value_type &operator[](size_type index) noexcept {
-    return data_[index];
+  constexpr value_type &operator[](size_type pos) noexcept {
+    return data_[pos];
   }
 
-  constexpr value_type operator[](size_type index) const noexcept {
-    return data_[index];
+  constexpr value_type operator[](size_type pos) const noexcept {
+    return data_[pos];
   }
 
   // Based on Horner's rule, evaluates a given polynomial of degree two with
@@ -113,6 +113,39 @@ class Polynomial {
   // See https://doi.org/10.1070%2Frm1966v021n01abeh004147.
   constexpr value_type operator()(value_type value) const noexcept {
     return data_[0] + value * (data_[1] + value * data_[2]);
+  }
+
+  // Operators
+  //
+  // `Polynomial` supports basic polynomial arithmetic as its Boost counterpart
+  // does, except for division between polynomials.
+  constexpr bool operator==(const Polynomial &) const noexcept = default;
+
+  constexpr Polynomial &operator+=(value_type rhs) noexcept {
+    data_[0] += rhs;
+    return *this;
+  }
+
+  constexpr Polynomial &operator+=(const Polynomial &rhs) noexcept {
+    data_[0] += rhs[0];
+    data_[1] += rhs[1];
+    data_[2] += rhs[2];
+    return *this;
+  }
+
+  friend constexpr Polynomial operator+(const Polynomial &lhs,
+                                        value_type rhs) noexcept {
+    return Polynomial(lhs[0] + rhs, lhs[1], lhs[2]);
+  }
+
+  friend constexpr Polynomial operator+(value_type lhs,
+                                        const Polynomial &rhs) noexcept {
+    return rhs + lhs;
+  }
+
+  friend constexpr Polynomial operator+(const Polynomial &lhs,
+                                        const Polynomial &rhs) noexcept {
+    return Polynomial(lhs[0] + rhs[0], lhs[1] + rhs[1], lhs[2] + rhs[2]);
   }
 
  private:
