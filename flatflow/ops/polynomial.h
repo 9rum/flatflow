@@ -126,11 +126,27 @@ class Polynomial {
     return *this;
   }
 
+  constexpr Polynomial &operator-=(value_type rhs) noexcept {
+    data_[0] -= rhs;
+    return *this;
+  }
+
   constexpr Polynomial &operator+=(const Polynomial &rhs) noexcept {
     data_[0] += rhs[0];
     data_[1] += rhs[1];
     data_[2] += rhs[2];
     return *this;
+  }
+
+  constexpr Polynomial &operator-=(const Polynomial &rhs) noexcept {
+    data_[0] -= rhs[0];
+    data_[1] -= rhs[1];
+    data_[2] -= rhs[2];
+    return *this;
+  }
+
+  friend constexpr Polynomial operator-(const Polynomial &rhs) noexcept {
+    return Polynomial(-rhs[0], -rhs[1], -rhs[2]);
   }
 
   friend constexpr Polynomial operator+(const Polynomial &lhs,
@@ -146,6 +162,21 @@ class Polynomial {
   friend constexpr Polynomial operator+(const Polynomial &lhs,
                                         const Polynomial &rhs) noexcept {
     return Polynomial(lhs[0] + rhs[0], lhs[1] + rhs[1], lhs[2] + rhs[2]);
+  }
+
+  friend constexpr Polynomial operator-(const Polynomial &lhs,
+                                        value_type rhs) noexcept {
+    return Polynomial(lhs[0] - rhs, lhs[1], lhs[2]);
+  }
+
+  friend constexpr Polynomial operator-(value_type lhs,
+                                        const Polynomial &rhs) noexcept {
+    return -rhs + lhs;
+  }
+
+  friend constexpr Polynomial operator-(const Polynomial &lhs,
+                                        const Polynomial &rhs) noexcept {
+    return Polynomial(lhs[0] - rhs[0], lhs[1] - rhs[1], lhs[2] - rhs[2]);
   }
 
  private:
