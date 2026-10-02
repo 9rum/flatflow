@@ -80,14 +80,15 @@ class Polynomial {
     const auto divisor = static_cast<value_type>(gcd(data_[1], data_[2]));
 
     switch (divisor) {
-      // The only case where the divisor is zero is when both data_[1] and
-      // data_[2] are zero, in which case there is no need to divide them.
+      // The only case where the divisor is zero is when both `data_[1]` and
+      // `data_[2]` are zero, in which case there is no need to divide them.
       case 0:
         return Polynomial(0, 0, 0);
-      // The divisor is the minimum if and only if both data_[1] and data_[2]
-      // are the minimum representable value, or one of them is the minimum and
-      // the other is zero. In both cases the normalized value is -1 for the
-      // minimum and 0 for zero, which corresponds to their respective signum.
+      // The divisor is the minimum if and only if both `data_[1]` and
+      // `data_[2]` are the minimum representable value, or one of them is the
+      // minimum and the other is zero. In both cases the normalized value is -1
+      // for the minimum and 0 for zero, which corresponds to their respective
+      // signum.
       case std::numeric_limits<value_type>::min():
         return Polynomial(0, signum(data_[1]), signum(data_[2]));
       // Otherwise the divisor is positive and can be safely used for division.
@@ -121,6 +122,15 @@ class Polynomial {
   // does, except for division between polynomials.
   constexpr bool operator==(const Polynomial &) const noexcept = default;
 
+  // Note that this also serves the comparison in reversed order and `!=` in
+  // both orders as the equality operators are rewritten by the compiler.
+  constexpr bool operator==(value_type rhs) const noexcept {
+    // This is equivalent to `data_[0] == rhs && data_[1] == 0 && data_[2] == 0`
+    // but is written without short-circuit evaluation, which is not subject to
+    // branch prediction.
+    return ((data_[0] ^ rhs) | data_[1] | data_[2]) == 0;
+  }
+
   constexpr Polynomial &operator+=(value_type rhs) noexcept {
     data_[0] += rhs;
     return *this;
@@ -128,6 +138,20 @@ class Polynomial {
 
   constexpr Polynomial &operator-=(value_type rhs) noexcept {
     data_[0] -= rhs;
+    return *this;
+  }
+
+  constexpr Polynomial &operator*=(value_type rhs) noexcept {
+    data_[0] *= rhs;
+    data_[1] *= rhs;
+    data_[2] *= rhs;
+    return *this;
+  }
+
+  constexpr Polynomial &operator/=(value_type rhs) noexcept {
+    data_[0] /= rhs;
+    data_[1] /= rhs;
+    data_[2] /= rhs;
     return *this;
   }
 
@@ -142,6 +166,16 @@ class Polynomial {
     data_[0] -= rhs[0];
     data_[1] -= rhs[1];
     data_[2] -= rhs[2];
+    return *this;
+  }
+
+  constexpr Polynomial &operator*=(const Polynomial &rhs) noexcept {
+    // Note that the coefficients are updated from the highest degree since each
+    // coefficient of the product depends only on the coefficients of the same
+    // or lower degrees. This also holds when `rhs` refers to `*this`.
+    data_[2] = data_[0] * rhs[2] + data_[1] * rhs[1] + data_[2] * rhs[0];
+    data_[1] = data_[0] * rhs[1] + data_[1] * rhs[0];
+    data_[0] = data_[0] * rhs[0];
     return *this;
   }
 
@@ -177,6 +211,27 @@ class Polynomial {
   friend constexpr Polynomial operator-(const Polynomial &lhs,
                                         const Polynomial &rhs) noexcept {
     return Polynomial(lhs[0] - rhs[0], lhs[1] - rhs[1], lhs[2] - rhs[2]);
+  }
+
+  friend constexpr Polynomial operator*(const Polynomial &lhs,
+                                        value_type rhs) noexcept {
+    return Polynomial(lhs[0] * rhs, lhs[1] * rhs, lhs[2] * rhs);
+  }
+
+  friend constexpr Polynomial operator*(value_type lhs,
+                                        const Polynomial &rhs) noexcept {
+    return rhs * lhs;
+  }
+
+  friend constexpr Polynomial operator*(const Polynomial &lhs,
+                                        const Polynomial &rhs) noexcept {
+    return Polynomial(lhs[0] * rhs[0], lhs[0] * rhs[1] + lhs[1] * rhs[0],
+                      lhs[0] * rhs[2] + lhs[1] * rhs[1] + lhs[2] * rhs[0]);
+  }
+
+  friend constexpr Polynomial operator/(const Polynomial &lhs,
+                                        value_type rhs) noexcept {
+    return Polynomial(lhs[0] / rhs, lhs[1] / rhs, lhs[2] / rhs);
   }
 
  private:
