@@ -3,11 +3,11 @@
 include "flatflow/ops/operator.fbs";
 include "flatflow/ops/scalar_type.fbs";
 
-namespace flatflow;
+namespace flatflow.internal;
 
 /// `SymInt` records a value within the symbolic shape of a tensor.
 struct SymInt {
-  data: [long:2];
+  data: [long: 2];
 }
 
 /// `TensorMetadata` is a structure containing pertinent information
