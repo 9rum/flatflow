@@ -3,14 +3,15 @@
 #ifndef FLATFLOW_OPS_POLYNOMIAL_H_
 #define FLATFLOW_OPS_POLYNOMIAL_H_
 
+#include <algorithm>
 #include <array>
 #include <limits>
-#include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/log/check.h"
 
+#include "flatflow/ops/graph.h"
 #include "flatflow/ops/numeric.h"
-#include "flatflow/ops/scalar_type.h"
 #include "flatflow/ops/scalar_type_generated.h"
 
 namespace flatflow {
@@ -23,10 +24,8 @@ namespace flatflow {
 // is not required.
 class Polynomial {
  public:
-  using value_type =
-      std::array<decltype(to_scale(std::declval<ScalarType>())), 3>::value_type;
-  using size_type =
-      std::array<decltype(to_scale(std::declval<ScalarType>())), 3>::size_type;
+  using value_type = std::array<SymInt::value_type, 3>::value_type;
+  using size_type = std::array<SymInt::value_type, 3>::size_type;
 
   // Constructors and assignment operators
   //
@@ -39,6 +38,10 @@ class Polynomial {
   // the underlying fixed-size array and may not exceed the container capacity.
   template <typename... Args>
   constexpr Polynomial(Args... args) noexcept : data_{args...} {}
+
+  constexpr Polynomial(SymInt s) noexcept : data_{} {
+    std::ranges::copy(s.data, data_.begin());
+  }
 
   constexpr Polynomial(const Polynomial &) noexcept = default;
 
@@ -237,12 +240,42 @@ class Polynomial {
  private:
   // Unlike Boost polynomials, the coefficients are stored in a fixed-size array
   // so that every operation can be evaluated at compile time.
-  std::array<decltype(to_scale(std::declval<ScalarType>())), 3> data_;
+  std::array<SymInt::value_type, 3> data_;
 };
 
 template <typename... Args>
 constexpr Polynomial polynomial(Args... args) noexcept {
   return Polynomial(args...);
+}
+
+template <>
+constexpr Polynomial polynomial(ScalarType dtype) noexcept {
+  switch (dtype) {
+    case ScalarType::int8:
+    case ScalarType::uint8:
+    case ScalarType::float8_e4m3fn:
+    case ScalarType::float8_e4m3fnuz:
+    case ScalarType::float8_e5m2:
+    case ScalarType::float8_e5m2fnuz:
+      return Polynomial(1);
+    case ScalarType::float16:
+    case ScalarType::bfloat16:
+      return Polynomial(2);
+    case ScalarType::float32:
+      return Polynomial(4);
+    case ScalarType::float64:
+    case ScalarType::bool_:
+    case ScalarType::int16:
+    case ScalarType::int32:
+    case ScalarType::uint16:
+    case ScalarType::uint32:
+      return Polynomial(64);
+    case ScalarType::int64:
+    case ScalarType::uint64:
+      return Polynomial(128);
+    default:
+      ABSL_UNREACHABLE();
+  }
 }
 
 }  // namespace flatflow
