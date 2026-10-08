@@ -3,7 +3,6 @@
 #include "flatflow/ops/numeric.h"
 
 #include <cstdint>
-#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -67,27 +66,21 @@ static_assert(gcd(-24, 0) == 24);
 static_assert(gcd(0, -24) == 24);
 static_assert(gcd(0, 0) == 0);
 
-static_assert(gcd(std::numeric_limits<int64_t>::max(), 0) ==
-              std::numeric_limits<int64_t>::max());
-static_assert(gcd(std::numeric_limits<int64_t>::max(), 1) == 1);
-static_assert(gcd(std::numeric_limits<int64_t>::max(),
-                  std::numeric_limits<int64_t>::max()) ==
-              std::numeric_limits<int64_t>::max());
+static_assert(gcd(INT64_MAX, 0) == INT64_MAX);
+static_assert(gcd(INT64_MAX, 1) == 1);
+static_assert(gcd(INT64_MAX, INT64_MAX) == INT64_MAX);
 
 // Tests whether `gcd` returns the greatest common divisor where the behavior of
 // `std::gcd` is undefined. This happens if and only if either argument is the
 // minimum representable value of the common type.
-static_assert(gcd(std::numeric_limits<int64_t>::min(), 0) ==
-              0x8000000000000000);
-static_assert(gcd(std::numeric_limits<int64_t>::min(), 1) == 1);
-static_assert(gcd(std::numeric_limits<int64_t>::min(),
-                  std::numeric_limits<int64_t>::min()) == 0x8000000000000000);
-static_assert(gcd(std::numeric_limits<int64_t>::min(),
-                  std::numeric_limits<int64_t>::max()) == 1);
+static_assert(gcd(INT64_MIN, 0) == 0x8000000000000000);
+static_assert(gcd(INT64_MIN, 1) == 1);
+static_assert(gcd(INT64_MIN, INT64_MIN) == 0x8000000000000000);
+static_assert(gcd(INT64_MIN, INT64_MAX) == 1);
 
 // Tests whether `signum` returns the expected sign of the given integer.
 static_assert(signum(0) == 0);
 static_assert(signum(1) == 1);
 static_assert(signum(-1) == -1);
-static_assert(signum(std::numeric_limits<int64_t>::max()) == 1);
-static_assert(signum(std::numeric_limits<int64_t>::min()) == -1);
+static_assert(signum(INT64_MAX) == 1);
+static_assert(signum(INT64_MIN) == -1);
