@@ -3,6 +3,7 @@
 #ifndef FLATFLOW_TYPES_H_
 #define FLATFLOW_TYPES_H_
 
+#include <array>
 #include <type_traits>
 
 #include "flatbuffers/array.h"
@@ -23,34 +24,21 @@ struct remove_cvptr {
 template <typename T>
 using remove_cvptr_t = remove_cvptr<T>::type;
 
-// If `T` is an array or a FlatBuffers array, provides the member typedef `type`
-// equal to the element type of `T`, otherwise `type` is `T`.
+// If `T` is a FlatBuffers array or a (possibly cv-qualified) pointer to it,
+// provides the member typedef `type` equal to its `std::array` counterpart,
+// i.e., `std::array<T, N>` for `flatbuffers::Array<T, N>`. Otherwise `type` is
+// not provided.
 template <typename T, typename = remove_cvptr_t<T>>
-struct remove_extent : public std::remove_extent<T> {};
+struct make_array {};
 
 template <typename _, typename T, auto N>
-struct remove_extent<_, flatbuffers::Array<T, N>> {
-  using type = T;
+struct make_array<_, flatbuffers::Array<T, N>> {
+  using type = std::array<T, N>;
 };
 
-// Alias template for `remove_extent`.
+// Alias template for `make_array`.
 template <typename T>
-using remove_extent_t = remove_extent<T>::type;
-
-// If `T` is an array or a FlatBuffers array, provides the member constant
-// `value` equal to the number of elements along the corresponding dimension of
-// the array.
-template <typename T, unsigned N = 0, typename = remove_cvptr_t<T>>
-struct extent : public std::extent<T, N> {};
-
-template <typename _, typename T, auto N>
-struct extent<_, 0, flatbuffers::Array<T, N>>
-    : public std::integral_constant<
-          typename flatbuffers::Array<T, N>::size_type, N> {};
-
-// Alias template for `extent`.
-template <typename T, unsigned N = 0>
-inline constexpr auto extent_v = extent<T, N>::value;
+using make_array_t = make_array<T>::type;
 
 }  // namespace flatflow
 

@@ -4,13 +4,13 @@
 #define FLATFLOW_OPS_GRAPH_H_
 
 #include <algorithm>
-#include <array>
 #include <utility>
 #include <vector>
 
 #include "absl/log/die_if_null.h"
 
 #include "flatflow/ops/graph_generated.h"
+#include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
 #include "flatflow/types.h"
 
@@ -19,11 +19,9 @@ namespace flatflow {
 // `SymInt` records a value within the symbolic shape of a tensor.
 struct SymInt {
   using value_type =
-      std::array<remove_extent_t<decltype(internal::SymInt().data())>,
-                 extent_v<decltype(internal::SymInt().data())>>::value_type;
+      make_array_t<decltype(internal::SymInt().data())>::value_type;
   using size_type =
-      std::array<remove_extent_t<decltype(internal::SymInt().data())>,
-                 extent_v<decltype(internal::SymInt().data())>>::size_type;
+      make_array_t<decltype(internal::SymInt().data())>::size_type;
 
   template <typename... Args>
   constexpr SymInt(Args... args) noexcept : data{args...} {}
@@ -46,9 +44,7 @@ struct SymInt {
 
   constexpr bool operator==(const SymInt &) const noexcept = default;
 
-  std::array<remove_extent_t<decltype(internal::SymInt().data())>,
-             extent_v<decltype(internal::SymInt().data())>>
-      data;
+  make_array_t<decltype(internal::SymInt().data())> data;
 };
 
 // `TensorMetadata` is a structure containing pertinent information about a
@@ -81,6 +77,50 @@ struct TensorMetadata {
 
   ScalarType dtype;
   std::vector<SymInt> shape;
+};
+
+// `Node` is a data structure that represents individual operations in the
+// computational graph. Each node contains an opcode identifying operators and
+// the input/output shapes of the operator. Unlike `torch.fx.Node`, this
+// excludes operations other than callsites to ATen operators; i.e., operations
+// whose `op` property are not `call_function`.
+struct Node {
+  constexpr Node() noexcept = default;
+
+  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
+                 const TensorMetadata &meta) noexcept
+      : target(target), args(args), meta(meta) {}
+
+  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
+                 TensorMetadata &&meta) noexcept
+      : target(target), args(args), meta(std::move(meta)) {}
+
+  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
+                 const TensorMetadata &meta) noexcept
+      : target(target), args(std::move(args)), meta(meta) {}
+
+  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
+                 TensorMetadata &&meta) noexcept
+      : target(target), args(std::move(args)), meta(std::move(meta)) {}
+
+  constexpr Node(const Node &) noexcept = default;
+
+  constexpr Node &operator=(const Node &) noexcept = default;
+
+  constexpr Node(Node &&) noexcept = default;
+
+  constexpr Node &operator=(Node &&) noexcept = default;
+
+  Node(const internal::Node *node) noexcept
+      : target(ABSL_DIE_IF_NULL(node)->target()),
+        args(node->args()->begin(), node->args()->end()),
+        meta(node->meta()) {}
+
+  constexpr bool operator==(const Node &) const noexcept = default;
+
+  Operator target;
+  std::vector<TensorMetadata> args;
+  TensorMetadata meta;
 };
 
 }  // namespace flatflow
