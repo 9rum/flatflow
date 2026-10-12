@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "absl/log/die_if_null.h"
-#include "flatbuffers/base.h"
 
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/operator_generated.h"
@@ -147,8 +146,8 @@ struct Graph {
   Graph(const internal::Graph *graph) noexcept
       : nodes(ABSL_DIE_IF_NULL(graph)->nodes()->size()) {
 #pragma omp parallel for
-    for (flatbuffers::uoffset_t index = 0; index < graph->nodes()->size();
-         ++index) {
+    for (remove_cvptr_t<decltype(graph->nodes())>::size_type index = 0;
+         index < graph->nodes()->size(); ++index) {
       nodes[index] = graph->nodes()->Get(index);
     }
   }
