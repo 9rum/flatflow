@@ -4,9 +4,11 @@
 #define FLATFLOW_OPS_GRAPH_H_
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "absl/container/inlined_vector.h"
 #include "absl/log/die_if_null.h"
 
 #include "flatflow/ops/graph_generated.h"
@@ -50,33 +52,34 @@ struct SymInt {
 // `TensorMetadata` is a structure containing pertinent information about a
 // tensor within a PyTorch program.
 struct TensorMetadata {
-  constexpr TensorMetadata() noexcept = default;
+  TensorMetadata() noexcept = default;
 
-  constexpr TensorMetadata(ScalarType dtype,
-                           const std::vector<SymInt> &shape) noexcept
+  TensorMetadata(ScalarType dtype,
+                 const absl::InlinedVector<SymInt, 4> &shape) noexcept
       : dtype(dtype), shape(shape) {}
 
-  constexpr TensorMetadata(ScalarType dtype,
-                           std::vector<SymInt> &&shape) noexcept
+  TensorMetadata(ScalarType dtype,
+                 absl::InlinedVector<SymInt, 4> &&shape) noexcept
       : dtype(dtype), shape(std::move(shape)) {}
 
-  constexpr TensorMetadata(const TensorMetadata &) noexcept = default;
+  TensorMetadata(const TensorMetadata &) noexcept = default;
 
-  constexpr TensorMetadata &operator=(const TensorMetadata &) noexcept =
-      default;
+  TensorMetadata &operator=(const TensorMetadata &) noexcept = default;
 
-  constexpr TensorMetadata(TensorMetadata &&) noexcept = default;
+  TensorMetadata(TensorMetadata &&) noexcept = default;
 
-  constexpr TensorMetadata &operator=(TensorMetadata &&) noexcept = default;
+  TensorMetadata &operator=(TensorMetadata &&) noexcept = default;
 
   TensorMetadata(const internal::TensorMetadata *meta) noexcept
       : dtype(ABSL_DIE_IF_NULL(meta)->dtype()),
         shape(meta->shape()->begin(), meta->shape()->end()) {}
 
-  constexpr bool operator==(const TensorMetadata &) const noexcept = default;
+  bool operator==(const TensorMetadata &) const noexcept = default;
 
   ScalarType dtype;
-  std::vector<SymInt> shape;
+  // Tensors rarely have more than four dimensions so the shape is stored inline
+  // without heap allocation in most cases.
+  absl::InlinedVector<SymInt, 4> shape;
 };
 
 // `Node` is a data structure that represents individual operations in the
@@ -85,41 +88,43 @@ struct TensorMetadata {
 // excludes operations other than callsites to ATen operators; i.e., operations
 // whose `op` property are not `call_function`.
 struct Node {
-  constexpr Node() noexcept = default;
+  Node() noexcept = default;
 
-  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
-                 const TensorMetadata &meta) noexcept
+  Node(Operator target, const absl::InlinedVector<TensorMetadata, 2> &args,
+       const TensorMetadata &meta) noexcept
       : target(target), args(args), meta(meta) {}
 
-  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
-                 TensorMetadata &&meta) noexcept
+  Node(Operator target, const absl::InlinedVector<TensorMetadata, 2> &args,
+       TensorMetadata &&meta) noexcept
       : target(target), args(args), meta(std::move(meta)) {}
 
-  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
-                 const TensorMetadata &meta) noexcept
+  Node(Operator target, absl::InlinedVector<TensorMetadata, 2> &&args,
+       const TensorMetadata &meta) noexcept
       : target(target), args(std::move(args)), meta(meta) {}
 
-  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
-                 TensorMetadata &&meta) noexcept
+  Node(Operator target, absl::InlinedVector<TensorMetadata, 2> &&args,
+       TensorMetadata &&meta) noexcept
       : target(target), args(std::move(args)), meta(std::move(meta)) {}
 
-  constexpr Node(const Node &) noexcept = default;
+  Node(const Node &) noexcept = default;
 
-  constexpr Node &operator=(const Node &) noexcept = default;
+  Node &operator=(const Node &) noexcept = default;
 
-  constexpr Node(Node &&) noexcept = default;
+  Node(Node &&) noexcept = default;
 
-  constexpr Node &operator=(Node &&) noexcept = default;
+  Node &operator=(Node &&) noexcept = default;
 
   Node(const internal::Node *node) noexcept
       : target(ABSL_DIE_IF_NULL(node)->target()),
         args(node->args()->begin(), node->args()->end()),
         meta(node->meta()) {}
 
-  constexpr bool operator==(const Node &) const noexcept = default;
+  bool operator==(const Node &) const noexcept = default;
 
   Operator target;
-  std::vector<TensorMetadata> args;
+  // ATen operators rarely take more than two tensors so the arguments are
+  // stored inline without heap allocation in most cases.
+  absl::InlinedVector<TensorMetadata, 2> args;
   TensorMetadata meta;
 };
 
@@ -148,7 +153,8 @@ struct Graph {
 #pragma omp parallel for
     for (remove_cvptr_t<decltype(graph->nodes())>::size_type index = 0;
          index < graph->nodes()->size(); ++index) {
-      nodes[index] = graph->nodes()->Get(index);
+      std::destroy_at(&nodes[index]);
+      std::construct_at(&nodes[index], graph->nodes()->Get(index));
     }
   }
 
