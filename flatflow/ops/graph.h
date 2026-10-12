@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "absl/log/die_if_null.h"
+#include "flatbuffers/base.h"
 
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/operator_generated.h"
@@ -121,6 +122,40 @@ struct Node {
   Operator target;
   std::vector<TensorMetadata> args;
   TensorMetadata meta;
+};
+
+// `Graph` is the main data structure for tracing a given PyTorch program at the
+// intermediate representation level. It consists of a series of `Node`s, each
+// representing callsites such as opcode and the input/output shapes of the
+// corresponding operator.
+struct Graph {
+  constexpr Graph() noexcept = default;
+
+  constexpr Graph(const std::vector<Node> &nodes) noexcept : nodes(nodes) {}
+
+  constexpr Graph(std::vector<Node> &&nodes) noexcept
+      : nodes(std::move(nodes)) {}
+
+  constexpr Graph(const Graph &) noexcept = default;
+
+  constexpr Graph &operator=(const Graph &) noexcept = default;
+
+  constexpr Graph(Graph &&) noexcept = default;
+
+  constexpr Graph &operator=(Graph &&) noexcept = default;
+
+  Graph(const internal::Graph *graph) noexcept
+      : nodes(ABSL_DIE_IF_NULL(graph)->nodes()->size()) {
+#pragma omp parallel for
+    for (flatbuffers::uoffset_t index = 0; index < graph->nodes()->size();
+         ++index) {
+      nodes[index] = graph->nodes()->Get(index);
+    }
+  }
+
+  constexpr bool operator==(const Graph &) const noexcept = default;
+
+  std::vector<Node> nodes;
 };
 
 }  // namespace flatflow
