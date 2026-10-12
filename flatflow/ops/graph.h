@@ -90,19 +90,19 @@ struct TensorMetadata {
 struct Node {
   Node() noexcept = default;
 
-  Node(Operator target, const absl::InlinedVector<TensorMetadata, 2> &args,
+  Node(Operator target, const std::vector<TensorMetadata> &args,
        const TensorMetadata &meta) noexcept
       : target(target), args(args), meta(meta) {}
 
-  Node(Operator target, const absl::InlinedVector<TensorMetadata, 2> &args,
+  Node(Operator target, const std::vector<TensorMetadata> &args,
        TensorMetadata &&meta) noexcept
       : target(target), args(args), meta(std::move(meta)) {}
 
-  Node(Operator target, absl::InlinedVector<TensorMetadata, 2> &&args,
+  Node(Operator target, std::vector<TensorMetadata> &&args,
        const TensorMetadata &meta) noexcept
       : target(target), args(std::move(args)), meta(meta) {}
 
-  Node(Operator target, absl::InlinedVector<TensorMetadata, 2> &&args,
+  Node(Operator target, std::vector<TensorMetadata> &&args,
        TensorMetadata &&meta) noexcept
       : target(target), args(std::move(args)), meta(std::move(meta)) {}
 
@@ -122,9 +122,7 @@ struct Node {
   bool operator==(const Node &) const noexcept = default;
 
   Operator target;
-  // ATen operators rarely take more than two tensors so the arguments are
-  // stored inline without heap allocation in most cases.
-  absl::InlinedVector<TensorMetadata, 2> args;
+  std::vector<TensorMetadata> args;
   TensorMetadata meta;
 };
 
