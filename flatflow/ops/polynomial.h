@@ -48,7 +48,7 @@ class Polynomial {
   constexpr Polynomial &operator=(Polynomial &&) noexcept = default;
 
   constexpr Polynomial(SymInt s) noexcept : data_{} {
-    std::ranges::copy(s.data, data_.begin());
+    std::copy(s.data.begin(), s.data.end(), data_.begin());
   }
 
   // Returns a new polynomial from `*this`, scaled by `world_size` for tensor
