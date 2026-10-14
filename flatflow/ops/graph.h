@@ -4,6 +4,7 @@
 #define FLATFLOW_OPS_GRAPH_H_
 
 #include <algorithm>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -149,7 +150,8 @@ struct Graph {
 #pragma omp parallel for
     for (remove_cvptr_t<decltype(graph->nodes())>::size_type index = 0;
          index < graph->nodes()->size(); ++index) {
-      nodes[index] = graph->nodes()->Get(index);
+      std::destroy_at(&nodes[index]);
+      std::construct_at(&nodes[index], graph->nodes()->Get(index));
     }
   }
 
