@@ -4,8 +4,8 @@
 
 #include "flatflow/ops/scalar_type_generated.h"
 
-using flatflow::promote_types;
-using flatflow::ScalarType;
+namespace flatflow {
+namespace {
 
 // Tests whether `promote_types` is idempotent.
 static_assert(promote_types(ScalarType::float32, ScalarType::float32) ==
@@ -245,3 +245,6 @@ static_assert(promote_types(ScalarType::int32, ScalarType::uint8) ==
 
 static_assert(promote_types(ScalarType::int64, ScalarType::uint8) ==
               ScalarType::int64);
+
+}  // namespace
+}  // namespace flatflow

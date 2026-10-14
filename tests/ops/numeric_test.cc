@@ -6,8 +6,8 @@
 #include <type_traits>
 #include <utility>
 
-using flatflow::gcd;
-using flatflow::signum;
+namespace flatflow {
+namespace {
 
 // Tests whether `gcd` returns the unsigned counterpart of the common type.
 static_assert(std::is_same_v<decltype(gcd(std::declval<int8_t>(),
@@ -84,3 +84,6 @@ static_assert(signum(1) == 1);
 static_assert(signum(-1) == -1);
 static_assert(signum(INT64_MAX) == 1);
 static_assert(signum(INT64_MIN) == -1);
+
+}  // namespace
+}  // namespace flatflow

@@ -7,10 +7,8 @@
 #include "flatflow/ops/graph.h"
 #include "flatflow/ops/scalar_type_generated.h"
 
-using flatflow::Polynomial;
-using flatflow::polynomial;
-using flatflow::ScalarType;
-using flatflow::SymInt;
+namespace flatflow {
+namespace {
 
 // Tests whether `Polynomial` is constructed as intended.
 static_assert(Polynomial(1, 2, 3) == Polynomial{1, 2, 3});
@@ -173,3 +171,6 @@ static_assert(polynomial(INT64_MIN, INT64_MIN, INT64_MIN).normalized()(1) ==
 static_assert(polynomial(INT64_MIN, INT64_MIN, INT64_MIN).normalized()(2) ==
               -6);
 static_assert(polynomial()(INT64_MAX) == 0);
+
+}  // namespace
+}  // namespace flatflow

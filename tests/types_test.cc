@@ -8,8 +8,8 @@
 
 #include "flatbuffers/array.h"
 
-using flatflow::make_array_t;
-using flatflow::remove_cvptr_t;
+namespace flatflow {
+namespace {
 
 // Tests whether `remove_cvptr` removes top-level cv-qualifiers from types other
 // than pointers.
@@ -49,3 +49,6 @@ static_assert(
 static_assert(
     std::is_same_v<make_array_t<const flatbuffers::Array<int64_t, 2> *const>,
                    std::array<int64_t, 2>>);
+
+}  // namespace
+}  // namespace flatflow
