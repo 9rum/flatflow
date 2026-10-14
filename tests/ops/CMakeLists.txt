@@ -1,3 +1,17 @@
+add_executable(
+  graph_test
+  graph_test.cc)
+target_include_directories(
+  graph_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  graph_test
+  PRIVATE absl::die_if_null
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main
+  PRIVATE OpenMP::OpenMP_CXX)
+gtest_discover_tests(graph_test)
+
 add_library(
   numeric_test OBJECT
   numeric_test.cc)

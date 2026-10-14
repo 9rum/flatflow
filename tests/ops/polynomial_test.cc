@@ -83,29 +83,10 @@ static_assert(2 * polynomial(12, 18, 30) == polynomial(12, 18, 30) * 2);
 static_assert(polynomial(12, 18, 30) / 1 == polynomial(12, 18, 30));
 static_assert(polynomial(12, 18, 30) / 3 == polynomial(4, 6, 10));
 
-inline constexpr auto kScalarAdded = [](Polynomial expr) {
-  expr += 1;
-  return expr;
-}(polynomial(16, 24, 32));
-static_assert(kScalarAdded == polynomial(17, 24, 32));
-
-inline constexpr auto kScalarSubtracted = [](Polynomial expr) {
-  expr -= 1;
-  return expr;
-}(kScalarAdded);
-static_assert(kScalarSubtracted == polynomial(16, 24, 32));
-
-inline constexpr auto kScalarMultiplied = [](Polynomial expr) {
-  expr *= 3;
-  return expr;
-}(kScalarSubtracted);
-static_assert(kScalarMultiplied == polynomial(48, 72, 96));
-
-inline constexpr auto kScalarDivided = [](Polynomial expr) {
-  expr /= 4;
-  return expr;
-}(kScalarMultiplied);
-static_assert(kScalarDivided == polynomial(12, 18, 24));
+static_assert((polynomial(16, 24, 32) += 1) == polynomial(17, 24, 32));
+static_assert((polynomial(17, 24, 32) -= 1) == polynomial(16, 24, 32));
+static_assert((polynomial(16, 24, 32) *= 3) == polynomial(48, 72, 96));
+static_assert((polynomial(48, 72, 96) /= 4) == polynomial(12, 18, 24));
 
 // Tests arithmetic between polynomials.
 static_assert(polynomial(3, 2, 1) + polynomial() == polynomial(3, 2, 1));
@@ -119,35 +100,18 @@ static_assert(polynomial(3, 2, 1) - polynomial(1, 2, 0) == polynomial(2, 0, 1));
 static_assert(-polynomial() == polynomial());
 static_assert(-polynomial(3, 2, 1) == polynomial(-3, -2, -1));
 
-inline constexpr auto kAdded = [](Polynomial expr) {
-  expr += polynomial(6, 9, 15);
-  return expr;
-}(polynomial(16, 24, 32));
-static_assert(kAdded == polynomial(22, 33, 47));
-
-inline constexpr auto kSubtracted = [](Polynomial expr) {
-  expr -= polynomial(4, 6, 10);
-  return expr;
-}(kAdded);
-static_assert(kSubtracted == polynomial(18, 27, 37));
-
 static_assert(polynomial(5, 8, 13) * polynomial() == polynomial());
 static_assert(polynomial(5, 8, 13) * polynomial(1) == polynomial(5, 8, 13));
 static_assert(polynomial(5, 8, 13) * polynomial(1, 2) == polynomial(5, 18, 29));
 static_assert(polynomial(5, 8, 13) * polynomial(1, 2, 3) ==
               polynomial(5, 18, 44));
 
-inline constexpr auto kMultiplied = [](Polynomial expr) {
-  expr *= polynomial(1, 2, 3);
-  return expr;
-}(polynomial(5, 8, 13));
-static_assert(kMultiplied == polynomial(5, 8, 13) * polynomial(1, 2, 3));
-
-inline constexpr auto kSquared = [](Polynomial expr) {
-  expr *= expr;
-  return expr;
-}(polynomial(5, 8, 13));
-static_assert(kSquared == polynomial(5, 8, 13) * polynomial(5, 8, 13));
+static_assert((polynomial(16, 24, 32) += polynomial(6, 9, 15)) ==
+              polynomial(22, 33, 47));
+static_assert((polynomial(22, 33, 47) -= polynomial(4, 6, 10)) ==
+              polynomial(18, 27, 37));
+static_assert((polynomial(5, 8, 13) *= polynomial(1, 2, 3)) ==
+              polynomial(5, 8, 13) * polynomial(1, 2, 3));
 
 // Tests whether `normalized` makes the constant term zero and the rest
 // relatively prime.
