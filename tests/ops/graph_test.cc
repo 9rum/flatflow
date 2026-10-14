@@ -29,7 +29,7 @@ TEST(GraphTest, FromEmptyGraph) {
   ASSERT_TRUE(internal::VerifyGraphBuffer(verifier));
 
   const auto graph = internal::GetGraph(builder.GetBufferPointer());
-  EXPECT_EQ(Graph(graph), Graph());
+  ASSERT_EQ(graph, Graph());
 }
 
 TEST(GraphTest, FromFeedForwardNetwork) {
@@ -114,7 +114,7 @@ TEST(GraphTest, FromFeedForwardNetwork) {
   ASSERT_TRUE(internal::VerifyGraphBuffer(verifier));
 
   const auto graph = internal::GetGraph(builder.GetBufferPointer());
-  EXPECT_EQ(Graph(graph), ffn);
+  ASSERT_EQ(graph, ffn);
 }
 
 }  // namespace
