@@ -2,7 +2,6 @@
 
 #include "flatflow/types.h"
 
-#include <array>
 #include <cstdint>
 #include <type_traits>
 
@@ -34,21 +33,40 @@ static_assert(
 static_assert(std::is_same_v<remove_cvptr_t<int **>, int *>);
 static_assert(std::is_same_v<remove_cvptr_t<const int *const *>, const int *>);
 
-// Tests whether `make_array` provides the member typedef `type` equal to the
-// `std::array` counterpart of FlatBuffers arrays, with or without (possibly
-// cv-qualified) pointers.
-static_assert(std::is_same_v<make_array_t<flatbuffers::Array<int64_t, 2>>,
-                             std::array<int64_t, 2>>);
-static_assert(std::is_same_v<make_array_t<const flatbuffers::Array<int64_t, 2>>,
-                             std::array<int64_t, 2>>);
-static_assert(std::is_same_v<make_array_t<flatbuffers::Array<int64_t, 2> *>,
-                             std::array<int64_t, 2>>);
+// Tests whether `remove_extent` is consistent with `std::remove_extent` for
+// types other than FlatBuffers arrays.
+static_assert(std::is_same_v<remove_extent_t<int>, std::remove_extent_t<int>>);
+static_assert(std::is_same_v<remove_extent_t<const int>,
+                             std::remove_extent_t<const int>>);
 static_assert(
-    std::is_same_v<make_array_t<const flatbuffers::Array<int64_t, 2> *>,
-                   std::array<int64_t, 2>>);
+    std::is_same_v<remove_extent_t<int *>, std::remove_extent_t<int *>>);
+static_assert(std::is_same_v<remove_extent_t<const int *>,
+                             std::remove_extent_t<const int *>>);
 static_assert(
-    std::is_same_v<make_array_t<const flatbuffers::Array<int64_t, 2> *const>,
-                   std::array<int64_t, 2>>);
+    std::is_same_v<remove_extent_t<int[3]>, std::remove_extent_t<int[3]>>);
+static_assert(std::is_same_v<remove_extent_t<const int[3]>,
+                             std::remove_extent_t<const int[3]>>);
+static_assert(
+    std::is_same_v<remove_extent_t<int[]>, std::remove_extent_t<int[]>>);
+static_assert(std::is_same_v<remove_extent_t<int[2][3]>,
+                             std::remove_extent_t<int[2][3]>>);
+static_assert(std::is_same_v<remove_extent_t<int (*)[3]>,
+                             std::remove_extent_t<int (*)[3]>>);
+
+// Tests whether `remove_extent` yields the element type of FlatBuffers arrays,
+// with or without (possibly cv-qualified) pointers.
+static_assert(
+    std::is_same_v<remove_extent_t<flatbuffers::Array<int64_t, 2>>, int64_t>);
+static_assert(std::is_same_v<
+              remove_extent_t<const flatbuffers::Array<int64_t, 2>>, int64_t>);
+static_assert(
+    std::is_same_v<remove_extent_t<flatbuffers::Array<int64_t, 2> *>, int64_t>);
+static_assert(
+    std::is_same_v<remove_extent_t<const flatbuffers::Array<int64_t, 2> *>,
+                   int64_t>);
+static_assert(
+    std::is_same_v<remove_extent_t<const flatbuffers::Array<int64_t, 2> *const>,
+                   int64_t>);
 
 }  // namespace
 }  // namespace flatflow

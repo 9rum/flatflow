@@ -3,7 +3,6 @@
 #ifndef FLATFLOW_TYPES_H_
 #define FLATFLOW_TYPES_H_
 
-#include <array>
 #include <type_traits>
 
 #include "flatbuffers/array.h"
@@ -24,21 +23,18 @@ struct remove_cvptr {
 template <typename T>
 using remove_cvptr_t = remove_cvptr<T>::type;
 
-// If `T` is a FlatBuffers array or a (possibly cv-qualified) pointer to it,
-// provides the member typedef `type` equal to its `std::array` counterpart,
-// i.e., `std::array<T, N>` for `flatbuffers::Array<T, N>`. Otherwise `type` is
-// not provided.
+// If `T` is an array or a FlatBuffers array, provides the member typedef `type`
+// equal to its element type, otherwise `type` is `T`.
 template <typename T, typename = remove_cvptr_t<T>>
-struct make_array {};
+struct remove_extent : public std::remove_extent<T> {};
 
 template <typename _, typename T, auto N>
-struct make_array<_, flatbuffers::Array<T, N>> {
-  using type = std::array<T, N>;
-};
+struct remove_extent<_, flatbuffers::Array<T, N>>
+    : public std::type_identity<T> {};
 
-// Alias template for `make_array`.
+// Alias template for `remove_extent`.
 template <typename T>
-using make_array_t = make_array<T>::type;
+using remove_extent_t = remove_extent<T>::type;
 
 }  // namespace flatflow
 
