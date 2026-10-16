@@ -41,5 +41,4 @@ target_include_directories(
 target_link_libraries(
   scalar_type_test
   PRIVATE absl::check
-  PRIVATE absl::str_format
   PRIVATE flatbuffers)

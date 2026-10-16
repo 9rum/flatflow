@@ -4,9 +4,9 @@
 #define FLATFLOW_OPS_SCALAR_TYPE_H_
 
 #include <array>
+#include <format>
 
 #include "absl/log/check.h"
-#include "absl/strings/str_format.h"
 
 #include "flatflow/ops/scalar_type_generated.h"
 
@@ -74,9 +74,9 @@ constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
     return lhs;
   }
 
-  CHECK(!(is_float8_type(lhs) || is_float8_type(rhs))) << absl::StrFormat(
-      "Promotion for float8 types is not supported, attempted to promote %s "
-      "and %s",
+  CHECK(!(is_float8_type(lhs) || is_float8_type(rhs))) << std::format(
+      "Promotion for float8 types is not supported, attempted to promote {} "
+      "and {}",
       EnumNameScalarType(lhs), EnumNameScalarType(rhs));
 
   if (is_barebones_unsigned_type(lhs) || is_barebones_unsigned_type(rhs)) {
@@ -86,9 +86,9 @@ constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
     if (is_floating_type(rhs)) {
       return rhs;
     }
-    CHECK(false) << absl::StrFormat(
+    CHECK(false) << std::format(
         "Promotion for uint16, uint32, uint64 types is not supported, "
-        "attempted to promote %s and %s",
+        "attempted to promote {} and {}",
         EnumNameScalarType(lhs), EnumNameScalarType(rhs));
   }
 
