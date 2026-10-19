@@ -12,7 +12,7 @@
 
 namespace flatflow {
 
-namespace internal {
+namespace detail {
 
 inline constexpr auto f4 = ScalarType::float32;
 inline constexpr auto f8 = ScalarType::float64;
@@ -39,7 +39,7 @@ inline constexpr auto promote_types_lookup = std::to_array({
     std::to_array(/* u1 */ {f4, f8, f2, bf, u1, i2, i2, i4, i8, u1}),
 });
 
-}  // namespace internal
+}  // namespace detail
 
 constexpr bool is_float8_type(ScalarType dtype) noexcept {
   return dtype == ScalarType::float8_e4m3fn ||
@@ -93,11 +93,11 @@ constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
   }
 
   const auto ix_lhs =
-      static_cast<decltype(internal::promote_types_lookup)::size_type>(lhs);
+      static_cast<decltype(detail::promote_types_lookup)::size_type>(lhs);
   const auto ix_rhs =
-      static_cast<decltype(internal::promote_types_lookup)::size_type>(rhs);
+      static_cast<decltype(detail::promote_types_lookup)::size_type>(rhs);
 
-  return internal::promote_types_lookup[ix_lhs][ix_rhs];
+  return detail::promote_types_lookup[ix_lhs][ix_rhs];
 }
 
 }  // namespace flatflow
