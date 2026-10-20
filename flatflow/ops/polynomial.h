@@ -47,7 +47,7 @@ class Polynomial {
 
   constexpr Polynomial &operator=(Polynomial &&) noexcept = default;
 
-  constexpr Polynomial(detail::SymInt s) noexcept : data_{s[0], s[1]} {}
+  Polynomial(detail::SymInt s) noexcept : data_{s[0], s[1]} {}
 
   // Returns a new polynomial from `*this`, scaled by `world_size` for tensor
   // parallelism.
