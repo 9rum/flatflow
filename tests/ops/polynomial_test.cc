@@ -2,9 +2,15 @@
 
 #include "flatflow/ops/polynomial.h"
 
+#include <array>
 #include <cstdint>
 
+#include "flatbuffers/buffer.h"
+#include "flatbuffers/flatbuffer_builder.h"
+#include "gtest/gtest.h"
+
 #include "flatflow/ops/graph.h"
+#include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
 
 namespace flatflow {
@@ -36,15 +42,6 @@ static_assert(polynomial(1, 2, 4).with_context_parallel(2) ==
 static_assert(polynomial(1, 2, 4).with_context_parallel(8) ==
               polynomial(1, 16, 4));
 static_assert(polynomial().with_context_parallel(8) == polynomial());
-
-// Tests whether a polynomial constructed from a symbolic integer has the same
-// coefficients taken from it.
-static_assert(polynomial(SymInt()) == 0);
-static_assert(polynomial(SymInt(4096)) == 4096);
-static_assert(polynomial(SymInt(4096, 0)) == 4096);
-static_assert(polynomial(SymInt{0, 1}) == polynomial(0, 1, 0));
-static_assert(polynomial(SymInt(-1, 2)) == polynomial(-1, 2, 0));
-static_assert(polynomial(SymInt(0, 1)) == polynomial(0, 1, 0));
 
 // Tests whether `polynomial` returns a constant polynomial of the expected
 // scale factor for each data type.
@@ -135,6 +132,28 @@ static_assert(polynomial(INT64_MIN, INT64_MIN, INT64_MIN).normalized()(1) ==
 static_assert(polynomial(INT64_MIN, INT64_MIN, INT64_MIN).normalized()(2) ==
               -6);
 static_assert(polynomial()(INT64_MAX) == 0);
+
+// Tests whether a polynomial constructed from a symbolic integer has the same
+// coefficients taken from it.
+TEST(PolynomialTest, FromSymInt) {
+  auto builder = flatbuffers::FlatBufferBuilder();
+
+  const auto shape = builder.CreateVectorOfStructs<SymInt>({
+      SymInt(std::to_array<int64_t>({0, 0})),
+      SymInt(std::to_array<int64_t>({4096, 0})),
+      SymInt(std::to_array<int64_t>({0, 1})),
+      SymInt(std::to_array<int64_t>({-1, 2})),
+  });
+  const auto root = CreateTensorMetadata(builder, ScalarType::float32, shape);
+  builder.Finish(root);
+
+  const auto meta = detail::TensorMetadata(
+      flatbuffers::GetRoot<TensorMetadata>(builder.GetBufferPointer()));
+  ASSERT_EQ(polynomial(meta.shape()[0]), 0);
+  ASSERT_EQ(polynomial(meta.shape()[1]), 4096);
+  ASSERT_EQ(polynomial(meta.shape()[2]), polynomial(0, 1, 0));
+  ASSERT_EQ(polynomial(meta.shape()[3]), polynomial(-1, 2, 0));
+}
 
 }  // namespace
 }  // namespace flatflow
