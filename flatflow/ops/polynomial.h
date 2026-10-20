@@ -3,8 +3,8 @@
 #ifndef FLATFLOW_OPS_POLYNOMIAL_H_
 #define FLATFLOW_OPS_POLYNOMIAL_H_
 
-#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <limits>
 
 #include "absl/base/optimization.h"
@@ -24,8 +24,8 @@ namespace flatflow {
 // is not required.
 class Polynomial {
  public:
-  using value_type = std::array<SymInt::value_type, 3>::value_type;
-  using size_type = std::array<SymInt::value_type, 3>::size_type;
+  using value_type = std::array<int64_t, 3>::value_type;
+  using size_type = std::array<int64_t, 3>::size_type;
 
   // Constructors and assignment operators
   //
@@ -47,9 +47,7 @@ class Polynomial {
 
   constexpr Polynomial &operator=(Polynomial &&) noexcept = default;
 
-  constexpr Polynomial(SymInt s) noexcept : data_{} {
-    std::copy(s.data.begin(), s.data.end(), data_.begin());
-  }
+  constexpr Polynomial(detail::SymInt s) noexcept : data_{s[0], s[1]} {}
 
   // Returns a new polynomial from `*this`, scaled by `world_size` for tensor
   // parallelism.
@@ -240,7 +238,7 @@ class Polynomial {
  private:
   // Unlike Boost polynomials, the coefficients are stored in a fixed-size array
   // so that every operation can be evaluated at compile time.
-  std::array<SymInt::value_type, 3> data_;
+  std::array<int64_t, 3> data_;
 };
 
 template <typename... Args>

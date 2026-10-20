@@ -3,163 +3,117 @@
 #ifndef FLATFLOW_OPS_GRAPH_H_
 #define FLATFLOW_OPS_GRAPH_H_
 
-#include <algorithm>
-#include <memory>
-#include <utility>
-#include <vector>
+#include <cstdint>
+#include <type_traits>
 
-#include "absl/log/die_if_null.h"
+#include "flatbuffers/base.h"
+#include "flatbuffers/buffer.h"
+#include "flatbuffers/table.h"
+#include "flatbuffers/vector.h"
 
 #include "flatflow/ops/graph_generated.h"
-#include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
-#include "flatflow/types.h"
 
 namespace flatflow {
+namespace detail {
 
-// `SymInt` records a value within the symbolic shape of a tensor.
-struct SymInt {
-  using value_type =
-      make_array_t<decltype(internal::SymInt().data())>::value_type;
-  using size_type =
-      make_array_t<decltype(internal::SymInt().data())>::size_type;
+// `View` is the base of the views below, which provide an abstraction for
+// read-only access to a serialized graph without copying the underlying data.
+// The views are trivially copyable and meant to be passed by value.
+//
+// CAVEATS
+//
+// A view does not own the buffer it refers to, so the buffer must outlive the
+// view. A view must also be constructed from a buffer that has been verified;
+// every field in the schema is required and thus the verification ensures that
+// no field within the buffer is null, allowing views to omit null checks.
+template <typename T>
+class View {
+ public:
+  using element_type = T;
 
-  template <typename... Args>
-  constexpr SymInt(Args... args) noexcept : data{args...} {}
+  constexpr View(const T *ptr) noexcept : ptr_(ptr) {}
 
-  constexpr SymInt(const SymInt &) noexcept = default;
+ protected:
+  constexpr const T *get() const noexcept { return ptr_; }
 
-  constexpr SymInt &operator=(const SymInt &) noexcept = default;
+ private:
+  const T *ptr_;
+};
 
-  constexpr SymInt(SymInt &&) noexcept = default;
+// `Vector` is a view of a FlatBuffers vector whose elements are in turn
+// accessed through the view of the element type.
+//
+// FlatBuffers vector stores structures inline and tables by offset; the
+// template below covers vectors of structures while its partial specialization
+// covers vectors of tables.
+//
+// Note that `std::is_base_of_v` which disregards access control is used instead
+// of `std::derived_from` since generated tables inherit `flatbuffers::Table`
+// privately.
+template <typename T, bool = std::is_base_of_v<flatbuffers::Table,
+                                               typename T::element_type>>
+class Vector
+    : public View<flatbuffers::Vector<const typename T::element_type *>> {
+  using Base = typename Vector::View;
 
-  constexpr SymInt &operator=(SymInt &&) noexcept = default;
+ public:
+  using size_type = Base::element_type::size_type;
 
-  SymInt(const internal::SymInt *s) noexcept {
-    std::copy(ABSL_DIE_IF_NULL(s)->data()->begin(), s->data()->end(),
-              data.begin());
+  using Base::Base;
+
+  size_type size() const noexcept { return this->get()->size(); }
+
+  bool empty() const noexcept { return this->get()->empty(); }
+
+  T operator[](size_type pos) const noexcept { return this->get()->Get(pos); }
+};
+
+template <typename T>
+class Vector<T, true>
+    : public View<
+          flatbuffers::Vector<flatbuffers::Offset<typename T::element_type>>> {
+  using Base = typename Vector::View;
+
+ public:
+  using size_type = Base::element_type::size_type;
+
+  using Base::Base;
+
+  size_type size() const noexcept { return this->get()->size(); }
+
+  bool empty() const noexcept { return this->get()->empty(); }
+
+  T operator[](size_type pos) const noexcept { return this->get()->Get(pos); }
+};
+
+// `SymInt` provides a lightweight view into the serialized `SymInt`, which
+// records a value within the symbolic shape of a tensor.
+class SymInt : public View<flatflow::SymInt> {
+  using Base = typename SymInt::View;
+
+ public:
+  using Base::Base;
+
+  int64_t operator[](flatbuffers::uoffset_t pos) const noexcept {
+    return get()->data()->Get(pos);
   }
-
-  constexpr value_type operator[](size_type pos) const noexcept {
-    return data[pos];
-  }
-
-  constexpr bool operator==(const SymInt &) const noexcept = default;
-
-  make_array_t<decltype(internal::SymInt().data())> data;
 };
 
-// `TensorMetadata` is a structure containing pertinent information about a
-// tensor within a PyTorch program.
-struct TensorMetadata {
-  constexpr TensorMetadata() noexcept = default;
+// `TensorMetadata` is a view of the serialized `TensorMetadata`, which contains
+// pertinent information about a tensor within a PyTorch program.
+class TensorMetadata : public View<flatflow::TensorMetadata> {
+  using Base = typename TensorMetadata::View;
 
-  constexpr TensorMetadata(ScalarType dtype,
-                           const std::vector<SymInt> &shape) noexcept
-      : dtype(dtype), shape(shape) {}
+ public:
+  using Base::Base;
 
-  constexpr TensorMetadata(ScalarType dtype,
-                           std::vector<SymInt> &&shape) noexcept
-      : dtype(dtype), shape(std::move(shape)) {}
+  ScalarType dtype() const noexcept { return get()->dtype(); }
 
-  constexpr TensorMetadata(const TensorMetadata &) noexcept = default;
-
-  constexpr TensorMetadata &operator=(const TensorMetadata &) noexcept =
-      default;
-
-  constexpr TensorMetadata(TensorMetadata &&) noexcept = default;
-
-  constexpr TensorMetadata &operator=(TensorMetadata &&) noexcept = default;
-
-  TensorMetadata(const internal::TensorMetadata *meta) noexcept
-      : dtype(ABSL_DIE_IF_NULL(meta)->dtype()),
-        shape(meta->shape()->begin(), meta->shape()->end()) {}
-
-  constexpr bool operator==(const TensorMetadata &) const noexcept = default;
-
-  ScalarType dtype;
-  std::vector<SymInt> shape;
+  Vector<SymInt> shape() const noexcept { return get()->shape(); }
 };
 
-// `Node` is a data structure that represents individual operations in the
-// computational graph. Each node contains an opcode identifying operators and
-// the input/output shapes of the operator. Unlike `torch.fx.Node`, this
-// excludes operations other than callsites to ATen operators; i.e., operations
-// whose `op` property are not `call_function`.
-struct Node {
-  constexpr Node() noexcept = default;
-
-  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
-                 const TensorMetadata &meta) noexcept
-      : target(target), args(args), meta(meta) {}
-
-  constexpr Node(Operator target, const std::vector<TensorMetadata> &args,
-                 TensorMetadata &&meta) noexcept
-      : target(target), args(args), meta(std::move(meta)) {}
-
-  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
-                 const TensorMetadata &meta) noexcept
-      : target(target), args(std::move(args)), meta(meta) {}
-
-  constexpr Node(Operator target, std::vector<TensorMetadata> &&args,
-                 TensorMetadata &&meta) noexcept
-      : target(target), args(std::move(args)), meta(std::move(meta)) {}
-
-  constexpr Node(const Node &) noexcept = default;
-
-  constexpr Node &operator=(const Node &) noexcept = default;
-
-  constexpr Node(Node &&) noexcept = default;
-
-  constexpr Node &operator=(Node &&) noexcept = default;
-
-  Node(const internal::Node *node) noexcept
-      : target(ABSL_DIE_IF_NULL(node)->target()),
-        args(node->args()->begin(), node->args()->end()),
-        meta(node->meta()) {}
-
-  constexpr bool operator==(const Node &) const noexcept = default;
-
-  Operator target;
-  std::vector<TensorMetadata> args;
-  TensorMetadata meta;
-};
-
-// `Graph` is the main data structure for tracing a given PyTorch program at the
-// intermediate representation level. It consists of a series of `Node`s, each
-// representing callsites such as opcode and the input/output shapes of the
-// corresponding operator.
-struct Graph {
-  constexpr Graph() noexcept = default;
-
-  constexpr Graph(const std::vector<Node> &nodes) noexcept : nodes(nodes) {}
-
-  constexpr Graph(std::vector<Node> &&nodes) noexcept
-      : nodes(std::move(nodes)) {}
-
-  constexpr Graph(const Graph &) noexcept = default;
-
-  constexpr Graph &operator=(const Graph &) noexcept = default;
-
-  constexpr Graph(Graph &&) noexcept = default;
-
-  constexpr Graph &operator=(Graph &&) noexcept = default;
-
-  Graph(const internal::Graph *graph) noexcept
-      : nodes(ABSL_DIE_IF_NULL(graph)->nodes()->size()) {
-#pragma omp parallel for
-    for (remove_cvptr_t<decltype(graph->nodes())>::size_type index = 0;
-         index < graph->nodes()->size(); ++index) {
-      std::destroy_at(&nodes[index]);
-      std::construct_at(&nodes[index], graph->nodes()->Get(index));
-    }
-  }
-
-  constexpr bool operator==(const Graph &) const noexcept = default;
-
-  std::vector<Node> nodes;
-};
-
+}  // namespace detail
 }  // namespace flatflow
 
 #endif  // FLATFLOW_OPS_GRAPH_H_
