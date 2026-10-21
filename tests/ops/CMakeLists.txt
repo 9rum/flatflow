@@ -1,17 +1,3 @@
-add_executable(
-  graph_test
-  graph_test.cc)
-target_include_directories(
-  graph_test
-  PRIVATE ${PROJECT_SOURCE_DIR})
-target_link_libraries(
-  graph_test
-  PRIVATE absl::die_if_null
-  PRIVATE flatbuffers
-  PRIVATE GTest::gtest_main
-  PRIVATE OpenMP::OpenMP_CXX)
-gtest_discover_tests(graph_test)
-
 add_library(
   numeric_test OBJECT
   numeric_test.cc)
@@ -43,3 +29,15 @@ target_link_libraries(
   scalar_type_test
   PRIVATE absl::check
   PRIVATE flatbuffers)
+
+add_executable(
+  view_test
+  view_test.cc)
+target_include_directories(
+  view_test
+  PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(
+  view_test
+  PRIVATE flatbuffers
+  PRIVATE GTest::gtest_main)
+gtest_discover_tests(view_test)

@@ -9,9 +9,9 @@
 #include "flatbuffers/flatbuffer_builder.h"
 #include "gtest/gtest.h"
 
-#include "flatflow/ops/graph.h"
 #include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/scalar_type_generated.h"
+#include "flatflow/ops/view.h"
 
 namespace flatflow {
 namespace {

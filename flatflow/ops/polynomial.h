@@ -10,9 +10,9 @@
 #include "absl/base/optimization.h"
 #include "absl/log/check.h"
 
-#include "flatflow/ops/graph.h"
 #include "flatflow/ops/numeric.h"
 #include "flatflow/ops/scalar_type_generated.h"
+#include "flatflow/ops/view.h"
 
 namespace flatflow {
 

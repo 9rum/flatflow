@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef FLATFLOW_OPS_GRAPH_H_
-#define FLATFLOW_OPS_GRAPH_H_
+#ifndef FLATFLOW_OPS_VIEW_H_
+#define FLATFLOW_OPS_VIEW_H_
 
 #include <cstdint>
 #include <type_traits>
@@ -87,8 +87,8 @@ class Vector<T, true>
   T operator[](size_type pos) const noexcept { return this->get()->Get(pos); }
 };
 
-// `SymInt` provides a lightweight view into the serialized `SymInt`, which
-// records a value within the symbolic shape of a tensor.
+// `SymInt` provides a lightweight view into the serialized symbolic integer
+// which records a value within the symbolic shape of a tensor.
 class SymInt : public View<flatflow::SymInt> {
   using Base = typename SymInt::View;
 
@@ -100,7 +100,7 @@ class SymInt : public View<flatflow::SymInt> {
   }
 };
 
-// `TensorMetadata` is a view of the serialized `TensorMetadata`, which contains
+// `TensorMetadata` is a view of the serialized tensor metadata which contains
 // pertinent information about a tensor within a PyTorch program.
 class TensorMetadata : public View<flatflow::TensorMetadata> {
   using Base = typename TensorMetadata::View;
@@ -116,4 +116,4 @@ class TensorMetadata : public View<flatflow::TensorMetadata> {
 }  // namespace detail
 }  // namespace flatflow
 
-#endif  // FLATFLOW_OPS_GRAPH_H_
+#endif  // FLATFLOW_OPS_VIEW_H_
