@@ -1,3 +1,3 @@
-from flatflow.ops.ops import serialize
+from flatflow.ops.serialize import serialize
 
 __all__ = ["serialize"]
