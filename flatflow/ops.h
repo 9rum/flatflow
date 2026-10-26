@@ -3,8 +3,14 @@
 #ifndef FLATFLOW_OPS_H_
 #define FLATFLOW_OPS_H_
 
+#include <utility>
+
+#include "absl/log/check.h"
+
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/polynomial.h"
+#include "flatflow/ops/scalar_type.h"
+#include "flatflow/ops/scalar_type_generated.h"
 #include "flatflow/ops/view.h"
 
 namespace flatflow {
@@ -14,6 +20,27 @@ namespace detail {
 // Returns a zero polynomial for operators that do not involve actual
 // computations, such as tensor view operations, copies and tensor creations.
 constexpr Polynomial noop() noexcept { return polynomial(); }
+
+// Returns the total number of elements in a tensor with the given symbolic
+// shape.
+inline Polynomial numel(Vector<SymInt> shape) noexcept {
+  auto numel = polynomial(1);
+  for (Vector<SymInt>::size_type dim = 0; dim < shape.size(); ++dim) {
+    numel *= polynomial(shape[dim]);
+  }
+  return numel;
+}
+
+// Helper function for element-wise operators.
+inline Polynomial unary(Vector<SymInt> shape, ScalarType dtype,
+                        Polynomial::value_type ops_per_element = 1) noexcept {
+  return ops_per_element * numel(shape) * polynomial(dtype);
+}
+
+inline Polynomial unary(TensorMetadata meta,
+                        Polynomial::value_type ops_per_element = 1) noexcept {
+  return unary(meta.shape(), meta.dtype(), ops_per_element);
+}
 
 // This is a base template for implementing symbolic transformations for each
 // node in a computational graph; calling this means that the program is
@@ -38,7 +65,14 @@ Polynomial transform_impl(Vector<TensorMetadata>,
 template <>
 inline Polynomial transform_impl<Operator::_softmax>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // _softmax applies the softmax function to `self`.
+  //
+  // NOTE: _softmax requires five FLOPs for each element.
+  // Approximate FLOPs breakdown can be found at:
+  // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return unary(args[0], 5);
 }
 
 // func: _to_copy(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
@@ -64,7 +98,20 @@ inline Polynomial transform_impl<Operator::_unsafe_view>(
 template <>
 inline Polynomial transform_impl<Operator::add_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // add.Tensor adds `other`, scaled by `alpha`, to `self`.
+  //
+  // NOTE: As in the case of mul.Tensor, we have found that add.Scalar is
+  // replaced by add.Tensor with a single argument due to constant folding.
+  // That is, if two arguments are given, one addition and one multiplication
+  // are required for each element; but if there is only one argument, just one
+  // addition occurs for each element. add.Tensor also supports broadcasting to
+  // a common shape, necessitating the use of output shape.
+  CHECK(!args.empty());
+
+  const auto dtype = std::cmp_greater(args.size(), 1)
+                         ? promote_types(args[0].dtype(), args[1].dtype())
+                         : args[0].dtype();
+  return unary(meta.shape(), dtype, args.size());
 }
 
 // func: addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1,
@@ -191,7 +238,11 @@ inline Polynomial transform_impl<Operator::full>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::gelu>(Vector<TensorMetadata> args,
                                                  TensorMetadata meta) noexcept {
-  // TODO
+  // gelu applies the gaussian error linear unit (GELU) function to `self` in
+  // element-wise.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return unary(args[0], 14);
 }
 
 // func: gt.Tensor(Tensor self, Tensor other) -> Tensor
@@ -222,7 +273,11 @@ inline Polynomial transform_impl<Operator::masked_fill_scalar>(
 template <>
 inline Polynomial transform_impl<Operator::mean_dim>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // mean.dim returns the mean value of each row of `self` in the given
+  // dimension `dim`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return unary(args[0]);
 }
 
 // func: mm(Tensor self, Tensor mat2) -> Tensor
@@ -236,14 +291,31 @@ inline Polynomial transform_impl<Operator::mm>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::mul_scalar>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // mul.Scalar multiplies `self` by `other` in element-wise.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return unary(args[0]);
 }
 
 // func: mul.Tensor(Tensor self, Tensor other) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::mul_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // mul.Tensor multiplies `self` by `other` in element-wise.
+  //
+  // NOTE: As shown above, mul.Tensor gets two tensor arguments but we have
+  // found that there is a bug during symbolic tracing where mul.Scalar is
+  // replaced by mul.Tensor with a single argument due to constant folding.
+  // Moreover, mul.Tensor supports broadcasting to a common shape, making it
+  // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
+  // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
+  // broadcasting.
+  CHECK(!args.empty());
+
+  const auto dtype = std::cmp_greater(args.size(), 1)
+                         ? promote_types(args[0].dtype(), args[1].dtype())
+                         : args[0].dtype();
+  return unary(meta.shape(), dtype);
 }
 
 // func: native_layer_norm(Tensor input, SymInt[] normalized_shape,
