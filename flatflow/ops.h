@@ -9,6 +9,7 @@
 
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/polynomial.h"
+#include "flatflow/ops/scalar_type.h"
 #include "flatflow/ops/scalar_type_generated.h"
 #include "flatflow/ops/view.h"
 
@@ -146,7 +147,10 @@ inline Polynomial transform_impl<Operator::arange_start>(
 template <>
 inline Polynomial transform_impl<Operator::bitwise_not>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // bitwise_not computes the bitwise NOT of the given input tensor.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: bmm(Tensor self, Tensor mat2) -> Tensor
@@ -200,7 +204,10 @@ inline Polynomial transform_impl<Operator::embedding>(
 template <>
 inline Polynomial transform_impl<Operator::eq_scalar>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // eq.Scalar computes element-wise equality.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: expand(Tensor(a) self, SymInt[] size, *,
@@ -237,14 +244,22 @@ inline Polynomial transform_impl<Operator::gelu>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::gt_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // gt.Tensor compares `self` and `other` in element-wise.
+  CHECK(std::cmp_equal(args.size(), 2));
+
+  const auto dtype = promote_types(args[0].dtype(), args[1].dtype());
+  return pointwise(meta.shape(), dtype);
 }
 
 // func: lt.Tensor(Tensor self, Tensor other) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::lt_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // lt.Tensor compares `self` and `other` in element-wise.
+  CHECK(std::cmp_equal(args.size(), 2));
+
+  const auto dtype = promote_types(args[0].dtype(), args[1].dtype());
+  return pointwise(meta.shape(), dtype);
 }
 
 // func: masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor
@@ -312,7 +327,10 @@ inline Polynomial transform_impl<Operator::native_layer_norm>(
 template <>
 inline Polynomial transform_impl<Operator::neg>(Vector<TensorMetadata> args,
                                                 TensorMetadata meta) noexcept {
-  // TODO
+  // neg returns a new tensor with the negative of the elements of `self`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: ones(SymInt[] size, *, ScalarType? dtype=None, Layout? layout=None,
@@ -418,7 +436,13 @@ inline Polynomial transform_impl<Operator::split_tensor>(
 template <>
 inline Polynomial transform_impl<Operator::sub_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // sub.Tensor subtracts `other`, scaled by `alpha`, from `self`.
+  //
+  // NOTE: As in the case of mul.Tensor, we have found that sub.Scalar is
+  // replaced by sub.Tensor with a single argument due to constant folding.
+  // sub.Tensor also supports broadcasting to a common shape, necessitating the
+  // use of output shape.
+  return pointwise(meta, 2);
 }
 
 // func: t(Tensor(a) self) -> Tensor(a)
@@ -433,7 +457,11 @@ inline Polynomial transform_impl<Operator::t>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::tanh>(Vector<TensorMetadata> args,
                                                  TensorMetadata meta) noexcept {
-  // TODO
+  // tanh applies the hyperbolic tangent (tanh) function to `self` in
+  // element-wise.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)
