@@ -9,7 +9,6 @@
 
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/polynomial.h"
-#include "flatflow/ops/scalar_type.h"
 #include "flatflow/ops/scalar_type_generated.h"
 #include "flatflow/ops/view.h"
 
@@ -32,14 +31,15 @@ inline Polynomial numel(Vector<SymInt> shape) noexcept {
 }
 
 // Helper function for element-wise operators.
-inline Polynomial unary(Vector<SymInt> shape, ScalarType dtype,
-                        Polynomial::value_type ops_per_element = 1) noexcept {
+inline Polynomial pointwise(
+    Vector<SymInt> shape, ScalarType dtype,
+    Polynomial::value_type ops_per_element = 1) noexcept {
   return ops_per_element * numel(shape) * polynomial(dtype);
 }
 
-inline Polynomial unary(TensorMetadata meta,
-                        Polynomial::value_type ops_per_element = 1) noexcept {
-  return unary(meta.shape(), meta.dtype(), ops_per_element);
+inline Polynomial pointwise(
+    TensorMetadata meta, Polynomial::value_type ops_per_element = 1) noexcept {
+  return pointwise(meta.shape(), meta.dtype(), ops_per_element);
 }
 
 // This is a base template for implementing symbolic transformations for each
@@ -72,7 +72,7 @@ inline Polynomial transform_impl<Operator::_softmax>(
   // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
   CHECK(std::cmp_equal(args.size(), 1));
 
-  return unary(args[0], 5);
+  return pointwise(args[0], 5);
 }
 
 // func: _to_copy(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
@@ -99,19 +99,7 @@ template <>
 inline Polynomial transform_impl<Operator::add_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
   // add.Tensor adds `other`, scaled by `alpha`, to `self`.
-  //
-  // NOTE: As in the case of mul.Tensor, we have found that add.Scalar is
-  // replaced by add.Tensor with a single argument due to constant folding.
-  // That is, if two arguments are given, one addition and one multiplication
-  // are required for each element; but if there is only one argument, just one
-  // addition occurs for each element. add.Tensor also supports broadcasting to
-  // a common shape, necessitating the use of output shape.
-  CHECK(!args.empty());
-
-  const auto dtype = std::cmp_greater(args.size(), 1)
-                         ? promote_types(args[0].dtype(), args[1].dtype())
-                         : args[0].dtype();
-  return unary(meta.shape(), dtype, args.size());
+  return pointwise(meta, 2);
 }
 
 // func: addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta=1,
@@ -242,7 +230,7 @@ inline Polynomial transform_impl<Operator::gelu>(Vector<TensorMetadata> args,
   // element-wise.
   CHECK(std::cmp_equal(args.size(), 1));
 
-  return unary(args[0], 14);
+  return pointwise(args[0], 5);
 }
 
 // func: gt.Tensor(Tensor self, Tensor other) -> Tensor
@@ -277,7 +265,7 @@ inline Polynomial transform_impl<Operator::mean_dim>(
   // dimension `dim`.
   CHECK(std::cmp_equal(args.size(), 1));
 
-  return unary(args[0]);
+  return pointwise(args[0].shape(), meta.dtype());
 }
 
 // func: mm(Tensor self, Tensor mat2) -> Tensor
@@ -292,9 +280,7 @@ template <>
 inline Polynomial transform_impl<Operator::mul_scalar>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
   // mul.Scalar multiplies `self` by `other` in element-wise.
-  CHECK(std::cmp_equal(args.size(), 1));
-
-  return unary(args[0]);
+  return pointwise(meta);
 }
 
 // func: mul.Tensor(Tensor self, Tensor other) -> Tensor
@@ -310,12 +296,7 @@ inline Polynomial transform_impl<Operator::mul_tensor>(
   // difficult to trace FLOPs with input shapes alone; mul.Tensor has the same
   // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
   // broadcasting.
-  CHECK(!args.empty());
-
-  const auto dtype = std::cmp_greater(args.size(), 1)
-                         ? promote_types(args[0].dtype(), args[1].dtype())
-                         : args[0].dtype();
-  return unary(meta.shape(), dtype);
+  return pointwise(meta);
 }
 
 // func: native_layer_norm(Tensor input, SymInt[] normalized_shape,
