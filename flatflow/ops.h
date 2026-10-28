@@ -364,28 +364,38 @@ inline Polynomial transform_impl<Operator::permute>(
 template <>
 inline Polynomial transform_impl<Operator::pow_tensor_scalar>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // pow.Tensor_Scalar takes the power of each element in `self` with
+  // `exponent`.
+  return pointwise(meta);
 }
 
 // func: relu(Tensor self) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::relu>(Vector<TensorMetadata> args,
                                                  TensorMetadata meta) noexcept {
-  // TODO
+  // relu applies the rectified linear unit (ReLU) function to `self` in
+  // element-wise.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: rsqrt(Tensor self) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::rsqrt>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // rsqrt computes the element-wise reciprocal square root of `self`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: rsub.Scalar(Tensor self, Scalar other, Scalar alpha=1) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::rsub_scalar>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // rsub.Scalar subtracts `self`, scaled by `alpha`, from `other`.
+  return pointwise(meta, 2);
 }
 
 // func: scalar_tensor(Scalar s, *, ScalarType? dtype=None, Layout? layout=None,
@@ -401,7 +411,11 @@ inline Polynomial transform_impl<Operator::scalar_tensor>(
 template <>
 inline Polynomial transform_impl<Operator::silu>(Vector<TensorMetadata> args,
                                                  TensorMetadata meta) noexcept {
-  // TODO
+  // silu applies the sigmoid linear unit (SiLU) function to `self` in
+  // element-wise.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0], 4);
 }
 
 // func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None,
