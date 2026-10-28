@@ -131,7 +131,8 @@ inline Polynomial transform_impl<Operator::all_dim>(
 template <>
 inline Polynomial transform_impl<Operator::arange>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // arange returns a tensor with values from the interval [0, `end`).
+  return pointwise(meta, 2);
 }
 
 // func: arange.start(Scalar start, Scalar end, *, ScalarType? dtype=None,
@@ -140,7 +141,9 @@ inline Polynomial transform_impl<Operator::arange>(
 template <>
 inline Polynomial transform_impl<Operator::arange_start>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // arange.start returns a tensor with values from the interval
+  // [`start`, `end`).
+  return pointwise(meta, 2);
 }
 
 // func: bitwise_not(Tensor self) -> Tensor
