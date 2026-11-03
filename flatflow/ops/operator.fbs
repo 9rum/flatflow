@@ -14,34 +14,34 @@ namespace flatflow;
 /// Note that this operator set is under development and more operators will be
 /// added in the future.
 enum Operator : ushort {
-  _softmax,            // _softmax
   _to_copy,            // _to_copy
   _unsafe_view,        // _unsafe_view
   add_tensor,          // add.Tensor
   addmm,               // addmm
-  alias,               // alias
-  all_dim,             // all.dim
   arange,              // arange
   arange_start,        // arange.start
-  bitwise_not,         // bitwise_not
   bmm,                 // bmm
   cat,                 // cat
   clone,               // clone
-  copy,                // copy
+  cos,                 // cos
   cumsum,              // cumsum
+  detach,              // detach
+  div_tensor,          // div.Tensor
+  dropout,             // dropout
   embedding,           // embedding
-  eq_scalar,           // eq.Scalar
   expand,              // expand
   full,                // full
   gelu,                // gelu
   gt_tensor,           // gt.Tensor
+  layer_norm,          // layer_norm
+  lift_fresh_copy,     // lift_fresh_copy
+  linear,              // linear
   lt_tensor,           // lt.Tensor
   masked_fill_scalar,  // masked_fill.Scalar
+  matmul,              // matmul
+  max_other,           // max.other
   mean_dim,            // mean.dim
-  mm,                  // mm
-  mul_scalar,          // mul.Scalar
   mul_tensor,          // mul.Tensor
-  native_layer_norm,   // native_layer_norm
   neg,                 // neg
   ones,                // ones
   ones_like,           // ones_like
@@ -50,18 +50,19 @@ enum Operator : ushort {
   relu,                // relu
   rsqrt,               // rsqrt
   rsub_scalar,         // rsub.Scalar
-  scalar_tensor,       // scalar_tensor
   silu,                // silu
+  sin,                 // sin
   slice_tensor,        // slice.Tensor
-  slice_scatter,       // slice_scatter
+  softmax_int,         // softmax.int
   split_tensor,        // split.Tensor
   sub_tensor,          // sub.Tensor
-  t,                   // t
   tanh,                // tanh
   transpose_int,       // transpose.int
   tril,                // tril
   triu,                // triu
+  type_as,             // type_as
   unsqueeze,           // unsqueeze
   view,                // view
+  where_scalarself,    // where.ScalarSelf
   where_self,          // where.self
 }
