@@ -62,20 +62,6 @@ Polynomial transform_impl(Vector<TensorMetadata>,
 #pragma warning(disable : 4100)
 #endif  // defined(__GNUC__) || defined(__clang__)
 
-// func: _softmax(Tensor self, int dim, bool half_to_float) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::_softmax>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // _softmax applies the softmax function to `self`.
-  //
-  // NOTE: _softmax requires five FLOPs for each element.
-  // Approximate FLOPs breakdown can be found at:
-  // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
-  CHECK(std::cmp_equal(args.size(), 1));
-
-  return pointwise(args[0], 5);
-}
-
 // func: _to_copy(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
 //                Device? device=None, bool? pin_memory=None,
 //                bool non_blocking=False,
@@ -111,21 +97,6 @@ inline Polynomial transform_impl<Operator::addmm>(
   // TODO
 }
 
-// func: alias(Tensor(a) self) -> Tensor(a)
-template <>
-inline Polynomial transform_impl<Operator::alias>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // alias is a tensor view operation, so technically it has zero FLOPs.
-  return noop();
-}
-
-// func: all.dim(Tensor self, int dim, bool keepdim=False) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::all_dim>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
-}
-
 // func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
 //              Device? device=None, bool? pin_memory=None) -> Tensor
 template <>
@@ -144,16 +115,6 @@ inline Polynomial transform_impl<Operator::arange_start>(
   // arange.start returns a tensor with values from the interval
   // [`start`, `end`).
   return pointwise(meta, 2);
-}
-
-// func: bitwise_not(Tensor self) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::bitwise_not>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // bitwise_not computes the bitwise NOT of the given input tensor.
-  CHECK(std::cmp_equal(args.size(), 1));
-
-  return pointwise(args[0]);
 }
 
 // func: bmm(Tensor self, Tensor mat2) -> Tensor
@@ -179,17 +140,37 @@ inline Polynomial transform_impl<Operator::clone>(
   return noop();
 }
 
-// func: copy(Tensor self, Tensor src, bool non_blocking=False) -> Tensor
+// func: cos(Tensor self) -> Tensor
 template <>
-inline Polynomial transform_impl<Operator::copy>(Vector<TensorMetadata> args,
-                                                 TensorMetadata meta) noexcept {
-  // copy copies a tensor, so technically it has zero FLOPs.
-  return noop();
+inline Polynomial transform_impl<Operator::cos>(Vector<TensorMetadata> args,
+                                                TensorMetadata meta) noexcept {
+  // TODO
 }
 
 // func: cumsum(Tensor self, int dim, *, ScalarType? dtype=None) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::cumsum>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: detach(Tensor(a) self) -> Tensor(a)
+template <>
+inline Polynomial transform_impl<Operator::detach>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: div.Tensor(Tensor self, Tensor other) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::div_tensor>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: dropout(Tensor input, float p, bool train) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::dropout>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
   // TODO
 }
@@ -201,16 +182,6 @@ inline Polynomial transform_impl<Operator::embedding>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
   // embedding is a dictionary lookup, so technically it has zero FLOPs.
   return noop();
-}
-
-// func: eq.Scalar(Tensor self, Scalar other) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::eq_scalar>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // eq.Scalar computes element-wise equality.
-  CHECK(std::cmp_equal(args.size(), 1));
-
-  return pointwise(args[0]);
 }
 
 // func: expand(Tensor(a) self, SymInt[] size, *,
@@ -254,6 +225,29 @@ inline Polynomial transform_impl<Operator::gt_tensor>(
   return pointwise(meta.shape(), dtype);
 }
 
+// func: layer_norm(Tensor input, SymInt[] normalized_shape,
+//                  Tensor? weight=None, Tensor? bias=None, float eps=1e-05,
+//                  bool cudnn_enable=True) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::layer_norm>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: lift_fresh_copy(Tensor self) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::lift_fresh_copy>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::linear>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
 // func: lt.Tensor(Tensor self, Tensor other) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::lt_tensor>(
@@ -274,6 +268,20 @@ inline Polynomial transform_impl<Operator::masked_fill_scalar>(
   return noop();
 }
 
+// func: matmul(Tensor self, Tensor other) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::matmul>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
+// func: max.other(Tensor self, Tensor other) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::max_other>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
 // func: mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *,
 //                ScalarType? dtype=None) -> Tensor
 template <>
@@ -284,21 +292,6 @@ inline Polynomial transform_impl<Operator::mean_dim>(
   CHECK(std::cmp_equal(args.size(), 1));
 
   return pointwise(args[0].shape(), meta.dtype());
-}
-
-// func: mm(Tensor self, Tensor mat2) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::mm>(Vector<TensorMetadata> args,
-                                               TensorMetadata meta) noexcept {
-  // TODO
-}
-
-// func: mul.Scalar(Tensor self, Scalar other) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::mul_scalar>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // mul.Scalar multiplies `self` by `other` in element-wise.
-  return pointwise(meta);
 }
 
 // func: mul.Tensor(Tensor self, Tensor other) -> Tensor
@@ -315,15 +308,6 @@ inline Polynomial transform_impl<Operator::mul_tensor>(
   // FLOPs as mul.Scalar, and we leverage the output shape that reflects the
   // broadcasting.
   return pointwise(meta);
-}
-
-// func: native_layer_norm(Tensor input, SymInt[] normalized_shape,
-//                         Tensor? weight, Tensor? bias,
-//                         float eps) -> (Tensor, Tensor, Tensor)
-template <>
-inline Polynomial transform_impl<Operator::native_layer_norm>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
 }
 
 // func: neg(Tensor self) -> Tensor
@@ -401,15 +385,6 @@ inline Polynomial transform_impl<Operator::rsub_scalar>(
   return pointwise(meta, 2);
 }
 
-// func: scalar_tensor(Scalar s, *, ScalarType? dtype=None, Layout? layout=None,
-//                     Device? device=None, bool? pin_memory=None) -> Tensor
-template <>
-inline Polynomial transform_impl<Operator::scalar_tensor>(
-    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // scalar_tensor creates a tensor, so technically it has zero FLOPs.
-  return noop();
-}
-
 // func: silu(Tensor self) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::silu>(Vector<TensorMetadata> args,
@@ -421,6 +396,13 @@ inline Polynomial transform_impl<Operator::silu>(Vector<TensorMetadata> args,
   return pointwise(args[0], 4);
 }
 
+// func: sin(Tensor self) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::sin>(Vector<TensorMetadata> args,
+                                                TensorMetadata meta) noexcept {
+  // TODO
+}
+
 // func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None,
 //                    SymInt? end=None, SymInt step=1) -> Tensor(a)
 template <>
@@ -430,14 +412,22 @@ inline Polynomial transform_impl<Operator::slice_tensor>(
   return noop();
 }
 
-// func: slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None,
-//                     SymInt? end=None, SymInt step=1) -> Tensor
+// func: softmax.int(Tensor self, int dim, ScalarType? dtype=None) -> Tensor
 template <>
-inline Polynomial transform_impl<Operator::slice_scatter>(
+inline Polynomial transform_impl<Operator::softmax_int>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // slice_scatter embeds the values of `src` into `self` at the given
-  // dimension, so technically it has zero FLOPs.
-  return noop();
+  // softmax.int applies the softmax function to `self`.
+  //
+  // NOTE: softmax.int requires five FLOPs for each element.
+  // Approximate FLOPs breakdown can be found at:
+  // https://github.com/tensorflow/tensorflow/blob/v2.18.0/tensorflow/python/profiler/internal/flops_registry.py
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  const auto half_to_float = args[0].dtype() == ScalarType::float16 &&
+                             meta.dtype() == ScalarType::float32;
+
+  return pointwise(args[0].shape(),
+                   half_to_float ? args[0].dtype() : meta.dtype(), 5);
 }
 
 // func: split.Tensor(Tensor(a -> *) self, SymInt split_size,
@@ -460,14 +450,6 @@ inline Polynomial transform_impl<Operator::sub_tensor>(
   // sub.Tensor also supports broadcasting to a common shape, necessitating the
   // use of output shape.
   return pointwise(meta, 2);
-}
-
-// func: t(Tensor(a) self) -> Tensor(a)
-template <>
-inline Polynomial transform_impl<Operator::t>(Vector<TensorMetadata> args,
-                                              TensorMetadata meta) noexcept {
-  // t is a dimension swap, so technically it has zero FLOPs.
-  return noop();
 }
 
 // func: tanh(Tensor self) -> Tensor
@@ -505,6 +487,13 @@ inline Polynomial transform_impl<Operator::triu>(Vector<TensorMetadata> args,
   return noop();
 }
 
+// func: type_as(Tensor self, Tensor other) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::type_as>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
+}
+
 // func: unsqueeze(Tensor(a) self, int dim) -> Tensor(a)
 template <>
 inline Polynomial transform_impl<Operator::unsqueeze>(
@@ -522,6 +511,13 @@ inline Polynomial transform_impl<Operator::view>(Vector<TensorMetadata> args,
   //
   // See https://pytorch.org/docs/stable/tensor_view.html.
   return noop();
+}
+
+// func: where.ScalarSelf(Tensor condition, Scalar self, Tensor other) -> Tensor
+template <>
+inline Polynomial transform_impl<Operator::where_scalarself>(
+    Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
+  // TODO
 }
 
 // func: where.self(Tensor condition, Tensor self, Tensor other) -> Tensor
