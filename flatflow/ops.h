@@ -144,7 +144,10 @@ inline Polynomial transform_impl<Operator::clone>(
 template <>
 inline Polynomial transform_impl<Operator::cos>(Vector<TensorMetadata> args,
                                                 TensorMetadata meta) noexcept {
-  // TODO
+  // cos returns a new tensor with the cosine of the elements of `self`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: cumsum(Tensor self, int dim, *, ScalarType? dtype=None) -> Tensor
@@ -158,21 +161,26 @@ inline Polynomial transform_impl<Operator::cumsum>(
 template <>
 inline Polynomial transform_impl<Operator::detach>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // detach is a tensor view operation, so technically it has zero FLOPs.
+  return noop();
 }
 
 // func: div.Tensor(Tensor self, Tensor other) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::div_tensor>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // div divides each element of `self` by the corresponding element of `other`.
+  return pointwise(meta);
 }
 
 // func: dropout(Tensor input, float p, bool train) -> Tensor
 template <>
 inline Polynomial transform_impl<Operator::dropout>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // dropout randomly zeroes some elements of `input` with probability `p`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0], 4);
 }
 
 // func: embedding(Tensor weight, Tensor indices, SymInt padding_idx=-1,
@@ -238,7 +246,8 @@ inline Polynomial transform_impl<Operator::layer_norm>(
 template <>
 inline Polynomial transform_impl<Operator::lift_fresh_copy>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // lift_fresh_copy copies a tensor, so technically it has zero FLOPs.
+  return noop();
 }
 
 // func: linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor
@@ -279,7 +288,8 @@ inline Polynomial transform_impl<Operator::matmul>(
 template <>
 inline Polynomial transform_impl<Operator::max_other>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // max.other computes the element-wise maximum of `self` and `other`.
+  return pointwise(meta);
 }
 
 // func: mean.dim(Tensor self, int[1]? dim, bool keepdim=False, *,
@@ -400,7 +410,10 @@ inline Polynomial transform_impl<Operator::silu>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::sin>(Vector<TensorMetadata> args,
                                                 TensorMetadata meta) noexcept {
-  // TODO
+  // sin returns a new tensor with the sine of the elements in `self`.
+  CHECK(std::cmp_equal(args.size(), 1));
+
+  return pointwise(args[0]);
 }
 
 // func: slice.Tensor(Tensor(a) self, int dim=0, SymInt? start=None,
@@ -491,7 +504,8 @@ inline Polynomial transform_impl<Operator::triu>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::type_as>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // type_as is a casting operation, so technically it has zero FLOPs.
+  return noop();
 }
 
 // func: unsqueeze(Tensor(a) self, int dim) -> Tensor(a)
@@ -517,7 +531,9 @@ inline Polynomial transform_impl<Operator::view>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::where_scalarself>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // where.ScalarSelf is an element-wise selection between `self` and `other`
+  // according to `condition`, so it has zero FLOPs.
+  return noop();
 }
 
 // func: where.self(Tensor condition, Tensor self, Tensor other) -> Tensor

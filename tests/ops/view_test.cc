@@ -133,7 +133,7 @@ TEST(ViewTest, FromVectorOfTables) {
                                SymInt(std::to_array<int64_t>({1024, 0})),
                            }));
 
-  const auto node = CreateNode(builder, Operator::mm,
+  const auto node = CreateNode(builder, Operator::matmul,
                                builder.CreateVector({input, other}), out);
   const auto root = CreateGraph(builder, builder.CreateVector({node}));
   builder.Finish(root);
