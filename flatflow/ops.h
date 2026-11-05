@@ -43,6 +43,12 @@ inline Polynomial pointwise(
   return pointwise(meta.shape(), meta.dtype(), ops_per_element);
 }
 
+// Helper function for matrix products where each element of `meta` requires
+// `inner` fused multiply-add operations.
+inline Polynomial gemm(TensorMetadata meta, Polynomial inner) noexcept {
+  return pointwise(meta, 2) * inner;
+}
+
 // This is a base template for implementing symbolic transformations for each
 // node in a computational graph; calling this means that the program is
 // ill-formed and should fail to compile.
@@ -94,7 +100,18 @@ inline Polynomial transform_impl<Operator::add_tensor>(
 template <>
 inline Polynomial transform_impl<Operator::addmm>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // addmm performs a matrix multiplication of the matrices `mat1` and `mat2`.
+  // The matrix `self` is added to the final result. `alpha` and `beta` are
+  // scaling factors on matrix product between `mat1` and `mat2` and the added
+  // matrix `self` respectively. If `mat1` is a (n x m) tensor and `mat2` is a
+  // (m x p) tensor, then it produces a (n x p) tensor with 2 x n x m x p FLOPs.
+  // For scaling and addition, it requires additional 3 x n x p FLOPs.
+  CHECK(std::cmp_equal(args.size(), 3));
+
+  const auto mat1 = args[1].shape();
+  CHECK(std::cmp_equal(mat1.size(), 2));
+
+  return gemm(meta, mat1[1]) + pointwise(meta, 3);
 }
 
 // func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
@@ -121,7 +138,16 @@ inline Polynomial transform_impl<Operator::arange_start>(
 template <>
 inline Polynomial transform_impl<Operator::bmm>(Vector<TensorMetadata> args,
                                                 TensorMetadata meta) noexcept {
-  // TODO
+  // bmm performs a batch matrix-matrix product of matrices `self` and `mat2`.
+  // `self` and `mat2` must be 3-D tensors each containing the same number of
+  // matrices. If `self` is a (b x n x m) tensor and `mat2` is a (b x m x p)
+  // tensor, then it produces a (b x n x p) tensor with 2 x b x n x m x p FLOPs.
+  CHECK(std::cmp_equal(args.size(), 2));
+
+  const auto self = args[0].shape();
+  CHECK(std::cmp_equal(self.size(), 3));
+
+  return gemm(meta, self[2]);
 }
 
 // func: cat(Tensor[] tensors, int dim=0) -> Tensor
@@ -154,7 +180,15 @@ inline Polynomial transform_impl<Operator::cos>(Vector<TensorMetadata> args,
 template <>
 inline Polynomial transform_impl<Operator::cumsum>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // cumsum returns the cumulative sum of elements of `self` in the dimension
+  // `dim`.
+  //
+  // NOTE: The exact number of FLOPs depends on `dim` which cannot be deduced
+  // from the tensor metadata since cumsum always returns a tensor with the same
+  // shape as `self`; the exact number of FLOPs can be obtained by subtracting
+  // one from the corresponding dimension and then multiplying the size of the
+  // remaining dimensions, but here we ignore that subtraction.
+  return pointwise(meta);
 }
 
 // func: detach(Tensor(a) self) -> Tensor(a)
@@ -239,7 +273,19 @@ inline Polynomial transform_impl<Operator::gt_tensor>(
 template <>
 inline Polynomial transform_impl<Operator::layer_norm>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // layer_norm applies layer normalization over the last dimensions of `input`
+  // given by `normalized_shape`, followed by an element-wise affine transform
+  // with `weight` and `bias` if given.
+  //
+  // NOTE: layer_norm requires four FLOPs for each element to compute the mean
+  // and the variance, i.e., one addition for the mean and one subtraction, one
+  // multiplication and one addition for the variance, and two more to normalize
+  // each element, i.e., one subtraction of the mean and one multiplication by
+  // the reciprocal of the standard deviation. `weight` and `bias` take one
+  // multiplication and one addition for each element, respectively.
+  CHECK(!args.empty() && std::cmp_less_equal(args.size(), 3));
+
+  return pointwise(args[0], 5 + args.size());
 }
 
 // func: lift_fresh_copy(Tensor self) -> Tensor
@@ -254,7 +300,17 @@ inline Polynomial transform_impl<Operator::lift_fresh_copy>(
 template <>
 inline Polynomial transform_impl<Operator::linear>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // linear applies a linear transformation to `input`; i.e., the product of
+  // `input` and the transpose of `weight`, plus `bias` if given.
+  CHECK(std::cmp_equal(args.size(), 2) || std::cmp_equal(args.size(), 3));
+
+  const auto weight = args[1].shape();
+  CHECK(!weight.empty());
+  const auto in_features = weight[weight.size() - 1];
+
+  return std::cmp_equal(args.size(), 2)
+             ? gemm(meta, in_features)
+             : gemm(meta, in_features) + pointwise(meta);
 }
 
 // func: lt.Tensor(Tensor self, Tensor other) -> Tensor
@@ -281,7 +337,15 @@ inline Polynomial transform_impl<Operator::masked_fill_scalar>(
 template <>
 inline Polynomial transform_impl<Operator::matmul>(
     Vector<TensorMetadata> args, TensorMetadata meta) noexcept {
-  // TODO
+  // matmul computes the matrix product of two tensors `self` and `other`
+  // including dot, matrix-vector, matrix-matrix and batched matrix-matrix
+  // products with broadcasting of the batch dimensions.
+  CHECK(std::cmp_equal(args.size(), 2));
+
+  const auto self = args[0].shape();
+  CHECK(!self.empty());
+
+  return gemm(meta, self[self.size() - 1]);
 }
 
 // func: max.other(Tensor self, Tensor other) -> Tensor
