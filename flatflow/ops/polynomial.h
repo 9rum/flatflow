@@ -246,8 +246,21 @@ constexpr Polynomial polynomial(Args... args) noexcept {
   return Polynomial(args...);
 }
 
+// Turn unused enumerators in switch statements into errors so that `polynomial`
+// below handles every data type.
+#if defined(__GNUC__) || defined(__clang__)
+// Clang also supports these GCC pragmas.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic error "-Wswitch"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(error : 4062)
+#endif  // defined(__GNUC__) || defined(__clang__)
+
 template <>
 constexpr Polynomial polynomial(ScalarType dtype) noexcept {
+  CHECK(ScalarType::MIN <= dtype && dtype <= ScalarType::MAX);
+
   switch (dtype) {
     case ScalarType::int8:
     case ScalarType::uint8:
@@ -271,10 +284,16 @@ constexpr Polynomial polynomial(ScalarType dtype) noexcept {
     case ScalarType::int64:
     case ScalarType::uint64:
       return Polynomial(128);
-    default:
-      ABSL_UNREACHABLE();
   }
+
+  ABSL_UNREACHABLE();
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif  // defined(__GNUC__) || defined(__clang__)
 
 }  // namespace flatflow
 

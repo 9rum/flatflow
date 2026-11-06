@@ -5,7 +5,9 @@
 
 #include <utility>
 
+#include "absl/base/optimization.h"
 #include "absl/log/check.h"
+#include "flatbuffers/base.h"
 
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/polynomial.h"
@@ -58,14 +60,17 @@ Polynomial transform_impl(Vector<TensorMetadata>,
 
 // Disable unused parameter warnings so we are allowed to avoid repeated use of
 // the unused attribute (standard `[[maybe_unused]]` since C++17, otherwise
-// `ABSL_ATTRIBUTE_UNUSED`).
+// `ABSL_ATTRIBUTE_UNUSED`), and turn unused enumerators in switch statements
+// into errors so that `transform` below handles every operator.
 #if defined(__GNUC__) || defined(__clang__)
 // Clang also supports these GCC pragmas.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic error "-Wswitch"
 #elif defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4100)
+#pragma warning(error : 4062)
 #endif  // defined(__GNUC__) || defined(__clang__)
 
 // func: _to_copy(Tensor self, *, ScalarType? dtype=None, Layout? layout=None,
@@ -607,6 +612,123 @@ inline Polynomial transform_impl<Operator::where_self>(
   // where.self is an element-wise selection between `self` and `other`
   // according to `condition`, so it has zero FLOPs.
   return noop();
+}
+
+// Executes the symbolic transformation corresponding to the given operator.
+//
+// NOTE: The switch statement below lists every enumerator of `Operator` and
+// omitting any of them results in a compilation error by the pragmas above.
+// Do not add a default label, which disables this check.
+inline Polynomial transform(Operator op, Vector<TensorMetadata> args,
+                            TensorMetadata meta) noexcept {
+  CHECK(flatbuffers::IsInRange(op, Operator::MIN, Operator::MAX));
+
+  switch (op) {
+    case Operator::_to_copy:
+      return transform_impl<Operator::_to_copy>(args, meta);
+    case Operator::_unsafe_view:
+      return transform_impl<Operator::_unsafe_view>(args, meta);
+    case Operator::add_tensor:
+      return transform_impl<Operator::add_tensor>(args, meta);
+    case Operator::addmm:
+      return transform_impl<Operator::addmm>(args, meta);
+    case Operator::arange:
+      return transform_impl<Operator::arange>(args, meta);
+    case Operator::arange_start:
+      return transform_impl<Operator::arange_start>(args, meta);
+    case Operator::bmm:
+      return transform_impl<Operator::bmm>(args, meta);
+    case Operator::cat:
+      return transform_impl<Operator::cat>(args, meta);
+    case Operator::clone:
+      return transform_impl<Operator::clone>(args, meta);
+    case Operator::cos:
+      return transform_impl<Operator::cos>(args, meta);
+    case Operator::cumsum:
+      return transform_impl<Operator::cumsum>(args, meta);
+    case Operator::detach:
+      return transform_impl<Operator::detach>(args, meta);
+    case Operator::div_tensor:
+      return transform_impl<Operator::div_tensor>(args, meta);
+    case Operator::dropout:
+      return transform_impl<Operator::dropout>(args, meta);
+    case Operator::embedding:
+      return transform_impl<Operator::embedding>(args, meta);
+    case Operator::expand:
+      return transform_impl<Operator::expand>(args, meta);
+    case Operator::full:
+      return transform_impl<Operator::full>(args, meta);
+    case Operator::gelu:
+      return transform_impl<Operator::gelu>(args, meta);
+    case Operator::gt_tensor:
+      return transform_impl<Operator::gt_tensor>(args, meta);
+    case Operator::layer_norm:
+      return transform_impl<Operator::layer_norm>(args, meta);
+    case Operator::lift_fresh_copy:
+      return transform_impl<Operator::lift_fresh_copy>(args, meta);
+    case Operator::linear:
+      return transform_impl<Operator::linear>(args, meta);
+    case Operator::lt_tensor:
+      return transform_impl<Operator::lt_tensor>(args, meta);
+    case Operator::masked_fill_scalar:
+      return transform_impl<Operator::masked_fill_scalar>(args, meta);
+    case Operator::matmul:
+      return transform_impl<Operator::matmul>(args, meta);
+    case Operator::max_other:
+      return transform_impl<Operator::max_other>(args, meta);
+    case Operator::mean_dim:
+      return transform_impl<Operator::mean_dim>(args, meta);
+    case Operator::mul_tensor:
+      return transform_impl<Operator::mul_tensor>(args, meta);
+    case Operator::neg:
+      return transform_impl<Operator::neg>(args, meta);
+    case Operator::ones:
+      return transform_impl<Operator::ones>(args, meta);
+    case Operator::ones_like:
+      return transform_impl<Operator::ones_like>(args, meta);
+    case Operator::permute:
+      return transform_impl<Operator::permute>(args, meta);
+    case Operator::pow_tensor_scalar:
+      return transform_impl<Operator::pow_tensor_scalar>(args, meta);
+    case Operator::relu:
+      return transform_impl<Operator::relu>(args, meta);
+    case Operator::rsqrt:
+      return transform_impl<Operator::rsqrt>(args, meta);
+    case Operator::rsub_scalar:
+      return transform_impl<Operator::rsub_scalar>(args, meta);
+    case Operator::silu:
+      return transform_impl<Operator::silu>(args, meta);
+    case Operator::sin:
+      return transform_impl<Operator::sin>(args, meta);
+    case Operator::slice_tensor:
+      return transform_impl<Operator::slice_tensor>(args, meta);
+    case Operator::softmax_int:
+      return transform_impl<Operator::softmax_int>(args, meta);
+    case Operator::split_tensor:
+      return transform_impl<Operator::split_tensor>(args, meta);
+    case Operator::sub_tensor:
+      return transform_impl<Operator::sub_tensor>(args, meta);
+    case Operator::tanh:
+      return transform_impl<Operator::tanh>(args, meta);
+    case Operator::transpose_int:
+      return transform_impl<Operator::transpose_int>(args, meta);
+    case Operator::tril:
+      return transform_impl<Operator::tril>(args, meta);
+    case Operator::triu:
+      return transform_impl<Operator::triu>(args, meta);
+    case Operator::type_as:
+      return transform_impl<Operator::type_as>(args, meta);
+    case Operator::unsqueeze:
+      return transform_impl<Operator::unsqueeze>(args, meta);
+    case Operator::view:
+      return transform_impl<Operator::view>(args, meta);
+    case Operator::where_scalarself:
+      return transform_impl<Operator::where_scalarself>(args, meta);
+    case Operator::where_self:
+      return transform_impl<Operator::where_self>(args, meta);
+  }
+
+  ABSL_UNREACHABLE();
 }
 
 #if defined(__GNUC__) || defined(__clang__)
