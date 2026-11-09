@@ -616,9 +616,28 @@ inline Polynomial transform_impl<Operator::where_self>(
 
 // Executes the symbolic transformation corresponding to the given operator.
 //
-// NOTE: The switch statement below lists every enumerator of `Operator` and
-// omitting any of them results in a compilation error by the pragmas above.
-// Do not add a default label, which disables this check.
+// NOTE: To register a new operator, please follow the instructions below:
+//
+//  - First, declare a new operator as an enumerator value of `Operator` in the
+//    FlatBuffers schema, i.e., `flatflow/ops/operator.fbs`. The enumerator
+//    values are recommended to be sorted in order of their original operator
+//    names (not the enumerator values themselves) for searching convenience.
+//  - Second, generate codes from the updated schema by running `make generate`
+//    in the root directory of this source tree. This will create
+//    `flatflow/ops/operator_generated.h`, etc.
+//  - Third, add a template specialization of `transform_impl` for the new
+//    operator; please refer to the implementations above for supported
+//    operators. This step is checked at compile time.
+//  - Finally, register the new operator as a case in the switch statement
+//    below. Do not add a default label, which disables this check. For the
+//    Python frontend, add the ATen counterpart and enumerator value as key and
+//    value respectively to the operator table in `flatflow/ops/serialize.py`.
+//
+// CAVEATS
+//
+// We provide only a handful of ATen operator set for now. The operator set is
+// under development and more operators will be added in the future. For
+// expanding the operator set, please refer to the note above.
 inline Polynomial transform(Operator op, Vector<TensorMetadata> args,
                             TensorMetadata meta) noexcept {
   CHECK(flatbuffers::IsInRange(op, Operator::MIN, Operator::MAX));
