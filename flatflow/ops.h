@@ -3,12 +3,17 @@
 #ifndef FLATFLOW_OPS_H_
 #define FLATFLOW_OPS_H_
 
+#include <chrono>
+#include <format>
 #include <utility>
 
 #include "absl/base/optimization.h"
 #include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/time/time.h"
 #include "flatbuffers/base.h"
 
+#include "flatflow/ops/graph_generated.h"
 #include "flatflow/ops/operator_generated.h"
 #include "flatflow/ops/polynomial.h"
 #include "flatflow/ops/scalar_type.h"
@@ -629,7 +634,8 @@ inline Polynomial transform_impl<Operator::where_self>(
 //    operator; please refer to the implementations above for supported
 //    operators. This step is checked at compile time.
 //  - Finally, register the new operator as a case in the switch statement
-//    below. Do not add a default label, which disables this check. For the
+//    below. Omitting this step may result in a compilation error by the pragmas
+//    above. Do not add a default label, which disables this check. For the
 //    Python frontend, add the ATen counterpart and enumerator value as key and
 //    value respectively to the operator table in `flatflow/ops/serialize.py`.
 //
@@ -757,6 +763,45 @@ inline Polynomial transform(Operator op, Vector<TensorMetadata> args,
 #endif  // defined(__GNUC__) || defined(__clang__)
 
 }  // namespace detail
+
+#pragma omp declare reduction(+ : Polynomial : omp_out += omp_in) \
+    initializer(omp_priv = polynomial())
+
+// Transforms the given computational graph into a functor via symbolic
+// transformation, then scaled for tensor and context parallelism.
+//
+// CAVEATS
+//
+// `graph` must be passed from a verified buffer; this function relies on the
+// verification to omit null and bounds checks and it cannot verify the graph by
+// itself since the size of underlying buffer is unknown.
+inline Polynomial transform(
+    const Graph *graph, Polynomial::value_type tensor_parallel_world_size,
+    Polynomial::value_type context_parallel_world_size) {
+  const auto now = std::chrono::steady_clock::now();
+  const auto nodes = graph->nodes();
+
+  auto expr = polynomial();
+
+  // The nodes are traversed in parallel where the number of threads follows the
+  // `OMP_NUM_THREADS` environment variable. Note that torchrun sets it to one
+  // by default when running multiple processes per node; to use more threads,
+  // set it explicitly upon launch, e.g., to the number of cores divided by the
+  // number of processes per node.
+#pragma omp parallel for reduction(+ : expr)
+  for (const auto *node : *nodes) {
+    expr += detail::transform(node->target(), node->args(), node->meta());
+  }
+
+  LOG(INFO) << std::format(
+      "Traversing a graph with {} nodes took {}", nodes->size(),
+      absl::FormatDuration(
+          absl::FromChrono(std::chrono::steady_clock::now() - now)));
+
+  return expr.with_tensor_parallel(tensor_parallel_world_size)
+      .with_context_parallel(context_parallel_world_size)
+      .normalized();
+}
 
 }  // namespace flatflow
 
