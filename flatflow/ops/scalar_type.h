@@ -69,6 +69,9 @@ constexpr bool is_barebones_unsigned_type(ScalarType dtype) noexcept {
 // See https://docs.pytorch.org/docs/stable/tensor_attributes.html for more
 // information on the type promotion logic.
 constexpr ScalarType promote_types(ScalarType lhs, ScalarType rhs) noexcept {
+  CHECK(ScalarType::MIN <= lhs && lhs <= ScalarType::MAX &&
+        ScalarType::MIN <= rhs && rhs <= ScalarType::MAX);
+
   // If the two types are equal, return that type.
   if (lhs == rhs) {
     return lhs;

@@ -785,9 +785,9 @@ inline Polynomial transform(
 
   // The nodes are traversed in parallel where the number of threads follows the
   // `OMP_NUM_THREADS` environment variable. Note that torchrun sets it to one
-  // by default when running multiple processes per node; to use more threads,
-  // set it explicitly upon launch, e.g., to the number of cores divided by the
-  // number of processes per node.
+  // by default when running multiple processes per node; please further tune
+  // the variable, e.g., to the number of processors divided by the number of
+  // processes per node.
 #pragma omp parallel for reduction(+ : expr)
   for (const auto *node : *nodes) {
     expr += detail::transform(node->target(), node->args(), node->meta());
