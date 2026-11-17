@@ -635,20 +635,18 @@ inline Polynomial transform_impl<Operator::where_self>(
 //    operators. This step is checked at compile time.
 //  - Finally, register the new operator as a case in the switch statement
 //    below. Omitting this step may result in a compilation error by the pragmas
-//    above. Do not add a default label, which disables this check. For the
-//    Python frontend, add the ATen counterpart and enumerator value as key and
-//    value respectively to the operator table in `flatflow/ops/serialize.py`.
+//    above. Do not add a default label, which disables this check.
 //
 // CAVEATS
 //
 // We provide only a handful of ATen operator set for now. The operator set is
 // under development and more operators will be added in the future. For
 // expanding the operator set, please refer to the note above.
-inline Polynomial transform(Operator op, Vector<TensorMetadata> args,
+inline Polynomial transform(Operator target, Vector<TensorMetadata> args,
                             TensorMetadata meta) noexcept {
-  CHECK(flatbuffers::IsInRange(op, Operator::MIN, Operator::MAX));
+  CHECK(flatbuffers::IsInRange(target, Operator::MIN, Operator::MAX));
 
-  switch (op) {
+  switch (target) {
     case Operator::_to_copy:
       return transform_impl<Operator::_to_copy>(args, meta);
     case Operator::_unsafe_view:

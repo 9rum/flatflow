@@ -39,7 +39,7 @@ class DistributedSampler(torch.utils.data.DistributedSampler):
             process groups.
         global_batch_size (int): The global batch size.
         micro_batch_size (int): The micro-batch size.
-        graph (torch.fx.Graph): Graph representation of a PyTorch program.
+        gm (torch.fx.GraphModule): Graph module representing a PyTorch program.
         shuffle (bool, optional): If ``True``, sampler will shuffle the indices.
             Default: ``True``.
         seed (int, optional): Random seed used to shuffle the sampler if
@@ -71,7 +71,7 @@ class DistributedSampler(torch.utils.data.DistributedSampler):
         data_parallel_rank: int,
         global_batch_size: int,
         micro_batch_size: int,
-        graph: torch.fx.Graph,
+        gm: torch.fx.GraphModule,
         shuffle: bool = True,
         seed: int = 0,
         drop_last: bool = False,
@@ -91,7 +91,7 @@ class DistributedSampler(torch.utils.data.DistributedSampler):
         self.context_parallel_world_size = context_parallel_world_size
         self.global_batch_size = global_batch_size
         self.micro_batch_size = micro_batch_size
-        self.buf = serialize(graph)
+        self.buf = serialize(gm)
         self.unstable = unstable
         self.policy = policy
 
