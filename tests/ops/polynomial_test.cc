@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <type_traits>
 
 #include "flatbuffers/buffer.h"
 #include "flatbuffers/flatbuffer_builder.h"
@@ -15,6 +16,10 @@
 
 namespace flatflow {
 namespace {
+
+// Tests whether the underlying bytes of a polynomial can be copied by
+// `std::memcpy` or `std::memmove`.
+static_assert(std::is_trivially_copyable_v<Polynomial>);
 
 // Tests whether `Polynomial` is constructed as intended.
 static_assert(Polynomial(1, 2, 3) == Polynomial{1, 2, 3});
