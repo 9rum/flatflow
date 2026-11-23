@@ -50,12 +50,6 @@ inline Polynomial pointwise(
   return pointwise(meta.shape(), meta.dtype(), ops_per_element);
 }
 
-// Helper function for matrix products where each element of `meta` requires
-// `inner` fused multiply-add operations.
-inline Polynomial gemm(TensorMetadata meta, Polynomial inner) noexcept {
-  return pointwise(meta, 2) * inner;
-}
-
 // This is a base template for implementing symbolic transformations for each
 // node in a computational graph; calling this means that the program is
 // ill-formed and should fail to compile.
@@ -121,7 +115,9 @@ inline Polynomial transform_impl<Operator::addmm>(
   const auto mat1 = args[1].shape();
   CHECK(std::cmp_equal(mat1.size(), 2));
 
-  return gemm(meta, mat1[1]) + pointwise(meta, 3);
+  const auto inner = polynomial(mat1[1]);
+  const auto mm = 2 * inner * numel(meta.shape()) * polynomial(meta.dtype());
+  return mm + pointwise(meta, 3);
 }
 
 // func: arange(Scalar end, *, ScalarType? dtype=None, Layout? layout=None,
@@ -157,7 +153,8 @@ inline Polynomial transform_impl<Operator::bmm>(Vector<TensorMetadata> args,
   const auto self = args[0].shape();
   CHECK(std::cmp_equal(self.size(), 3));
 
-  return gemm(meta, self[2]);
+  const auto inner = polynomial(self[2]);
+  return 2 * inner * numel(meta.shape()) * polynomial(meta.dtype());
 }
 
 // func: cat(Tensor[] tensors, int dim=0) -> Tensor
@@ -318,9 +315,9 @@ inline Polynomial transform_impl<Operator::linear>(
   CHECK(!weight.empty());
   const auto in_features = weight[weight.size() - 1];
 
-  return std::cmp_equal(args.size(), 2)
-             ? gemm(meta, in_features)
-             : gemm(meta, in_features) + pointwise(meta);
+  const auto inner = polynomial(in_features);
+  const auto mm = 2 * inner * numel(meta.shape()) * polynomial(meta.dtype());
+  return std::cmp_equal(args.size(), 2) ? mm : mm + pointwise(meta);
 }
 
 // func: lt.Tensor(Tensor self, Tensor other) -> Tensor
@@ -355,7 +352,8 @@ inline Polynomial transform_impl<Operator::matmul>(
   const auto self = args[0].shape();
   CHECK(!self.empty());
 
-  return gemm(meta, self[self.size() - 1]);
+  const auto inner = polynomial(self[self.size() - 1]);
+  return 2 * inner * numel(meta.shape()) * polynomial(meta.dtype());
 }
 
 // func: max.other(Tensor self, Tensor other) -> Tensor
