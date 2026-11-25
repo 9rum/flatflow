@@ -45,34 +45,18 @@ class View {
 // accessed through the view of the element type.
 //
 // FlatBuffers vector stores structures inline and tables by offset; the
-// template below covers vectors of structures while its partial specialization
-// covers vectors of tables.
+// template below selects the element type of its underlying vector depending on
+// whether the element is a table.
 //
 // Note that `std::is_base_of_v` which disregards access control is used instead
 // of `std::derived_from` since generated tables inherit `flatbuffers::Table`
 // privately.
-template <typename T, bool = std::is_base_of_v<flatbuffers::Table,
-                                               typename T::element_type>>
-class Vector
-    : public View<flatbuffers::Vector<const typename T::element_type *>> {
-  using Base = typename Vector::View;
-
- public:
-  using size_type = Base::element_type::size_type;
-
-  using Base::Base;
-
-  size_type size() const noexcept { return this->get()->size(); }
-
-  bool empty() const noexcept { return this->get()->empty(); }
-
-  T operator[](size_type pos) const noexcept { return this->get()->Get(pos); }
-};
-
 template <typename T>
-class Vector<T, true>
-    : public View<
-          flatbuffers::Vector<flatbuffers::Offset<typename T::element_type>>> {
+class Vector
+    : public View<flatbuffers::Vector<std::conditional_t<
+          std::is_base_of_v<flatbuffers::Table, typename T::element_type>,
+          flatbuffers::Offset<typename T::element_type>,
+          const typename T::element_type *>>> {
   using Base = typename Vector::View;
 
  public:
