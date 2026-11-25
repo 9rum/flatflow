@@ -25,23 +25,20 @@ all:
 .PHONY: generate
 generate:
 	@./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/operator.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/operator.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/operator.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/scalar_type.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile --python-typing flatflow/ops/scalar_type.fbs && \
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/scalar_type.fbs && \
 		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --scoped-enums --keep-prefix flatflow/ops/graph.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile --python-typing flatflow/ops/graph.fbs
+		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile flatflow/ops/graph.fbs
 
 .PHONY: degenerate
 degenerate:
 	@rm -f flatflow/ops/graph_generated.h \
 		flatflow/ops/graph_generated.py \
-		flatflow/ops/graph_generated.pyi \
 		flatflow/ops/operator_generated.h \
 		flatflow/ops/operator_generated.py \
-		flatflow/ops/operator_generated.pyi \
 		flatflow/ops/scalar_type_generated.h \
-		flatflow/ops/scalar_type_generated.py \
-		flatflow/ops/scalar_type_generated.pyi
+		flatflow/ops/scalar_type_generated.py
 
 .PHONY: check
 check:
