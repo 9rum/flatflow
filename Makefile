@@ -10,6 +10,8 @@ FLATFLOW_BUILD_TESTS ?= ON
 FLATFLOW_ENABLE_ASAN ?= OFF
 FLATFLOW_ENABLE_UBSAN ?= OFF
 
+.DEFAULT_GOAL := all
+
 .PHONY: all
 all:
 	@mkdir -p build && \
@@ -24,12 +26,12 @@ all:
 
 .PHONY: generate
 generate:
-	@./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/operator.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/operator.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/scalar_type.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/scalar_type.fbs && \
-		./build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --scoped-enums --keep-prefix flatflow/ops/graph.fbs && \
-		./build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile flatflow/ops/graph.fbs
+	@build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/operator.fbs && \
+		build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/operator.fbs && \
+		build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/scalar_type.fbs && \
+		build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/scalar_type.fbs && \
+		build/third_party/flatbuffers/flatc -c -o flatflow/ops -I . --scoped-enums --keep-prefix flatflow/ops/graph.fbs && \
+		build/third_party/flatbuffers/flatc -p -o flatflow/ops -I . --gen-onefile flatflow/ops/graph.fbs
 
 .PHONY: degenerate
 degenerate:
