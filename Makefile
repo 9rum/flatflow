@@ -21,7 +21,7 @@ all: configure
 		test -f flatflow/ops/scalar_type_generated.h && \
 		test -f flatflow/ops/scalar_type_generated.py || \
 		$(MAKE) generate
-	@$(MAKE) -C build
+	@+cmake --build build
 
 .PHONY: configure
 configure:
@@ -34,7 +34,7 @@ configure:
 
 .PHONY: flatc
 flatc: configure
-	@$(MAKE) -C build flatc
+	@+cmake --build build --target flatc
 
 .PHONY: generate
 generate:
