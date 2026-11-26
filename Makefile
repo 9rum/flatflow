@@ -13,19 +13,32 @@ FLATFLOW_ENABLE_UBSAN ?= OFF
 .DEFAULT_GOAL := all
 
 .PHONY: all
-all:
-	@mkdir -p build && \
-		cd build && \
-		cmake .. \
+all: configure
+	@test -f flatflow/ops/graph_generated.h && \
+		test -f flatflow/ops/graph_generated.py && \
+		test -f flatflow/ops/operator_generated.h && \
+		test -f flatflow/ops/operator_generated.py && \
+		test -f flatflow/ops/scalar_type_generated.h && \
+		test -f flatflow/ops/scalar_type_generated.py || \
+		$(MAKE) generate
+	@$(MAKE) -C build
+
+.PHONY: configure
+configure:
+	@cmake -B build \
 		-DCMAKE_BUILD_TYPE=$(CMAKE_BUILD_TYPE) \
 		-DCMAKE_CXX_STANDARD=$(CMAKE_CXX_STANDARD) \
 		-DFLATFLOW_BUILD_TESTS=$(FLATFLOW_BUILD_TESTS) \
 		-DFLATFLOW_ENABLE_ASAN=$(FLATFLOW_ENABLE_ASAN) \
-		-DFLATFLOW_ENABLE_UBSAN=$(FLATFLOW_ENABLE_UBSAN) && \
-		$(MAKE)
+		-DFLATFLOW_ENABLE_UBSAN=$(FLATFLOW_ENABLE_UBSAN)
+
+.PHONY: flatc
+flatc: configure
+	@$(MAKE) -C build flatc
 
 .PHONY: generate
 generate:
+	@test -f build/third_party/flatbuffers/flatc || $(MAKE) flatc
 	@build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/operator.fbs && \
 		build/third_party/flatbuffers/flatc -p -o flatflow/ops --gen-onefile flatflow/ops/operator.fbs && \
 		build/third_party/flatbuffers/flatc -c -o flatflow/ops --scoped-enums flatflow/ops/scalar_type.fbs && \
