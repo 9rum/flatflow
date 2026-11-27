@@ -10,9 +10,9 @@ struct SymInt {
   data: [long: 2];
 }
 
-/// `TensorMetadata` is a structure containing pertinent information
-/// about a tensor within a PyTorch program.
-table TensorMetadata {
+/// `FakeTensor` is like a real tensor except that it does not actually have any
+/// data.
+table FakeTensor {
   dtype: ScalarType;
   shape: [SymInt] (required);
 }
@@ -24,8 +24,8 @@ table TensorMetadata {
 /// i.e., operations whose `op` property are not `call_function`.
 table Node {
   target: Operator;
-  args:   [TensorMetadata] (required);
-  meta:   TensorMetadata (required);
+  args:   [FakeTensor] (required);
+  meta:   [FakeTensor] (required);
 }
 
 /// `Graph` is the main data structure for tracing a given PyTorch program at

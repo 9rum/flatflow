@@ -149,15 +149,15 @@ TEST(PolynomialTest, FromSymInt) {
       SymInt(std::to_array<int64_t>({0, 1})),
       SymInt(std::to_array<int64_t>({-1, 2})),
   });
-  const auto root = CreateTensorMetadata(builder, ScalarType::float32, shape);
+  const auto root = CreateFakeTensor(builder, ScalarType::float32, shape);
   builder.Finish(root);
 
-  const auto meta = detail::TensorMetadata(
-      flatbuffers::GetRoot<TensorMetadata>(builder.GetBufferPointer()));
-  ASSERT_EQ(polynomial(meta.shape()[0]), 0);
-  ASSERT_EQ(polynomial(meta.shape()[1]), 4096);
-  ASSERT_EQ(polynomial(meta.shape()[2]), polynomial(0, 1, 0));
-  ASSERT_EQ(polynomial(meta.shape()[3]), polynomial(-1, 2, 0));
+  const auto tensor = detail::FakeTensor(
+      flatbuffers::GetRoot<FakeTensor>(builder.GetBufferPointer()));
+  ASSERT_EQ(polynomial(tensor.shape()[0]), 0);
+  ASSERT_EQ(polynomial(tensor.shape()[1]), 4096);
+  ASSERT_EQ(polynomial(tensor.shape()[2]), polynomial(0, 1, 0));
+  ASSERT_EQ(polynomial(tensor.shape()[3]), polynomial(-1, 2, 0));
 }
 
 }  // namespace

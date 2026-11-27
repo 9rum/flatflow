@@ -84,10 +84,10 @@ class SymInt : public View<flatflow::SymInt> {
   }
 };
 
-// `TensorMetadata` is a view of the serialized tensor metadata which contains
-// pertinent information about a tensor within a PyTorch program.
-class TensorMetadata : public View<flatflow::TensorMetadata> {
-  using Base = typename TensorMetadata::View;
+// `FakeTensor` is a view of the serialized fake tensor which is like a real
+// tensor except that it does not actually have any data.
+class FakeTensor : public View<flatflow::FakeTensor> {
+  using Base = typename FakeTensor::View;
 
  public:
   using Base::Base;
