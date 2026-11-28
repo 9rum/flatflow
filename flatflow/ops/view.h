@@ -30,7 +30,7 @@ namespace detail {
 template <typename T>
 class View {
  public:
-  using element_type = T;
+  using Inner = T;
 
   constexpr View(const T *ptr) noexcept : ptr_(ptr) {}
 
@@ -54,13 +54,12 @@ class View {
 template <typename T>
 class Vector
     : public View<flatbuffers::Vector<std::conditional_t<
-          std::is_base_of_v<flatbuffers::Table, typename T::element_type>,
-          flatbuffers::Offset<typename T::element_type>,
-          const typename T::element_type *>>> {
+          std::is_base_of_v<flatbuffers::Table, typename T::Inner>,
+          flatbuffers::Offset<typename T::Inner>, const typename T::Inner *>>> {
   using Base = typename Vector::View;
 
  public:
-  using size_type = Base::element_type::size_type;
+  using size_type = Base::Inner::size_type;
 
   using Base::Base;
 

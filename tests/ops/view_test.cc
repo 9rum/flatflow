@@ -84,28 +84,29 @@ TEST(ViewTest, FromFakeTensor) {
 TEST(ViewTest, FromVectorOfStructs) {
   auto builder = flatbuffers::FlatBufferBuilder();
 
-  const auto shape = builder.CreateVectorOfStructs<SymInt>({
-      SymInt(std::to_array<int64_t>({0, 0})),
-      SymInt(std::to_array<int64_t>({4096, 0})),
-      SymInt(std::to_array<int64_t>({0, 1})),
-      SymInt(std::to_array<int64_t>({-1, 2})),
-  });
-  const auto root = CreateFakeTensor(builder, ScalarType::float32, shape);
+  const auto root =
+      CreateFakeTensor(builder, ScalarType::float32,
+                       builder.CreateVectorOfStructs<SymInt>({
+                           SymInt(std::to_array<int64_t>({0, 0})),
+                           SymInt(std::to_array<int64_t>({4096, 0})),
+                           SymInt(std::to_array<int64_t>({0, 1})),
+                           SymInt(std::to_array<int64_t>({-1, 2})),
+                       }));
   builder.Finish(root);
 
   const auto tensor =
       flatbuffers::GetRoot<FakeTensor>(builder.GetBufferPointer());
 
-  const auto v = detail::Vector<detail::SymInt>(tensor->shape());
-  ASSERT_EQ(v.size(), 4);
-  ASSERT_EQ(v[0][0], 0);
-  ASSERT_EQ(v[0][1], 0);
-  ASSERT_EQ(v[1][0], 4096);
-  ASSERT_EQ(v[1][1], 0);
-  ASSERT_EQ(v[2][0], 0);
-  ASSERT_EQ(v[2][1], 1);
-  ASSERT_EQ(v[3][0], -1);
-  ASSERT_EQ(v[3][1], 2);
+  const auto shape = detail::Vector<detail::SymInt>(tensor->shape());
+  ASSERT_EQ(shape.size(), 4);
+  ASSERT_EQ(shape[0][0], 0);
+  ASSERT_EQ(shape[0][1], 0);
+  ASSERT_EQ(shape[1][0], 4096);
+  ASSERT_EQ(shape[1][1], 0);
+  ASSERT_EQ(shape[2][0], 0);
+  ASSERT_EQ(shape[2][1], 1);
+  ASSERT_EQ(shape[3][0], -1);
+  ASSERT_EQ(shape[3][1], 2);
 }
 
 // Tests whether `Vector` provides a transparent view of a FlatBuffers vector
