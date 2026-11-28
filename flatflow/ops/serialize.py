@@ -2,14 +2,21 @@
 
 import warnings
 from collections.abc import Iterable, Iterator
+from operator import attrgetter
 
 import flatbuffers
 import torch
 from torch._ops import HigherOrderOperator, OpOverload
-from torch.fx.experimental.symbolic_shapes import is_accessor_node
+from torch.fx.experimental.symbolic_shapes import is_accessor_node, is_concrete_int
+from torch.utils._pytree import tree_leaves
 
 from flatflow.ops.graph_generated import (
     CreateSymInt,
+    FakeTensorAddDtype,
+    FakeTensorAddShape,
+    FakeTensorEnd,
+    FakeTensorStart,
+    FakeTensorStartShapeVector,
     GraphAddNodes,
     GraphEnd,
     GraphStart,
@@ -20,11 +27,7 @@ from flatflow.ops.graph_generated import (
     NodeEnd,
     NodeStart,
     NodeStartArgsVector,
-    TensorMetadataAddDtype,
-    TensorMetadataAddShape,
-    TensorMetadataEnd,
-    TensorMetadataStart,
-    TensorMetadataStartShapeVector,
+    NodeStartMetaVector,
 )
 from flatflow.ops.operator_generated import Operator
 from flatflow.ops.scalar_type_generated import ScalarType
@@ -55,9 +58,32 @@ def _walk(gm: torch.fx.GraphModule) -> Iterator[torch.fx.Node]:
             if isinstance(node.target, HigherOrderOperator):
                 for arg in node.args:
                     if isinstance(arg, torch.fx.Node) and arg.op == "get_attr":
-                        yield from _walk(gm.get_submodule(arg.target))  # type: ignore[arg-type]
+                        submodule = attrgetter(arg.target)(gm)  # type: ignore[arg-type]
+                        if isinstance(submodule, torch.fx.GraphModule):
+                            yield from _walk(submodule)
             elif not is_accessor_node(node) and isinstance(node.target, OpOverload):
                 yield node
+
+
+def _to_fake_tensor(builder: flatbuffers.Builder, tensor: torch.Tensor) -> int:
+    name = str(tensor.dtype).removeprefix("torch.")
+    dtype = getattr(ScalarType, name)
+
+    FakeTensorStartShapeVector(builder, len(tensor.shape))
+    for s in reversed(tensor.shape):
+        if isinstance(s, torch.SymInt) and not is_concrete_int(s):
+            expr = s.node.expr
+            (symbol,) = expr.free_symbols
+            data = (expr.coeff(symbol, 0), expr.coeff(symbol, 1))
+        else:
+            data = (s, 0)
+        CreateSymInt(builder, data)
+    shape = builder.EndVector()
+
+    FakeTensorStart(builder)
+    FakeTensorAddDtype(builder, dtype)
+    FakeTensorAddShape(builder, shape)
+    return FakeTensorEnd(builder)
 
 
 def serialize(gm: torch.fx.GraphModule) -> bytes:
@@ -74,61 +100,31 @@ def serialize(gm: torch.fx.GraphModule) -> bytes:
             continue
 
         args = []
-        for arg in node.args:
-            if isinstance(arg, torch.fx.Node) and "tensor_meta" in arg.meta:
-                name = str(arg.meta["tensor_meta"].dtype).removeprefix("torch.")
-                dtype = getattr(ScalarType, name)
-
-                shape = arg.meta["tensor_meta"].shape
-                TensorMetadataStartShapeVector(builder, len(shape))
-                for s in reversed(shape):
-                    if isinstance(s, torch.SymInt):
-                        expr = s.node.expr
-                        (symbol,) = expr.free_symbols
-                        data = (expr.coeff(symbol, 0), expr.coeff(symbol, 1))
-                    else:
-                        data = (s, 0)
-                    CreateSymInt(builder, data)
-                _shape = builder.EndVector()
-
-                TensorMetadataStart(builder)
-                TensorMetadataAddDtype(builder, dtype)
-                TensorMetadataAddShape(builder, _shape)
-                args.append(TensorMetadataEnd(builder))
+        for arg in tree_leaves(node.args):
+            if isinstance(arg, torch.fx.Node):
+                val = arg.meta.get("val")
+                if isinstance(val, torch.Tensor):
+                    args.append(_to_fake_tensor(builder, val))
 
         NodeStartArgsVector(builder, len(args))
-        for arg in reversed(args):
-            builder.PrependUOffsetTRelative(arg)
-        _args = builder.EndVector()
+        for tensor in reversed(args):
+            builder.PrependUOffsetTRelative(tensor)
+        args = builder.EndVector()
 
-        if "tensor_meta" in node.meta:
-            name = str(node.meta["tensor_meta"].dtype).removeprefix("torch.")
-            dtype = getattr(ScalarType, name)
-            shape = node.meta["tensor_meta"].shape
-        else:
-            shape = torch.Size()
+        meta = []
+        for val in tree_leaves(node.meta.get("val")):
+            if isinstance(val, torch.Tensor):
+                meta.append(_to_fake_tensor(builder, val))
 
-        TensorMetadataStartShapeVector(builder, len(shape))
-        for s in reversed(shape):
-            if isinstance(s, torch.SymInt):
-                expr = s.node.expr
-                (symbol,) = expr.free_symbols
-                data = (expr.coeff(symbol, 0), expr.coeff(symbol, 1))
-            else:
-                data = (s, 0)
-            CreateSymInt(builder, data)
-        _shape = builder.EndVector()
-
-        TensorMetadataStart(builder)
-        if "tensor_meta" in node.meta:
-            TensorMetadataAddDtype(builder, dtype)
-        TensorMetadataAddShape(builder, _shape)
-        _meta = TensorMetadataEnd(builder)
+        NodeStartMetaVector(builder, len(meta))
+        for tensor in reversed(meta):
+            builder.PrependUOffsetTRelative(tensor)
+        meta = builder.EndVector()
 
         NodeStart(builder)
         NodeAddTarget(builder, target)
-        NodeAddArgs(builder, _args)
-        NodeAddMeta(builder, _meta)
+        NodeAddArgs(builder, args)
+        NodeAddMeta(builder, meta)
         nodes.append(NodeEnd(builder))
 
     if blocklist:
@@ -137,9 +133,9 @@ def serialize(gm: torch.fx.GraphModule) -> bytes:
     GraphStartNodesVector(builder, len(nodes))
     for node in reversed(nodes):
         builder.PrependUOffsetTRelative(node)
-    _nodes = builder.EndVector()
+    nodes = builder.EndVector()
 
     GraphStart(builder)
-    GraphAddNodes(builder, _nodes)
+    GraphAddNodes(builder, nodes)
     builder.Finish(GraphEnd(builder))
     return bytes(builder.Output())
